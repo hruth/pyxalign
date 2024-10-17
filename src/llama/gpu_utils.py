@@ -24,8 +24,8 @@ def is_pinned(array: np.ndarray) -> bool:
 
 def move_to_device(
     array: Union[np.ndarray, cp.ndarray], device: enums.DeviceType, return_copy=False) -> Union[np.ndarray, cp.ndarray]:
-    if (device is enums.DeviceType.GPU and array.type is cp.ndarray) or (
-        device is enums.DeviceType.CPU and array.type is np.ndarray
+    if (device is enums.DeviceType.GPU and type(array) is cp.ndarray) or (
+        device is enums.DeviceType.CPU and type(array) is np.ndarray
     ):
         if return_copy:
             return array * 1

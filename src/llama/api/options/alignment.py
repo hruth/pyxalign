@@ -1,0 +1,49 @@
+from abc import ABC
+import dataclasses
+from dataclasses import field
+from llama.api.options.device import GPUOptions
+from llama.api.options.reconstruct import AstraReconstructOptions
+from llama.api.options.transform import PreProcessingOptions
+
+
+@dataclasses.dataclass
+class AlignmentOptions(ABC):
+    gpu_options: GPUOptions
+
+    pre_processing_options: PreProcessingOptions
+
+
+@dataclasses.dataclass
+class CrossCorrelationOptions(AlignmentOptions):
+    iterations: int = 100
+
+    filter_position: int = 101
+
+    filter_data: float = 0.005
+
+    precision: float = 0.01
+
+    gpu_options: GPUOptions = field(default_factory=GPUOptions)
+
+    pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
+
+
+@dataclasses.dataclass
+class ProjectionMatchingOptions(AlignmentOptions):
+    iterations: int = 300
+
+    high_pass_filter: float = 0.005
+
+    step_relax: float = 0.1
+
+    min_step_size: float = 0.01
+
+    local_TV: bool = False
+
+    local_TV_lambda: float = 3e-4
+
+    astra_gpu_options: AstraReconstructOptions = field(default_factory=GPUOptions)
+
+    gpu_options: GPUOptions = field(default_factory=GPUOptions)
+
+    pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
