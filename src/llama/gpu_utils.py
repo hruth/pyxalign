@@ -25,7 +25,8 @@ def is_pinned(array: np.ndarray) -> bool:
 
 
 def move_to_device(
-    array: Union[np.ndarray, cp.ndarray], device: enums.DeviceType, return_copy=False) -> Union[np.ndarray, cp.ndarray]:
+    array: Union[np.ndarray, cp.ndarray], device: enums.DeviceType, return_copy=False
+) -> Union[np.ndarray, cp.ndarray]:
     if (device is enums.DeviceType.GPU and type(array) is cp.ndarray) or (
         device is enums.DeviceType.CPU and type(array) is np.ndarray
     ):
@@ -37,13 +38,13 @@ def move_to_device(
         return cp.array(array)
     elif device is enums.DeviceType.CPU:
         return array.get()
-    
+
 
 def get_array_module_and_fft_backend(array: ArrayType):
     module = cp.get_array_module(array)
 
-    if module.__name__ == 'numpy':
-        fft_backend = 'scipy'
+    if module.__name__ == "numpy":
+        fft_backend = "scipy"
     else:
         fft_backend = cufft
 

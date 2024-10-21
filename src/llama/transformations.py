@@ -40,49 +40,119 @@ class Downsample(Transformation):
             return images
 
 
-def image_crop(images: ArrayType, crop_options: CropOptions) -> ArrayType:
-    pass
+def image_crop(
+    images: ArrayType,
+    horizontal_range: int,
+    vertical_range: int,
+    horizontal_offset: int = 0,
+    vertical_offset: int = 0,
+) -> ArrayType:
+    """Returns a view of the specified region of the image."""
+    image_center = np.array(images.shape[1:]) / 2 + [vertical_offset, horizontal_offset]
+    vertical_index_start, vertical_index_end = (
+        int(image_center[0] - vertical_range / 2),
+        int(image_center[0] + vertical_range / 2),
+    )
+    horizontal_index_start, horizontal_index_end = (
+        int(image_center[1] - horizontal_range / 2),
+        int(image_center[1] + horizontal_range / 2),
+    )
+    if (
+        horizontal_index_start < 0
+        or horizontal_index_end >= images.shape[2]
+        or vertical_index_start < 0
+        or vertical_index_end >= images.shape[1]
+    ):
+        raise ValueError("Invalid values entered for cropping.")
 
-def image_crop_pad(images: ArrayType)
+    return images[
+        :,
+        vertical_index_start:vertical_index_end,
+        horizontal_index_start:horizontal_index_end,
+    ]
 
 
-def image_shift_fft(images: ArrayType, shift: np.ndarray) -> ArrayType:
-    pass
+def image_crop_pad(images: ArrayType, new_extent_y: int, new_extent_x: int, pad_mode: str="constant"):
+    xp, _ = get_array_module_and_fft_backend(images)
+    [new_extent_y, new_extent_x] = images.shape[1:]
+
+    # Crop
+    if new_extent_y > new_extent_y:
+        w = new_extent_y - new_extent_y
+        a, b = int(w / 2), int(new_extent_y - w / 2)
+        images = images[:, a:b]
+    if new_extent_x > new_extent_x:
+        w = new_extent_x - new_extent_x
+        a, b = int(w / 2), int(new_extent_x - w / 2)
+        images = images[:, :, a:b]
+
+    # Pad
+    if new_extent_y < new_extent_y:
+        w = new_extent_y - new_extent_y
+        pad_width = ((0, 0), (int(np.ceil(w / 2)), int(np.floor(w / 2))), (0, 0))
+        images = np.pad(images, pad_width, mode=pad_mode)
+    if new_extent_x < new_extent_x:
+        w = new_extent_x - new_extent_x
+        pad_width = ((0, 0), (0, 0), (int(np.ceil(w / 2)), int(np.floor(w / 2))))
+        images = np.pad(images, pad_width, mode=pad_mode)
+
+    return images
 
 
-def image_shift_circ(images: ArrayType, shift: np.ndarray) -> ArrayType:
+def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
+    xp, _ = get_array_module_and_fft_backend(images)
+    is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
+
+    x = shift[:, 0][:, xp.newaxis]
+    y = shift[:, 1][:, xp.newaxis]
+
+    shape = images.shape
+
+    x_grid = scipy.fft.ifftshift(xp.arange(-xp.fix(shape[2] / 2), xp.ceil(shape[2] / 2))) / shape[2]
+    X = (x * x_grid)[:, xp.newaxis, :]
+    X = xp.exp(-2j * xp.pi * X)
+
+    y_grid = scipy.fft.ifftshift(xp.arange(-xp.fix(shape[1] / 2), xp.ceil(shape[1] / 2))) / shape[1]
+    Y = (y * y_grid)[:, :, xp.newaxis]
+    Y = xp.exp(-2j * xp.pi * Y)
+
+    images = images * X
+    images = images * Y
+
+    if is_real:
+        images = xp.real(images)
+
+    return images
+
+
+def image_shift_circ(images: ArrayType, shift: ArrayType) -> ArrayType:
     pass
 
 
 def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     xp, fft_backend = get_array_module_and_fft_backend(images)
+    is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
 
+    # Pad the array to prevent boundary issues
     pad_by = 2
-    image_size = np.array(images.shape, dtype=int)[1:]
-    image_size_new = np.round(np.ceil(image_size / scale / 2) * 2) + pad_by
-    isReal = not xp.issubdtype(images.dtype, xp.complexfloating)
-
-    scale = np.prod(image_size_new - pad_by) / np.prod(image_size)
-    downsample = int(np.ceil(np.sqrt(1 / scale)))
-
-    # apply the padding to account for boundary issues
-    padWidth = int(downsample * pad_by / 2)
-    padShape = cp.pad(images[0], padWidth, "symmetric").shape
-
-    imagesPad = cp.zeros((len(images), padShape[0], padShape[1]), dtype=images.dtype)
+    image_size = xp.array(images.shape, dtype=int)[1:]
+    image_size_new = xp.round(xp.ceil(image_size / scale / 2) * 2) + pad_by
+    scale = xp.prod(image_size_new - pad_by) / xp.prod(image_size)
+    downsample = int(xp.ceil(xp.sqrt(1 / scale)))
+    pad_width = int(downsample * pad_by / 2)
+    pad_shape = xp.pad(images[0], pad_width, "symmetric").shape
+    padded_images = xp.zeros((len(images), pad_shape[0], pad_shape[1]), dtype=images.dtype)
     for i in range(len(images)):
-        imagesPad[i] = np.pad(images[i], padWidth, "symmetric")
-    images = imagesPad
-    del imagesPad
+        padded_images[i] = xp.pad(images[i], pad_width, "symmetric")
+    images = padded_images
+    del padded_images
 
-    # go to the fourier space
+    # Downsample the image
     with scipy.fft.set_backend(fft_backend):
         images = scipy.fft.fft2(images)
 
         # apply +/-0.5 px shift
-        images = image_shift_fft(
-            images, np.array([[interpSign * -0.5, interpSign * -0.5]]), applyFFT=False
-        )
+        images = image_shift_fft(images, xp.array([[-0.5, -0.5]]), applyFFT=False)
 
         # crop in the Fourier space
         images = scipy.fft.ifftshift(
@@ -95,9 +165,7 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
         )
 
         # apply -/+0.5 px shift in the cropped space
-        images = image_shift_fft(
-            images, np.array([[interpSign * 0.5, interpSign * 0.5]]), applyFFT=False
-        )
+        images = image_shift_fft(images, xp.array([[0.5, 0.5]]), applyFFT=False)
 
         images = scipy.fft.ifft2(images)
 
@@ -108,8 +176,8 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
         a = int(pad_by / 2)
         images = images[:, a : (image_size_new[0] - a), a : (image_size_new[1] - a)]
 
-        if isReal:
-            images = cp.real(images)
+        if is_real:
+            images = xp.real(images)
 
     return images
 
@@ -118,9 +186,8 @@ def image_downsample_linear(images: ArrayType, scale: int) -> ArrayType:
     pass
 
 
-def image_pre_process(
-    images: ArrayType, pre_processing_options: PreProcessingOptions
-) -> ArrayType:
+def image_pre_process(images: ArrayType, pre_processing_options: PreProcessingOptions) -> ArrayType:
+    # To add:
     # shift
     # crop
     images = Downsample(pre_processing_options).run(images)
