@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 import dataclasses
 from dataclasses import field
 from llama.api.options.device import GPUOptions
@@ -11,6 +11,15 @@ class AlignmentOptions(ABC):
     gpu_options: GPUOptions
 
     pre_processing_options: PreProcessingOptions
+    # @property
+    # @abstractmethod
+    # def gpu_options(self) -> GPUOptions:
+    #     pass
+
+    # @property
+    # @abstractmethod
+    # def pre_processing_options(self) -> PreProcessingOptions:
+    #     pass
 
 
 @dataclasses.dataclass

@@ -6,6 +6,8 @@ from llama.api.options.transform import DownsampleOptions, PreProcessingOptions,
 
 
 class Transformation(ABC):
+    """`Transformation` objects run transformation functions using the passed in device options."""
+
     def __init__(self, options: TransformOptions):
         self.enabled = options.enabled
 
@@ -29,12 +31,12 @@ class Downsample(Transformation):
             return self.function_type(images, self.scale)
         else:
             return images
-        
+
 
 class PreProcess(Transformation):
     def __init__(
         self,
-        options: DownsampleOptions,
+        options: PreProcessingOptions,
     ):
         super().__init__(device_options=options.device_options)
         self.enabled = options.enabled

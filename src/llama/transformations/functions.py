@@ -5,8 +5,8 @@ from array import ArrayType
 
 import scipy
 
-from llama.api.options.transform import PreProcessingOptions
 from llama.gpu_utils import get_array_module_and_fft_backend
+from llama.transformations.helpers import preserve_complexity_or_realness
 # from llama.transformations.classes import Downsample
 
 
@@ -42,7 +42,9 @@ def image_crop(
     ]
 
 
-def image_crop_pad(images: ArrayType, new_extent_y: int, new_extent_x: int, pad_mode: str="constant"):
+def image_crop_pad(
+    images: ArrayType, new_extent_y: int, new_extent_x: int, pad_mode: str = "constant"
+):
     xp, _ = get_array_module_and_fft_backend(images)
     [new_extent_y, new_extent_x] = images.shape[1:]
 
@@ -99,9 +101,10 @@ def image_shift_circ(images: ArrayType, shift: ArrayType) -> ArrayType:
     pass
 
 
+@preserve_complexity_or_realness()
 def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     xp, fft_backend = get_array_module_and_fft_backend(images)
-    is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
+    # is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
 
     # Pad the array to prevent boundary issues
     pad_by = 2
@@ -146,8 +149,8 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
         a = int(pad_by / 2)
         images = images[:, a : (image_size_new[0] - a), a : (image_size_new[1] - a)]
 
-        if is_real:
-            images = xp.real(images)
+        # if is_real:
+        #     images = xp.real(images)
 
     return images
 

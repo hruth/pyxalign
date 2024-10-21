@@ -3,10 +3,8 @@ from llama.api.types import ArrayType
 import numpy as np
 import cupy as cp
 from llama.api.options.alignment import AlignmentOptions
-from llama.api.options.transform import PreProcessingOptions
 from llama.projections import Projections
-from llama.src.llama.transformations.functions import image_pre_process
-from llama.src.llama.transformations.classes import Downsample
+from llama.transformations.classes import PreProcess
 
 
 class Aligner(ABC):
@@ -16,9 +14,7 @@ class Aligner(ABC):
         self.past_shifts = []
 
     def run(self, options: AlignmentOptions):
-        pre_processed_projections = pre_processed_projections = image_pre_process(
-            self.projections.data, options.pre_processing_options
-        )
+        pre_processed_projections = PreProcess(options.pre_processing_options).run()
         self.staged_shift = self.calculate_alignment_shift(pre_processed_projections)
 
     @abstractmethod
