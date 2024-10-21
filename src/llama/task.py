@@ -16,7 +16,7 @@ class LaminographyAlignmentTask:
         self.cross_correlation_aligner = CrossCorrelationAligner()
 
     def get_cross_correlation_shift(self):
-        self.cross_correlation_aligner.run(self.options.cross_correlation_options)
+        self.cross_correlation_aligner.run(self.options.cross_correlation_options, self.illum_sum)
 
     def apply_cross_correlation_shift(self):
         self.projections = image_shift_circ(

@@ -1,13 +1,8 @@
 import numpy as np
-
-
 from array import ArrayType
-
 import scipy
-
 from llama.gpu_utils import get_array_module_and_fft_backend
 from llama.transformations.helpers import preserve_complexity_or_realness
-# from llama.transformations.classes import Downsample
 
 
 def image_crop(
