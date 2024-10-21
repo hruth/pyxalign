@@ -1,6 +1,7 @@
 import numpy as np
 from llama.projections import ComplexProjections, PhaseProjections
-from llama.transformations import image_shift_circ, image_shift_fft
+from llama.src.llama.transformations.functions import image_shift_fft
+from llama.src.llama.transformations.functions import image_shift_circ
 from llama.alignment.cross_correlation import CrossCorrelationAligner
 from llama.alignment.projection_matching import ProjectionMatchingAligner
 from llama.api.options.task import AlignmentTaskOptions

@@ -3,7 +3,7 @@ from llama.api.options.projections import ProjectionOptions
 from llama.api.options.projections import ProjectionDeviceOptions
 import llama.gpu_utils as gpu_utils
 import llama.api.enums as enums
-from llama.transformations import image_pre_process
+from llama.src.llama.transformations.functions import image_pre_process
 
 
 class Projections:

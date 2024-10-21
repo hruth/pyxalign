@@ -2,7 +2,7 @@ import numpy as np
 from typing import Union
 from llama.projections import PhaseProjections
 from llama.api.options.projections import ProjectionDeviceOptions
-from llama.transformations import image_shift_fft
+from llama.src.llama.transformations.functions import image_shift_fft
 import llama.api.enums as enums
 from src.llama.api.options.alignment import ProjectionMatchingOptions
 

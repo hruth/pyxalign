@@ -5,7 +5,8 @@ import cupy as cp
 from llama.api.options.alignment import AlignmentOptions
 from llama.api.options.transform import PreProcessingOptions
 from llama.projections import Projections
-from llama.transformations import Downsample, image_pre_process
+from llama.src.llama.transformations.functions import image_pre_process
+from llama.src.llama.transformations.classes import Downsample
 
 
 class Aligner(ABC):
