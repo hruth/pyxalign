@@ -2,7 +2,6 @@ import numpy as np
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.projections import ProjectionDeviceOptions
 import llama.gpu_utils as gpu_utils
-# from llama.transformations import downsample_fft
 import llama.api.enums as enums
 from llama.transformations import image_pre_process
 
@@ -13,14 +12,12 @@ class Projections:
         projections: np.ndarray,
         options: ProjectionOptions = None,
     ):
-        self.projections = image_pre_process(projections)
+        self.data = image_pre_process(projections)
         if options.projection_device_options.pin_memory:
-            projections = gpu_utils.pin_memory(projections)
-
-        # projections = gpu_utils.move_to_device(
-        #     projections, options.projection_device_options.device_type, return_copy=True
-        # )
-        self.data = projections
+            projections = gpu_utils.pin_memory(self.data)
+        self.data = gpu_utils.move_to_device(
+            self.data, options.projection_device_options.device_type
+        )
 
         self.center_of_rotation = np.array(projections.shape[1:]) / 2
 

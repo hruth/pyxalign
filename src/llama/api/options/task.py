@@ -17,8 +17,6 @@ class AlignmentTaskOptions:
 
     astra_gpu_options: AstraReconstructOptions = field(default_factory=AstraReconstructOptions)
 
-    experiment_options: ExperimentOptions = field(default_factory=ExperimentOptions)
-
     weights_options: WeightsOptions = field(default_factory=WeightsOptions)
 
     estimate_center_options: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)

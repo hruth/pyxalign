@@ -1,4 +1,6 @@
+from array import ArrayType
 import cupy as cp
+import cupyx.scipy.fft as cufft
 import numpy as np
 from typing import Union
 import llama.api.enums as enums
@@ -35,3 +37,14 @@ def move_to_device(
         return cp.array(array)
     elif device is enums.DeviceType.CPU:
         return array.get()
+    
+
+def get_array_module_and_fft_backend(array: ArrayType):
+    module = cp.get_array_module(array)
+
+    if module.__name__ == 'numpy':
+        fft_backend = 'scipy'
+    else:
+        fft_backend = cufft
+
+    return module, fft_backend
