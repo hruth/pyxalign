@@ -7,13 +7,13 @@ from llama.api import enums
 
 @dataclasses.dataclass
 class GPUOptions:
-    streams_per_gpu: int = 1
+    streams_per_gpu: int = 1  # Maybe it is better to remove this while only using a single stream.
 
-    chunks_per_gpu: int = 5
+    chunks_per_gpu: int = 1
 
     n_gpus: int = 1
 
-    gpu_indices: Sequence[int] = ()
+    gpu_indices: Sequence[int] = (0,)
     """The GPU indices to use for computation. If empty, use all available GPUs."""
 
 

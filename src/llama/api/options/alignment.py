@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import dataclasses
 from dataclasses import field
-from llama.api.options.device import GPUOptions
+from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.reconstruct import AstraReconstructOptions
 from llama.api.options.transform import PreProcessingOptions
 
@@ -26,13 +26,15 @@ class AlignmentOptions(ABC):
 class CrossCorrelationOptions(AlignmentOptions):
     iterations: int = 100
 
+    binning: int = 4
+
     filter_position: int = 101
 
     filter_data: float = 0.005
 
     precision: float = 0.01
 
-    gpu_options: GPUOptions = field(default_factory=GPUOptions)
+    device_options: DeviceOptions = field(default_factory=DeviceOptions)
 
     pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
