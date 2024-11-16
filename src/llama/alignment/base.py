@@ -8,14 +8,23 @@ from llama.transformations.classes import PreProcess
 
 
 class Aligner(ABC):
-    def __init__(self, projections: Projections):
+    def __init__(self, projections: Projections, options: AlignmentOptions):
         self.projections = projections  # this is a reference to the main dataset
+        self.options = options
         self.shift = np.zeros((projections.n_projections, 2))
-        self.past_shifts = []
+        # self.past_shifts = []
 
-    def run(self, options: AlignmentOptions, *args, **kwargs):
-        pre_processed_projections = PreProcess(options.pre_processing_options).run()
-        self.staged_shift = self.calculate_alignment_shift(options, pre_processed_projections, *args, **kwargs)
+    @abstractmethod
+    def run(self, *args, **kwargs) -> np.ndarray:
+        pass
+
+    # def run(self, *args, **kwargs):
+    #     pre_processed_projections = PreProcess(self.options.pre_processing_options).run(
+    #         self.projections.data
+    #     )
+        # self.staged_shift = self.calculate_alignment_shift(
+        #     pre_processed_projections, self.projections.angles, *args, **kwargs
+        # )
 
     # # How should arguments be specifed when implementing an abstract method?
     # # can an abstract method be wrapped? 
@@ -24,10 +33,13 @@ class Aligner(ABC):
     #     pass
 
     @abstractmethod
-    def calculate_alignment_shift(self, projections: ArrayType) -> np.ndarray:
+    def calculate_alignment_shift(self, projections: ArrayType, *args, **kwargs) -> np.ndarray:
         pass
 
-    def unstage_shift(self):
-        if self.past_shifts != np.zeros((self.projections.n_projections, 2)):
-            self.past_shifts += [self.staged_shift]
-            self.staged_shift = np.zeros((self.projections.n_projections, 2))
+    def pre_process_projections(self) -> ArrayType:
+        return PreProcess(self.options.pre_processing_options).run(self.projections.data)
+
+    # def unstage_shift(self):
+    #     if self.past_shifts != np.zeros((self.projections.n_projections, 2)):
+    #         self.past_shifts += [self.staged_shift]
+    #         self.staged_shift = np.zeros((self.projections.n_projections, 2))

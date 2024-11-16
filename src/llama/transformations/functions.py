@@ -2,7 +2,7 @@ import numpy as np
 import cupy as cp
 from array import ArrayType
 import scipy
-from llama.gpu_utils import get_array_module_and_fft_backend, get_fft_backend
+from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
 
 
@@ -69,12 +69,15 @@ def image_crop_pad(
 
 def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
     xp = cp.get_array_module(images)
+    scipy_module: scipy = get_scipy_module(images)
     is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
 
     x = shift[:, 0][:, xp.newaxis]
     y = shift[:, 1][:, xp.newaxis]
 
     shape = images.shape
+
+    images = scipy_module.fft.fft2(images)
 
     x_grid = scipy.fft.ifftshift(xp.arange(-xp.fix(shape[2] / 2), xp.ceil(shape[2] / 2))) / shape[2]
     X = (x * x_grid)[:, xp.newaxis, :]
@@ -86,6 +89,8 @@ def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
 
     images = images * X
     images = images * Y
+
+    images = scipy_module.fft.ifft2(images)
 
     if is_real:
         images = xp.real(images)

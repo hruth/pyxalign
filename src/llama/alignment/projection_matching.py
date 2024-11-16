@@ -2,9 +2,9 @@ import numpy as np
 from typing import Union
 from llama.projections import PhaseProjections
 from llama.api.options.projections import ProjectionDeviceOptions
-from llama.src.llama.transformations.functions import image_shift_fft
+from llama.transformations.functions import image_shift_fft
 import llama.api.enums as enums
-from src.llama.api.options.alignment import ProjectionMatchingOptions
+from llama.api.options.alignment import ProjectionMatchingOptions
 
 # For PMA, you will need to create a new projections object.
 # That projections object should have methods for doing the FP and FBP, and maybe shifting too?

@@ -1,18 +1,28 @@
+from typing import Union
 import numpy as np
+import cupy as cp
+
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.projections import ProjectionDeviceOptions
 import llama.gpu_utils as gpu_utils
 import llama.api.enums as enums
-from llama.src.llama.transformations.functions import image_pre_process
+from llama.plotting.plotters import make_image_slider_plot
+from llama.transformations.classes import PreProcess
+
+from llama.api.types import ArrayType
+from llama.transformations.functions import image_shift_fft
 
 
 class Projections:
     def __init__(
         self,
         projections: np.ndarray,
+        angles: np.ndarray,
         options: ProjectionOptions = None,
     ):
-        self.data = image_pre_process(projections)
+        self.data = PreProcess(options.pre_processing_options).run(projections)
+        self.angles = angles
+        # device management will need work
         if options.projection_device_options.pin_memory:
             projections = gpu_utils.pin_memory(self.data)
         self.data = gpu_utils.move_to_device(
@@ -23,15 +33,25 @@ class Projections:
 
     @property
     def n_projections(self) -> int:
-        return self.data.shape[0]
+        return self.data.__len__()
 
     @property
     def reconstructed_object_dimensions(self) -> np.ndarray:
         # function for calculating n_pix_align
         pass
+    
+    def set_data(self, data: ArrayType):
+        self.data = data # Maybe need to change to views later when this is pinned
+
 
     # def shift_projections(self, shift):
     #     self.projections = image_shift_circ(self.data, shift)
+
+    def plot_projections(self, process_function=lambda x: x):
+        make_image_slider_plot(process_function(self.data))
+
+    def plot_shifted_projections(self, shift: ArrayType, process_function=lambda x: x):
+        make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
 
 
 class ComplexProjections(Projections):

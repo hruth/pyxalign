@@ -38,12 +38,13 @@ class PreProcess(Transformation):
         self,
         options: PreProcessingOptions,
     ):
-        super().__init__(device_options=options.device_options)
-        self.enabled = options.enabled
+        super().__init__(options)
+        self.options = options
+        # self.enabled = options.enabled
 
-    def run(images: ArrayType, pre_processing_options: PreProcessingOptions) -> ArrayType:
+    def run(self, images: ArrayType) -> ArrayType:
         # To add:
         # shift
         # crop
-        images = Downsample(pre_processing_options).run(images)
+        images = Downsample(self.options.downsample_options).run(images)
         return images

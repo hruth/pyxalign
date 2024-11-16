@@ -8,7 +8,7 @@ import cupyx.scipy.fft as cufft
 import numpy as np
 from typing import Sequence, Union
 import llama.api.enums as enums
-from llama.src.llama.api.options.device import DeviceOptions
+from llama.api.options.device import DeviceOptions
 
 
 def get_available_gpus():
@@ -56,7 +56,7 @@ def get_fft_backend(array: ArrayType):
     return fft_backend
 
 
-def get_scipy_module(array: ArrayType) -> scipy:
+def get_scipy_module(array: ArrayType) -> ModuleType:
     module = cp.get_array_module(array)
 
     if module.__name__ == "numpy":

@@ -1,35 +1,41 @@
 import numpy as np
 import cupy as cp
+import scipy
+import statsmodels.robust
+from scipy.signal import savgol_filter
+import pandas as pd
+
 from llama.alignment.base import Aligner
-from llama.api.types import ArrayType
+import llama.image_processing as ip
 from llama.projections import Projections
 from llama.api.options.alignment import CrossCorrelationOptions
 from llama.gpu_utils import function_compute_device_manager, get_scipy_module, pin_memory
 from llama.api.options.device import DeviceOptions
 from llama.api import enums
+from llama.transformations.classes import PreProcess
 from llama.transformations.functions import image_shift_circ
-import statsmodels
-from scipy.signal import savgol_filter
-import pandas as pd
+from llama.api.types import ArrayType
 
 # from cupyx.scipy.signal import fftconvolve
 
 
 class CrossCorrelationAligner(Aligner):
-    def run(
-        self,
-        options: CrossCorrelationOptions,
-        projections: np.ndarray,
-        illum_sum: np.ndarray,
-        angles: np.ndarray,
-    ):
-        self.options = options
-        super.run(
-            options, projections, illum_sum, angles
-        )  # static checker doesn't work properly, should find another solution
+    def __init__(self, projections: Projections, options: CrossCorrelationOptions):
+        super().__init__(projections, options)
+        self.options: CrossCorrelationOptions = self.options  # for static checker and type checking
+
+    def run(self, illum_sum: np.ndarray) -> np.ndarray:
+        # This could be moved to its own thing
+        pre_processed_projections = self.pre_process_projections()
+        shift = self.calculate_alignment_shift(
+            projections=pre_processed_projections,
+            angles=self.projections.angles,
+            illum_sum=illum_sum,
+        )
+        return shift
 
     def calculate_alignment_shift(
-        self, projections: np.ndarray, illum_sum: np.ndarray, angles: np.ndarray
+        self, projections: np.ndarray, angles: np.ndarray, illum_sum: np.ndarray
     ) -> np.ndarray:
         weights = illum_sum / (illum_sum + 0.1 * np.max(illum_sum))
 
@@ -59,10 +65,11 @@ class CrossCorrelationAligner(Aligner):
         shift_saved = np.zeros((self.options.iterations, n_angles, 2))
 
         for i in range(self.options.iterations):
-            variation_fft = self.filtered_fft(variation, shift_total, self.options.filter_data)
+            variation_fft = ip.filtered_fft(variation, shift_total, self.options.filter_data)
 
-            shift_relative = self.get_cross_correlation_shift(
-                variation_fft[idx_sort], variation_fft[np.roll(idx_sort, -1)]
+            shift_relative = ip.get_cross_correlation_shift(
+                image=variation_fft[idx_sort],
+                image_ref=variation_fft[np.roll(idx_sort, -1)],
             )
             shift_relative = np.roll(shift_relative, 1, 0)
             shift_relative = self.clamp_shift(shift_relative, 3)
@@ -99,7 +106,7 @@ class CrossCorrelationAligner(Aligner):
             shift[idx, i] = shift_max[i] * sign[idx]
         return shift
 
-    @function_compute_device_manager(array_to_move_indices=[1], single_array_input=[2])
+    # @function_compute_device_manager(array_to_move_indices=[1], single_array_input=[2])
     def get_variation(
         self,
         projections: ArrayType,
@@ -108,13 +115,13 @@ class CrossCorrelationAligner(Aligner):
         device_options: DeviceOptions = None,  # will need to add pinned array too
     ) -> ArrayType:  # pick a more clear name later
         xp = cp.get_array_module(projections)
-        scipy_module = get_scipy_module(projections)
+        scipy_module: scipy = get_scipy_module(projections)
 
         dX = scipy_module.signal.fftconvolve(projections, xp.array([[[1, -1]]]), "same")
         dY = scipy_module.signal.fftconvolve(
             projections, xp.array([[[1, -1]]]).transpose(0, 2, 1), "same"
         )
-        variation = cp.sqrt(xp.abs(dX) ** 2 + xp.abs(dY) ** 2)
+        variation = xp.sqrt(xp.abs(dX) ** 2 + xp.abs(dY) ** 2)
         # Ignore regions with low amplitude
         variation = variation * xp.abs(projections)
         # Remove high values in the noisy areas
@@ -136,37 +143,6 @@ class CrossCorrelationAligner(Aligner):
         variation = xp.real(variation[:, 0 :: self.options.binning, 0 :: self.options.binning])
 
         return variation
-
-    def get_cross_correlation_shift(self):
-        pass
-
-    def filtered_fft(self):
-        [nx, ny] = img.shape[1:3]
-
-        img = lam.utils.fftImShift(img, shift)
-
-        spatialFilter = cp.array(
-            scipy.signal.windows.tukey(nx, 0.3)[:, np.newaxis]
-            * scipy.signal.windows.tukey(ny, 0.3)[np.newaxis, :],
-            dtype=np.float32,
-        )
-        img = img - cp.mean(img)
-        img = img * spatialFilter
-        with scipy.fft.set_backend(cufft):
-            img = scipy.fft.fft2(img)
-
-        # Remove low frequencies (e.g. phase ramp issues)
-        if parameters["filterData"] > 0:
-            X, Y = cp.meshgrid(
-                cp.arange(-nx / 2, nx / 2, dtype=np.float32),
-                cp.arange(-ny / 2, ny / 2, dtype=np.float32),
-            )
-            spectralFilter = scipy.fft.fftshift(
-                cp.exp(-((0.5 * (nx + ny) * parameters["filterData"]) ** 2) / (X**2 + Y**2))
-            ).transpose()
-            img = img * spectralFilter
-
-        return img
 
     def find_shift():  # pick a better name
         pass

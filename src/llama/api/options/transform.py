@@ -7,7 +7,7 @@ from llama.api.enums import ShiftType, DownsampleType
 from llama.api.options.device import DeviceOptions
 
 
-@dataclasses.dataclass
+# @dataclasses.dataclass
 class TransformOptions(ABC):
     @property
     @abstractmethod
@@ -52,8 +52,14 @@ class CropOptions(TransformOptions):
 
 @dataclasses.dataclass
 class PreProcessingOptions:
+    enabled: bool = False
+
     shift_options: ShiftOptions = field(default_factory=ShiftOptions)
 
     crop_options: CropOptions = field(default_factory=CropOptions)
 
     downsample_options: DownsampleOptions = field(default_factory=DownsampleOptions)
+
+
+if __name__ == "__main__":
+    shift_options = ShiftOptions()
