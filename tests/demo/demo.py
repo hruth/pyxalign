@@ -7,7 +7,7 @@ from llama.projections import ComplexProjections, PhaseProjections
 
 import matplotlib.pyplot as plt
 
-filepath = '/home/beams/HRUTH/code/test_data/cSAXS_projections_downsampling16.h5'
+filepath = '/home/beams/HRUTH/code/lamino_ci_test_data/cSAXS_projections_downsampling16.h5'
 
 # Open the HDF5 file for reading
 with h5py.File(filepath, 'r') as h5file:

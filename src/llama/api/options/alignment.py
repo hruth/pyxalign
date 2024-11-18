@@ -8,7 +8,7 @@ from llama.api.options.transform import PreProcessingOptions
 
 @dataclasses.dataclass
 class AlignmentOptions(ABC):
-    gpu_options: GPUOptions = field(default_factory=GPUOptions)
+    # gpu_options: GPUOptions = field(default_factory=GPUOptions)
 
     pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
@@ -39,7 +39,7 @@ class CrossCorrelationOptions(AlignmentOptions):
     # Inherited and overwritten follows:
     device_options: DeviceOptions = field(default_factory=DeviceOptions)
 
-    gpu_options: GPUOptions = field(default_factory=GPUOptions)
+    # gpu_options: GPUOptions = field(default_factory=GPUOptions)
 
     pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
@@ -63,6 +63,6 @@ class ProjectionMatchingOptions(AlignmentOptions):
     # Inherited and overwritten follows:
     device_options: DeviceOptions = field(default_factory=DeviceOptions)
 
-    gpu_options: GPUOptions = field(default_factory=GPUOptions)
+    # gpu_options: GPUOptions = field(default_factory=GPUOptions)
 
     pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)

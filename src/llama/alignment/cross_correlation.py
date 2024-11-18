@@ -135,7 +135,7 @@ class CrossCorrelationAligner(Aligner):
         )
         for i in range(len(variation_mean)):
             cutoff = variation_mean[i] + variation_std[i]
-            variation[i, (variation[i, :, :] > cutoff)] = cutoff
+            variation[i, (variation[i, :, :] > cutoff)] = cutoff # gives complex warning
             variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
                 variation[i, :, :], 2 * self.options.binning
             )
