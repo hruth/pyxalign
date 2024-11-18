@@ -10,6 +10,8 @@ from typing import Sequence, Union
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions
 
+from llama.api.types import ArrayType
+
 
 def get_available_gpus():
     # Get the number of available GPU devices
@@ -22,11 +24,24 @@ def get_available_gpus():
 
 
 def pin_memory(array: np.ndarray):
-    pass
+    # Could use cupyx.empty_pinned instead to make it simpler..
+    # Allocate pinned memory
+    mem = cp.cuda.alloc_pinned_memory(array.nbytes)
+    # Create a new 1D array from an existing buffer
+    # Just makes a array of zeros with the same data type and size as the buffer
+    ret = np.frombuffer(mem, array.dtype, array.size).reshape(array.shape)
+    ret[...] = array
+    return ret
 
 
-def is_pinned(array: np.ndarray) -> bool:
-    pass
+def is_pinned(array: ArrayType) -> bool:
+    # Temporary -- this will only give the proper answer for large arrays
+    min_array_size = 200
+    if array.nbytes < min_array_size:
+        raise NotImplementedError(
+            f"This function does not work to check if arrays smaller than {min_array_size} bytes"
+        )
+    return array.nbytes > 2 * array.__sizeof__()
 
 
 def move_to_device(
@@ -73,6 +88,7 @@ def function_compute_device_manager(
     single_array_input: Sequence[int] = [],
 ):
     """Wrapper for functions that have the option of being run on the CPU, the GPU, or multiple GPUs."""
+
     def inner_func(func):
         def wrapper(*args, **kwargs):
             # Device settings need to be passed in from the function kwargs
