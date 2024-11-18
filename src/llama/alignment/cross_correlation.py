@@ -143,6 +143,3 @@ class CrossCorrelationAligner(Aligner):
         variation = xp.real(variation[:, 0 :: self.options.binning, 0 :: self.options.binning])
 
         return variation
-
-    def find_shift():  # pick a better name
-        pass

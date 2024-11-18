@@ -6,7 +6,9 @@ from llama.api.options.projections import ProjectionOptions
 from llama.api.options.projections import ProjectionDeviceOptions
 import llama.gpu_utils as gpu_utils
 import llama.api.enums as enums
-from llama.plotting.plotters import make_image_slider_plot
+
+# from llama.plotting.plotters import make_image_slider_plot
+import llama.plotting.plotters as plotters
 from llama.transformations.classes import PreProcess
 
 from llama.api.types import ArrayType
@@ -39,19 +41,22 @@ class Projections:
     def reconstructed_object_dimensions(self) -> np.ndarray:
         # function for calculating n_pix_align
         pass
-    
-    def set_data(self, data: ArrayType):
-        self.data = data # Maybe need to change to views later when this is pinned
 
+    def set_data(self, data: ArrayType):
+        self.data = data  # Maybe need to change to views later when this is pinned
 
     # def shift_projections(self, shift):
     #     self.projections = image_shift_circ(self.data, shift)
 
-    def plot_projections(self, process_function=lambda x: x):
-        make_image_slider_plot(process_function(self.data))
+    def plot_projections(self, process_function: callable = lambda x: x):
+        plotters.make_image_slider_plot(process_function(self.data))
 
-    def plot_shifted_projections(self, shift: ArrayType, process_function=lambda x: x):
-        make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
+    def plot_shifted_projections(self, shift: np.ndarray, process_function: callable = lambda x: x):
+        "Plot the shifted projections using the shift that was passed in."
+        plotters.make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
+
+    def plot_sum_of_projections(self, process_function: callable = lambda x: x):
+        plotters.plot_sum_of_images(process_function(self.data))
 
 
 class ComplexProjections(Projections):

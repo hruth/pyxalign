@@ -45,3 +45,8 @@ def make_image_slider_plot(images: ArrayType):
 
     # Display only the play button
     display(play)
+
+
+def plot_sum_of_images(images: ArrayType):
+    plt.imshow(images.sum(0))
+    plt.show()

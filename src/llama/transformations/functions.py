@@ -1,9 +1,10 @@
 import numpy as np
 import cupy as cp
-from array import ArrayType
 import scipy
 from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
+
+from llama.api.types import ArrayType
 
 
 def image_crop(
@@ -99,7 +100,24 @@ def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
 
 
 def image_shift_circ(images: ArrayType, shift: ArrayType) -> ArrayType:
-    pass
+    xp = cp.get_array_module(images)
+
+    x = shift[:, 0]
+    y = shift[:, 1]
+
+    n_z, n_x, n_y = images.shape
+    X = xp.arange(0, n_x, dtype=int)
+    Y = xp.arange(0, n_y, dtype=int)
+
+    # Shift the image
+    for proj_idx in range(n_z):
+        shift_1 = int(np.round(y[proj_idx]))
+        shift_2 = int(np.round(x[proj_idx]))
+        idx_1 = xp.roll(X, shift_1)
+        idx_2 = xp.roll(Y, shift_2)
+        images[proj_idx] = images[proj_idx, idx_1[:, None], idx_2[None]]
+
+    return images
 
 
 @preserve_complexity_or_realness()
