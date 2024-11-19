@@ -28,8 +28,9 @@ jobs:
     - name: Activate environment
       id: activate_env
       run: |
-        conda init
-        conda activate $TEST_ENV
+        # conda init
+        # conda activate $TEST_ENV
+        source $CONDA_ROOT/bin/activate $TEST_ENV
 
     - name: Install dependencies
       run: |
