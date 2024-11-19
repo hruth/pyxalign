@@ -12,6 +12,7 @@ on:
 
 env:
   LAMINO_ALIGN_DATA_DIR: /local/hruth/lamino_ci_test_data
+  CONDA_ROOT: /local/hruth/runner-envs/miniconda3/
 
 permissions:
   contents: read
@@ -26,7 +27,7 @@ jobs:
       id: create_env
       run: |
         export ENVNAME=ci_py311_$(date +%s)
-        $CONDA_EXE create --quiet --yes --force -n $ENVNAME --clone ci_py311_base
+        conda create -n $ENVNAME python=3.11
         echo "ENVNAME=$ENVNAME" >> $GITHUB_ENV
         conda activate $ENVNAME
 
