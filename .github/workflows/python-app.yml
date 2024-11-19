@@ -8,9 +8,10 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
 
 env:
-  PTYCHO_CI_DATA_DIR: /local/ptycho_aux_data/ci_data
+  LAMINO_ALIGN_DATA_DIR: /local/hruth/lamino_ci_test_data
 
 permissions:
   contents: read
