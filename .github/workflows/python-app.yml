@@ -26,13 +26,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Activate environment
       id: activate_env
       run: |
         # conda init
-        # conda activate $TEST_ENV
-        source $CONDA_ROOT/bin/activate $TEST_ENV
+        # conda activate llama_2
+        source /home/beams/HRUTH/miniconda3/bin/activate llama_2
 
     - name: Install dependencies
       run: |
