@@ -14,12 +14,14 @@ class TransformOptions(ABC):
     def enabled(self) -> bool:
         pass
 
+    enabled: bool = False
+
+    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+
 
 @dataclasses.dataclass
 class ShiftOptions(TransformOptions):
     type: ShiftType = ShiftType.FFT
-
-    shift: np.ndarray = 0
 
     enabled: bool = False
 

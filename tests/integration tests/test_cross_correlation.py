@@ -15,7 +15,6 @@ filename = "cSAXS_projections_downsampling16.h5"
 def test_cross_correlation_shift(pytestconfig, overwrite_results=False):
     if pytestconfig is not None:
         overwrite_results = pytestconfig.getoption("overwrite_results")
-    assert overwrite_results is False
 
     test_name = "test_cross_correlation_shift"
 

@@ -1,4 +1,3 @@
-from array import ArrayType
 from functools import wraps
 from types import ModuleType
 import cupy as cp
