@@ -10,6 +10,9 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
 
+env:
+  LAMINO_ALIGN_DATA_DIR: /local/hruth/lamino_ci_test_data/
+
 permissions:
   contents: read
 
