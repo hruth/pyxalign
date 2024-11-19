@@ -10,12 +10,6 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
 
-env:
-  LAMINO_ALIGN_DATA_DIR: /local/hruth/lamino_ci_test_data
-  CONDA_EXE: /local/hruth/runner-envs/miniconda3/condabin/conda
-  CONDA_ROOT: /local/hruth/runner-envs/miniconda3/
-  TEST_ENV: /local/hruth/runner-envs/miniconda3/envs/ci_py311_original
-
 permissions:
   contents: read
 

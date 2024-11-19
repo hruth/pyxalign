@@ -73,19 +73,19 @@ def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
     scipy_module: scipy = get_scipy_module(images)
     is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
 
-    x = shift[:, 0][:, xp.newaxis]
-    y = shift[:, 1][:, xp.newaxis]
+    x = shift[:, 0][:, None]
+    y = shift[:, 1][:, None]
 
     shape = images.shape
 
     images = scipy_module.fft.fft2(images)
 
-    x_grid = scipy.fft.ifftshift(xp.arange(-xp.fix(shape[2] / 2), xp.ceil(shape[2] / 2))) / shape[2]
-    X = (x * x_grid)[:, xp.newaxis, :]
+    x_grid = scipy_module.fft.ifftshift(xp.arange(-np.fix(shape[2] / 2), np.ceil(shape[2] / 2))) / shape[2]
+    X = (x * x_grid)[:, None, :]
     X = xp.exp(-2j * xp.pi * X)
 
-    y_grid = scipy.fft.ifftshift(xp.arange(-xp.fix(shape[1] / 2), xp.ceil(shape[1] / 2))) / shape[1]
-    Y = (y * y_grid)[:, :, xp.newaxis]
+    y_grid = scipy_module.fft.ifftshift(xp.arange(-np.fix(shape[1] / 2), np.ceil(shape[1] / 2))) / shape[1]
+    Y = (y * y_grid)[:, :, None]
     Y = xp.exp(-2j * xp.pi * Y)
 
     images = images * X
