@@ -12,7 +12,9 @@ on:
 
 env:
   LAMINO_ALIGN_DATA_DIR: /local/hruth/lamino_ci_test_data
+  CONDA_EXE: /local/hruth/runner-envs/miniconda3/condabin/conda
   CONDA_ROOT: /local/hruth/runner-envs/miniconda3/
+  TEST_ENV: /local/hruth/runner-envs/miniconda3/envs/ci_py311_original
 
 permissions:
   contents: read
@@ -23,13 +25,10 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    - name: Create environment
-      id: create_env
+    - name: Activate environment
+      id: activate_env
       run: |
-        export ENVNAME=ci_py311_$(date +%s)
-        conda create -n $ENVNAME python=3.11
-        echo "ENVNAME=$ENVNAME" >> $GITHUB_ENV
-        conda activate $ENVNAME
+        conda activate $TEST_ENV
 
     - name: Install dependencies
       run: |
