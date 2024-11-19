@@ -42,6 +42,7 @@ def test_shift_class(pytestconfig, overwrite_results=False, return_results=False
     else:
         tutils.compare_data(shifted_projections, test_name, tutils.ResultType.PROJECTIONS_COMPLEX)
 
+# Need to add other tests where calculations are done on the GPU and on multiple GPUs and compared to eachother
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

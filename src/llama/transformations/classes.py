@@ -94,6 +94,9 @@ def device_handling_wrapper(
 ):
     @wraps(func)
     def wrapped(*args, **kwargs):
+        # To do:
+        # - Test on GPU
+        # - Make multi-GPU possible
         print("wrapped!")
         result = func(*args, **kwargs)
 
