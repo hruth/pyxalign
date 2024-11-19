@@ -44,7 +44,7 @@ def check_or_record_results(
     if overwrite_results:
         tutils.save_results_data(results, test_name, tutils.ResultType.PROJECTIONS_COMPLEX)
     else:
-        tutils.compare_data(results, test_name, comparison_test_name, tutils.ResultType.PROJECTIONS_COMPLEX)
+        tutils.compare_data(results, comparison_test_name, tutils.ResultType.PROJECTIONS_COMPLEX)
 
 
 def test_fft_shift_class_cpu(pytestconfig, overwrite_results=False, return_results=False):

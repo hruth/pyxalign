@@ -52,10 +52,11 @@ def load_input_projection_data(filename: str) -> tuple[np.ndarray, np.ndarray]:
     return complex_projections, angles
 
 
-def compare_data(data: np.ndarray, test_name: str, comparison_test_name: str, variable_type: ResultType, atol=1e-3, rtol=1e-3):
+def compare_data(data: np.ndarray, comparison_test_name: str, variable_type: ResultType, atol=1e-3, rtol=1e-3):
     filepath = generate_results_path(comparison_test_name, variable_type)
     old_data = np.load(filepath)
     if not np.allclose(data, old_data, atol=atol, rtol=rtol):
         raise AssertionError
-    else:
-        print("{} PASSED".format(test_name))
+    
+def print_passed_string(test_name: str):
+    print("{} PASSED".format(test_name))

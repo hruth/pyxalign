@@ -34,6 +34,7 @@ def test_cross_correlation_shift(pytestconfig, overwrite_results=False):
         tutils.save_results_data(shift, test_name, tutils.ResultType.SHIFT)
     else:
         tutils.compare_data(shift, test_name, tutils.ResultType.SHIFT)
+        tutils.print_passed_string(test_name)
 
 
 if __name__ == "__main__":
