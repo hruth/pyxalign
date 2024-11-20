@@ -2,6 +2,9 @@ import h5py
 import os
 import numpy as np
 from enum import StrEnum, auto
+from llama.api.options.projections import ProjectionOptions
+
+from llama.projections import ComplexProjections
 
 
 class ResultType(StrEnum):
@@ -60,3 +63,18 @@ def compare_data(data: np.ndarray, comparison_test_name: str, variable_type: Res
     
 def print_passed_string(test_name: str):
     print("{} PASSED".format(test_name))
+
+def check_or_record_results(
+    results: np.ndarray, test_name: str, comparison_test_name: str, overwrite_results: bool, result_type: ResultType
+):
+    if overwrite_results:
+        save_results_data(results, test_name, result_type)
+    else:
+        compare_data(results, comparison_test_name, result_type)
+    print_passed_string(test_name)
+
+def prepare_data(filename) ->ComplexProjections:
+    complex_projections, angles = load_input_projection_data(filename)
+    projection_options = ProjectionOptions()
+    complex_projections = ComplexProjections(complex_projections, angles, projection_options)
+    return complex_projections
