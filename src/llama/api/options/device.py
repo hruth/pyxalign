@@ -7,9 +7,9 @@ from llama.api import enums
 
 @dataclasses.dataclass
 class GPUOptions:
-    streams_per_gpu: int = 1  # Maybe it is better to remove this while only using a single stream.
+    chunking_enabled: bool = False
 
-    chunks_per_gpu: int = 1
+    chunk_size: int = 100
 
     n_gpus: int = 1
 

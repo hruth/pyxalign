@@ -14,7 +14,7 @@ filename = "cSAXS_projections_downsampling16.h5"
 
 
 def prepare_data(
-    device_type: enums.DeviceType, shift_type: enums.ShiftType
+    device_type: enums.DeviceType, shift_type: enums.ShiftType, chunking_enabled: bool = False
 ) -> tuple[ComplexProjections, np.ndarray]:
     complex_projections, angles = tutils.load_input_projection_data(filename)
 
@@ -32,6 +32,8 @@ def prepare_data(
     shift_options.enabled = True
     shift_options.device_options.device_type = device_type
     shift_options.type = shift_type
+    shift_options.device_options.gpu_options.chunk_size = 100
+    shift_options.device_options.gpu_options.chunking_enabled = chunking_enabled
     shifter = Shifter(shift_options)
     shifted_projections = shifter.run(complex_projections.data, shift)
 
@@ -45,6 +47,7 @@ def check_or_record_results(
         tutils.save_results_data(results, test_name, tutils.ResultType.PROJECTIONS_COMPLEX)
     else:
         tutils.compare_data(results, comparison_test_name, tutils.ResultType.PROJECTIONS_COMPLEX)
+    tutils.print_passed_string(test_name)
 
 
 def test_fft_shift_class_cpu(pytestconfig, overwrite_results=False, return_results=False):
@@ -81,6 +84,15 @@ def test_circ_shift_class_cpu(pytestconfig, overwrite_results=False, return_resu
     check_or_record_results(shifted_projections, test_name, comparison_test_name, overwrite_results)
 
 
+def test_fft_shift_class_gpu_chunked(pytestconfig, overwrite_results=False, return_results=False):
+    if pytestconfig is not None:
+        overwrite_results = pytestconfig.getoption("overwrite_results")
+    test_name = "test_fft_shift_class_gpu_chunked"
+    comparison_test_name = "test_fft_shift_class_cpu"
+    shifted_projections = prepare_data(enums.DeviceType.GPU, enums.ShiftType.FFT, True)
+    check_or_record_results(shifted_projections, test_name, comparison_test_name, overwrite_results)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--overwrite-results", action="store_true")
@@ -90,3 +102,4 @@ if __name__ == "__main__":
     test_fft_shift_class_gpu(None, overwrite_results=args.overwrite_results)
     test_circ_shift_class_cpu(None, overwrite_results=args.overwrite_results)
     test_circ_shift_class_gpu(None, overwrite_results=args.overwrite_results)
+    test_fft_shift_class_gpu_chunked(None, overwrite_results=args.overwrite_results)
