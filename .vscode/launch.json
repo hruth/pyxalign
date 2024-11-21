@@ -11,6 +11,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "/home/beams/HRUTH/code/llama/tests/",
+            "env": {
+                "LAMINO_ALIGN_DATA_DIR": "/local/hruth/lamino_ci_test_data/"
+            }
         }
     ]
 }

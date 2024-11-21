@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 import numpy as np
 
 import llama.api.maps as maps
@@ -52,15 +52,19 @@ class Shifter(Transformation):
         options: ShiftOptions,
     ):
         super().__init__(options)
-        self.function = device_handling_wrapper(
-            func=maps.get_shift_func_by_enum(options.type),
-            options=self.options.device_options,
-            chunkable_inputs_gpu_idx=[0, 1],
-        )
+        self.options: ShiftOptions = options
 
-    def run(self, images: ArrayType, shift: np.ndarray) -> ArrayType:
+    def run(
+        self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None
+    ) -> ArrayType:
         """Calls one of the image shifting functions"""
         if self.enabled:
+            self.function = device_handling_wrapper(
+                func=maps.get_shift_func_by_enum(self.options.type),
+                options=self.options.device_options,
+                chunkable_inputs_gpu_idx=[0, 1],
+                pinned_results=pinned_results,
+            )
             return self.function(images, shift)
         else:
             return images

@@ -2,11 +2,12 @@ from functools import wraps
 from typing import List, Optional, Union
 import cupy as cp
 import numpy as np
+from llama import gpu_utils
 
 from llama.api.enums import DeviceType
 from llama.api.options.device import DeviceOptions, GPUOptions
 
-from llama.api.types import ArrayType, real_dtype, complex_dtype
+from llama.api.types import ArrayType, r_type, c_type
 
 
 class InputArgumentsHandler:
@@ -28,27 +29,18 @@ class InputArgumentsHandler:
             np.ceil(len(self.chunkable_inputs_gpu[0]) / options.chunk_size)
         )
         self.initialize_chunked_input_args()
+        self.initialize_devices()
 
     @property
     def chunkable_inputs_gpu(self) -> List[ArrayType]:
         return [self.input_args[i] for i in self.chunkable_inputs_gpu_idx]
 
-    # @property
-    # def common_inputs(self) -> List:
-    #     return [self.input_args[i] for i in self.common_inputs_gpu_idx]
-
-    # @property
-    # def chunkable_inputs_cpu(self) -> List[np.ndarray]:
-    #     return [self.input_args[i] for i in self.chunkable_inputs_cpu_idx]
-
     def set_chunkable_inputs_gpu(self, new_value: ArrayType, idx: int):
         self.input_args[self.chunkable_inputs_gpu_idx[idx]] = new_value
 
-    # def set_chunkable_inputs_cpu(self, new_value: np.ndarray, idx: int):
-    #     self.input_args[self.chunkable_inputs_cpu_idx[idx]] = new_value
-
-    # def set_common_inputs(self, new_value, idx: int):
-    #     self.input_args[self.common_inputs_gpu_idx[idx]] = new_value
+    def initialize_devices(self):
+        gpu_utils.check_gpu_list(self.options.n_gpus, self.options.gpu_indices)
+        self.gpu_list = self.options.gpu_indices[:self.options.n_gpus]
 
     def move_inputs_to_gpu_in_one_chunk(self):
         # single gpu, single chunk
@@ -170,12 +162,6 @@ def device_handling_wrapper(
         return outputs.full_results
 
     return wrapped
-
-
-def force_to_be_list(input_data) -> List:
-    if isinstance(input_data, list):
-        return input_data
-    return [input_data]
 
 
 # if __name__ == "__main__":

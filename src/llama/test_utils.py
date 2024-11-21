@@ -74,12 +74,14 @@ def check_or_record_results(
     comparison_test_name: str,
     overwrite_results: bool,
     result_type: ResultType,
+    check_results: bool = True,
 ):
-    if overwrite_results:
-        save_results_data(results, test_name, result_type)
-    else:
-        compare_data(results, comparison_test_name, result_type)
-    print_passed_string(test_name)
+    if check_results:
+        if overwrite_results:
+            save_results_data(results, test_name, result_type)
+        else:
+            compare_data(results, comparison_test_name, result_type)
+        print_passed_string(test_name)
 
 
 def prepare_data(filename) -> ComplexProjections:
@@ -87,3 +89,9 @@ def prepare_data(filename) -> ComplexProjections:
     projection_options = ProjectionOptions()
     complex_projections = ComplexProjections(complex_projections, angles, projection_options)
     return complex_projections
+
+
+def repeat_array(complex_projections: ComplexProjections, n_reps: int):
+    complex_projections.data = complex_projections.data = np.repeat(
+        np.repeat(complex_projections.data, n_reps, 1), n_reps, 2
+    )

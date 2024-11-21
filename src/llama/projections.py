@@ -42,8 +42,11 @@ class Projections:
         # function for calculating n_pix_align
         pass
 
-    def set_data(self, data: ArrayType):
-        self.data = data  # Maybe need to change to views later when this is pinned
+    def pin_projections(self):
+        self.data = gpu_utils.pin_memory(self.data)
+
+    # def set_data(self, data: ArrayType):
+        # self.data = data  # Maybe need to change to views later when this is pinned
 
     # def shift_projections(self, shift):
     #     self.projections = image_shift_circ(self.data, shift)

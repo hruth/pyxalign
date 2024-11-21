@@ -4,7 +4,7 @@ import scipy
 from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
 
-from llama.api.types import ArrayType
+from llama.api.types import ArrayType, r_type, c_type
 
 
 def image_crop(
@@ -80,11 +80,21 @@ def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
 
     images = scipy_module.fft.fft2(images)
 
-    x_grid = scipy_module.fft.ifftshift(xp.arange(-np.fix(shape[2] / 2), np.ceil(shape[2] / 2))) / shape[2]
+    x_grid = (
+        scipy_module.fft.ifftshift(
+            xp.arange(-np.fix(shape[2] / 2), np.ceil(shape[2] / 2), dtype=r_type)
+        )
+        / shape[2]
+    )
     X = (x * x_grid)[:, None, :]
     X = xp.exp(-2j * xp.pi * X)
 
-    y_grid = scipy_module.fft.ifftshift(xp.arange(-np.fix(shape[1] / 2), np.ceil(shape[1] / 2))) / shape[1]
+    y_grid = (
+        scipy_module.fft.ifftshift(
+            xp.arange(-np.fix(shape[1] / 2), np.ceil(shape[1] / 2), dtype=r_type)
+        )
+        / shape[1]
+    )
     Y = (y * y_grid)[:, :, None]
     Y = xp.exp(-2j * xp.pi * Y)
 
@@ -124,7 +134,6 @@ def image_shift_circ(images: ArrayType, shift: ArrayType) -> ArrayType:
 def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     xp = cp.get_array_module(images)
     fft_backend = get_fft_backend(images)
-    # is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
 
     # Pad the array to prevent boundary issues
     pad_by = 2
@@ -145,7 +154,7 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
         images = scipy.fft.fft2(images)
 
         # apply +/-0.5 px shift
-        images = image_shift_fft(images, xp.array([[-0.5, -0.5]]), applyFFT=False)
+        images = image_shift_fft(images, xp.array([[-0.5, -0.5]], dtype=r_type), applyFFT=False)
 
         # crop in the Fourier space
         images = scipy.fft.ifftshift(

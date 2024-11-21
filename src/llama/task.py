@@ -62,9 +62,7 @@ class ShiftManager:
             image_shift_function = maps.get_shift_func_by_enum(
                 self.staged_function_type
             )
-            projections.set_data(
-                image_shift_function(projections.data, self.staged_shift)
-            )
+            projections.data = image_shift_function(projections.data, self.staged_shift)
             self.unstage_shift()
         else:
             print("There is no shift to apply!")

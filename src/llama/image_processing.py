@@ -6,7 +6,7 @@ import scipy
 from llama.gpu_utils import get_scipy_module
 from llama.transformations.functions import image_shift_fft
 
-from llama.api.types import ArrayType
+from llama.api.types import ArrayType, r_type, c_type
 
 
 def filtered_fft(image: ArrayType, shift: ArrayType, filter_data: float) -> ArrayType:
@@ -16,7 +16,9 @@ def filtered_fft(image: ArrayType, shift: ArrayType, filter_data: float) -> Arra
 
     [nx, ny] = image.shape[1:3]
 
-    image = image_shift_fft(image, shift) # Should be moved into the cross-correlation function
+    image = image_shift_fft(
+        image, shift
+    )  # Should be moved into the cross-correlation function
 
     spatial_filter = xp.array(
         scipy_module.signal.windows.tukey(nx, 0.3)[:, None]
@@ -29,7 +31,9 @@ def filtered_fft(image: ArrayType, shift: ArrayType, filter_data: float) -> Arra
     # Remove low frequencies (e.g. phase ramp issues)
     if filter_data > 0:
         X, Y = xp.meshgrid(xp.arange(-nx / 2, nx / 2), xp.arange(-ny / 2, ny / 2))
-        spectral_filter = xp.exp(-((0.5 * (nx + ny) * filter_data) ** 2) / (X**2 + Y**2))
+        spectral_filter = xp.exp(
+            -((0.5 * (nx + ny) * filter_data) ** 2) / (X**2 + Y**2 + 1e-10)
+        )
         spectral_filter = scipy_module.fft.fftshift(spectral_filter).transpose()
         image = image * spectral_filter
 
@@ -56,7 +60,9 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
     mask = mask > 0.1
 
     cross_corr_matrix[~mask] = np.inf
-    cross_corr_matrix = cross_corr_matrix - np.min(cross_corr_matrix, (1, 2))[:, None, None]
+    cross_corr_matrix = (
+        cross_corr_matrix - np.min(cross_corr_matrix, (1, 2))[:, None, None]
+    )
     cross_corr_matrix[cross_corr_matrix < 0] = 0
     cross_corr_matrix[~mask] = 0
     cross_corr_matrix = (
@@ -70,14 +76,18 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
     def find_center_fast(cross_corr_matrix):
         mass = np.sum(cross_corr_matrix, (1, 2))
         N, M = cross_corr_matrix.shape[1:3]
-        x = xp.sum(xp.sum(cross_corr_matrix, 1) * xp.arange(0, M), 1) / mass - np.floor(M / 2)
-        y = xp.sum(xp.sum(cross_corr_matrix, 2) * xp.arange(0, N), 1) / mass - np.floor(N / 2)
+        x = xp.sum(xp.sum(cross_corr_matrix, 1) * xp.arange(0, M), 1) / mass - np.floor(
+            M / 2
+        )
+        y = xp.sum(xp.sum(cross_corr_matrix, 2) * xp.arange(0, N), 1) / mass - np.floor(
+            N / 2
+        )
 
         return x, y, mass
 
     x, y, mass = find_center_fast(cross_corr_matrix)
     relative_shifts = xp.array([x, y]).transpose()
     # if xp == cp:
-        # relative_shifts = relative_shifts.get()
+    # relative_shifts = relative_shifts.get()
 
     return relative_shifts
