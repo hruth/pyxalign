@@ -14,8 +14,8 @@ import llama.test_utils as tutils
 from llama.api.types import ArrayType, r_type, c_type
 
 filename = "cSAXS_projections_downsampling16.h5"
-repeat_array = True
-n_reps = 8
+repeat_array = False
+n_reps = 4
 
 
 def shift_projections(
@@ -23,6 +23,9 @@ def shift_projections(
     device_type: enums.DeviceType,
     shift_type: enums.ShiftType,
     chunking_enabled: bool = False,
+    n_gpus: int = 1,
+    gpu_indices: tuple = (0,),
+    chunk_size: int = 100,
 ):
 
     n_images = len(complex_projections.angles)
@@ -36,8 +39,10 @@ def shift_projections(
     shift_options.enabled = True
     shift_options.device_options.device_type = device_type
     shift_options.type = shift_type
-    shift_options.device_options.gpu_options.chunk_size = 100
+    shift_options.device_options.gpu_options.chunk_size = chunk_size
     shift_options.device_options.gpu_options.chunking_enabled = chunking_enabled
+    shift_options.device_options.gpu_options.n_gpus = n_gpus
+    shift_options.device_options.gpu_options.gpu_indices = gpu_indices
     shifter = Shifter(shift_options)
     shifted_projections = shifter.run(
         complex_projections.data, shift, pinned_results=complex_projections.data
@@ -74,9 +79,11 @@ def test_fft_shift_class_gpu(pytestconfig, overwrite_results=False, check_result
     complex_projections = tutils.prepare_data(filename)
     if repeat_array:
         tutils.repeat_array(complex_projections, n_reps)
+    t0 = time.time()
     shifted_projections = shift_projections(
         complex_projections, enums.DeviceType.GPU, enums.ShiftType.FFT
     )
+    print(test_name, time.time() - t0)
     tutils.check_or_record_results(
         shifted_projections,
         test_name,
@@ -179,11 +186,43 @@ def test_fft_shift_class_gpu_chunked_pinned(pytestconfig, overwrite_results=Fals
     complex_projections = tutils.prepare_data(filename)
     if repeat_array:
         tutils.repeat_array(complex_projections, n_reps)
+        print(complex_projections.data.shape)
     complex_projections.pin_projections()
     print(is_pinned(complex_projections.data))
     t0 = time.time()
     shifted_projections = shift_projections(
         complex_projections, enums.DeviceType.GPU, enums.ShiftType.FFT, True
+    )
+    print(test_name, time.time() - t0)
+    tutils.check_or_record_results(
+        shifted_projections,
+        test_name,
+        comparison_test_name,
+        overwrite_results,
+        tutils.ResultType.PROJECTIONS_COMPLEX,
+        check_results
+    )
+
+def test_fft_shift_class_gpu_chunked_multigpu(pytestconfig, overwrite_results=False, check_results=True):
+    if pytestconfig is not None:
+        overwrite_results = pytestconfig.getoption("overwrite_results")
+    test_name = "test_fft_shift_class_gpu_chunked_multigpu"
+    comparison_test_name = "test_fft_shift_class_cpu"
+    complex_projections = tutils.prepare_data(filename)
+    if repeat_array:
+        tutils.repeat_array(complex_projections, n_reps)
+        print(complex_projections.data.shape)
+    complex_projections.pin_projections()
+    print(is_pinned(complex_projections.data))
+    t0 = time.time()
+    shifted_projections = shift_projections(
+        complex_projections,
+        enums.DeviceType.GPU,
+        enums.ShiftType.FFT,
+        True,
+        5,
+        gpu_indices=(0, 1, 2, 3, 4),
+        chunk_size=10,
     )
     print(test_name, time.time() - t0)
     tutils.check_or_record_results(
@@ -202,14 +241,30 @@ if __name__ == "__main__":
     parser.add_argument("--skip-comparison", action="store_true")
     args = parser.parse_args()
 
-    # test_fft_shift_class_cpu(None, args.overwrite_results, not args.skip_comparison)
-    # test_fft_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
-    # test_circ_shift_class_cpu(None, args.overwrite_results, not args.skip_comparison)
-    # test_circ_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
-    test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
-    test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
-    # test_circ_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
+    # args.skip_comparison=True
 
+    test_fft_shift_class_cpu(None, args.overwrite_results, not args.skip_comparison)
+    test_fft_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
+    test_circ_shift_class_cpu(None, args.overwrite_results, not args.skip_comparison)
+    test_circ_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
+    test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
+    test_circ_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
     test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
-    test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
+    test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
+
+
+    # test_fft_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
+    # test_fft_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
+
+    # test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
+    # test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
+
+    # test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
+    # test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
 

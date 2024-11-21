@@ -11,7 +11,7 @@ import llama.api.enums as enums
 import llama.plotting.plotters as plotters
 from llama.transformations.classes import PreProcess
 
-from llama.api.types import ArrayType
+from llama.api.types import ArrayType, r_type, c_type
 from llama.transformations.functions import image_shift_fft
 
 
@@ -24,12 +24,12 @@ class Projections:
     ):
         self.data = PreProcess(options.pre_processing_options).run(projections)
         self.angles = angles
-        # device management will need work
-        if options.projection_device_options.pin_memory:
-            projections = gpu_utils.pin_memory(self.data)
-        self.data = gpu_utils.move_to_device(
-            self.data, options.projection_device_options.device_type
-        )
+        # # device management will need work!
+        # if options.projection_device_options.pin_memory:
+        #     projections = gpu_utils.pin_memory(self.data)
+        # self.data = gpu_utils.move_to_device(
+        #     self.data, options.projection_device_options.device_type
+        # )
 
         self.center_of_rotation = np.array(projections.shape[1:]) / 2
 
