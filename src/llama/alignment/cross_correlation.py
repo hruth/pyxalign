@@ -6,6 +6,7 @@ from scipy.signal import savgol_filter
 import pandas as pd
 
 from llama.alignment.base import Aligner
+from llama.gpu_wrapper import device_handling_wrapper
 import llama.image_processing as ip
 from llama.projections import Projections
 from llama.api.options.alignment import CrossCorrelationOptions
@@ -48,9 +49,17 @@ class CrossCorrelationAligner(Aligner):
         # variation = pin_memory(np.empty(variation_shape))
 
         # This has improved speed when run on multiple GPUs # Is it the actual time sink though?
-        variation = self.get_variation(
-            projections, weights, device_options=self.options.device_options
+        # variation = self.get_variation(projections, weights)
+
+        # variation = self.get_variation(projections, weights, self.options.binning)
+
+        get_variation_wrapped = device_handling_wrapper(
+            func=self.get_variation,
+            options=self.options.device_options,
+            chunkable_inputs_gpu_idx=[0],
+            common_inputs_gpu_idx=[1],
         )
+        variation = get_variation_wrapped(projections, weights, self.options.binning)
 
         # Ensure the array is on a single device for the rest of the calculations
         if self.options.device_options is enums.DeviceType.CPU:
@@ -62,7 +71,6 @@ class CrossCorrelationAligner(Aligner):
         idx_sort_inverse = np.argsort(idx_sort)
         n_angles = len(angles)
         shift_total = np.zeros((n_angles, 2))
-        shift_saved = np.zeros((self.options.iterations, n_angles, 2))
 
         for i in range(self.options.iterations):
             variation_fft = ip.filtered_fft(variation, shift_total, self.options.filter_data)
@@ -106,13 +114,16 @@ class CrossCorrelationAligner(Aligner):
             shift[idx, i] = shift_max[i] * sign[idx]
         return shift
 
-    # @function_compute_device_manager(array_to_move_indices=[1], single_array_input=[2])
+    # def get_variation(
+    #     self,
+    #     projections: ArrayType,
+    #     weights: ArrayType,
+    # ) -> ArrayType:  # pick a more clear name later
+    @staticmethod
     def get_variation(
-        self,
         projections: ArrayType,
         weights: ArrayType,
-        *,
-        device_options: DeviceOptions = None,  # will need to add pinned array too
+        binning: int
     ) -> ArrayType:  # pick a more clear name later
         xp = cp.get_array_module(projections)
         scipy_module: scipy = get_scipy_module(projections)
@@ -137,9 +148,12 @@ class CrossCorrelationAligner(Aligner):
             cutoff = variation_mean[i] + variation_std[i]
             variation[i, (variation[i, :, :] > cutoff)] = cutoff # gives complex warning
             variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
-                variation[i, :, :], 2 * self.options.binning
+                variation[i, :, :], 2 * binning
             )
-
-        variation = xp.real(variation[:, 0 :: self.options.binning, 0 :: self.options.binning])
+        variation = xp.real(variation[:, 0 :: binning, 0 :: binning])
+        #     variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
+        #         variation[i, :, :], 2 * self.options.binning
+        #     )
+        # variation = xp.real(variation[:, 0 :: self.options.binning, 0 :: self.options.binning])
 
         return variation

@@ -3,6 +3,7 @@ from types import ModuleType
 import cupy as cp
 import scipy
 import cupyx
+import cupyx.scipy.signal
 import cupyx.scipy.fft as cufft
 import numpy as np
 from typing import Sequence, Union
@@ -70,7 +71,7 @@ def get_fft_backend(array: ArrayType):
     return fft_backend
 
 
-def get_scipy_module(array: ArrayType) -> ModuleType:
+def get_scipy_module(array: ArrayType):#, submodule: enums.SciPySubmodules) -> ModuleType:
     module = cp.get_array_module(array)
 
     if module.__name__ == "numpy":

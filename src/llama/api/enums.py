@@ -15,3 +15,6 @@ class ShiftType(StrEnum):
 class DownsampleType(StrEnum):
     FFT = auto()
     LINEAR = auto()
+
+class SciPySubmodules(StrEnum):
+    SIGNAL = auto()
