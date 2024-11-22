@@ -56,8 +56,8 @@ class CrossCorrelationAligner(Aligner):
         get_variation_wrapped = device_handling_wrapper(
             func=self.get_variation,
             options=self.options.device_options,
-            chunkable_inputs_gpu_idx=[0],
-            common_inputs_gpu_idx=[1],
+            chunkable_inputs_for_gpu_idx=[0],
+            common_inputs_for_gpu_idx=[1],
         )
         variation = get_variation_wrapped(projections, weights, self.options.binning)
 

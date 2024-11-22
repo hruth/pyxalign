@@ -61,7 +61,9 @@ def test_cross_correlation_shift_gpu(pytestconfig, overwrite_results=False):
 
     shift = task.shift_manager.past_shifts[0]
 
-    tutils.check_or_record_results(shift, test_name, comparison_test_name, overwrite_results, tutils.ResultType.SHIFT)
+    tutils.check_or_record_results(
+        shift, test_name, comparison_test_name, overwrite_results, tutils.ResultType.SHIFT
+    )
 
     # if overwrite_results:
     #     tutils.save_results_data(shift, test_name, tutils.ResultType.SHIFT)

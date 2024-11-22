@@ -62,7 +62,7 @@ class Shifter(Transformation):
             self.function = device_handling_wrapper(
                 func=maps.get_shift_func_by_enum(self.options.type),
                 options=self.options.device_options,
-                chunkable_inputs_gpu_idx=[0, 1],
+                chunkable_inputs_for_gpu_idx=[0, 1],
                 pinned_results=pinned_results,
             )
             return self.function(images, shift)
