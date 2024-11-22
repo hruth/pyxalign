@@ -1,6 +1,7 @@
 import argparse
 import h5py
 import numpy as np
+import cupy as cp
 from llama.api.options.device import DeviceOptions, GPUOptions
 
 from llama.api.options.projections import ProjectionOptions
@@ -27,14 +28,14 @@ def example_function(A, B, C, D, E):
 
 
 def initialize_input_positions_test(
-    device_type=enums.DeviceType.GPU, chunk_size=13, n_gpus=None, chunking_enabled=True
+    device_type=enums.DeviceType.GPU, chunk_length=13, n_gpus=None, chunking_enabled=True
 ):
     gpu_indices = get_available_gpus()
     if n_gpus is None:
         n_gpus = len(gpu_indices)
     gpu_options = GPUOptions(
         chunking_enabled=chunking_enabled,
-        chunk_size=chunk_size,
+        chunk_length=chunk_length,
         n_gpus=n_gpus,
         gpu_indices=gpu_indices,
     )
@@ -98,7 +99,9 @@ def test_gpu_wrapper_single_chunk(pytestconfig):
 
     wrapped_function = device_handling_wrapper(
         func=example_function,
-        options=device_options,
+        options=device_options,       
+        chunkable_inputs_for_gpu_idx=[4, 1, 3],
+        common_inputs_for_gpu_idx=[2, 0],
     )
     assert np.allclose(true_result, wrapped_function(a, b, c, d, e))
     tutils.print_passed_string(test_name)
@@ -153,11 +156,33 @@ def test_gpu_wrapper_pinned_outputs_single_chunk(pytestconfig):
 
     tutils.print_passed_string(test_name)
 
+def test_gpu_wrapper_cupy_array_input(pytestconfig):
+    test_name = "test_gpu_wrapper_cupy_array_input"
+
+    device_options, true_result = initialize_input_positions_test(
+        device_type=enums.DeviceType.GPU,
+    )
+
+    wrapped_function = device_handling_wrapper(
+        func=example_function,
+        options=device_options,
+        chunkable_inputs_for_gpu_idx=[4, 1, 3],
+        common_inputs_for_gpu_idx=[2, 0],
+    )
+
+    result = wrapped_function(cp.array(a), cp.array(b), cp.array(c), cp.array(d), cp.array(e))
+    assert type(result) is cp.ndarray
+    assert np.allclose(true_result, result.get())
+
+    tutils.print_passed_string(test_name)
+
+
 
 if __name__ == "__main__":
     # test_gpu_wrapper_input_positions_1(None)
     # test_gpu_wrapper_input_positions_2(None)
     # test_gpu_wrapper_turned_off(None)
-    test_gpu_wrapper_single_chunk(None)
+    # test_gpu_wrapper_single_chunk(None)
     # test_gpu_wrapper_pinned_outputs(None)
     # test_gpu_wrapper_pinned_outputs_single_chunk(None)
+    test_gpu_wrapper_cupy_array_input(None)

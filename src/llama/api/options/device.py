@@ -9,7 +9,7 @@ from llama.api import enums
 class GPUOptions:
     chunking_enabled: bool = False
 
-    chunk_size: int = 100
+    chunk_length: int = 100
 
     n_gpus: int = 1
 

@@ -25,7 +25,7 @@ def shift_projections(
     chunking_enabled: bool = False,
     n_gpus: int = 1,
     gpu_indices: tuple = (0,),
-    chunk_size: int = 100,
+    chunk_length: int = 100,
 ):
 
     n_images = len(complex_projections.angles)
@@ -39,7 +39,7 @@ def shift_projections(
     shift_options.enabled = True
     shift_options.device_options.device_type = device_type
     shift_options.type = shift_type
-    shift_options.device_options.gpu_options.chunk_size = chunk_size
+    shift_options.device_options.gpu_options.chunk_length = chunk_length
     shift_options.device_options.gpu_options.chunking_enabled = chunking_enabled
     shift_options.device_options.gpu_options.n_gpus = n_gpus
     shift_options.device_options.gpu_options.gpu_indices = gpu_indices
@@ -222,7 +222,7 @@ def test_fft_shift_class_gpu_chunked_multigpu(pytestconfig, overwrite_results=Fa
         True,
         5,
         gpu_indices=(0, 1, 2, 3, 4),
-        chunk_size=9,
+        chunk_length=9,
     )
     print(test_name, time.time() - t0)
     tutils.check_or_record_results(
