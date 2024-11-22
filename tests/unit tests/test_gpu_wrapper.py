@@ -31,7 +31,7 @@ def example_function(A, B, C, D, E, F, G, wrapped=True, return_tuple=False):
         assert type(G) is np.ndarray
         result = A + B**2 + C**3 + D**4 + E**5 + cp.array(F) ** 6 + cp.array(G) ** 7
     else:
-        result = A + B**2 + C**3 + D**4 + E**5 + F ** 6 + G ** 7
+        result = A + B**2 + C**3 + D**4 + E**5 + F**6 + G**7
     if not return_tuple:
         return result
     else:
@@ -247,7 +247,9 @@ def test_gpu_wrapper_fewer_chunks_than_gpus(pytestconfig=None):
 def test_gpu_wrapper_with_tuple_output(pytestconfig=None):
     test_name = "test_gpu_wrapper_with_tuple_output"
 
-    device_options, true_result = initialize_input_positions_test(device_type=enums.DeviceType.GPU, return_tuple=True)
+    device_options, true_result = initialize_input_positions_test(
+        device_type=enums.DeviceType.GPU, return_tuple=True
+    )
 
     wrapped_function = device_handling_wrapper(
         func=example_function,
@@ -264,6 +266,33 @@ def test_gpu_wrapper_with_tuple_output(pytestconfig=None):
     tutils.print_passed_string(test_name)
 
 
+def test_gpu_wrapper_with_tuple_output_pinned(pytestconfig=None):
+    test_name = "test_gpu_wrapper_with_tuple_output_pinned"
+
+    device_options, true_result = initialize_input_positions_test(
+        device_type=enums.DeviceType.GPU, return_tuple=True
+    )
+
+    pinned_results = tuple([pin_memory(np.empty_like(result)) for result in true_result])
+
+    wrapped_function = device_handling_wrapper(
+        func=example_function,
+        options=device_options,
+        chunkable_inputs_for_gpu_idx=[4, 1, 3],
+        common_inputs_for_gpu_idx=[2, 0],
+        chunkable_inputs_for_cpu_idx=[6],
+        pinned_results=pinned_results,
+    )
+
+    result = wrapped_function(a, b, c, d, e, f, g, return_tuple=True)
+    for i in range(len(true_result)):
+        assert is_pinned(pinned_results[i])
+        assert pinned_results[i] is result[i]
+        assert np.allclose(true_result[i], result[i])
+
+    tutils.print_passed_string(test_name)
+
+
 if __name__ == "__main__":
     test_gpu_wrapper_input_positions_1()
     test_gpu_wrapper_input_positions_2()
@@ -275,3 +304,4 @@ if __name__ == "__main__":
     test_gpu_wrapper_cupy_array_input_pinned_output()
     test_gpu_wrapper_fewer_chunks_than_gpus()
     test_gpu_wrapper_with_tuple_output()
+    test_gpu_wrapper_with_tuple_output_pinned()
