@@ -215,6 +215,27 @@ def test_gpu_wrapper_cupy_array_input_pinned_output(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
+def test_gpu_wrapper_fewer_chunks_than_gpus(pytestconfig):
+    test_name = "test_gpu_wrapper_fewer_chunks_than_gpus"
+
+    device_options, true_result = initialize_input_positions_test(
+        device_type=enums.DeviceType.GPU, chunk_length = 100
+    )
+
+    wrapped_function = device_handling_wrapper(
+        func=example_function,
+        options=device_options,
+        chunkable_inputs_for_gpu_idx=[4, 1, 3],
+        common_inputs_for_gpu_idx=[2, 0],
+        chunkable_inputs_for_cpu_idx=[6]
+    )
+
+    result = wrapped_function(a, b, c, d, e, f, g)
+    assert np.allclose(true_result, result)
+
+    tutils.print_passed_string(test_name)
+
+
 if __name__ == "__main__":
     test_gpu_wrapper_input_positions_1(None)
     test_gpu_wrapper_input_positions_2(None)
@@ -224,3 +245,4 @@ if __name__ == "__main__":
     test_gpu_wrapper_pinned_outputs_single_chunk(None)
     test_gpu_wrapper_cupy_array_input(None)
     test_gpu_wrapper_cupy_array_input_pinned_output(None)
+    test_gpu_wrapper_fewer_chunks_than_gpus(None)

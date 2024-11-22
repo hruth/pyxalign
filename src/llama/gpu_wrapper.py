@@ -23,13 +23,14 @@ class InputArgumentsHandler:
         chunkable_inputs_for_gpu_idx: List[int],
         chunkable_inputs_for_cpu_idx: List[int],
         common_inputs_for_gpu_idx: List[int],
+        inputs_already_on_gpu: bool,
     ):
         self.args = list(args)
-        # self.input_args = args
+        self.options = options
         self.chunkable_inputs_for_gpu_idx = chunkable_inputs_for_gpu_idx
         self.chunkable_inputs_for_cpu_idx = chunkable_inputs_for_cpu_idx
         self.common_inputs_for_gpu_idx = common_inputs_for_gpu_idx
-        self.options = options
+        self.inputs_already_on_gpu = inputs_already_on_gpu
         if self.options.chunking_enabled:
             self.chunk_length = options.chunk_length
             self.n_chunks = int(
@@ -51,15 +52,13 @@ class InputArgumentsHandler:
         self.args[self.chunkable_inputs_for_gpu_idx[idx]] = new_value
 
     def initialize_devices(self):
-        gpu_utils.check_gpu_list(self.options.n_gpus, self.options.gpu_indices)
-        self.gpu_list = self.options.gpu_indices[: self.options.n_gpus]
-
-    # def move_inputs_to_gpu_in_one_chunk(self):
-    #     # single gpu, single chunk
-    #     i = 0
-    #     for input in self.chunkable_inputs_for_gpu:
-    #         self.set_chunkable_inputs_for_gpu(cp.array(input), i)
-    #         i += 1
+        if self.inputs_already_on_gpu:
+            self.gpu_list = (self.chunkable_inputs_for_gpu[0].device,)
+        else:
+            gpu_utils.check_gpu_list(self.options.n_gpus, self.options.gpu_indices)
+            self.gpu_list = self.options.gpu_indices[: self.options.n_gpus]
+            # The number of gpus should not exceed the number of chunks
+            self.gpu_list = self.gpu_list[:self.n_chunks]
 
     def initialize_single_iter_args(self):
         """Initialize the list of args that will be passed to the wrapped
@@ -311,6 +310,7 @@ def device_handling_wrapper(
             chunkable_inputs_for_gpu_idx,
             chunkable_inputs_for_cpu_idx,
             common_inputs_for_gpu_idx,
+            inputs_are_cupy_arrays,
         )
 
         outputs = OutputResultsHandler(
