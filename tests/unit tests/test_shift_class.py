@@ -188,7 +188,7 @@ def test_fft_shift_class_gpu_chunked_pinned(pytestconfig, overwrite_results=Fals
         tutils.repeat_array(complex_projections, n_reps)
         print(complex_projections.data.shape)
     complex_projections.pin_projections()
-    print(is_pinned(complex_projections.data))
+    assert is_pinned(complex_projections.data)
     t0 = time.time()
     shifted_projections = shift_projections(
         complex_projections, enums.DeviceType.GPU, enums.ShiftType.FFT, True
@@ -213,7 +213,7 @@ def test_fft_shift_class_gpu_chunked_multigpu(pytestconfig, overwrite_results=Fa
         tutils.repeat_array(complex_projections, n_reps)
         print(complex_projections.data.shape)
     complex_projections.pin_projections()
-    print(is_pinned(complex_projections.data))
+    assert is_pinned(complex_projections.data)
     t0 = time.time()
     shifted_projections = shift_projections(
         complex_projections,
@@ -222,7 +222,7 @@ def test_fft_shift_class_gpu_chunked_multigpu(pytestconfig, overwrite_results=Fa
         True,
         5,
         gpu_indices=(0, 1, 2, 3, 4),
-        chunk_size=10,
+        chunk_size=9,
     )
     print(test_name, time.time() - t0)
     tutils.check_or_record_results(
@@ -266,5 +266,10 @@ if __name__ == "__main__":
     # test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
     # time.sleep(0.2)
     # test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
+
+    # test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
+    # time.sleep(0.2)
+    # test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
     # time.sleep(0.2)
 
