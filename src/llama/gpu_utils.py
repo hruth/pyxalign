@@ -14,15 +14,9 @@ from llama.api.options.device import DeviceOptions
 from llama.api.types import ArrayType
 
 
-def get_available_gpus(list_devices: bool = False):
-    # Get the number of available GPU devices
-    num_gpus = cp.cuda.runtime.getDeviceCount()
+def get_available_gpus() -> tuple[int]:
+    return tuple(range(cp.cuda.runtime.getDeviceCount()))
 
-    if list_devices:
-        # List all available GPU devices
-        for i in range(num_gpus):
-            device = cp.cuda.Device(i)
-            print(f"GPU {i}: {device.name()}")
 
 def check_gpu_list(num_gpus: int, gpu_indices: List[int]):
     gpu_count = cp.cuda.runtime.getDeviceCount()

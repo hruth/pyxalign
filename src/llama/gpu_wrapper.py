@@ -67,10 +67,18 @@ class InputArgumentsHandler:
     def move_common_inputs_to_gpu(self):
         "Move all common inputs (inputs that are passed in full) onto the gpu(s)"
         self.common_inputs_on_gpu = []
-        for arg_idx in self.common_inputs_for_gpu_idx:
-            for gpu in self.gpu_list:
-                with cp.cuda.Device(gpu).use():
-                    self.common_inputs_on_gpu += [[cp.array(self.args[arg_idx])]]
+        # for arg_idx in self.common_inputs_for_gpu_idx:
+        #     for gpu in self.gpu_list:
+        #         with cp.cuda.Device(gpu).use():
+        #             self.common_inputs_on_gpu += [[cp.array(self.args[arg_idx])]]
+        for gpu in self.gpu_list:
+            with cp.cuda.Device(gpu).use():
+                self.common_inputs_on_gpu += [
+                    [
+                        cp.array(self.args[arg_idx])
+                        for arg_idx in self.common_inputs_for_gpu_idx
+                    ]
+                ]
 
     def update_chunked_list(self, iter: int, gpu_idx: int):
         "Update the arguments that will be passed to the wrapped function"
@@ -270,7 +278,7 @@ def device_handling_wrapper(
             pinned_results,
         )
 
-        # ### case 3: gpu calculation, multiple chunks and potentially multiple GPUs ###
+        # ### case 3: gpu calculation, multiple chunks, and potentially multiple GPUs ###
         iterator = Iterator(inputs, outputs, func)
         iterator.run()
 
