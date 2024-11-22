@@ -72,6 +72,7 @@ class InputArgumentsHandler:
             self.chunk_length,
             self.n_chunks,
             self.chunkable_inputs_for_gpu,
+            self.inputs_already_on_gpu,
         )
 
     def move_common_inputs_to_gpu(self):
@@ -99,7 +100,7 @@ class InputArgumentsHandler:
         for i in range(len(self.chunkable_inputs_for_gpu_idx)):
             arg_idx = self.chunkable_inputs_for_gpu_idx[i]
             self.current_iter_args[arg_idx] = self.gpu_stager.get_next_chunked_inputs(
-                gpu_idx, i
+                gpu_idx, i, iter
             )
 
     def update_cpu_chunks(self, iter: int):
@@ -134,11 +135,13 @@ class GPUStager:
         chunk_length: int,
         n_chunks: int,
         chunkable_inputs_for_gpu: List[ArrayType],
+        inputs_already_on_gpu: bool,
     ):
         self.gpu_list = gpu_list
         self.chunkable_inputs_for_gpu = chunkable_inputs_for_gpu
         self.chunk_length = chunk_length
         self.n_chunks = n_chunks
+        self.inputs_already_on_gpu = inputs_already_on_gpu
         self.initialize_list_of_arrays()
 
     @property
@@ -165,6 +168,8 @@ class GPUStager:
 
     def update_chunked_inputs(self, gpu_idx: int, iter: int):
         "Insert data from each full array into each cupy chunk array"
+        if self.inputs_already_on_gpu:
+            return
         for i in range(len(self.chunkable_inputs_for_gpu)):
             self.insert_next_chunk_into_cupy_array(gpu_idx, iter, i)
 
@@ -182,8 +187,12 @@ class GPUStager:
         elif type(numpy_chunk_array) is cp.ndarray:
             cupy_chunk_array[:] = numpy_chunk_array
 
-    def get_next_chunked_inputs(self, gpu_idx: int, list_idx: int) -> cp.ndarray:
-        return self.list_of_arrays[gpu_idx][list_idx][: self.revised_chunk_length]
+    def get_next_chunked_inputs(self, gpu_idx: int, list_idx: int, iter: int) -> cp.ndarray:
+        if self.inputs_already_on_gpu:
+            idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
+            return self.chunkable_inputs_for_gpu[list_idx][idx_start:idx_stop]
+        else:
+            return self.list_of_arrays[gpu_idx][list_idx][: self.revised_chunk_length]
 
 
 class OutputResultsHandler:
