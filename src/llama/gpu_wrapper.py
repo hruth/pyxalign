@@ -279,7 +279,7 @@ def check_if_arrays_are_on_same_device(
         all_arrays_on_gpu and all_arrays_on_same_gpu
     )
     if not all_arrays_on_same_device:
-        raise Exception("chunkable_input_arrays must be on the same device!")
+        raise Exception("chunkable_inputs_for_gpu must be on the same device!")
 
     return all_arrays_on_same_gpu
 
