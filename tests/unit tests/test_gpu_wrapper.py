@@ -16,15 +16,22 @@ import llama.test_utils as tutils
 
 n_arrays = 211
 array_size = (23, 29)
-a = np.random.rand(*array_size)
-b = np.random.rand(n_arrays, *array_size)
-c = np.random.rand(*array_size)
-d = np.random.rand(n_arrays, *array_size)
-e = np.random.rand(n_arrays, *array_size)
+a = np.random.rand(*array_size)  # 0
+b = np.random.rand(n_arrays, *array_size)  # 1
+c = np.random.rand(*array_size)  # 2
+d = np.random.rand(n_arrays, *array_size)  # 3
+e = np.random.rand(n_arrays, *array_size)  # 4
+f = np.random.rand(*array_size)  # 5: no index specified
+g = np.random.rand(n_arrays, *array_size)  # 6: cpu chunk index
 
 
-def example_function(A, B, C, D, E):
-    return A + B**2 + C**3 + D**4 + E**5
+def example_function(A, B, C, D, E, F, G, wrapped=True):
+    if wrapped:
+        assert type(F) is np.ndarray
+        assert type(G) is np.ndarray
+        return A + B**2 + C**3 + D**4 + E**5 + cp.array(F) ** 6 + cp.array(G) ** 7
+    else:
+        return A + B**2 + C**3 + D**4 + E**5 + F**6 + G**7
 
 
 def initialize_input_positions_test(
@@ -40,7 +47,7 @@ def initialize_input_positions_test(
         gpu_indices=gpu_indices,
     )
     device_options = DeviceOptions(device_type=device_type, gpu_options=gpu_options)
-    true_result = example_function(a, b, c, d, e)
+    true_result = example_function(a, b, c, d, e, f, g, wrapped=False)
     return device_options, true_result
 
 
@@ -54,8 +61,9 @@ def test_gpu_wrapper_input_positions_1(pytestconfig):
         options=device_options,
         chunkable_inputs_for_gpu_idx=[1, 3, 4],
         common_inputs_for_gpu_idx=[0, 2],
+        chunkable_inputs_for_cpu_idx=[6],
     )
-    assert np.allclose(true_result, wrapped_function(a, b, c, d, e))
+    assert np.allclose(true_result, wrapped_function(a, b, c, d, e, f, g))
     tutils.print_passed_string(test_name)
 
 
@@ -69,8 +77,9 @@ def test_gpu_wrapper_input_positions_2(pytestconfig):
         options=device_options,
         chunkable_inputs_for_gpu_idx=[4, 1, 3],
         common_inputs_for_gpu_idx=[2, 0],
+        chunkable_inputs_for_cpu_idx=[6],
     )
-    assert np.allclose(true_result, wrapped_function(a, b, c, d, e))
+    assert np.allclose(true_result, wrapped_function(a, b, c, d, e, f, g))
     tutils.print_passed_string(test_name)
 
 
@@ -78,32 +87,34 @@ def test_gpu_wrapper_turned_off(pytestconfig):
     test_name = "test_gpu_wrapper_turned_off"
 
     device_options, true_result = initialize_input_positions_test(
-        device_type=enums.DeviceType.CPU,
-        n_gpus=1
+        device_type=enums.DeviceType.CPU, n_gpus=1
     )
 
     wrapped_function = device_handling_wrapper(
         func=example_function,
         options=device_options,
+        chunkable_inputs_for_gpu_idx=[4, 1, 3],
+        common_inputs_for_gpu_idx=[2, 0],
     )
-    assert np.allclose(true_result, wrapped_function(a, b, c, d, e))
+    assert np.allclose(true_result, wrapped_function(a, b, c, d, e, f, g, False))
     tutils.print_passed_string(test_name)
+
 
 def test_gpu_wrapper_single_chunk(pytestconfig):
     test_name = "test_gpu_wrapper_single_chunk"
 
     device_options, true_result = initialize_input_positions_test(
-        device_type=enums.DeviceType.GPU,
-        chunking_enabled=False
+        device_type=enums.DeviceType.GPU, chunking_enabled=False
     )
 
     wrapped_function = device_handling_wrapper(
         func=example_function,
-        options=device_options,       
+        options=device_options,
         chunkable_inputs_for_gpu_idx=[4, 1, 3],
         common_inputs_for_gpu_idx=[2, 0],
+        chunkable_inputs_for_cpu_idx=[6],
     )
-    assert np.allclose(true_result, wrapped_function(a, b, c, d, e))
+    assert np.allclose(true_result, wrapped_function(a, b, c, d, e, f, g))
     tutils.print_passed_string(test_name)
 
 
@@ -121,22 +132,23 @@ def test_gpu_wrapper_pinned_outputs(pytestconfig):
         options=device_options,
         chunkable_inputs_for_gpu_idx=[4, 1, 3],
         common_inputs_for_gpu_idx=[2, 0],
-        pinned_results=pinned_results
+        chunkable_inputs_for_cpu_idx=[6],
+        pinned_results=pinned_results,
     )
-    
-    result = wrapped_function(a, b, c, d, e)
+
+    result = wrapped_function(a, b, c, d, e, f, g)
     assert result is pinned_results
     assert is_pinned(pinned_results)
     assert np.allclose(true_result, result)
 
     tutils.print_passed_string(test_name)
 
+
 def test_gpu_wrapper_pinned_outputs_single_chunk(pytestconfig):
     test_name = "test_gpu_wrapper_pinned_outputs_single_chunk"
 
     device_options, true_result = initialize_input_positions_test(
-        device_type=enums.DeviceType.GPU,
-        chunking_enabled=False
+        device_type=enums.DeviceType.GPU, chunking_enabled=False
     )
 
     pinned_results = pin_memory(np.empty_like(true_result))
@@ -146,15 +158,17 @@ def test_gpu_wrapper_pinned_outputs_single_chunk(pytestconfig):
         options=device_options,
         chunkable_inputs_for_gpu_idx=[4, 1, 3],
         common_inputs_for_gpu_idx=[2, 0],
-        pinned_results=pinned_results
+        chunkable_inputs_for_cpu_idx=[6],
+        pinned_results=pinned_results,
     )
-    
-    result = wrapped_function(a, b, c, d, e)
+
+    result = wrapped_function(a, b, c, d, e, f, g)
     assert result is pinned_results
     assert is_pinned(pinned_results)
     assert np.allclose(true_result, result)
 
     tutils.print_passed_string(test_name)
+
 
 def test_gpu_wrapper_cupy_array_input(pytestconfig):
     test_name = "test_gpu_wrapper_cupy_array_input"
@@ -168,21 +182,45 @@ def test_gpu_wrapper_cupy_array_input(pytestconfig):
         options=device_options,
         chunkable_inputs_for_gpu_idx=[4, 1, 3],
         common_inputs_for_gpu_idx=[2, 0],
+        chunkable_inputs_for_cpu_idx=[6],
     )
 
-    result = wrapped_function(cp.array(a), cp.array(b), cp.array(c), cp.array(d), cp.array(e))
+    result = wrapped_function(cp.array(a), cp.array(b), cp.array(c), cp.array(d), cp.array(e), f, g)
     assert type(result) is cp.ndarray
     assert np.allclose(true_result, result.get())
 
     tutils.print_passed_string(test_name)
 
 
+def test_gpu_wrapper_cupy_array_input_pinned_output(pytestconfig):
+    test_name = "test_gpu_wrapper_cupy_array_input_pinned_output"
+
+    device_options, true_result = initialize_input_positions_test(
+        device_type=enums.DeviceType.GPU,
+    )
+
+    wrapped_function = device_handling_wrapper(
+        func=example_function,
+        options=device_options,
+        chunkable_inputs_for_gpu_idx=[4, 1, 3],
+        common_inputs_for_gpu_idx=[2, 0],
+        chunkable_inputs_for_cpu_idx=[6],
+        pinned_results=cp.empty_like(true_result),
+    )
+
+    result = wrapped_function(cp.array(a), cp.array(b), cp.array(c), cp.array(d), cp.array(e), f, g)
+    assert type(result) is cp.ndarray
+    assert np.allclose(true_result, result.get())
+
+    tutils.print_passed_string(test_name)
+
 
 if __name__ == "__main__":
-    # test_gpu_wrapper_input_positions_1(None)
-    # test_gpu_wrapper_input_positions_2(None)
-    # test_gpu_wrapper_turned_off(None)
-    # test_gpu_wrapper_single_chunk(None)
-    # test_gpu_wrapper_pinned_outputs(None)
-    # test_gpu_wrapper_pinned_outputs_single_chunk(None)
+    test_gpu_wrapper_input_positions_1(None)
+    test_gpu_wrapper_input_positions_2(None)
+    test_gpu_wrapper_turned_off(None)
+    test_gpu_wrapper_single_chunk(None)
+    test_gpu_wrapper_pinned_outputs(None)
+    test_gpu_wrapper_pinned_outputs_single_chunk(None)
     test_gpu_wrapper_cupy_array_input(None)
+    test_gpu_wrapper_cupy_array_input_pinned_output(None)

@@ -10,6 +10,10 @@ from llama.api.options.device import DeviceOptions, GPUOptions
 
 from llama.api.types import ArrayType, r_type, c_type
 
+# Note: the case in which cupy arrays are passed in and calculations
+# are done in chunks is not as memory efficient as possible. GPU 
+# container arrays are made, but they don't have too be.
+
 
 class InputArgumentsHandler:
     def __init__(
@@ -28,7 +32,9 @@ class InputArgumentsHandler:
         self.options = options
         if self.options.chunking_enabled:
             self.chunk_length = options.chunk_length
-            self.n_chunks = int(np.ceil(len(self.chunkable_inputs_for_gpu[0]) / self.chunk_length))
+            self.n_chunks = int(
+                np.ceil(len(self.chunkable_inputs_for_gpu[0]) / self.chunk_length)
+            )
         else:
             self.n_chunks = 1
             self.chunk_length = len(self.chunkable_inputs_for_gpu[0])
@@ -72,10 +78,6 @@ class InputArgumentsHandler:
     def move_common_inputs_to_gpu(self):
         "Move all common inputs (inputs that are passed in full) onto the gpu(s)"
         self.common_inputs_on_gpu = []
-        # for arg_idx in self.common_inputs_for_gpu_idx:
-        #     for gpu in self.gpu_list:
-        #         with cp.cuda.Device(gpu).use():
-        #             self.common_inputs_on_gpu += [[cp.array(self.args[arg_idx])]]
         for gpu in self.gpu_list:
             with cp.cuda.Device(gpu).use():
                 self.common_inputs_on_gpu += [
@@ -97,7 +99,9 @@ class InputArgumentsHandler:
         self.gpu_stager.update_chunked_inputs(gpu_idx, iter)
         for i in range(len(self.chunkable_inputs_for_gpu_idx)):
             arg_idx = self.chunkable_inputs_for_gpu_idx[i]
-            self.current_iter_args[arg_idx] = self.gpu_stager.get_next_chunked_inputs(gpu_idx, i)
+            self.current_iter_args[arg_idx] = self.gpu_stager.get_next_chunked_inputs(
+                gpu_idx, i
+            )
 
     def update_cpu_chunks(self, iter: int):
         """Update the args for this iteration with the inputs that are chunked
@@ -150,7 +154,10 @@ class GPUStager:
 
     def create_gpu_containers(self) -> List[cp.ndarray]:
         "Create the list of cupy arrays that will hold chunks of the chunkable inputs for gpu"
-        return [self.create_container_element(array) for array in self.chunkable_inputs_for_gpu]
+        return [
+            self.create_container_element(array)
+            for array in self.chunkable_inputs_for_gpu
+        ]
 
     def create_container_element(self, array: ArrayType) -> cp.ndarray:
         "Create the cupy array that will hold chunks from the input numpy array"
@@ -168,8 +175,13 @@ class GPUStager:
         idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
         numpy_chunk_array = self.chunkable_inputs_for_gpu[arg_idx][idx_start:idx_stop]
         self.revised_chunk_length = len(numpy_chunk_array)
-        cupy_chunk_array = self.list_of_arrays[gpu_idx][arg_idx][: self.revised_chunk_length]
-        cupy_chunk_array.set(numpy_chunk_array)
+        cupy_chunk_array = self.list_of_arrays[gpu_idx][arg_idx][
+            : self.revised_chunk_length
+        ]
+        if type(numpy_chunk_array) is np.ndarray:
+            cupy_chunk_array.set(numpy_chunk_array)
+        elif type(numpy_chunk_array) is cp.ndarray:
+            cupy_chunk_array[:] = numpy_chunk_array
 
     def get_next_chunked_inputs(self, gpu_idx: int, list_idx: int) -> cp.ndarray:
         return self.list_of_arrays[gpu_idx][list_idx][: self.revised_chunk_length]
@@ -178,14 +190,14 @@ class GPUStager:
 class OutputResultsHandler:
     def __init__(
         self,
-        chunk_length: int, 
+        chunk_length: int,
         output_array_length: int,
-        keep_on_gpu: bool,
+        already_on_gpu: bool,
         pinned_results: Optional[np.ndarray] = None,
     ):
         self.chunk_length = chunk_length
         self.output_array_length = output_array_length
-        self.keep_on_gpu = keep_on_gpu
+        self.already_on_gpu = already_on_gpu
         self.pinned_results = pinned_results
 
     def update_results(self, chunked_results: Union[tuple, cp.ndarray], iter: int):
@@ -196,19 +208,21 @@ class OutputResultsHandler:
             self.initialize_full_results(chunked_results)
         self.insert_into_full_results(chunked_results, iter)
 
-    def insert_into_full_results(self, chunked_results: Union[tuple, cp.ndarray], iter: int):
+    def insert_into_full_results(
+        self, chunked_results: Union[tuple, cp.ndarray], iter: int
+    ):
         idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
-        if self.keep_on_gpu:
+        if self.already_on_gpu:
             self.full_results[idx_start:idx_stop] = chunked_results
         else:
             chunked_results.get(out=self.full_results[idx_start:idx_stop])
 
     def initialize_full_results(self, chunked_results: Union[tuple, cp.ndarray]):
         output_array_size = (self.output_array_length, *chunked_results.shape[1:])
-        if self.keep_on_gpu and self.pinned_results is not None:
-            self.full_results = cp.empty(output_array_size, dtype=chunked_results.dtype)
-        elif self.pinned_results is not None:
+        if self.pinned_results is not None:
             self.full_results = self.pinned_results
+        elif self.already_on_gpu:
+            self.full_results = cp.empty(output_array_size, dtype=chunked_results.dtype)
         else:
             self.full_results = np.empty(output_array_size, dtype=chunked_results.dtype)
 
@@ -218,21 +232,21 @@ class Iterator:
         self,
         inputs: InputArgumentsHandler,
         outputs: OutputResultsHandler,
-        func: callable,
+        func: callable
     ):
         self.inputs = inputs
         self.outputs = outputs
         self.func = func
         self.n_gpus = len(self.inputs.gpu_list)
 
-    def run(self):
+    def run(self, kwargs: dict = {}):
         gpu_idx = 0
         for iter in range(self.inputs.n_chunks):
             gpu = self.inputs.gpu_list[gpu_idx]
             cp.cuda.Device(gpu).use()
 
             self.inputs.update_chunked_list(iter, gpu_idx)
-            chunked_results = self.func(*self.inputs.current_iter_args)
+            chunked_results = self.func(*self.inputs.current_iter_args, **kwargs)
             self.outputs.update_results(chunked_results, iter)
 
             gpu_idx = (iter + 1) % self.n_gpus
@@ -243,21 +257,54 @@ def get_chunk_indices(iter, chunk_length) -> tuple[int, int]:
     return idx_start, idx_stop
 
 
+def check_if_arrays_are_on_same_device(
+    args: tuple, chunkable_inputs_for_gpu_idx: int
+) -> bool:
+    idx = chunkable_inputs_for_gpu_idx
+    all_arrays_on_cpu = all([cp.get_array_module(args[i]) is np for i in idx])
+    all_arrays_on_gpu = all([cp.get_array_module(args[i]) is cp for i in idx])
+    if all_arrays_on_gpu:
+        all_arrays_on_same_gpu = all([args[i].device == args[0].device for i in idx])
+    else:
+        all_arrays_on_same_gpu = False
+    all_arrays_on_same_device = all_arrays_on_cpu or (
+        all_arrays_on_gpu and all_arrays_on_same_gpu
+    )
+    if not all_arrays_on_same_device:
+        raise Exception("chunkable_input_arrays must be on the same device!")
+
+    return all_arrays_on_same_gpu
+
+
 def device_handling_wrapper(
     func: callable,
     options: DeviceOptions,
-    chunkable_inputs_for_gpu_idx: List[int] = List[0],
+    chunkable_inputs_for_gpu_idx: List[int] = list[0],
     chunkable_inputs_for_cpu_idx: List[int] = [],
     common_inputs_for_gpu_idx: List[int] = [],
     pinned_results: Optional[np.ndarray] = None,
-):
+) -> callable:
+    """Wrapper that efficiently splits inputs into chunks and transfers them between
+    the gpu and cpu.
+    
+    When using the wrapped function, the input arguments referred to by 
+    `chunkable_inputs_for_gpu_idx`, `chunkable_inputs_for_cpu_idx`, and 
+    `common_inputs_for_gpu_idx` must be passed in as args, not kwargs.
+    """
+
     @wraps(func)
     def wrapped(*args, **kwargs):
+        # Check inputs
+        inputs_are_cupy_arrays = check_if_arrays_are_on_same_device(
+            args, chunkable_inputs_for_gpu_idx
+        )
+
         ### case 1: cpu calculation ###
         if options.device_type == DeviceType.CPU:
             result = func(*args, **kwargs)
             return result
 
+        ### case 2: on gpu, multiple chunks, and potentially multiple GPUs ###
         inputs = InputArgumentsHandler(
             args,
             options.gpu_options,
@@ -266,27 +313,15 @@ def device_handling_wrapper(
             common_inputs_for_gpu_idx,
         )
 
-        ### case 2: gpu calculation, 1 chunk ###
-        if not options.gpu_options.chunking_enabled:
-            pass
-            # inputs.move_inputs_to_gpu_in_one_chunk()
-            # result = func(*inputs.args, **kwargs)
-            # return result
-
-        keep_on_gpu = all(
-            [cp.get_array_module(input) is cp for input in inputs.chunkable_inputs_for_gpu]
-        )
-
         outputs = OutputResultsHandler(
             inputs.chunk_length,
             inputs.chunkable_inputs_for_gpu[0].shape[0],
-            keep_on_gpu,
+            inputs_are_cupy_arrays,
             pinned_results,
         )
 
-        # ### case 2: move from gpu to cpu, multiple chunks, and potentially multiple GPUs ###
         iterator = Iterator(inputs, outputs, func)
-        iterator.run()
+        iterator.run(kwargs)
 
         return outputs.full_results
 
