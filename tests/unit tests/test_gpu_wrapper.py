@@ -25,17 +25,25 @@ f = np.random.rand(*array_size)  # 5: no index specified
 g = np.random.rand(n_arrays, *array_size)  # 6: cpu chunk index
 
 
-def example_function(A, B, C, D, E, F, G, wrapped=True):
+def example_function(A, B, C, D, E, F, G, wrapped=True, return_tuple=False):
     if wrapped:
         assert type(F) is np.ndarray
         assert type(G) is np.ndarray
-        return A + B**2 + C**3 + D**4 + E**5 + cp.array(F) ** 6 + cp.array(G) ** 7
+        result = A + B**2 + C**3 + D**4 + E**5 + cp.array(F) ** 6 + cp.array(G) ** 7
     else:
-        return A + B**2 + C**3 + D**4 + E**5 + F**6 + G**7
+        result = A + B**2 + C**3 + D**4 + E**5 + F ** 6 + G ** 7
+    if not return_tuple:
+        return result
+    else:
+        return (result, result * 3, result * 5)
 
 
 def initialize_input_positions_test(
-    device_type=enums.DeviceType.GPU, chunk_length=13, n_gpus=None, chunking_enabled=True
+    device_type=enums.DeviceType.GPU,
+    chunk_length=13,
+    n_gpus=None,
+    chunking_enabled=True,
+    return_tuple=False,
 ):
     gpu_indices = get_available_gpus()
     if n_gpus is None:
@@ -47,11 +55,11 @@ def initialize_input_positions_test(
         gpu_indices=gpu_indices,
     )
     device_options = DeviceOptions(device_type=device_type, gpu_options=gpu_options)
-    true_result = example_function(a, b, c, d, e, f, g, wrapped=False)
+    true_result = example_function(a, b, c, d, e, f, g, wrapped=False, return_tuple=return_tuple)
     return device_options, true_result
 
 
-def test_gpu_wrapper_input_positions_1(pytestconfig):
+def test_gpu_wrapper_input_positions_1(pytestconfig=None):
     test_name = "test_gpu_wrapper_input_positions_1"
 
     device_options, true_result = initialize_input_positions_test()
@@ -67,7 +75,7 @@ def test_gpu_wrapper_input_positions_1(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_input_positions_2(pytestconfig):
+def test_gpu_wrapper_input_positions_2(pytestconfig=None):
     test_name = "test_gpu_wrapper_input_positions_2"
 
     device_options, true_result = initialize_input_positions_test()
@@ -83,7 +91,7 @@ def test_gpu_wrapper_input_positions_2(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_turned_off(pytestconfig):
+def test_gpu_wrapper_turned_off(pytestconfig=None):
     test_name = "test_gpu_wrapper_turned_off"
 
     device_options, true_result = initialize_input_positions_test(
@@ -100,7 +108,7 @@ def test_gpu_wrapper_turned_off(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_single_chunk(pytestconfig):
+def test_gpu_wrapper_single_chunk(pytestconfig=None):
     test_name = "test_gpu_wrapper_single_chunk"
 
     device_options, true_result = initialize_input_positions_test(
@@ -118,7 +126,7 @@ def test_gpu_wrapper_single_chunk(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_pinned_outputs(pytestconfig):
+def test_gpu_wrapper_pinned_outputs(pytestconfig=None):
     test_name = "test_gpu_wrapper_pinned_outputs"
 
     device_options, true_result = initialize_input_positions_test(
@@ -144,7 +152,7 @@ def test_gpu_wrapper_pinned_outputs(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_pinned_outputs_single_chunk(pytestconfig):
+def test_gpu_wrapper_pinned_outputs_single_chunk(pytestconfig=None):
     test_name = "test_gpu_wrapper_pinned_outputs_single_chunk"
 
     device_options, true_result = initialize_input_positions_test(
@@ -170,7 +178,7 @@ def test_gpu_wrapper_pinned_outputs_single_chunk(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_cupy_array_input(pytestconfig):
+def test_gpu_wrapper_cupy_array_input(pytestconfig=None):
     test_name = "test_gpu_wrapper_cupy_array_input"
 
     device_options, true_result = initialize_input_positions_test(
@@ -192,7 +200,7 @@ def test_gpu_wrapper_cupy_array_input(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_cupy_array_input_pinned_output(pytestconfig):
+def test_gpu_wrapper_cupy_array_input_pinned_output(pytestconfig=None):
     test_name = "test_gpu_wrapper_cupy_array_input_pinned_output"
 
     device_options, true_result = initialize_input_positions_test(
@@ -215,11 +223,11 @@ def test_gpu_wrapper_cupy_array_input_pinned_output(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
-def test_gpu_wrapper_fewer_chunks_than_gpus(pytestconfig):
+def test_gpu_wrapper_fewer_chunks_than_gpus(pytestconfig=None):
     test_name = "test_gpu_wrapper_fewer_chunks_than_gpus"
 
     device_options, true_result = initialize_input_positions_test(
-        device_type=enums.DeviceType.GPU, chunk_length = 100
+        device_type=enums.DeviceType.GPU, chunk_length=100
     )
 
     wrapped_function = device_handling_wrapper(
@@ -227,7 +235,7 @@ def test_gpu_wrapper_fewer_chunks_than_gpus(pytestconfig):
         options=device_options,
         chunkable_inputs_for_gpu_idx=[4, 1, 3],
         common_inputs_for_gpu_idx=[2, 0],
-        chunkable_inputs_for_cpu_idx=[6]
+        chunkable_inputs_for_cpu_idx=[6],
     )
 
     result = wrapped_function(a, b, c, d, e, f, g)
@@ -236,13 +244,34 @@ def test_gpu_wrapper_fewer_chunks_than_gpus(pytestconfig):
     tutils.print_passed_string(test_name)
 
 
+def test_gpu_wrapper_with_tuple_output(pytestconfig=None):
+    test_name = "test_gpu_wrapper_with_tuple_output"
+
+    device_options, true_result = initialize_input_positions_test(device_type=enums.DeviceType.GPU, return_tuple=True)
+
+    wrapped_function = device_handling_wrapper(
+        func=example_function,
+        options=device_options,
+        chunkable_inputs_for_gpu_idx=[4, 1, 3],
+        common_inputs_for_gpu_idx=[2, 0],
+        chunkable_inputs_for_cpu_idx=[6],
+    )
+
+    result = wrapped_function(a, b, c, d, e, f, g, return_tuple=True)
+    for i in range(len(true_result)):
+        assert np.allclose(true_result[i], result[i])
+
+    tutils.print_passed_string(test_name)
+
+
 if __name__ == "__main__":
-    test_gpu_wrapper_input_positions_1(None)
-    test_gpu_wrapper_input_positions_2(None)
-    test_gpu_wrapper_turned_off(None)
-    test_gpu_wrapper_single_chunk(None)
-    test_gpu_wrapper_pinned_outputs(None)
-    test_gpu_wrapper_pinned_outputs_single_chunk(None)
-    test_gpu_wrapper_cupy_array_input(None)
-    test_gpu_wrapper_cupy_array_input_pinned_output(None)
-    test_gpu_wrapper_fewer_chunks_than_gpus(None)
+    test_gpu_wrapper_input_positions_1()
+    test_gpu_wrapper_input_positions_2()
+    test_gpu_wrapper_turned_off()
+    test_gpu_wrapper_single_chunk()
+    test_gpu_wrapper_pinned_outputs()
+    test_gpu_wrapper_pinned_outputs_single_chunk()
+    test_gpu_wrapper_cupy_array_input()
+    test_gpu_wrapper_cupy_array_input_pinned_output()
+    test_gpu_wrapper_fewer_chunks_than_gpus()
+    test_gpu_wrapper_with_tuple_output()

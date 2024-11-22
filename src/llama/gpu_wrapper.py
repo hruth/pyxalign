@@ -10,9 +10,8 @@ from llama.api.options.device import DeviceOptions, GPUOptions
 
 from llama.api.types import ArrayType, r_type, c_type
 
-# Note: the case in which cupy arrays are passed in and calculations
-# are done in chunks is not as memory efficient as possible. GPU 
-# container arrays are made, but they don't have too be.
+# To do:
+# 1) check gpu profiling results with nsight-sys
 
 
 class InputArgumentsHandler:
@@ -220,19 +219,35 @@ class OutputResultsHandler:
         self, chunked_results: Union[tuple, cp.ndarray], iter: int
     ):
         idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
-        if self.already_on_gpu:
-            self.full_results[idx_start:idx_stop] = chunked_results
-        else:
-            chunked_results.get(out=self.full_results[idx_start:idx_stop])
+        if type(chunked_results) is not tuple:
+            chunked_results = (chunked_results,)
+        # iterate through the tuple of results
+        for i in range(len(chunked_results)):
+            if self.already_on_gpu:
+                self.full_results[i][idx_start:idx_stop] = chunked_results[i]
+            else:
+                chunked_results[i].get(out=self.full_results[i][idx_start:idx_stop])
 
     def initialize_full_results(self, chunked_results: Union[tuple, cp.ndarray]):
-        output_array_size = (self.output_array_length, *chunked_results.shape[1:])
+        "Create a tuple that will hold the outputs of the wrapped function"
         if self.pinned_results is not None:
-            self.full_results = self.pinned_results
-        elif self.already_on_gpu:
-            self.full_results = cp.empty(output_array_size, dtype=chunked_results.dtype)
-        else:
-            self.full_results = np.empty(output_array_size, dtype=chunked_results.dtype)
+            if type(self.pinned_results) is not tuple:
+                self.full_results = (self.pinned_results,)
+            else:
+                self.full_results = self.pinned_results
+            return
+
+        if type(chunked_results) is not tuple:
+            chunked_results = (chunked_results,)
+        
+        self.full_results: tuple = ()
+
+        for chunked_result in chunked_results:
+            output_array_size = (self.output_array_length, *chunked_result.shape[1:])
+            if self.already_on_gpu:
+                self.full_results += (cp.empty(output_array_size, dtype=chunked_result.dtype),)
+            else:
+                self.full_results += (np.empty(output_array_size, dtype=chunked_result.dtype),)
 
 
 class Iterator:
@@ -258,6 +273,8 @@ class Iterator:
             self.outputs.update_results(chunked_results, iter)
 
             gpu_idx = (iter + 1) % self.n_gpus
+        if len(self.outputs.full_results) == 1:
+            self.outputs.full_results = self.outputs.full_results[0]
 
 
 def get_chunk_indices(iter, chunk_length) -> tuple[int, int]:
@@ -290,7 +307,7 @@ def device_handling_wrapper(
     chunkable_inputs_for_gpu_idx: List[int] = list[0],
     chunkable_inputs_for_cpu_idx: List[int] = [],
     common_inputs_for_gpu_idx: List[int] = [],
-    pinned_results: Optional[np.ndarray] = None,
+    pinned_results: Optional[Union[np.ndarray, tuple]] = None,
 ) -> callable:
     """Wrapper that efficiently splits inputs into chunks and transfers them between
     the gpu and cpu.
