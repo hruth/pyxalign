@@ -5,6 +5,7 @@ import cupy as cp
 import scipy
 import cupyx
 import cupyx.scipy.signal
+import cupyx.scipy.interpolate
 import cupyx.scipy.fft as cufft
 import numpy as np
 from typing import Sequence, Union

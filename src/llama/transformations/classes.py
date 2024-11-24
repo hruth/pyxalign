@@ -25,9 +25,6 @@ class Transformation(ABC):
     def run(self, images: ArrayType, *args, **kwargs) -> ArrayType:
         pass
 
-    def move_to_device(self, images: ArrayType):
-        self.options.device_options
-
 
 class Downsample(Transformation):
     def __init__(
@@ -35,13 +32,18 @@ class Downsample(Transformation):
         options: DownsampleOptions,
     ):
         super().__init__(options)
-        self.scale = options.scale
-        self.function_type = maps.get_downsample_func_by_enum(options.type)
+        self.options: DownsampleOptions = options
 
-    def run(self, images: ArrayType) -> ArrayType:
+    def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image downsampling functions"""
         if self.enabled:
-            return self.function_type(images, self.scale)
+            self.function = device_handling_wrapper(
+                func=maps.get_downsample_func_by_enum(self.options.type),
+                options=self.options.device_options,
+                chunkable_inputs_for_gpu_idx=...,
+                pinned_results=pinned_results,
+            )
+            return self.function_type(images, self.options.scale)
         else:
             return images
 

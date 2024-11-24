@@ -1,3 +1,4 @@
+from Typing import Optional
 import numpy as np
 import cupy as cp
 import scipy
@@ -152,10 +153,8 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     # Downsample the image
     with scipy.fft.set_backend(fft_backend):
         images = scipy.fft.fft2(images)
-
         # apply +/-0.5 px shift
         images = image_shift_fft(images, xp.array([[-0.5, -0.5]], dtype=r_type), applyFFT=False)
-
         # crop in the Fourier space
         images = scipy.fft.ifftshift(
             image_crop_pad(
@@ -165,24 +164,62 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
             ),
             axes=(1, 2),
         )
-
         # apply -/+0.5 px shift in the cropped space
         images = image_shift_fft(images, xp.array([[0.5, 0.5]]), applyFFT=False)
-
         images = scipy.fft.ifft2(images)
-
         # scale to keep the average constant
         images = images * scale
-
         # remove the padding
         a = int(pad_by / 2)
         images = images[:, a : (image_size_new[0] - a), a : (image_size_new[1] - a)]
 
-        # if is_real:
-        #     images = xp.real(images)
-
     return images
 
 
-def image_downsample_linear(images: ArrayType, scale: int) -> ArrayType:
-    pass
+def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[ArrayType]) -> ArrayType:
+    # If memory serves, this is not parallelizable on the gpus
+    xp = cp.get_array_module(images)
+    scipy_module = get_scipy_module(images)
+    interpolator = scipy_module.interpolate.RegularGridInterpolator
+
+    n_z, n_x, n_y = images.shape
+    X = xp.arange(0, n_x, dtype=int)
+    Y = xp.arange(0, n_y, dtype=int)
+
+    n = n_z  # temporary until I remember why I wanted the option to change this
+    n_iter = int(np.ceil(n_z / n))
+    if scale != 1:
+        new_n_x = int(round(n_x / scale))
+        new_n_y = int(round(n_y / scale))
+        new_images = xp.zeros((n_z, new_n_x, new_n_y), dtype=images.dtype)
+    else:
+        new_n_x = n_x
+        new_n_y = n_y
+        new_images = images
+    for i in range(n_iter):
+        start_idx = n * i
+        end_idx = max(n_z, n * (i + 1))
+        # Create the interpolation function
+        x0 = xp.arange(0, n_x, dtype=images.dtype)
+        y0 = xp.arange(0, n_y, dtype=images.dtype)
+        z0 = xp.arange(0, end_idx - start_idx, dtype=images.dtype)
+        interp_function = interpolator(
+            (z0, x0, y0), images[start_idx:end_idx], bounds_error=False, fill_value=images.dtype(0)
+        )
+        # Define the new coordinates
+        x0 = np.linspace(x0[0], x0[-1], new_n_x, dtype=images.dtype)
+        y0 = np.linspace(y0[0], y0[-1], new_n_y, dtype=images.dtype)
+
+        Z, X, Y = xp.meshgrid(z0, x0, y0, indexing="ij")
+        X = X + xp.array(-shift[start_idx:end_idx, 1], dtype=images.dtype, ndmin=3).transpose(
+            [2, 0, 1]
+        )
+        Y = Y + xp.array(-shift[start_idx:end_idx, 0], dtype=images.dtype, ndmin=3).transpose(
+            [2, 0, 1]
+        )
+
+        # Get the interpolated function at the new coordinates
+        # Would be better to find a way to do this that doesn't require
+        # recasting the float64 to float32!
+        new_images[start_idx:end_idx] = interp_function((Z, X, Y))
+    images = new_images
