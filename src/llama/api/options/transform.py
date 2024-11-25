@@ -3,7 +3,7 @@ import dataclasses
 from dataclasses import field
 from typing import Union
 import numpy as np
-from llama.api.enums import ShiftType, DownsampleType
+from llama.api.enums import ShiftType, DownsampleType, UpsampleType
 from llama.api.options.device import DeviceOptions
 
 
@@ -33,6 +33,17 @@ class DownsampleOptions(TransformOptions):
     type: DownsampleType = DownsampleType.FFT
 
     scale: int = 1
+
+    enabled: bool = False
+
+    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+
+
+@dataclasses.dataclass
+class UpsampleOptions(TransformOptions):
+    type: UpsampleType = UpsampleType.NEAREST
+
+    scale: float = 1.0
 
     enabled: bool = False
 

@@ -1,4 +1,8 @@
 import dataclasses
+from dataclasses import field
+from llama.api.options.device import DeviceOptions
+from llama.api.options.transform import DownsampleOptions, UpsampleOptions
+from llama.api import enums
 
 
 @dataclasses.dataclass
@@ -14,6 +18,18 @@ class ExperimentOptions:
 
 @dataclasses.dataclass
 class MaskOptions:
+    # downsample_options = DownsampleOptions = field(default_factory=DownsampleOptions)
+    downsample_options = DownsampleOptions(
+        type=enums.DownsampleType.NEAREST,
+        scale=4,
+        enabled=True,
+        device_options=DeviceOptions(enums.DeviceType.CPU),
+    )
+
+    # upsample_options = UpsampleOptions(
+    #     type=enums.UpsampleType.NEAREST, scale=4, enabled=True, device_options=enums.DeviceType.CPU
+    # )
+
     binary_close_coefficient: int = 30
 
     binary_erode_coefficient: int = 30

@@ -2,7 +2,7 @@ from typing import Callable, Union
 import numpy as np
 import cupy as cp
 
-from llama.api.enums import DownsampleType, ShiftType
+from llama.api.enums import DownsampleType, ShiftType, UpsampleType
 import llama.transformations.functions
 
 from llama.api.types import ArrayType
@@ -17,6 +17,13 @@ def get_downsample_func_by_enum(key: DownsampleType) -> Callable[[ArrayType, int
     return {
         DownsampleType.FFT: llama.transformations.functions.image_downsample_fft,
         DownsampleType.LINEAR: llama.transformations.functions.image_downsample_linear,
+        DownsampleType.NEAREST: llama.transformations.functions.image_downsample_nearest,
+    }[key]
+
+
+def get_upsample_func_by_enum(key: UpsampleType) -> Callable[[ArrayType, int], ArrayType]:
+    return {
+        UpsampleType.NEAREST: llama.transformations.functions.image_upsample_nearest,
     }[key]
 
 

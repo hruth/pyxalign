@@ -2,3 +2,4 @@
 *egg-info*
 *tests/notebooks*
 *.vscode*
+*load_test_data.py*

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import numpy as np
-from llama.api.enums import DownsampleType
+from llama.api.enums import DownsampleType, UpsampleType
 
 import llama.api.maps as maps
 from llama.api.options.transform import (
@@ -9,6 +9,7 @@ from llama.api.options.transform import (
     PreProcessingOptions,
     ShiftOptions,
     TransformOptions,
+    UpsampleOptions,
 )
 
 from llama.api.types import ArrayType
@@ -59,6 +60,27 @@ class Downsample(Transformation):
                     pinned_results=pinned_results,
                 )
                 return self.function(images, self.options.scale)
+        else:
+            return images
+
+class Upsample(Transformation):
+    def __init__(
+        self,
+        options: UpsampleOptions,
+    ):
+        super().__init__(options)
+        self.options: UpsampleOptions = options
+
+    def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
+        """Calls one of the image upsampling functions"""
+        if self.enabled:
+            self.function = device_handling_wrapper(
+                func=maps.get_upsample_func_by_enum(self.options.type),
+                options=self.options.device_options,
+                chunkable_inputs_for_gpu_idx=[0],
+                pinned_results=pinned_results,
+            )
+            return self.function(images, self.options.scale)
         else:
             return images
 

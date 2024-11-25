@@ -2,6 +2,7 @@ from typing import Optional
 import numpy as np
 import cupy as cp
 import scipy
+
 # import functools.partial as partial
 import functools
 from llama.gpu_utils import get_fft_backend, get_scipy_module
@@ -45,7 +46,6 @@ def image_crop(
 def image_crop_pad(
     images: ArrayType, new_extent_y: int, new_extent_x: int, pad_mode: str = "constant"
 ):
-    xp = cp.get_array_module(images)
     [new_extent_y, new_extent_x] = images.shape[1:]
 
     # Crop
@@ -133,6 +133,10 @@ def image_shift_circ(images: ArrayType, shift: ArrayType) -> ArrayType:
     return images
 
 
+def image_shift_linear(images: ArrayType, shift: Optional[ArrayType] = None) -> ArrayType:
+    return functools.partial(image_downsample_linear, scale=1)
+
+
 @preserve_complexity_or_realness()
 def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     xp = cp.get_array_module(images)
@@ -178,7 +182,9 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     return images
 
 
-def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[ArrayType] = None) -> ArrayType:
+def image_downsample_linear(
+    images: ArrayType, scale: int, shift: Optional[ArrayType] = None
+) -> ArrayType:
     # Note: this function also is used to shift the data if the scale is set to 0.
     # This function should not be used with complex data
     # If memory serves, parallelizing this on the gpus doesn't improve speed
@@ -203,25 +209,29 @@ def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[Array
     y0 = xp.arange(0, n_y, dtype=images.dtype)
     z0 = xp.arange(0, n_z, dtype=images.dtype)
     interp_function = interpolator(
-        (z0, x0, y0), images, bounds_error=False, fill_value=0,#fill_value=images.dtype(0)
+        (z0, x0, y0),
+        images,
+        bounds_error=False,
+        fill_value=0,  # fill_value=images.dtype(0)
     )
     # Define the new coordinates
     x0 = np.linspace(x0[0], x0[-1], new_n_x, dtype=images.dtype)
     y0 = np.linspace(y0[0], y0[-1], new_n_y, dtype=images.dtype)
 
     Z, X, Y = xp.meshgrid(z0, x0, y0, indexing="ij")
-    X = X + xp.array(-shift[:, 1], dtype=images.dtype, ndmin=3).transpose(
-        [2, 0, 1]
-    )
-    Y = Y + xp.array(-shift[:, 0], dtype=images.dtype, ndmin=3).transpose(
-        [2, 0, 1]
-    )
+    X = X + xp.array(-shift[:, 1], dtype=images.dtype, ndmin=3).transpose([2, 0, 1])
+    Y = Y + xp.array(-shift[:, 0], dtype=images.dtype, ndmin=3).transpose([2, 0, 1])
 
     # Get the interpolated function at the new coordinates
     # Would be better to find a way to do this that doesn't require
     # recasting the float64 to float32!
     new_images[:] = interp_function((Z, X, Y))
-    return new_images 
+    return new_images
 
-def image_shift_linear(images: ArrayType, shift: Optional[ArrayType] = None) -> ArrayType:
-    return functools.partial(image_downsample_linear, scale=1)
+
+def image_downsample_nearest(images: ArrayType, scale: int) -> ArrayType:
+    return images[:, ::scale, ::scale]
+
+
+def image_upsample_nearest(images: ArrayType, scale: int) -> ArrayType:
+    return images.repeat(scale, axis=1).repeat(scale, axis=2)
