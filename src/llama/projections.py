@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Optional
 import numpy as np
 import cupy as cp
 
@@ -6,6 +6,7 @@ from llama.api.options.projections import ProjectionOptions
 from llama.api.options.projections import ProjectionDeviceOptions
 import llama.gpu_utils as gpu_utils
 import llama.api.enums as enums
+from llama.mask import estimate_reliability_region_mask
 
 # from llama.plotting.plotters import make_image_slider_plot
 import llama.plotting.plotters as plotters
@@ -20,9 +21,10 @@ class Projections:
         self,
         projections: np.ndarray,
         angles: np.ndarray,
-        options: ProjectionOptions = None,
+        options: ProjectionOptions,
     ):
         self.data = projections
+        self.options = options
         # self.data = PreProcess(options.pre_processing_options).run(projections)
         self.angles = angles
         # # device management will need work!
@@ -61,6 +63,11 @@ class Projections:
 
     def plot_sum_of_projections(self, process_function: callable = lambda x: x):
         plotters.plot_sum_of_images(process_function(self.data))
+
+    def get_masks(self, enable_plotting: bool = False):
+        self.masks = estimate_reliability_region_mask(
+            self.data, self.options.mask_options, enable_plotting
+        )
 
 
 class ComplexProjections(Projections):

@@ -1,5 +1,5 @@
 from llama.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
-from llama.api.options.options import EstimateCenterOptions, ExperimentOptions, PhaseRampRemovalOptions, WeightsOptions
+from llama.api.options.options import EstimateCenterOptions, ExperimentOptions, PhaseRampRemovalOptions, MaskOptions
 import dataclasses
 from dataclasses import field
 from llama.api.options.reconstruct import AstraReconstructOptions
@@ -17,7 +17,7 @@ class AlignmentTaskOptions:
 
     astra_gpu_options: AstraReconstructOptions = field(default_factory=AstraReconstructOptions)
 
-    weights_options: WeightsOptions = field(default_factory=WeightsOptions)
+    mask_options: MaskOptions = field(default_factory=MaskOptions)
 
     estimate_center_options: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)
 

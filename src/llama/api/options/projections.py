@@ -2,7 +2,7 @@ from dataclasses import field
 import llama.api.enums as enums
 import dataclasses
 
-from llama.api.options.options import ExperimentOptions
+from llama.api.options.options import ExperimentOptions, MaskOptions
 from llama.api.options.transform import PreProcessingOptions
 
 
@@ -17,8 +17,10 @@ class ProjectionDeviceOptions:
 class ProjectionOptions:
     experiment_options: ExperimentOptions = field(default_factory=ExperimentOptions)
 
-    pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
+    # pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
     projection_device_options: ProjectionDeviceOptions = field(
         default_factory=ProjectionDeviceOptions
     )
+
+    mask_options: MaskOptions = field(default_factory=MaskOptions)

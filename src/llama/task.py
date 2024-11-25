@@ -1,6 +1,7 @@
 from typing import List
 import numpy as np
 from llama.api.options.alignment import AlignmentOptions
+from llama.mask import estimate_reliability_region_mask
 from llama.projections import ComplexProjections, PhaseProjections, Projections
 from llama.alignment.cross_correlation import CrossCorrelationAligner
 from llama.alignment.projection_matching import ProjectionMatchingAligner
@@ -31,6 +32,9 @@ class LaminographyAlignmentTask:
     def apply_staged_shift(self):
         self.shift_manager.apply_staged_shift(self.projections)
 
+    def get_complex_projection_masks(self, enable_plotting: bool = False):
+        self.projections.get_masks(enable_plotting)
+
 
 class ShiftManager:
     def __init__(self, n_projections: int):
@@ -59,9 +63,7 @@ class ShiftManager:
 
     def apply_staged_shift(self, projections: Projections):
         if self.is_shift_nonzero():
-            image_shift_function = maps.get_shift_func_by_enum(
-                self.staged_function_type
-            )
+            image_shift_function = maps.get_shift_func_by_enum(self.staged_function_type)
             projections.data = image_shift_function(projections.data, self.staged_shift)
             self.unstage_shift()
         else:

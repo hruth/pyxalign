@@ -13,7 +13,7 @@ class ExperimentOptions:
 
 
 @dataclasses.dataclass
-class WeightsOptions:
+class MaskOptions:
     binary_close_coefficient: int = 30
 
     binary_erode_coefficient: int = 30
@@ -35,7 +35,3 @@ class PhaseRampRemovalOptions:
     iterations: int = 5
 
     downsampling: int = 8
-
-
-
-
