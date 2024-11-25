@@ -176,7 +176,7 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     return images
 
 
-def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[ArrayType]) -> ArrayType:
+def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[ArrayType] = None) -> ArrayType:
     # If memory serves, this is not parallelizable on the gpus
     xp = cp.get_array_module(images)
     scipy_module = get_scipy_module(images)

@@ -37,6 +37,8 @@ class Downsample(Transformation):
     def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image downsampling functions"""
         if self.enabled:
+            # if self.options.type is 
+            #RESUME HERE
             self.function = device_handling_wrapper(
                 func=maps.get_downsample_func_by_enum(self.options.type),
                 options=self.options.device_options,
