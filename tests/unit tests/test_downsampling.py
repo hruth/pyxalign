@@ -178,6 +178,6 @@ if __name__ == "__main__":
     # args.skip_comparison=True
 
     test_linear_downsample_class_cpu(None, args.overwrite_results, not args.skip_comparison)
-    # test_linear_downsample_class_gpu(None, args.overwrite_results, not args.skip_comparison)
-    # test_linear_downsample_class_multigpu(None, args.overwrite_results, not args.skip_comparison)
+    test_linear_downsample_class_gpu(None, args.overwrite_results, not args.skip_comparison)
+    test_linear_downsample_class_multigpu(None, args.overwrite_results, not args.skip_comparison)
 
