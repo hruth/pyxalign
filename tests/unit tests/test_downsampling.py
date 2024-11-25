@@ -2,6 +2,7 @@ import argparse
 import time
 import h5py
 import numpy as np
+import pytest
 from llama.api.options.device import DeviceOptions, GPUOptions
 
 from llama.api.options.projections import ProjectionOptions
@@ -29,9 +30,9 @@ def downsample_projections(
     apply_shift: bool = False,
     scale: int = scale,
 ):
+    shift_array_size = (complex_projections.n_projections, 2)
     if apply_shift:
         n_images = len(complex_projections.angles)
-        shift_array_size = (complex_projections.n_projections, 2)
         shift = (
             np.zeros(shift_array_size)
             + np.linspace(0, complex_projections.data.shape[2], n_images)[:, None]
@@ -168,6 +169,49 @@ def test_linear_downsample_class_multigpu(pytestconfig, overwrite_results=False,
         check_results,
     )
 
+@pytest.mark.skip(reason="Skipping this test because I don't expect it to pass, but might want to check it later.")
+def test_seperate_shift(pytestconfig, overwrite_results=False, check_results=True):
+    if pytestconfig is not None:
+        overwrite_results = pytestconfig.getoption("overwrite_results")
+    test_name = "test_seperate_shift"
+    comparison_test_name = "test_linear_downsample_class_cpu"
+    complex_projections = tutils.prepare_data(filename)
+
+    processed_projections = downsample_projections(
+        complex_projections=complex_projections,
+        device_type=enums.DeviceType.GPU,
+        downsample_type=enums.DownsampleType.LINEAR,
+        chunking_enabled=True,
+        n_gpus=5,
+        gpu_indices=(0, 1, 2, 3, 4),
+        chunk_length=100,
+        apply_shift=True,
+        scale=1,
+    )
+    processed_projections = ComplexProjections(
+        processed_projections, complex_projections.angles, ProjectionOptions()
+    )
+    processed_projections = downsample_projections(
+        complex_projections=processed_projections,
+        device_type=enums.DeviceType.GPU,
+        downsample_type=enums.DownsampleType.LINEAR,
+        chunking_enabled=True,
+        n_gpus=5,
+        gpu_indices=(0, 1, 2, 3, 4),
+        chunk_length=100,
+        apply_shift=False,
+        scale=scale,
+    )
+    check_size(complex_projections, processed_projections, scale)
+    tutils.check_or_record_results(
+        processed_projections,
+        test_name,
+        comparison_test_name,
+        overwrite_results,
+        tutils.ResultType.PROJECTIONS_COMPLEX,
+        check_results,
+    )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -180,4 +224,3 @@ if __name__ == "__main__":
     test_linear_downsample_class_cpu(None, args.overwrite_results, not args.skip_comparison)
     test_linear_downsample_class_gpu(None, args.overwrite_results, not args.skip_comparison)
     test_linear_downsample_class_multigpu(None, args.overwrite_results, not args.skip_comparison)
-

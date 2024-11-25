@@ -56,16 +56,38 @@ def load_input_projection_data(filename: str) -> tuple[np.ndarray, np.ndarray]:
 
 
 def compare_data(
-    data: np.ndarray, comparison_test_name: str, variable_type: ResultType, atol=1e-3, rtol=1e-3
+    data: np.ndarray,
+    comparison_test_name: str,
+    variable_type: ResultType,
+    atol=1e-3,
+    rtol=1e-3,
 ):
     filepath = generate_results_path(comparison_test_name, variable_type)
     old_data = np.load(filepath)
+    print_comparison_stats(data, old_data)
     if not np.allclose(data, old_data, atol=atol, rtol=rtol):
         raise AssertionError
 
 
+def print_comparison_stats(data: np.ndarray, old_data: np.ndarray):
+    diffs = data - old_data
+    print("Maximum absolute value of difference:", np.max(np.abs(diffs)))
+    print("Sum of absolute value of difference:", np.abs(diffs).sum())
+    print("Sum of absolute value of new result:", np.abs(data).sum())
+    print("Sum of absolute value of comparison result:", np.abs(old_data).sum())
+
+
+def get_frame(string: str, h_frame: str, v_frame: str):
+    pass_string = (" {} PASSED ").format(string)
+    frame_length = len(pass_string) + 2 * len(v_frame)
+    h_frame = h_frame * int(np.ceil(frame_length / len(h_frame)))
+    framed_string = h_frame + "\n" + v_frame + pass_string + v_frame + "\n" + h_frame
+    return framed_string
+
+
 def print_passed_string(test_name: str):
-    print("{} PASSED".format(test_name))
+    result_string = get_frame(test_name, "*~", "******")
+    print(result_string)
 
 
 def check_or_record_results(
@@ -87,7 +109,9 @@ def check_or_record_results(
 def prepare_data(filename) -> ComplexProjections:
     complex_projections, angles = load_input_projection_data(filename)
     projection_options = ProjectionOptions()
-    complex_projections = ComplexProjections(complex_projections, angles, projection_options)
+    complex_projections = ComplexProjections(
+        complex_projections, angles, projection_options
+    )
     return complex_projections
 
 

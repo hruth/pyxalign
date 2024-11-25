@@ -180,7 +180,8 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
 
 def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[ArrayType] = None) -> ArrayType:
     # Note: this function also is used to shift the data if the scale is set to 0.
-    # If memory serves, this is not parallelizable on the gpus
+    # This function should not be used with complex data
+    # If memory serves, parallelizing this on the gpus doesn't improve speed
     xp = cp.get_array_module(images)
     scipy_module = get_scipy_module(images)
     interpolator = scipy_module.interpolate.RegularGridInterpolator
