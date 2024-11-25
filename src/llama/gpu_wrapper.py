@@ -8,7 +8,7 @@ from llama import gpu_utils
 from llama.api.enums import DeviceType
 from llama.api.options.device import DeviceOptions, GPUOptions
 
-from llama.api.types import ArrayType, r_type, c_type
+from llama.api.types import ArrayType
 
 # To do:
 # 1) check gpu profiling results with nsight-sys

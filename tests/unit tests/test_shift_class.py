@@ -1,9 +1,7 @@
 import argparse
 import time
-import h5py
 import numpy as np
 
-from llama.api.options.projections import ProjectionOptions
 from llama.gpu_utils import is_pinned
 from llama.projections import ComplexProjections
 from llama.api.options.transform import ShiftOptions
@@ -11,7 +9,7 @@ from llama.transformations.classes import Shifter
 from llama.api import enums
 
 import llama.test_utils as tutils
-from llama.api.types import ArrayType, r_type, c_type
+from llama.api.types import r_type
 
 filename = "cSAXS_projections_downsampling16.h5"
 repeat_array = False

@@ -1,5 +1,3 @@
-from functools import wraps
-from types import ModuleType
 from typing import List
 import cupy as cp
 import scipy
@@ -8,9 +6,8 @@ import cupyx.scipy.signal
 import cupyx.scipy.interpolate
 import cupyx.scipy.fft as cufft
 import numpy as np
-from typing import Sequence, Union
+from typing import Union
 import llama.api.enums as enums
-from llama.api.options.device import DeviceOptions
 
 from llama.api.types import ArrayType
 
@@ -88,28 +85,3 @@ def get_scipy_module(array: ArrayType):  # , submodule: enums.SciPySubmodules) -
         scipy_module = cupyx.scipy
 
     return scipy_module
-
-
-def function_compute_device_manager(
-    array_to_move_indices: Sequence[int] = [0],
-    array_on_cpu_indices: Sequence[int] = [],
-    single_array_input: Sequence[int] = [],
-):
-    """Wrapper for functions that have the option of being run on the CPU, the GPU, or multiple GPUs."""
-
-    def inner_func(func):
-        def wrapper(*args, **kwargs):
-            # Device settings need to be passed in from the function kwargs
-            # Would really like to find a better way of doing this
-            if "device_options" not in kwargs.keys():
-                # handle the default case here
-                pass
-            else:
-                device_options = kwargs["device_options"]
-
-            # Implementation to be added here
-
-            func(*args, **kwargs)
-            return wrapper
-
-    return inner_func

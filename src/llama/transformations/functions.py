@@ -8,7 +8,7 @@ import functools
 from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
 
-from llama.api.types import ArrayType, r_type, c_type
+from llama.api.types import ArrayType, r_type
 
 
 def image_crop(
