@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Union
 from llama.projections import PhaseProjections
-from llama.api.options.projections import ProjectionDeviceOptions
+from llama.api.options.projections import ProjectionDevice
 from llama.transformations.functions import image_shift_fft
 import llama.api.enums as enums
 from llama.api.options.alignment import ProjectionMatchingOptions
@@ -30,7 +30,7 @@ class ProjectionMatchingAligner:
         # within PMA functions and by settign astra functions.
 
         # Option 2)
-        device_options = ProjectionDeviceOptions(pin_memory=False, device_type=enums.DeviceType.GPU)
+        device_options = ProjectionDevice(pin_memory=False, device_type=enums.DeviceType.GPU)
 
         # Make the Projections object
         self.unshifted_projections = PhaseProjections(

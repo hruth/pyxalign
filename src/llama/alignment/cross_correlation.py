@@ -10,10 +10,10 @@ from llama.gpu_wrapper import device_handling_wrapper
 import llama.image_processing as ip
 from llama.projections import Projections
 from llama.api.options.alignment import CrossCorrelationOptions
-from llama.gpu_utils import function_compute_device_manager, get_scipy_module, pin_memory
+from llama.gpu_utils import get_scipy_module, pin_memory
 from llama.api.options.device import DeviceOptions
 from llama.api import enums
-from llama.transformations.classes import PreProcess
+from llama.transformations.classes import PreProcesser
 from llama.transformations.functions import image_shift_circ
 from llama.api.types import ArrayType
 
@@ -55,16 +55,16 @@ class CrossCorrelationAligner(Aligner):
 
         get_variation_wrapped = device_handling_wrapper(
             func=self.get_variation,
-            options=self.options.device_options,
+            options=self.options.device,
             chunkable_inputs_for_gpu_idx=[0],
             common_inputs_for_gpu_idx=[1],
         )
         variation = get_variation_wrapped(projections, weights, self.options.binning)
 
         # Ensure the array is on a single device for the rest of the calculations
-        if self.options.device_options is enums.DeviceType.CPU:
+        if self.options.device is enums.DeviceType.CPU:
             variation = np.array(variation)
-        elif self.options.device_options is enums.DeviceType.GPU:
+        elif self.options.device is enums.DeviceType.GPU:
             variation = cp.array(variation)
 
         idx_sort = np.argsort(angles)

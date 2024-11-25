@@ -7,20 +7,14 @@ from llama.api.options.reconstruct import AstraReconstructOptions
 
 @dataclasses.dataclass
 class AlignmentTaskOptions:
-    cross_correlation_options: CrossCorrelationOptions = field(
-        default_factory=CrossCorrelationOptions
-    )
+    cross_correlation: CrossCorrelationOptions = field(default_factory=CrossCorrelationOptions)
 
-    projection_matching_options: ProjectionMatchingOptions = field(
-        default_factory=ProjectionMatchingOptions
-    )
+    projection_matching: ProjectionMatchingOptions = field(default_factory=ProjectionMatchingOptions)
 
-    astra_gpu_options: AstraReconstructOptions = field(default_factory=AstraReconstructOptions)
+    astra_gpu: AstraReconstructOptions = field(default_factory=AstraReconstructOptions)
 
-    mask_options: MaskOptions = field(default_factory=MaskOptions)
+    mask: MaskOptions = field(default_factory=MaskOptions)
 
-    estimate_center_options: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)
+    estimate_center: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)
 
-    phase_ramp_removal_options: PhaseRampRemovalOptions = field(
-        default_factory=PhaseRampRemovalOptions
-    )
+    phase_ramp_removal: PhaseRampRemovalOptions = field(default_factory=PhaseRampRemovalOptions)

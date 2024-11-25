@@ -10,9 +10,9 @@ from llama.api.options.transform import PreProcessingOptions
 class AlignmentOptions(ABC):
     # gpu_options: GPUOptions = field(default_factory=GPUOptions)
 
-    pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
+    pre_processing: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
-    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+    device: DeviceOptions = field(default_factory=DeviceOptions)
     # @property
     # @abstractmethod
     # def gpu_options(self) -> GPUOptions:
@@ -37,11 +37,11 @@ class CrossCorrelationOptions(AlignmentOptions):
     precision: float = 0.01
 
     # Inherited and overwritten follows:
-    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+    device: DeviceOptions = field(default_factory=DeviceOptions)
 
     # gpu_options: GPUOptions = field(default_factory=GPUOptions)
 
-    pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
+    pre_processing: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
 
 @dataclasses.dataclass
@@ -58,7 +58,7 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     local_TV_lambda: float = 3e-4
 
-    astra_gpu_options: AstraReconstructOptions = field(default_factory=GPUOptions)
+    astra_gpu: AstraReconstructOptions = field(default_factory=GPUOptions)
 
     # Inherited and overwritten follows:
     device_options: DeviceOptions = field(default_factory=DeviceOptions)

@@ -19,7 +19,7 @@ class ExperimentOptions:
 @dataclasses.dataclass
 class MaskOptions:
     # downsample_options = DownsampleOptions = field(default_factory=DownsampleOptions)
-    downsample_options = DownsampleOptions(
+    downsample = DownsampleOptions(
         type=enums.DownsampleType.NEAREST,
         scale=4,
         enabled=True,

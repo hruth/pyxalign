@@ -7,7 +7,7 @@ from llama.api.options.transform import PreProcessingOptions
 
 
 @dataclasses.dataclass
-class ProjectionDeviceOptions:
+class ProjectionDevice:
     pin_memory: bool = False
 
     device_type: enums.DeviceType = enums.DeviceType.CPU
@@ -15,12 +15,12 @@ class ProjectionDeviceOptions:
 
 @dataclasses.dataclass
 class ProjectionOptions:
-    experiment_options: ExperimentOptions = field(default_factory=ExperimentOptions)
+    experiment: ExperimentOptions = field(default_factory=ExperimentOptions)
 
     # pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
-    projection_device_options: ProjectionDeviceOptions = field(
-        default_factory=ProjectionDeviceOptions
+    projection_device: ProjectionDevice = field(
+        default_factory=ProjectionDevice
     )
 
-    mask_options: MaskOptions = field(default_factory=MaskOptions)
+    mask: MaskOptions = field(default_factory=MaskOptions)

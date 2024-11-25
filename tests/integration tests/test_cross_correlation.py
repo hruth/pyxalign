@@ -51,9 +51,9 @@ def test_cross_correlation_shift_gpu(pytestconfig, overwrite_results=False):
     complex_projections = ComplexProjections(complex_projections, angles, projection_options)
 
     task_options = AlignmentTaskOptions()
-    task_options.cross_correlation_options.device_options.device_type = enums.DeviceType.GPU
-    task_options.cross_correlation_options.device_options.gpu_options.chunking_enabled = True
-    task_options.cross_correlation_options.device_options.gpu_options.chunk_length = 10
+    task_options.cross_correlation.device.device_type = enums.DeviceType.GPU
+    task_options.cross_correlation.device.gpu.chunking_enabled = True
+    task_options.cross_correlation.device.gpu.chunk_length = 10
     task = LaminographyAlignmentTask(complex_projections, task_options)
 
     task.get_cross_correlation_shift()

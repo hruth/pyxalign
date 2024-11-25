@@ -9,7 +9,7 @@ from llama.api.options.projections import ProjectionOptions
 from llama.gpu_utils import is_pinned
 from llama.projections import ComplexProjections
 from llama.api.options.transform import DownsampleOptions, ShiftOptions
-from llama.transformations.classes import Downsample, Shifter
+from llama.transformations.classes import Downsampler, Shifter
 from llama.api import enums
 
 import llama.test_utils as tutils
@@ -46,11 +46,11 @@ def downsample_projections(
         n_gpus=n_gpus,
         gpu_indices=gpu_indices,
     )
-    device_options = DeviceOptions(device_type=device_type, gpu_options=gpu_options)
+    device_options = DeviceOptions(device_type=device_type, gpu=gpu_options)
     downsample_options = DownsampleOptions(
         type=downsample_type, scale=scale, enabled=True, device_options=device_options
     )
-    downsampler = Downsample(downsample_options)
+    downsampler = Downsampler(downsample_options)
     processed_projections = downsampler.run(complex_projections.data, shift)
 
     return processed_projections

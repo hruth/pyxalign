@@ -332,7 +332,7 @@ def device_handling_wrapper(
         ### case 2: on gpu, multiple chunks, and potentially multiple GPUs ###
         inputs = InputArgumentsHandler(
             args,
-            options.gpu_options,
+            options.gpu,
             chunkable_inputs_for_gpu_idx,
             chunkable_inputs_for_cpu_idx,
             common_inputs_for_gpu_idx,

@@ -29,7 +29,7 @@ class Transformation(ABC):
         pass
 
 
-class Downsample(Transformation):
+class Downsampler(Transformation):
     def __init__(
         self,
         options: DownsampleOptions,
@@ -63,7 +63,7 @@ class Downsample(Transformation):
         else:
             return images
 
-class Upsample(Transformation):
+class Upsampler(Transformation):
     def __init__(
         self,
         options: UpsampleOptions,
@@ -109,7 +109,7 @@ class Shifter(Transformation):
             return images
 
 
-class PreProcess(Transformation):
+class PreProcesser(Transformation):
     def __init__(
         self,
         options: PreProcessingOptions,
@@ -122,7 +122,7 @@ class PreProcess(Transformation):
         # To add:
         # shift
         # crop
-        images = Downsample(self.options.downsample_options).run(images)
+        images = Downsampler(self.options.downsample_options).run(images)
         return images
 
 

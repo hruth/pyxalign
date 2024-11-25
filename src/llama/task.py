@@ -15,7 +15,7 @@ class LaminographyAlignmentTask:
         self.options = options
         self.projections = projections
         self.cross_correlation_aligner = CrossCorrelationAligner(
-            self.projections, self.options.cross_correlation_options
+            self.projections, self.options.cross_correlation
         )
         self.shift_manager = ShiftManager(projections.n_projections)
 
@@ -23,7 +23,7 @@ class LaminographyAlignmentTask:
         self.illum_sum = np.ones_like(self.projections.data[0])  # Temporary placeholder
         shift = self.cross_correlation_aligner.run(self.illum_sum)
         self.shift_manager.stage_shift(
-            shift, enums.ShiftType.CIRC, self.options.cross_correlation_options
+            shift, enums.ShiftType.CIRC, self.options.cross_correlation
         )
         print("Cross-correlation shift stored in shift_history")
 

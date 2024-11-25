@@ -37,10 +37,10 @@ def shift_projections(
     shift_options.enabled = True
     shift_options.device_options.device_type = device_type
     shift_options.type = shift_type
-    shift_options.device_options.gpu_options.chunk_length = chunk_length
-    shift_options.device_options.gpu_options.chunking_enabled = chunking_enabled
-    shift_options.device_options.gpu_options.n_gpus = n_gpus
-    shift_options.device_options.gpu_options.gpu_indices = gpu_indices
+    shift_options.device_options.gpu.chunk_length = chunk_length
+    shift_options.device_options.gpu.chunking_enabled = chunking_enabled
+    shift_options.device_options.gpu.n_gpus = n_gpus
+    shift_options.device_options.gpu.gpu_indices = gpu_indices
     shifter = Shifter(shift_options)
     shifted_projections = shifter.run(
         complex_projections.data, shift, pinned_results=complex_projections.data

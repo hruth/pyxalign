@@ -54,7 +54,7 @@ def initialize_input_positions_test(
         n_gpus=n_gpus,
         gpu_indices=gpu_indices,
     )
-    device_options = DeviceOptions(device_type=device_type, gpu_options=gpu_options)
+    device_options = DeviceOptions(device_type=device_type, gpu=gpu_options)
     true_result = example_function(a, b, c, d, e, f, g, wrapped=False, return_tuple=return_tuple)
     return device_options, true_result
 

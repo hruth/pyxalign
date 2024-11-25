@@ -21,4 +21,4 @@ class GPUOptions:
 class DeviceOptions:
     device_type: enums.DeviceType = enums.DeviceType.CPU
 
-    gpu_options: GPUOptions = field(default_factory=GPUOptions)
+    gpu: GPUOptions = field(default_factory=GPUOptions)

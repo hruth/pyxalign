@@ -7,7 +7,7 @@ import llama.gpu_utils as gpu_utils
 from llama.mask import estimate_reliability_region_mask
 
 import llama.plotting.plotters as plotters
-from llama.transformations.classes import Downsample, Upsample
+from llama.transformations.classes import Downsampler, Upsampler
 from llama.transformations.functions import image_shift_fft
 
 
@@ -60,8 +60,8 @@ class Projections:
         plotters.plot_sum_of_images(process_function(self.data))
 
     def get_masks(self, enable_plotting: bool = False):
-        mask_options = self.options.mask_options
-        downsample_options = self.options.mask_options.downsample_options
+        mask_options = self.options.mask
+        downsample_options = self.options.mask.downsample
         updated_mask_options = copy.deepcopy(mask_options)
         scale = downsample_options.scale
         updated_mask_options.binary_close_coefficient = (
@@ -73,7 +73,7 @@ class Projections:
         updated_mask_options.fill = mask_options.fill / scale
         # Calculate masks
         self.masks = estimate_reliability_region_mask(
-            images=Downsample(downsample_options).run(self.data),
+            images=Downsampler(downsample_options).run(self.data),
             options=updated_mask_options,
             enable_plotting=enable_plotting,
         )
@@ -81,7 +81,7 @@ class Projections:
         upsample_options = UpsampleOptions(
             scale=downsample_options.scale, enabled=downsample_options.enabled
         )
-        return Upsample(upsample_options).run(self.masks)
+        return Upsampler(upsample_options).run(self.masks)
 
 
 class ComplexProjections(Projections):
