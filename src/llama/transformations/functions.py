@@ -1,7 +1,9 @@
-from Typing import Optional
+from typing import Optional
 import numpy as np
 import cupy as cp
 import scipy
+# import functools.partial as partial
+import functools
 from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
 
@@ -177,6 +179,7 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
 
 
 def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[ArrayType] = None) -> ArrayType:
+    # Note: this function also is used to shift the data if the scale is set to 0.
     # If memory serves, this is not parallelizable on the gpus
     xp = cp.get_array_module(images)
     scipy_module = get_scipy_module(images)
@@ -186,7 +189,7 @@ def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[Array
     X = xp.arange(0, n_x, dtype=int)
     Y = xp.arange(0, n_y, dtype=int)
 
-    n = n_z  # temporary until I remember why I wanted the option to change this
+    n = n_z  # temporary until I remember why I wanted the option to change this. Is it chunking?
     n_iter = int(np.ceil(n_z / n))
     if scale != 1:
         new_n_x = int(round(n_x / scale))
@@ -204,7 +207,7 @@ def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[Array
         y0 = xp.arange(0, n_y, dtype=images.dtype)
         z0 = xp.arange(0, end_idx - start_idx, dtype=images.dtype)
         interp_function = interpolator(
-            (z0, x0, y0), images[start_idx:end_idx], bounds_error=False, fill_value=images.dtype(0)
+            (z0, x0, y0), images[start_idx:end_idx], bounds_error=False, fill_value=0,#fill_value=images.dtype(0)
         )
         # Define the new coordinates
         x0 = np.linspace(x0[0], x0[-1], new_n_x, dtype=images.dtype)
@@ -222,4 +225,7 @@ def image_downsample_linear(images: ArrayType, scale: int, shift: Optional[Array
         # Would be better to find a way to do this that doesn't require
         # recasting the float64 to float32!
         new_images[start_idx:end_idx] = interp_function((Z, X, Y))
-    images = new_images
+    return new_images 
+
+def image_shift_linear(images: ArrayType, shift: Optional[ArrayType] = None) -> ArrayType:
+    return functools.partial(image_downsample_linear, scale=1)

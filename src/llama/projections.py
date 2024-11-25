@@ -22,7 +22,8 @@ class Projections:
         angles: np.ndarray,
         options: ProjectionOptions = None,
     ):
-        self.data = PreProcess(options.pre_processing_options).run(projections)
+        self.data = projections
+        # self.data = PreProcess(options.pre_processing_options).run(projections)
         self.angles = angles
         # # device management will need work!
         # if options.projection_device_options.pin_memory:

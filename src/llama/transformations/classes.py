@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import numpy as np
+from llama.api.enums import DownsampleType
 
 import llama.api.maps as maps
 from llama.api.options.transform import (
@@ -12,6 +13,7 @@ from llama.api.options.transform import (
 
 from llama.api.types import ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
+# from llama.api import enums
 
 
 class Transformation(ABC):
@@ -34,18 +36,29 @@ class Downsample(Transformation):
         super().__init__(options)
         self.options: DownsampleOptions = options
 
-    def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
+    def run(
+        self, images: ArrayType, shift: Optional[ArrayType] = None, pinned_results: Optional[np.ndarray] = None
+    ) -> ArrayType:
         """Calls one of the image downsampling functions"""
+        # Note: currently the linear downsampling function also has the option to shift 
+        # the inputs.
         if self.enabled:
-            # if self.options.type is 
-            #RESUME HERE
-            self.function = device_handling_wrapper(
-                func=maps.get_downsample_func_by_enum(self.options.type),
-                options=self.options.device_options,
-                chunkable_inputs_for_gpu_idx=...,
-                pinned_results=pinned_results,
-            )
-            return self.function_type(images, self.options.scale)
+            if self.options.type is DownsampleType.LINEAR:
+                self.function = device_handling_wrapper(
+                    func=maps.get_downsample_func_by_enum(self.options.type),
+                    options=self.options.device_options,
+                    chunkable_inputs_for_gpu_idx=[0, 2],
+                    pinned_results=pinned_results,
+                )
+                return self.function(images, self.options.scale, shift)
+            else:
+                self.function = device_handling_wrapper(
+                    func=maps.get_downsample_func_by_enum(self.options.type),
+                    options=self.options.device_options,
+                    chunkable_inputs_for_gpu_idx=[0],
+                    pinned_results=pinned_results,
+                )
+                return self.function(images, self.options.scale)
         else:
             return images
 
