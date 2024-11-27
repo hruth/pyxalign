@@ -1,3 +1,5 @@
+from functools import wraps
+import traceback
 from typing import List, Optional
 import cupy as cp
 import scipy
@@ -115,3 +117,26 @@ def get_scipy_module(array: ArrayType):  # , submodule: enums.SciPySubmodules) -
         scipy_module = cupyx.scipy
 
     return scipy_module
+
+
+def memory_releasing_error_handler(func, show_info: bool = False):
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as ex:
+            # except cp.cuda.memory.OutOfMemoryError as ex:
+            print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+            traceback.print_exc()
+        finally:
+            for gpu in get_available_gpus():
+                with cp.cuda.Device(gpu):
+                    if show_info:
+                        print_gpu_memory_use()
+
+                    cp.get_default_memory_pool().free_all_blocks()
+
+                    if show_info:
+                        print_gpu_memory_use()
+
+    return wrapped

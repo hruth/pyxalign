@@ -21,8 +21,7 @@ def filtered_fft(image: ArrayType, shift: ArrayType, filter_data: float) -> Arra
     )  # Should be moved into the cross-correlation function
 
     spatial_filter = xp.array(
-        scipy_module.signal.windows.tukey(nx, 0.3)[:, None]
-        * scipy_module.signal.windows.tukey(ny, 0.3)[None, :],
+        scipy.signal.windows.tukey(nx, 0.3)[:, None] * scipy.signal.windows.tukey(ny, 0.3)[None, :],
         dtype=r_type,
     )
     image = image - xp.mean(image)

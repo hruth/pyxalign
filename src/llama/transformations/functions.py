@@ -102,7 +102,7 @@ def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
         / shape[2]
     )
     X = (x * x_grid)[:, None, :]
-    X = xp.exp(-2j * xp.pi * X)
+    X = xp.exp(-2j * np.pi * X)
 
     y_grid = (
         scipy_module.fft.ifftshift(

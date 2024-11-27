@@ -10,14 +10,10 @@ from llama.gpu_wrapper import device_handling_wrapper
 import llama.image_processing as ip
 from llama.projections import Projections
 from llama.api.options.alignment import CrossCorrelationOptions
-from llama.gpu_utils import get_scipy_module, pin_memory
-from llama.api.options.device import DeviceOptions
+from llama.gpu_utils import get_scipy_module, pin_memory, memory_releasing_error_handler
 from llama.api import enums
-from llama.transformations.classes import PreProcesser
-from llama.transformations.functions import image_shift_circ
+from llama.transformations.classes import Cropper
 from llama.api.types import ArrayType, r_type, c_type
-
-# from cupyx.scipy.signal import fftconvolve
 
 
 class CrossCorrelationAligner(Aligner):
@@ -25,11 +21,12 @@ class CrossCorrelationAligner(Aligner):
         super().__init__(projections, options)
         self.options: CrossCorrelationOptions = self.options  # for static checker and type checking
 
+    @memory_releasing_error_handler
     def run(self, illum_sum: np.ndarray) -> np.ndarray:
-        # This could be moved to its own thing
-        pre_processed_projections = self.pre_process_projections()
+        projections = Cropper(self.options.crop_options).run(self.projections.data)
+        illum_sum = Cropper(self.options.crop_options).run(illum_sum)
         shift = self.calculate_alignment_shift(
-            projections=pre_processed_projections,
+            projections=projections,
             angles=self.projections.angles,
             illum_sum=illum_sum,
         )
@@ -41,8 +38,7 @@ class CrossCorrelationAligner(Aligner):
         weights = illum_sum / (illum_sum + 0.1 * np.max(illum_sum))
 
         variation_shape = (
-            projections.shape
-            / np.array([1, self.options.binning, self.options.binning])
+            projections.shape / np.array([1, self.options.binning, self.options.binning])
         ).astype(int)
         variation = pin_memory(np.empty(variation_shape, dtype=r_type))
         get_variation_wrapped = device_handling_wrapper(
@@ -55,10 +51,11 @@ class CrossCorrelationAligner(Aligner):
         variation = get_variation_wrapped(projections, weights, self.options.binning)
 
         # Ensure the array is on a single device for the rest of the calculations
-        if self.options.device is enums.DeviceType.CPU:
+        if self.options.device.device_type is enums.DeviceType.CPU:
             variation = np.array(variation)
-        elif self.options.device is enums.DeviceType.GPU:
+        elif self.options.device.device_type is enums.DeviceType.GPU:
             variation = cp.array(variation)
+        xp = cp.get_array_module(variation)
 
         idx_sort = np.argsort(angles)
         idx_sort_inverse = np.argsort(idx_sort)
@@ -67,12 +64,15 @@ class CrossCorrelationAligner(Aligner):
 
         for i in range(self.options.iterations):
             print("Iteration", str(i))
-            variation_fft = ip.filtered_fft(variation, shift_total, self.options.filter_data)
-
+            variation_fft = ip.filtered_fft(
+                variation, xp.array(shift_total), self.options.filter_data
+            )
             shift_relative = ip.get_cross_correlation_shift(
                 image=variation_fft[idx_sort],
                 image_ref=variation_fft[np.roll(idx_sort, -1)],
             )
+            if cp.get_array_module(shift_relative) is cp:
+                shift_relative = shift_relative.get()
             shift_relative = np.roll(shift_relative, 1, 0)
             shift_relative = self.clamp_shift(shift_relative, 3)
             # RESUME HERE -- move this to a subtract_smooth function
@@ -83,7 +83,11 @@ class CrossCorrelationAligner(Aligner):
                 df = pd.DataFrame(dict(x=cumulative_shift[:, i]))
                 smoothed_shift = (
                     df[["x"]]
-                    .apply(savgol_filter, window_length=self.options.filter_position, polyorder=2)
+                    .apply(
+                        savgol_filter,
+                        window_length=self.options.filter_position,
+                        polyorder=2,
+                    )
                     .to_numpy()[:, 0]
                 )
                 cumulative_shift[:, i] = cumulative_shift[:, i] - smoothed_shift
@@ -96,11 +100,7 @@ class CrossCorrelationAligner(Aligner):
         return shift_total
 
     def clamp_shift(self, shift: ArrayType, max_std_variation: float):
-        # RESUME HERE
-        # how does this work?
-        shift_max = max_std_variation * statsmodels.robust.mad(
-            shift, axis=0
-        )  # 3 is number of std for the outliers?
+        shift_max = max_std_variation * statsmodels.robust.mad(shift, axis=0)
         shift_max[shift_max < 10] = 10  # why is this here
         for i in range(2):
             sign = np.sign(shift[:, i])
@@ -108,16 +108,9 @@ class CrossCorrelationAligner(Aligner):
             shift[idx, i] = shift_max[i] * sign[idx]
         return shift
 
-    # def get_variation(
-    #     self,
-    #     projections: ArrayType,
-    #     weights: ArrayType,
-    # ) -> ArrayType:  # pick a more clear name later
     @staticmethod
     def get_variation(
-        projections: ArrayType,
-        weights: ArrayType,
-        binning: int
+        projections: ArrayType, weights: ArrayType, binning: int
     ) -> ArrayType:  # pick a more clear name later
         xp = cp.get_array_module(projections)
         scipy_module: scipy = get_scipy_module(projections)
@@ -140,20 +133,17 @@ class CrossCorrelationAligner(Aligner):
         # This could probably be replaced with a simpler calculation.
         variation_std = xp.sqrt(
             xp.mean(
-                (variation - variation_mean[:, xp.newaxis, xp.newaxis]) ** 2 * weights, axis=(1, 2)
+                (variation - variation_mean[:, xp.newaxis, xp.newaxis]) ** 2 * weights,
+                axis=(1, 2),
             )
             / xp.mean(weights)
         )
         for i in range(len(variation_mean)):
             cutoff = variation_mean[i] + variation_std[i]
-            variation[i, (variation[i, :, :] > cutoff)] = cutoff # gives complex warning
+            variation[i, (variation[i, :, :] > cutoff)] = cutoff  # gives complex warning
             variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
                 variation[i, :, :], 2 * binning
             )
-        variation = xp.real(variation[:, 0 :: binning, 0 :: binning])
-        #     variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
-        #         variation[i, :, :], 2 * self.options.binning
-        #     )
-        # variation = xp.real(variation[:, 0 :: self.options.binning, 0 :: self.options.binning])
+        variation = xp.real(variation[:, 0::binning, 0::binning])
 
         return variation

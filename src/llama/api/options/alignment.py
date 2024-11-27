@@ -3,7 +3,7 @@ import dataclasses
 from dataclasses import field
 from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.reconstruct import AstraReconstructOptions
-from llama.api.options.transform import PreProcessingOptions
+from llama.api.options.transform import PreProcessingOptions, CropOptions
 
 
 @dataclasses.dataclass
@@ -26,7 +26,7 @@ class AlignmentOptions(ABC):
 
 @dataclasses.dataclass
 class CrossCorrelationOptions(AlignmentOptions):
-    iterations: int = 10
+    iterations: int = 100
 
     binning: int = 4
 
@@ -39,9 +39,9 @@ class CrossCorrelationOptions(AlignmentOptions):
     # Inherited and overwritten follows:
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    # gpu_options: GPUOptions = field(default_factory=GPUOptions)
+    # pre_processing: PreProcessingOptions = field(default_factory=PreProcessingOptions)
 
-    pre_processing: PreProcessingOptions = field(default_factory=PreProcessingOptions)
+    crop_options: CropOptions = field(default_factory=CropOptions)
 
 
 @dataclasses.dataclass

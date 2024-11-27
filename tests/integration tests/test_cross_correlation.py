@@ -77,5 +77,5 @@ if __name__ == "__main__":
     parser.add_argument("--overwrite-results", action="store_true")
     args = parser.parse_args()
 
-    # test_cross_correlation_shift(None, overwrite_results=args.overwrite_results)
+    test_cross_correlation_shift(None, overwrite_results=args.overwrite_results)
     test_cross_correlation_shift_gpu(None, overwrite_results=args.overwrite_results)
