@@ -15,7 +15,7 @@ from llama.api.options.device import DeviceOptions
 from llama.api import enums
 from llama.transformations.classes import PreProcesser
 from llama.transformations.functions import image_shift_circ
-from llama.api.types import ArrayType
+from llama.api.types import ArrayType, r_type, c_type
 
 # from cupyx.scipy.signal import fftconvolve
 
@@ -40,24 +40,17 @@ class CrossCorrelationAligner(Aligner):
     ) -> np.ndarray:
         weights = illum_sum / (illum_sum + 0.1 * np.max(illum_sum))
 
-        # Should only be pinning memory when doing calculations on GPU
-        # I think I should somehow bundle this with device options in the
-        # input to the function_compute_device_manager
-        # variation_shape = (
-        #     projections.shape / np.array([1, self.downsampling, self.downsampling])
-        # ).astype(int)
-        # variation = pin_memory(np.empty(variation_shape))
-
-        # This has improved speed when run on multiple GPUs # Is it the actual time sink though?
-        # variation = self.get_variation(projections, weights)
-
-        # variation = self.get_variation(projections, weights, self.options.binning)
-
+        variation_shape = (
+            projections.shape
+            / np.array([1, self.options.binning, self.options.binning])
+        ).astype(int)
+        variation = pin_memory(np.empty(variation_shape, dtype=r_type))
         get_variation_wrapped = device_handling_wrapper(
             func=self.get_variation,
             options=self.options.device,
             chunkable_inputs_for_gpu_idx=[0],
             common_inputs_for_gpu_idx=[1],
+            pinned_results=variation,
         )
         variation = get_variation_wrapped(projections, weights, self.options.binning)
 
@@ -70,9 +63,10 @@ class CrossCorrelationAligner(Aligner):
         idx_sort = np.argsort(angles)
         idx_sort_inverse = np.argsort(idx_sort)
         n_angles = len(angles)
-        shift_total = np.zeros((n_angles, 2))
+        shift_total = np.zeros((n_angles, 2), dtype=r_type)
 
         for i in range(self.options.iterations):
+            print("Iteration", str(i))
             variation_fft = ip.filtered_fft(variation, shift_total, self.options.filter_data)
 
             shift_relative = ip.get_cross_correlation_shift(
@@ -128,9 +122,15 @@ class CrossCorrelationAligner(Aligner):
         xp = cp.get_array_module(projections)
         scipy_module: scipy = get_scipy_module(projections)
 
-        dX = scipy_module.signal.fftconvolve(projections, xp.array([[[1, -1]]]), "same")
+        dX = scipy_module.signal.fftconvolve(
+            projections,
+            xp.array([[[1, -1]]], dtype=c_type),
+            "same",
+        )
         dY = scipy_module.signal.fftconvolve(
-            projections, xp.array([[[1, -1]]]).transpose(0, 2, 1), "same"
+            projections,
+            xp.array([[[1, -1]]], dtype=c_type).transpose(0, 2, 1),
+            "same",
         )
         variation = xp.sqrt(xp.abs(dX) ** 2 + xp.abs(dY) ** 2)
         # Ignore regions with low amplitude

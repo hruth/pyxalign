@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import cupy as cp
 import scipy
 import cupyx
@@ -14,6 +14,36 @@ from llama.api.types import ArrayType
 
 def get_available_gpus() -> tuple[int]:
     return tuple(range(cp.cuda.runtime.getDeviceCount()))
+
+
+def turn_off_fft_cache(gpu_indices: Optional[List[int]] = None):
+    if gpu_indices is None:
+        gpu_indices = get_available_gpus()
+    for gpu in gpu_indices:
+        with cp.cuda.Device(gpu):
+            cp.fft.config.get_plan_cache().set_size(0)
+
+
+def free_blocks_on_all_gpus(gpu_indices: Optional[List[int]] = None, show_info: bool = False):
+    if gpu_indices is None:
+        gpu_indices = get_available_gpus()
+    for gpu in gpu_indices:
+        with cp.cuda.Device(gpu):
+            if show_info:
+                print("Before freeing:")
+                print_gpu_memory_use()
+            cp.get_default_memory_pool().free_all_blocks()
+            if show_info:
+                print("After freeing:")
+                print_gpu_memory_use()
+
+
+def print_gpu_memory_use():
+    bytes_to_MiB = 1 / 1048576
+    mempool = cp.get_default_memory_pool()
+    print(cp.cuda.Device())
+    print("   Used:", round(mempool.used_bytes() * bytes_to_MiB), "MiB")
+    print("  Total:", round(mempool.total_bytes() * bytes_to_MiB), "MiB")
 
 
 def check_gpu_list(num_gpus: int, gpu_indices: List[int]):

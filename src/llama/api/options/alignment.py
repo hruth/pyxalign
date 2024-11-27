@@ -26,7 +26,7 @@ class AlignmentOptions(ABC):
 
 @dataclasses.dataclass
 class CrossCorrelationOptions(AlignmentOptions):
-    iterations: int = 100
+    iterations: int = 10
 
     binning: int = 4
 

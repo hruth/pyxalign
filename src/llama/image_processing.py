@@ -22,7 +22,8 @@ def filtered_fft(image: ArrayType, shift: ArrayType, filter_data: float) -> Arra
 
     spatial_filter = xp.array(
         scipy_module.signal.windows.tukey(nx, 0.3)[:, None]
-        * scipy_module.signal.windows.tukey(ny, 0.3)[None, :]
+        * scipy_module.signal.windows.tukey(ny, 0.3)[None, :],
+        dtype=r_type,
     )
     image = image - xp.mean(image)
     image = image * spatial_filter
@@ -30,7 +31,10 @@ def filtered_fft(image: ArrayType, shift: ArrayType, filter_data: float) -> Arra
 
     # Remove low frequencies (e.g. phase ramp issues)
     if filter_data > 0:
-        X, Y = xp.meshgrid(xp.arange(-nx / 2, nx / 2), xp.arange(-ny / 2, ny / 2))
+        X, Y = xp.meshgrid(
+            xp.arange(-nx / 2, nx / 2, dtype=r_type),
+            xp.arange(-ny / 2, ny / 2, dtype=r_type),
+        )
         spectral_filter = xp.exp(
             -((0.5 * (nx + ny) * filter_data) ** 2) / (X**2 + Y**2 + 1e-10)
         )
@@ -54,7 +58,7 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
     mask = cross_corr_matrix == np.max(cross_corr_matrix, axis=(1, 2))[:, None, None]
     mask = scipy_module.signal.fftconvolve(
         mask,
-        xp.ones([kernel_width, kernel_width], dtype="single")[None],
+        xp.ones([kernel_width, kernel_width], dtype=r_type)[None],
         "same",
     )
     mask = mask > 0.1
@@ -76,12 +80,12 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
     def find_center_fast(cross_corr_matrix):
         mass = np.sum(cross_corr_matrix, (1, 2))
         N, M = cross_corr_matrix.shape[1:3]
-        x = xp.sum(xp.sum(cross_corr_matrix, 1) * xp.arange(0, M), 1) / mass - np.floor(
-            M / 2
-        )
-        y = xp.sum(xp.sum(cross_corr_matrix, 2) * xp.arange(0, N), 1) / mass - np.floor(
-            N / 2
-        )
+        x = xp.sum(
+            xp.sum(cross_corr_matrix, 1) * xp.arange(0, M, dtype=r_type), 1
+        ) / mass - np.floor(M / 2)
+        y = xp.sum(
+            xp.sum(cross_corr_matrix, 2) * xp.arange(0, N, dtype=r_type), 1
+        ) / mass - np.floor(N / 2)
 
         return x, y, mass
 

@@ -4,8 +4,8 @@ from llama.api.options.alignment import AlignmentOptions
 from llama.projections import Projections
 from llama.alignment.cross_correlation import CrossCorrelationAligner
 from llama.api.options.task import AlignmentTaskOptions
-from llama.api import enums
-from llama.api import maps
+from llama.api import enums, maps
+from llama.api.types import r_type
 
 
 class LaminographyAlignmentTask:
@@ -20,7 +20,8 @@ class LaminographyAlignmentTask:
         self.shift_manager = ShiftManager(projections.n_projections)
 
     def get_cross_correlation_shift(self):
-        self.illum_sum = np.ones_like(self.projections.data[0])  # Temporary placeholder
+        # Placeholder for actual illum_sum
+        self.illum_sum = np.ones_like(self.projections.data[0], dtype=r_type)
         shift = self.cross_correlation_aligner.run(self.illum_sum)
         self.shift_manager.stage_shift(
             shift, enums.ShiftType.CIRC, self.options.cross_correlation
