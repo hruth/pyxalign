@@ -19,7 +19,13 @@ def image_crop(
     vertical_offset: int = 0,
 ) -> ArrayType:
     """Returns a view of the specified region of the image."""
-    image_center = np.array(images.shape[1:]) / 2 + [vertical_offset, horizontal_offset]
+
+    if len(images.shape) == 3:
+        image_dims = images.shape[1:]
+    else:
+        image_dims = images.shape
+
+    image_center = np.array(image_dims) / 2 + [vertical_offset, horizontal_offset]
     vertical_index_start, vertical_index_end = (
         int(image_center[0] - vertical_range / 2),
         int(image_center[0] + vertical_range / 2),
@@ -30,17 +36,23 @@ def image_crop(
     )
     if (
         horizontal_index_start < 0
-        or horizontal_index_end >= images.shape[2]
+        or horizontal_index_end >= image_dims[1]
         or vertical_index_start < 0
-        or vertical_index_end >= images.shape[1]
+        or vertical_index_end >= image_dims[0]
     ):
         raise ValueError("Invalid values entered for cropping.")
 
-    return images[
-        :,
-        vertical_index_start:vertical_index_end,
-        horizontal_index_start:horizontal_index_end,
-    ]
+    if len(images.shape) == 3:
+        return images[
+            :,
+            vertical_index_start:vertical_index_end,
+            horizontal_index_start:horizontal_index_end,
+        ]
+    else:
+        return images[
+            vertical_index_start:vertical_index_end,
+            horizontal_index_start:horizontal_index_end,
+        ]
 
 
 def image_crop_pad(

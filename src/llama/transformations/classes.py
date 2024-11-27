@@ -10,10 +10,12 @@ from llama.api.options.transform import (
     ShiftOptions,
     TransformOptions,
     UpsampleOptions,
+    CropOptions,
 )
 
 from llama.api.types import ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
+from llama.transformations.functions import image_crop
 # from llama.api import enums
 
 
@@ -38,10 +40,13 @@ class Downsampler(Transformation):
         self.options: DownsampleOptions = options
 
     def run(
-        self, images: ArrayType, shift: Optional[ArrayType] = None, pinned_results: Optional[np.ndarray] = None
+        self,
+        images: ArrayType,
+        shift: Optional[ArrayType] = None,
+        pinned_results: Optional[np.ndarray] = None,
     ) -> ArrayType:
         """Calls one of the image downsampling functions"""
-        # Note: currently the linear downsampling function also has the option to shift 
+        # Note: currently the linear downsampling function also has the option to shift
         # the inputs.
         if self.enabled:
             if self.options.type is DownsampleType.LINEAR:
@@ -62,6 +67,7 @@ class Downsampler(Transformation):
                 return self.function(images, self.options.scale)
         else:
             return images
+
 
 class Upsampler(Transformation):
     def __init__(
@@ -109,6 +115,28 @@ class Shifter(Transformation):
             return images
 
 
+class Cropper(Transformation):
+    def __init__(
+        self,
+        options: CropOptions,
+    ):
+        super().__init__(options)
+        self.options: CropOptions = options
+
+    def run(self, images: ArrayType) -> ArrayType:
+        """Calls the image cropping function"""
+        if self.enabled:
+            return image_crop(
+                images,
+                self.options.horizontal_range,
+                self.options.vertical_range,
+                self.options.horizontal_offset,
+                self.options.vertical_offset,
+            )
+        else:
+            return images
+
+
 class PreProcesser(Transformation):
     def __init__(
         self,
@@ -124,5 +152,3 @@ class PreProcesser(Transformation):
         # crop
         images = Downsampler(self.options.downsample_options).run(images)
         return images
-
-
