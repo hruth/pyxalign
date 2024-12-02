@@ -42,8 +42,14 @@ class LaminographyAlignmentTask:
     def get_complex_projection_masks(self, enable_plotting: bool = False):
         self.complex_projections.get_masks(enable_plotting)
 
-    def get_unwrapped_phase(self):
-        self.complex_projections.unwrap_phase()
+    def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
+        unwrapped_projections = self.complex_projections.unwrap_phase(pinned_results)
+        self.phase_projections = PhaseProjections(
+            unwrapped_projections,
+            self.complex_projections.angles,
+            self.complex_projections.options,
+            self.complex_projections.masks,
+        )
 
 
 class ShiftManager:

@@ -54,6 +54,8 @@ class PhaseRampRemovalOptions:
 
 @dataclasses.dataclass
 class PhaseUnwrapOptions:
+    device: DeviceOptions = field(default_factory=DeviceOptions)
+
     iterations: int = 10
 
     poly_fit_order: int = 1

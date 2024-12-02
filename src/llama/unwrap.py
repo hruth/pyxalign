@@ -38,7 +38,7 @@ def remove_sinogram_ramp():
 def phase_unwrap_2D(images: ArrayType, weights: ArrayType):
     xp = cp.get_array_module(images)
 
-    images = weights * images / (xp.abs(images) + xp.spacing(1))
+    images = weights * images / (xp.abs(images) + 1e-10)
     del weights
 
     padding = 64
@@ -72,12 +72,12 @@ def get_image_grad(images: ArrayType):
 
     n_z, n_y, n_x = images.shape
  
-    X = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_x / 2), np.ceil(n_x / 2), dtype=r_type))
+    X = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_x / 2), np.ceil(n_x / 2), dtype=c_type))
     X *= 2j * xp.pi / n_x
     dX = scipy_module.fft.fft(images, axis=2) * X
     dX = scipy_module.fft.ifft(dX, axis=2)
 
-    Y = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_y / 2), np.ceil(n_y / 2), dtype=r_type))
+    Y = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_y / 2), np.ceil(n_y / 2), dtype=c_type))
     Y *= 2j * xp.pi / n_y
     dY = scipy_module.fft.fft(images, axis=1) * Y[:, None]
     dY = scipy_module.fft.ifft(dY, axis=1)

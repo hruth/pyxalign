@@ -301,6 +301,7 @@ def check_if_arrays_are_on_same_device(
     return all_arrays_on_same_gpu
 
 
+@gpu_utils.memory_releasing_error_handler
 def device_handling_wrapper(
     func: callable,
     options: DeviceOptions,

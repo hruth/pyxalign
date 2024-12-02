@@ -1,10 +1,12 @@
+from typing import Optional
 import numpy as np
 import copy
 
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.transform import UpsampleOptions
 import llama.gpu_utils as gpu_utils
-from llama.mask import estimate_reliability_region_mask
+from llama.gpu_wrapper import device_handling_wrapper
+from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
 from llama.transformations.classes import Downsampler, Upsampler
@@ -19,17 +21,13 @@ class Projections:
         projections: np.ndarray,
         angles: np.ndarray,
         options: ProjectionOptions,
+        masks: Optional[np.ndarray] = None,
     ):
         self.data = projections
         self.options = options
-        # self.data = PreProcess(options.pre_processing_options).run(projections)
         self.angles = angles
-        # # device management will need work!
-        # if options.projection_device_options.pin_memory:
-        #     projections = gpu_utils.pin_memory(self.data)
-        # self.data = gpu_utils.move_to_device(
-        #     self.data, options.projection_device_options.device_type
-        # )
+        if masks is not None:
+            self.masks = masks
 
         self.center_of_rotation = np.array(projections.shape[1:]) / 2
 
@@ -46,7 +44,7 @@ class Projections:
         self.data = gpu_utils.pin_memory(self.data)
 
     # def set_data(self, data: ArrayType):
-        # self.data = data  # Maybe need to change to views later when this is pinned
+    # self.data = data  # Maybe need to change to views later when this is pinned
 
     # def shift_projections(self, shift):
     #     self.projections = image_shift_circ(self.data, shift)
@@ -67,12 +65,8 @@ class Projections:
         if downsample_options.enabled:
             mask_options = copy.deepcopy(mask_options)
             scale = downsample_options.scale
-            mask_options.binary_close_coefficient = (
-                mask_options.binary_close_coefficient / scale
-            )
-            mask_options.binary_erode_coefficient = (
-                mask_options.binary_erode_coefficient / scale
-            )
+            mask_options.binary_close_coefficient = mask_options.binary_close_coefficient / scale
+            mask_options.binary_erode_coefficient = mask_options.binary_erode_coefficient / scale
             mask_options.fill = mask_options.fill / scale
         else:
             mask_options = mask_options
@@ -88,13 +82,22 @@ class Projections:
         )
         return Upsampler(upsample_options).run(self.masks)
 
+    def blur_masks(self, kernel_sigma: int, use_gpu: bool = False):
+        return blur_masks(self.masks, kernel_sigma, use_gpu)
+
 
 class ComplexProjections(Projections):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def unwrap_phase(self) -> ArrayType:
-        return unwrap_phase(self.data, self.masks, self.options.phase_unwrap)
+    def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
+        unwrap_phase_wrapped = device_handling_wrapper(
+            func=unwrap_phase,
+            options=self.options.phase_unwrap.device,
+            chunkable_inputs_for_gpu_idx=[0, 1],
+            pinned_results=pinned_results,
+        )
+        return unwrap_phase_wrapped(self.data, self.masks, self.options.phase_unwrap)
 
 
 class PhaseProjections(Projections):

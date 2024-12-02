@@ -2,6 +2,8 @@ import cupy as cp
 import numpy as np
 import scipy
 import cupyx.scipy
+import cupyx.scipy.ndimage
+import scipy.ndimage
 import skimage
 import scipy.fft
 import time
@@ -10,7 +12,7 @@ from llama.transformations.helpers import is_array_real
 from IPython.display import clear_output
 
 from llama.api.options.options import MaskOptions
-from llama.gpu_utils import memory_releasing_error_handler
+from llama.gpu_utils import memory_releasing_error_handler, get_scipy_module
 
 
 @memory_releasing_error_handler
@@ -19,7 +21,7 @@ def estimate_reliability_region_mask(
 ):
     """Use flood-fill to get a mask for the actual object region in each projection"""
     # xp = cp.get_array_module(images)
-    xp = cp
+    xp = cp # need to generalize later for machines without gpu
     scipy_module: scipy = cupyx.scipy
 
     masks = np.zeros(images.shape)
@@ -106,3 +108,16 @@ def estimate_reliability_region_mask(
         clear_output(wait=True)
 
     return masks
+
+
+@memory_releasing_error_handler
+def blur_masks(masks: np.ndarray, kernel_sigma: int, use_gpu: bool = False):
+    blurred_masks = np.zeros_like(masks)
+    for i in range(len(masks)):
+        if use_gpu:
+            blurred_masks[i] = cupyx.scipy.ndimage.gaussian_filter(
+                cp.array(masks[i]), kernel_sigma
+            ).get()
+        else:
+            blurred_masks[i] = scipy.ndimage.gaussian_filter(masks[i], kernel_sigma)
+    return blurred_masks
