@@ -1,7 +1,7 @@
-from typing import List
+from typing import List, Optional
 import numpy as np
 from llama.api.options.alignment import AlignmentOptions
-from llama.projections import Projections
+from llama.projections import Projections, ComplexProjections, PhaseProjections
 from llama.alignment.cross_correlation import CrossCorrelationAligner
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums, maps
@@ -10,29 +10,40 @@ from llama.api.types import r_type
 
 class LaminographyAlignmentTask:
     def __init__(
-        self, projections: Projections, options: AlignmentTaskOptions
-    ):  # update later to allow complex or phase projections
+        self,
+        options: AlignmentTaskOptions,
+        complex_projections: Optional[ComplexProjections] = None,
+        phase_projections: Optional[PhaseProjections] = None,
+    ):
         self.options = options
-        self.projections = projections
+        if complex_projections is not None:
+            self.complex_projections = complex_projections
+        if phase_projections is not None:
+            self.phase_projections = phase_projections
+        if phase_projections is None and complex_projections is None:
+            raise Exception(
+                "Projections must be included when creating an instance of LaminographyAlignmentTask"
+            )
         self.cross_correlation_aligner = CrossCorrelationAligner(
-            self.projections, self.options.cross_correlation
+            self.complex_projections, self.options.cross_correlation
         )
-        self.shift_manager = ShiftManager(projections.n_projections)
+        self.shift_manager = ShiftManager(complex_projections.n_projections)
 
     def get_cross_correlation_shift(self):
         # Placeholder for actual illum_sum
-        self.illum_sum = np.ones_like(self.projections.data[0], dtype=r_type)
+        self.illum_sum = np.ones_like(self.complex_projections.data[0], dtype=r_type)
         shift = self.cross_correlation_aligner.run(self.illum_sum)
-        self.shift_manager.stage_shift(
-            shift, enums.ShiftType.CIRC, self.options.cross_correlation
-        )
+        self.shift_manager.stage_shift(shift, enums.ShiftType.CIRC, self.options.cross_correlation)
         print("Cross-correlation shift stored in shift_history")
 
     def apply_staged_shift(self):
-        self.shift_manager.apply_staged_shift(self.projections)
+        self.shift_manager.apply_staged_shift(self.complex_projections)
 
     def get_complex_projection_masks(self, enable_plotting: bool = False):
-        self.projections.get_masks(enable_plotting)
+        self.complex_projections.get_masks(enable_plotting)
+
+    def get_unwrapped_phase(self):
+        self.complex_projections.unwrap_phase()
 
 
 class ShiftManager:
@@ -60,10 +71,12 @@ class ShiftManager:
         # Clear the staged shift
         self.staged_shift = np.zeros_like(self.staged_shift)
 
-    def apply_staged_shift(self, projections: Projections):
+    def apply_staged_shift(self, complex_projections: Projections):
         if self.is_shift_nonzero():
             image_shift_function = maps.get_shift_func_by_enum(self.staged_function_type)
-            projections.data = image_shift_function(projections.data, self.staged_shift)
+            complex_projections.data = image_shift_function(
+                complex_projections.data, self.staged_shift
+            )
             self.unstage_shift()
         else:
             print("There is no shift to apply!")
