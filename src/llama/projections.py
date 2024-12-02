@@ -1,6 +1,8 @@
-from typing import Optional
+from typing import List, Optional
 import numpy as np
 import copy
+from llama.api import enums, maps
+from llama.api.options.alignment import AlignmentOptions
 
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.transform import UpsampleOptions
@@ -22,12 +24,17 @@ class Projections:
         angles: np.ndarray,
         options: ProjectionOptions,
         masks: Optional[np.ndarray] = None,
+        shift_manager: Optional["ShiftManager"] = None
     ):
         self.data = projections
         self.options = options
         self.angles = angles
         if masks is not None:
             self.masks = masks
+        if shift_manager is not None:
+            self.shift_manager = copy.deepcopy(shift_manager)
+        else:
+            self.shift_manager = ShiftManager(self.n_projections)
 
         self.center_of_rotation = np.array(projections.shape[1:]) / 2
 
@@ -43,11 +50,8 @@ class Projections:
     def pin_projections(self):
         self.data = gpu_utils.pin_memory(self.data)
 
-    # def set_data(self, data: ArrayType):
-    # self.data = data  # Maybe need to change to views later when this is pinned
-
-    # def shift_projections(self, shift):
-    #     self.projections = image_shift_circ(self.data, shift)
+    def apply_staged_shift(self):
+        self.shift_manager.apply_staged_shift(self)
 
     def plot_projections(self, process_function: callable = lambda x: x):
         plotters.make_image_slider_plot(process_function(self.data))
@@ -103,3 +107,53 @@ class ComplexProjections(Projections):
 class PhaseProjections(Projections):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+class ShiftManager:
+    # Might be better to attach this to the projections object
+    # instead of the task object.
+    # It might be useful to generalize this for tracking
+    # any type of transformation.
+    def __init__(self, n_projections: int):
+        self.staged_shift = np.zeros((n_projections, 2))
+        self.past_shifts: List[np.ndarray] = []
+        self.past_shift_functions: List[enums.ShiftType] = []
+        self.past_shift_options: List[AlignmentOptions] = []
+
+    def stage_shift(
+        self,
+        shift: np.ndarray,
+        function_type: enums.ShiftType,
+        alignment_options: AlignmentOptions,
+    ):
+        self.staged_shift = shift
+        self.staged_function_type = function_type
+        self.staged_alignment_options = alignment_options
+
+    def unstage_shift(self):
+        # Store staged values
+        self.past_shifts += [self.staged_shift]
+        self.past_shift_functions += [self.staged_function_type]
+        self.past_shift_options += [self.staged_alignment_options]
+        # Clear the staged shift
+        self.staged_shift = np.zeros_like(self.staged_shift)
+
+    def apply_staged_shift(self, projections: Projections):
+        if self.is_shift_nonzero():
+            image_shift_function = maps.get_shift_func_by_enum(self.staged_function_type)
+            projections.data = image_shift_function(
+                projections.data, self.staged_shift
+            )
+            self.unstage_shift()
+        else:
+            print("There is no shift to apply!")
+
+    def is_shift_nonzero(self):
+        if self.staged_function_type is enums.ShiftType.CIRC:
+            shift = np.round(self.staged_shift)
+        else:
+            shift = self.staged_shift
+        if np.any(shift != 0):
+            return True
+        else:
+            return False

@@ -28,9 +28,9 @@ def test_cross_correlation_shift(pytestconfig, overwrite_results=False):
     task = LaminographyAlignmentTask(task_options, complex_projections)
 
     task.get_cross_correlation_shift()
-    task.apply_staged_shift()
+    task.complex_projections.apply_staged_shift()
 
-    shift = task.shift_manager.past_shifts[0]
+    shift = task.complex_projections.shift_manager.past_shifts[0]
     if overwrite_results:
         tutils.save_results_data(shift, test_name, tutils.ResultType.SHIFT)
     else:
@@ -57,9 +57,9 @@ def test_cross_correlation_shift_gpu(pytestconfig, overwrite_results=False):
     task = LaminographyAlignmentTask(task_options, complex_projections)
 
     task.get_cross_correlation_shift()
-    task.apply_staged_shift()
+    task.complex_projections.apply_staged_shift()
 
-    shift = task.shift_manager.past_shifts[0]
+    shift = task.complex_projections.shift_manager.past_shifts[0]
 
     tutils.check_or_record_results(
         shift, test_name, comparison_test_name, overwrite_results, tutils.ResultType.SHIFT
