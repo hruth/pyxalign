@@ -9,6 +9,8 @@ from llama.mask import estimate_reliability_region_mask
 import llama.plotting.plotters as plotters
 from llama.transformations.classes import Downsampler, Upsampler
 from llama.transformations.functions import image_shift_fft
+from llama.unwrap import unwrap_phase
+from llama.api.types import ArrayType
 
 
 class Projections:
@@ -62,19 +64,22 @@ class Projections:
     def get_masks(self, enable_plotting: bool = False):
         mask_options = self.options.mask
         downsample_options = self.options.mask.downsample
-        updated_mask_options = copy.deepcopy(mask_options)
-        scale = downsample_options.scale
-        updated_mask_options.binary_close_coefficient = (
-            mask_options.binary_close_coefficient / scale
-        )
-        updated_mask_options.binary_erode_coefficient = (
-            mask_options.binary_erode_coefficient / scale
-        )
-        updated_mask_options.fill = mask_options.fill / scale
+        if downsample_options.enabled:
+            mask_options = copy.deepcopy(mask_options)
+            scale = downsample_options.scale
+            mask_options.binary_close_coefficient = (
+                mask_options.binary_close_coefficient / scale
+            )
+            mask_options.binary_erode_coefficient = (
+                mask_options.binary_erode_coefficient / scale
+            )
+            mask_options.fill = mask_options.fill / scale
+        else:
+            mask_options = mask_options
         # Calculate masks
         self.masks = estimate_reliability_region_mask(
-            images=Downsampler(downsample_options).run(self.data),
-            options=updated_mask_options,
+            images=Downsampler(self.options.mask.downsample).run(self.data),
+            options=mask_options,
             enable_plotting=enable_plotting,
         )
         # Upsample results
@@ -87,6 +92,9 @@ class Projections:
 class ComplexProjections(Projections):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def unwrap_phase(self) -> ArrayType:
+        return unwrap_phase(self.data, self.masks, self.options.phase_unwrap)
 
 
 class PhaseProjections(Projections):

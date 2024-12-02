@@ -51,3 +51,10 @@ class PhaseRampRemovalOptions:
     iterations: int = 5
 
     downsampling: int = 8
+
+@dataclasses.dataclass
+class PhaseUnwrapOptions:
+    iterations: int = 10
+
+    poly_fit_order: int = 1
+

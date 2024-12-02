@@ -10,9 +10,13 @@ from llama.transformations.helpers import is_array_real
 from IPython.display import clear_output
 
 from llama.api.options.options import MaskOptions
+from llama.gpu_utils import memory_releasing_error_handler
 
 
-def estimate_reliability_region_mask(images: np.ndarray, options: MaskOptions, enable_plotting=False):
+@memory_releasing_error_handler
+def estimate_reliability_region_mask(
+    images: np.ndarray, options: MaskOptions, enable_plotting=False
+):
     """Use flood-fill to get a mask for the actual object region in each projection"""
     # xp = cp.get_array_module(images)
     xp = cp
@@ -37,9 +41,11 @@ def estimate_reliability_region_mask(images: np.ndarray, options: MaskOptions, e
             fig.tight_layout()
 
         temp_sino = xp.array(images[i])
+        ignore_idx = xp.abs(temp_sino) < 0.1
+        temp_sino[ignore_idx] = 0
 
         if not is_array_real(temp_sino):
-            temp_sino = np.angle(temp_sino)
+            temp_sino = np.angle(temp_sino) * np.abs(temp_sino)
 
         if options.unsharp:
             temp_sino = scipy_module.ndimage.correlate(temp_sino, unsharp_structure)
