@@ -13,32 +13,33 @@ T = TypeVar("T")
 
 
 def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
-    with h5py.File(file_path, "r") as h5_file_obj:
+    with h5py.File(file_path, "r") as h5_obj:
         group = "complex_projections"
-        if group in h5_file_obj.keys() and group not in exclude:
+        if group in h5_obj.keys() and group not in exclude:
             complex_projections = ComplexProjections(
-                projections=h5_file_obj[group + "/data"][:],
-                angles=h5_file_obj[group + "/angles"][:],
-                options=load_options(h5_file_obj[group], ProjectionOptions),
-                masks=h5_file_obj[group + "/masks"][:],
+                projections=h5_obj[group + "/data"][:],
+                angles=h5_obj[group + "/angles"][:],
+                options=load_options(h5_obj[group], ProjectionOptions),
+                masks=h5_obj[group + "/masks"][:],
                 shift_manager=None,  # needs to be updated later
             )
         else:
             complex_projections = None
 
         group = "phase_projections"
-        if group in h5_file_obj.keys() and group not in exclude:
+        if group in h5_obj.keys() and group not in exclude:
             phase_projections = PhaseProjections(
-                projections=h5_file_obj[group + "/data"][:],
-                angles=h5_file_obj[group + "/angles"][:],
-                options=load_options(h5_file_obj[group], ProjectionOptions),
-                masks=h5_file_obj[group + "/masks"][:],
+                projections=h5_obj[group + "/data"][:],
+                angles=h5_obj[group + "/angles"][:],
+                options=load_options(h5_obj[group], ProjectionOptions),
+                masks=h5_obj[group + "/masks"][:],
                 shift_manager=None,  # needs to be updated later
             )
         else:
             phase_projections = None
+
         task = LaminographyAlignmentTask(
-            options=load_options(h5_file_obj, AlignmentTaskOptions),
+            options=load_options(h5_obj, AlignmentTaskOptions),
             complex_projections=complex_projections,
             phase_projections=phase_projections,
         )
@@ -46,16 +47,16 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
     return task
 
 
-def load_options(h5_file_obj, options_class: Type[T]) -> T:
-    return dict_to_dataclass(cls=options_class, data=h5_to_dict(h5_file_obj))
+def load_options(h5_obj, options_class: Type[T]) -> T:
+    return dict_to_dataclass(cls=options_class, data=h5_to_dict(h5_obj))
 
 
-def h5_to_dict(h5_file_obj: Union[h5py.Group, h5py.File]):
+def h5_to_dict(h5_obj: Union[h5py.Group, h5py.File]):
     """
     Recursively converts an HDF5 group or file into a Python dictionary.
 
     Args:
-        h5_file_obj: h5py File or Group object.
+        h5_obj: h5py File or Group object.
 
     Returns:
         dict: A dictionary representation of the HDF5 structure.
@@ -63,7 +64,7 @@ def h5_to_dict(h5_file_obj: Union[h5py.Group, h5py.File]):
     result = {}
 
     # Add datasets and attributes
-    for key, item in h5_file_obj.items():
+    for key, item in h5_obj.items():
         if isinstance(item, h5py.Group):
             # Recurse into groups
             result[key] = h5_to_dict(item)
@@ -72,9 +73,8 @@ def h5_to_dict(h5_file_obj: Union[h5py.Group, h5py.File]):
             result[key] = item[()]  # Use [()] to retrieve the data
 
     # Add attributes
-    for attr in h5_file_obj.attrs:
-        result[attr] = h5_file_obj.attrs[attr]
-    # result["_attrs"] = {attr: h5_file_obj.attrs[attr] for attr in h5_file_obj.attrs}
+    for attr in h5_obj.attrs:
+        result[attr] = h5_obj.attrs[attr]
 
     return result
 

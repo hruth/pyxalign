@@ -11,21 +11,21 @@ from llama.api.options.task import AlignmentTaskOptions
 
 def save_task(task: LaminographyAlignmentTask, file_path: str, exclude: list[str] = []):
     save_attr_strings = ["complex_projections", "phase_projections"]
-    with h5py.File(file_path, "w") as h5_file_obj:
+    with h5py.File(file_path, "w") as h5_obj:
         for attr in save_attr_strings:
             if attr in task.__dict__.keys() and attr not in exclude:
-                save_projections(getattr(task, attr), file_path, attr, h5_file_obj)
-        save_options(task.options, "options", h5_file_obj)
+                save_projections(getattr(task, attr), file_path, attr, h5_obj)
+        save_options(task.options, h5_obj.create_group("options"))
 
 
-def save_projections(projections: Projections, file_path: str, group_name: str, h5_file_obj):
+def save_projections(projections: Projections, file_path: str, group_name: str, h5_obj: h5py.File):
     save_attr_strings = ["data", "angles", "masks"]
-    group = h5_file_obj.create_group(group_name)
+    h5_group = h5_obj.create_group(group_name)
     for attr in save_attr_strings:
         if attr in projections.__dict__.keys():
-            group.create_dataset(attr, data=getattr(projections, attr))
+            h5_group.create_dataset(attr, data=getattr(projections, attr))
 
-    save_options(projections.options, group_name + "/options", h5_file_obj)
+    save_options(projections.options, h5_group.create_group("options"))
     print(f"Array saved to {file_path}")
 
 
@@ -33,28 +33,17 @@ def save_shift_manager(shift_manager: ShiftManager):
     pass
 
 
-def save_options(
-    obj,
-    group_name,
-    h5_file_obj: Union[h5py.Group, h5py.File],
-    group: Optional[h5py.Group] = None,
-):
-    if group is None:
-        group = h5_file_obj.create_group(group_name)
+def save_options(obj, h5_obj: Union[h5py.Group, h5py.File]):
     for field_name, value in obj.__dict__.items():
         if dataclasses.is_dataclass(value):
-            subgroup = group.create_group(field_name)
-            save_options(value, field_name, h5_file_obj, subgroup)
+            # Recursively handle dataclasses
+            save_options(value, h5_obj.create_group(field_name))
         elif isinstance(value, StrEnum):
-            group.attrs[field_name] = value._value_
+            # Handle enums
+            h5_obj.attrs[field_name] = value._value_
         elif isinstance(value, (int, float, str, bool)):
-            group.attrs[field_name] = value
+            # Handle basic data types
+            h5_obj.attrs[field_name] = value
         elif isinstance(value, (list, tuple)):
             # Handle lists
-            group.create_dataset(field_name, data=value)
-
-
-if __name__ == "__main__":
-    options = AlignmentTaskOptions()
-    with h5py.File("test_save_options.h5", "w") as h5_file_obj:
-        save_options(options, "options", h5_file_obj)
+            h5_obj.create_dataset(field_name, data=value)
