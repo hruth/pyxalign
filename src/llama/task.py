@@ -50,9 +50,12 @@ class LaminographyAlignmentTask:
             self.complex_projections.options,
             self.complex_projections.masks,
         )
+        # complex projections need to be deleted at this point
 
 
 class ShiftManager:
+    # Might be better to attach this to the projections object
+    # instead of the task object.
     def __init__(self, n_projections: int):
         self.staged_shift = np.zeros((n_projections, 2))
         self.past_shifts: List[np.ndarray] = []
