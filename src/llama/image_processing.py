@@ -100,7 +100,7 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
 def apply_3D_apodization(image: ArrayType, rad_apod: float, radial_smooth: float):
     n_z = image.shape[0]
     xt = np.arange(-n_z / 2, n_z / 2, dtype=r_type)
-    X, Y = np.meshgrid(xt, xt, dtype=r_type)
+    X, Y = np.meshgrid(xt, xt)
     if len(np.shape(radial_smooth)) > 0:
         radial_smooth[radial_smooth < 1] = 1
     circulo = 1 - rad_tap(X, Y, radial_smooth, np.round(n_z / 2 - rad_apod - radial_smooth))

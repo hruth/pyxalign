@@ -65,6 +65,10 @@ class Projections:
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / pixel_size])
         n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
         return n_pix
+    
+    @property
+    def size(self):
+        return self.data.shape[1:]
 
     def pin_projections(self):
         self.data = gpu_utils.pin_memory(self.data)

@@ -2,6 +2,7 @@ from typing import Optional
 import numpy as np
 from llama.projections import ComplexProjections, PhaseProjections
 from llama.alignment.cross_correlation import CrossCorrelationAligner
+from llama.alignment.projection_matching import ProjectionMatchingAligner
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
@@ -33,10 +34,16 @@ class LaminographyAlignmentTask:
         # Placeholder for actual illum_sum
         self.illum_sum = np.ones_like(self.complex_projections.data[0], dtype=r_type)
         shift = self.cross_correlation_aligner.run(self.illum_sum)
-        self.complex_projections.shift_manager.stage_shift(
-            shift, enums.ShiftType.CIRC, self.options.cross_correlation
+        self.complex_projections.shift_manager.stage_shift(shift, enums.ShiftType.CIRC)
+        print("Cross-correlation shift stored in shift_manager")
+
+    def get_projection_matching_shift(self):
+        self.pma_object = ProjectionMatchingAligner(
+            self.phase_projections, self.options.projection_matching
         )
-        print("Cross-correlation shift stored in shift_history")
+        shift = self.pma_object.run()
+        self.phase_projections.shift_manager.stage_shift(shift, enums.ShiftType.FFT)
+        print("Projection-matching shift stored in shift_manager")
 
     def get_complex_projection_masks(self, enable_plotting: bool = False):
         self.complex_projections.get_masks(enable_plotting)
