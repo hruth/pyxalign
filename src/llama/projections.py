@@ -3,15 +3,17 @@ import numpy as np
 import copy
 from llama.api import enums, maps
 from llama.api.options.alignment import AlignmentOptions
+from llama.api.options.device import DeviceOptions
 
 from llama.api.options.projections import ProjectionOptions
-from llama.api.options.transform import UpsampleOptions
+from llama.api.options.transform import ShiftOptions, UpsampleOptions
 import llama.gpu_utils as gpu_utils
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
-from llama.transformations.classes import Downsampler, Upsampler
+from llama import reconstruct
+from llama.transformations.classes import Downsampler, Shifter, Upsampler
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
 from llama.api.types import ArrayType
@@ -24,7 +26,7 @@ class Projections:
         angles: np.ndarray,
         options: ProjectionOptions,
         masks: Optional[np.ndarray] = None,
-        shift_manager: Optional["ShiftManager"] = None
+        shift_manager: Optional["ShiftManager"] = None,
     ):
         self.data = projections
         self.options = options
@@ -44,8 +46,15 @@ class Projections:
 
     @property
     def reconstructed_object_dimensions(self) -> np.ndarray:
-        # function for calculating n_pix_align
-        pass
+        laminography_angle = self.options.experiment.laminography_angle
+        sample_thickness = self.options.experiment.sample_thickness
+        pixel_size = self.options.experiment.pixel_size
+        n_lateral_pixels = np.ceil(
+            0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
+        )
+        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / pixel_size])
+        n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
+        return n_pix
 
     def pin_projections(self):
         self.data = gpu_utils.pin_memory(self.data)
@@ -108,6 +117,22 @@ class PhaseProjections(Projections):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def get_3D_reconstruction(self):
+        scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
+            sinogram=self.data,
+            angles=self.angles,
+            n_pix=self.reconstructed_object_dimensions,
+            center_of_rotation=self.center_of_rotation,
+            lamino_angle=self.options.experiment.laminography_angle,
+            tilt_angle=self.options.experiment.tilt_angle,
+            skew_angle=self.options.experiment.skew_angle,
+        )
+        astra_config = reconstruct.create_astra_reconstructor_config(
+            self.data, scan_geometry_config, vectors
+        )
+        reconstruction = reconstruct.get_3D_reconstruction(astra_config)
+        return reconstruction
+
 
 class ShiftManager:
     # Might be better to attach this to the projections object
@@ -124,26 +149,25 @@ class ShiftManager:
         self,
         shift: np.ndarray,
         function_type: enums.ShiftType,
-        alignment_options: AlignmentOptions,
     ):
         self.staged_shift = shift
         self.staged_function_type = function_type
-        self.staged_alignment_options = alignment_options
 
     def unstage_shift(self):
         # Store staged values
         self.past_shifts += [self.staged_shift]
         self.past_shift_functions += [self.staged_function_type]
-        self.past_shift_options += [self.staged_alignment_options]
         # Clear the staged shift
         self.staged_shift = np.zeros_like(self.staged_shift)
 
-    def apply_staged_shift(self, projections: Projections):
+    def apply_staged_shift(
+        self, images: np.ndarray, device_options: DeviceOptions, pinned_results: Optional[np.ndarray]
+    ):
         if self.is_shift_nonzero():
-            image_shift_function = maps.get_shift_func_by_enum(self.staged_function_type)
-            projections.data = image_shift_function(
-                projections.data, self.staged_shift
+            shift_options = ShiftOptions(
+                enabled=True, type=self.staged_function_type, device_options=device_options
             )
+            images[:] = Shifter(shift_options).run(images, self.staged_shift, pinned_results)
             self.unstage_shift()
         else:
             print("There is no shift to apply!")

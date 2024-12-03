@@ -15,6 +15,8 @@ class ExperimentOptions:
 
     sample_thickness: float = 7e-6
 
+    pixel_size: float = 1.0
+
 
 @dataclasses.dataclass
 class MaskOptions:
