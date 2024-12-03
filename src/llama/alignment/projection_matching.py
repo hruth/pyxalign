@@ -1,44 +1,67 @@
 import numpy as np
+import cupy as cp
+import copy
 from typing import Union
-from llama.projections import PhaseProjections
+from llama.alignment.base import Aligner
+from llama.projections import PhaseProjections, Projections
 from llama.api.options.projections import ProjectionDevice
+from llama.transformations.classes import Cropper, Downsampler
 from llama.transformations.functions import image_shift_fft
 import llama.api.enums as enums
 from llama.api.options.alignment import ProjectionMatchingOptions
+import llama.gpu_utils as gutils
+from llama.api.types import ArrayType, r_type, c_type
 
 # For PMA, you will need to create a new projections object.
 # That projections object should have methods for doing the FP and FBP, and maybe shifting too?
 
-class ProjectionMatchingAligner:
-    def __init__(self):
-        self.past_shifts = []
+# 3 ways to run:
+# 1) pin array and transfer to GPU many times
+# 2) leave on GPU
+# 3) leabe on CPU
+# Option 1 requires pinning, option 2 does not require pinning, and neither does 3.
+# Just implement option 2 for now. Preparation should be done before passing to
+# the pma function. PMA function should be able to handle all by using the decorator
+# within PMA functions and by settign astra functions.
 
-    def get_alignment_shift(self, projections: PhaseProjections, options: ProjectionMatchingOptions):
-        self.options = options
-        self.prepare_projections(projections.data)
-        self.run_projection_matching_alignment()
-        self.staged_shift = np.zeros((self.projections.n_projections, 2))
 
-    def prepare_projections(self, projections: np.ndarray):
-        # 3 ways to run:
-        # 1) pin array and transfer to GPU many times
-        # 2) leave on GPU
-        # 3) leabe on CPU
-        # Option 1 requires pinning, option 2 does not require pinning, and neither does 3.
-        # Just implement option 2 for now. Preparation should be done before passing to
-        # the pma function. PMA function should be able to handle all by using the decorator
-        # within PMA functions and by settign astra functions.
+class ProjectionMatchingAligner(Aligner):
+    def __init__(self, projections: Projections, options: ProjectionMatchingOptions):
+        super().__init__(projections, options)
+        self.options: ProjectionMatchingOptions = self.options
 
-        # Option 2)
-        device_options = ProjectionDevice(pin_memory=False, device_type=enums.DeviceType.GPU)
-
-        # Make the Projections object
-        self.unshifted_projections = PhaseProjections(
-            projections.data, self.options.downsampling, device_options
+    @gutils.memory_releasing_error_handler
+    def run(self) -> np.ndarray:
+        self.pma_projections = PhaseProjections(
+            projections=self.projections.data * 1,
+            angles=self.projections.angles * 1,
+            options=copy.deepcopy(self.options.projections),
+            masks=self.projections.masks * 1,
         )
 
-    def run_projection_matching_alignment(self):
-        pass
+        shift = self.calculate_alignment_shift()
 
-    # def apply_shift(self, projections, shift):
-    #     return image_shift_fft(projections, shift)
+        return shift
+
+    # Notes about initial implementation:
+    # - initial shift not supported
+    # - only doing the pinned memory case first
+
+    @gutils.memory_releasing_error_handler
+    def calculate_alignment_shift(self):
+
+        unshifted_masks, unshifted_projections = self.initialize()
+        
+
+
+    def initialize(self):
+        if self.options.keep_on_gpu:
+            unshifted_projections = cp.array(self.pma_projections.data)
+            unshifted_masks = cp.array(self.pma_projections.masks)
+        else:
+            unshifted_projections = gutils.pin_memory(self.pma_projections.data)
+            unshifted_masks = gutils.pin_memory(self.pma_projections.masks)
+
+        self.total_shift = np.zeros((self.angles, 2), dtype=r_type)
+
+        return unshifted_masks, unshifted_projections

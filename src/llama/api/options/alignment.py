@@ -2,14 +2,13 @@ from abc import ABC, abstractmethod
 import dataclasses
 from dataclasses import field
 from llama.api.options.device import DeviceOptions, GPUOptions
+from llama.api.options.projections import ProjectionOptions
 from llama.api.options.reconstruct import AstraReconstructOptions
-from llama.api.options.transform import PreProcessingOptions, CropOptions
+from llama.api.options.transform import PreProcessingOptions, CropOptions, DownsampleOptions
 
 
 @dataclasses.dataclass
 class AlignmentOptions(ABC):
-    pre_processing: PreProcessingOptions = field(default_factory=PreProcessingOptions)
-
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
 
@@ -25,7 +24,6 @@ class CrossCorrelationOptions(AlignmentOptions):
 
     precision: float = 0.01
 
-    # Inherited and overwritten follows:
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
     crop_options: CropOptions = field(default_factory=CropOptions)
@@ -45,11 +43,10 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     local_TV_lambda: float = 3e-4
 
-    astra_gpu: AstraReconstructOptions = field(default_factory=GPUOptions)
+    astra: AstraReconstructOptions = field(default_factory=GPUOptions)
 
-    # Inherited and overwritten follows:
     device_options: DeviceOptions = field(default_factory=DeviceOptions)
 
-    # gpu_options: GPUOptions = field(default_factory=GPUOptions)
+    projections: ProjectionOptions = field(default_factory=ProjectionOptions)
 
-    pre_processing_options: PreProcessingOptions = field(default_factory=PreProcessingOptions)
+    keep_on_gpu: bool = False

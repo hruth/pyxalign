@@ -14,7 +14,7 @@ from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
 from llama import reconstruct
-from llama.transformations.classes import Downsampler, Shifter, Upsampler
+from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropper
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
 from llama.api.types import ArrayType
@@ -28,18 +28,27 @@ class Projections:
         options: ProjectionOptions,
         masks: Optional[np.ndarray] = None,
         shift_manager: Optional["ShiftManager"] = None,
+        center_of_rotation: Optional[np.ndarray] = None,
     ):
-        self.data = projections
         self.options = options
         self.angles = angles
+
+        # Crop and downsample input data if enabled
+        self.data = Cropper(self.options.crop).run(projections)
+        self.data = Downsampler(self.options.downsample).run(self.data)
         if masks is not None:
-            self.masks = masks
+            self.masks = Cropper(self.options.crop).run(masks)
+            mask_downsample_options = copy.deepcopy(self.options.downsample)
+            self.options.downsample.type = self.options.mask_downsample_type
+            self.masks = Downsampler(mask_downsample_options).run(self.masks)
+
         if shift_manager is not None:
             self.shift_manager = copy.deepcopy(shift_manager)
         else:
             self.shift_manager = ShiftManager(self.n_projections)
 
-        self.center_of_rotation = np.array(projections.shape[1:]) / 2
+        if center_of_rotation is None:
+            self.center_of_rotation = np.array(projections.shape[1:]) / 2
 
     @property
     def n_projections(self) -> int:
@@ -101,9 +110,6 @@ class Projections:
 
 
 class ComplexProjections(Projections):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         unwrap_phase_wrapped = device_handling_wrapper(
             func=unwrap_phase,
@@ -115,9 +121,6 @@ class ComplexProjections(Projections):
 
 
 class PhaseProjections(Projections):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def get_3D_reconstruction(self):
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
@@ -163,7 +166,10 @@ class ShiftManager:
         self.staged_shift = np.zeros_like(self.staged_shift)
 
     def apply_staged_shift(
-        self, images: np.ndarray, device_options: DeviceOptions, pinned_results: Optional[np.ndarray]
+        self,
+        images: np.ndarray,
+        device_options: DeviceOptions,
+        pinned_results: Optional[np.ndarray],
     ):
         if self.is_shift_nonzero():
             shift_options = ShiftOptions(
