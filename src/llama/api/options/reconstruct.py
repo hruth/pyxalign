@@ -4,4 +4,6 @@ from typing import Sequence
 
 @dataclasses.dataclass
 class AstraReconstructOptions:
-    gpu_indices: Sequence[int] = ()
+    back_project_gpu_indices: Sequence[int] = (0,)
+
+    forward_project_gpu_indices: Sequence[int] = (0,)

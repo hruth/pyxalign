@@ -1,5 +1,6 @@
 from typing import List, Optional
 import numpy as np
+import astra
 import copy
 from llama.api import enums, maps
 from llama.api.options.alignment import AlignmentOptions
@@ -118,6 +119,7 @@ class PhaseProjections(Projections):
         super().__init__(*args, **kwargs)
 
     def get_3D_reconstruction(self):
+        astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
             sinogram=self.data,
             angles=self.angles,
