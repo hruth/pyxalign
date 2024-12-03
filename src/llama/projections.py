@@ -121,7 +121,7 @@ class ComplexProjections(Projections):
 
 
 class PhaseProjections(Projections):
-    def get_3D_reconstruction(self):
+    def get_3D_reconstruction(self, filter_inputs: bool = False):
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
             sinogram=self.data,

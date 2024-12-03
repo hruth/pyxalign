@@ -4,14 +4,15 @@ import scipy
 import copy
 from typing import Union
 from llama.alignment.base import Aligner
+from llama.api.options.transform import ShiftOptions
 from llama.projections import PhaseProjections, Projections
 from llama.api.options.projections import ProjectionDevice
-from llama.transformations.classes import Cropper, Downsampler
+from llama.transformations.classes import Shifter
 from llama.transformations.functions import image_shift_fft
 import llama.image_processing as ip
 import llama.api.enums as enums
 import llama.api.maps as maps
-from llama.api.enums import MemoryConfig
+from llama.api.enums import DeviceType, MemoryConfig
 from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type, c_type
@@ -54,8 +55,40 @@ class ProjectionMatchingAligner(Aligner):
     @gutils.memory_releasing_error_handler
     def calculate_alignment_shift(self):
         self.initialize_attributes()
+        self.initialize_shifters()
         unshifted_masks, unshifted_projections = self.initialize_arrays()
         tukey_window, circulo = self.initialize_windows()
+
+        for self.iteration in range(self.options.iterations):
+            self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
+
+    def iterate(self, unshifted_projections, unshifted_masks, tukey_window, circulo):
+        xp = self.xp
+
+        self.apply_new_shift(unshifted_projections, unshifted_masks)
+        # Apply tukey window filter - convert to gpu chunked later
+        self.aligned_projections.masks[:] = tukey_window * self.aligned_projections.masks
+        # calculate mass - look out for cp/np type issues
+        mass = xp.median(xp.abs(self.aligned_projections.data).mean(axis=(1, 2)))
+        # Get back projection:
+        # - use method from projections class and add filtering
+        # - later, add ability to re-use the same astra_config
+        self.reconstruction = self.aligned_projections.get_3D_reconstruction(filter_inputs=True)
+
+
+
+    def apply_new_shift(self, unshifted_projections, unshifted_masks):
+        shift_update = self.total_shift / self.options.projections.downsample
+        self.projection_shifter.run(
+            images=unshifted_projections,
+            shift=shift_update,
+            pinned_results=self.aligned_projections.data,
+        )
+        self.mask_shifter.run(
+            iamges=unshifted_masks,
+            shift=shift_update,
+            pinned_results=self.aligned_projections.masks,
+        )
 
     def initialize_attributes(self):
         self.n_pix = self.aligned_projections.reconstructed_object_dimensions
@@ -88,6 +121,25 @@ class ProjectionMatchingAligner(Aligner):
         self.total_shift = self.xp.zeros((self.aligned_projections.angles, 2), dtype=r_type)
 
         return unshifted_masks, unshifted_projections
+
+    def initialize_shifters(self):
+        device_options = copy.deepcopy(self.options.device)
+        if self.memory_config is MemoryConfig.GPU_ONLY:
+            device_options.device_type = DeviceType.GPU
+
+        projections_shift_options = ShiftOptions(
+            enabled=True,
+            type=self.options.projection_shift_type,
+            device_options=device_options,
+        )
+        mask_shift_options = ShiftOptions(
+            enabled=True,
+            type=self.options.mask_shift_type,
+            device_options=device_options,
+        )
+
+        self.projection_shifter = Shifter(projections_shift_options)
+        self.mask_shifter = Shifter(mask_shift_options)
 
     def initialize_windows(self) -> tuple[ArrayType, ArrayType]:
         # Generate window for removing edge issues

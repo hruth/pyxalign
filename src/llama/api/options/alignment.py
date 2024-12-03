@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import dataclasses
 from dataclasses import field
+import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.reconstruct import AstraReconstructOptions
@@ -50,3 +51,7 @@ class ProjectionMatchingOptions(AlignmentOptions):
     projections: ProjectionOptions = field(default_factory=ProjectionOptions)
 
     keep_on_gpu: bool = False
+
+    projection_shift_type: enums.ShiftType = enums.ShiftType.FFT
+
+    mask_shift_type: enums.ShiftType = enums.ShiftType.CIRC
