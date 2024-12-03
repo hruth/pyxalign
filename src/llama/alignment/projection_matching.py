@@ -1,5 +1,6 @@
 import numpy as np
 import cupy as cp
+import scipy
 import copy
 from typing import Union
 from llama.alignment.base import Aligner
@@ -7,7 +8,10 @@ from llama.projections import PhaseProjections, Projections
 from llama.api.options.projections import ProjectionDevice
 from llama.transformations.classes import Cropper, Downsampler
 from llama.transformations.functions import image_shift_fft
+import llama.image_processing as ip
 import llama.api.enums as enums
+import llama.api.maps as maps
+from llama.api.enums import MemoryConfig
 from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type, c_type
@@ -32,7 +36,7 @@ class ProjectionMatchingAligner(Aligner):
 
     @gutils.memory_releasing_error_handler
     def run(self) -> np.ndarray:
-        self.pma_projections = PhaseProjections(
+        self.aligned_projections = PhaseProjections(
             projections=self.projections.data * 1,
             angles=self.projections.angles * 1,
             options=copy.deepcopy(self.options.projections),
@@ -49,19 +53,49 @@ class ProjectionMatchingAligner(Aligner):
 
     @gutils.memory_releasing_error_handler
     def calculate_alignment_shift(self):
+        self.initialize_attributes()
+        unshifted_masks, unshifted_projections = self.initialize_arrays()
+        tukey_window, circulo = self.initialize_windows()
 
-        unshifted_masks, unshifted_projections = self.initialize()
-        
+    def initialize_attributes(self):
+        self.n_pix = self.aligned_projections.reconstructed_object_dimensions
 
+    def initialize_arrays(self):
+        self.memory_config = maps.get_memory_config_enum(
+            self.options.keep_on_gpu, self.options.device_options.device_type
+        )
 
-    def initialize(self):
-        if self.options.keep_on_gpu:
-            unshifted_projections = cp.array(self.pma_projections.data)
-            unshifted_masks = cp.array(self.pma_projections.masks)
-        else:
-            unshifted_projections = gutils.pin_memory(self.pma_projections.data)
-            unshifted_masks = gutils.pin_memory(self.pma_projections.masks)
+        if self.memory_config is MemoryConfig.GPU_ONLY:
+            initializer_function = cp.array
+            self.xp = cp
+            self.scipy_module: scipy = gutils.get_scipy_module(cp.array(1))
+        elif self.memory_config is MemoryConfig.MIXED:
+            initializer_function = gutils.pin_memory
+            self.xp = cp
+            self.scipy_module: scipy = gutils.get_scipy_module(cp.array(1))
+        elif self.memory_config is MemoryConfig.CPU_ONLY:
+            initializer_function = lambda x: (x * 1)  # noqa: E731
+            self.xp = np
+            self.scipy_module: scipy = gutils.get_scipy_module(np.array(1))
 
-        self.total_shift = np.zeros((self.angles, 2), dtype=r_type)
+        unshifted_projections = initializer_function(self.aligned_projections.data)
+        unshifted_masks = initializer_function(self.aligned_projections.masks)
+
+        if self.memory_config is not MemoryConfig.CPU_ONLY:
+            self.aligned_projections.data = initializer_function(self.aligned_projections.data)
+            self.aligned_projections.masks = initializer_function(self.aligned_projections.masks)
+
+        self.total_shift = self.xp.zeros((self.aligned_projections.angles, 2), dtype=r_type)
 
         return unshifted_masks, unshifted_projections
+
+    def initialize_windows(self) -> tuple[ArrayType, ArrayType]:
+        # Generate window for removing edge issues
+        tukey_window = ip.get_tukey_window(A=0.2, scipy_module=self.scipy_module)
+        # Generate circular mask for reconstruction
+        circulo = ip.apply_3D_apodization(np.zeros(self.n_pix), 0, 5).astype(r_type)
+
+        if self.memory_config is MemoryConfig.MIXED:
+            tukey_window = gutils.pin_memory(tukey_window)
+
+        return tukey_window, circulo

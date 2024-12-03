@@ -1,3 +1,4 @@
+from types import ModuleType
 from typing import Union
 import numpy as np
 import cupy as cp
@@ -94,3 +95,35 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
     # relative_shifts = relative_shifts.get()
 
     return relative_shifts
+
+
+def apply_3D_apodization(image: ArrayType, rad_apod: float, radial_smooth: float):
+    n_z = image.shape[0]
+    xt = np.arange(-n_z / 2, n_z / 2, dtype=r_type)
+    X, Y = np.meshgrid(xt, xt, dtype=r_type)
+    if len(np.shape(radial_smooth)) > 0:
+        radial_smooth[radial_smooth < 1] = 1
+    circulo = 1 - rad_tap(X, Y, radial_smooth, np.round(n_z / 2 - rad_apod - radial_smooth))
+    image = image * circulo[:, :, None]
+
+    return circulo
+
+
+def rad_tap(X, Y, tap_pix, zero_rad):
+    tau = 2 * tap_pix
+    R = np.sqrt(X**2 + Y**2)
+    taper_func = 0.5 * (1 + np.cos(2 * np.pi * (R - zero_rad - tau / 2) / tau))
+    taper_func = (R > zero_rad + tau / 2) * 1.0 + taper_func * (R <= zero_rad + tau / 2)
+    taper_func = taper_func * (R >= zero_rad)
+
+    return taper_func
+
+
+def get_tukey_window(
+    size: Union[list, np.ndarray, tuple], A: float, scipy_module: ModuleType = scipy
+) -> np.ndarray:
+    tukey_window = (
+        scipy_module.signal.windows.tukey(size[0], A)[:, None] * scipy_module.signal.windows.tukey(size[1], A)
+    ).astype(r_type)
+
+    return tukey_window

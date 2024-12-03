@@ -26,3 +26,9 @@ class UpsampleType(StrEnum):
 
 class SciPySubmodules(StrEnum):
     SIGNAL = auto()
+
+
+class MemoryConfig(StrEnum):
+    GPU_ONLY = auto()
+    MIXED = auto()
+    CPU_ONLY = auto()
