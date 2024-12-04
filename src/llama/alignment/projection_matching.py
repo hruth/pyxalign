@@ -64,6 +64,7 @@ class ProjectionMatchingAligner(Aligner):
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
 
     def iterate(self, unshifted_projections, unshifted_masks, tukey_window, circulo):
+        "Execute an iteration of the projection-matching aligment loop"
         xp = self.xp
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
@@ -118,7 +119,9 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.data = initializer_function(self.aligned_projections.data)
             self.aligned_projections.masks = initializer_function(self.aligned_projections.masks)
 
-        self.total_shift = self.xp.zeros((self.aligned_projections.angles.shape[0], 2), dtype=r_type)
+        self.total_shift = self.xp.zeros(
+            (self.aligned_projections.angles.shape[0], 2), dtype=r_type
+        )
 
         return unshifted_masks, unshifted_projections
 
