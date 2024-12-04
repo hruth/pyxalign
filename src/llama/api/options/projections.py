@@ -1,6 +1,7 @@
 from dataclasses import field
 import llama.api.enums as enums
 import dataclasses
+from llama.api.options.device import DeviceOptions
 
 from llama.api.options.options import ExperimentOptions, MaskOptions, PhaseUnwrapOptions
 from llama.api.options.reconstruct import AstraReconstructOptions

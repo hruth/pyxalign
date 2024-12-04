@@ -34,7 +34,11 @@ class LaminographyAlignmentTask:
         # Placeholder for actual illum_sum
         self.illum_sum = np.ones_like(self.complex_projections.data[0], dtype=r_type)
         shift = self.cross_correlation_aligner.run(self.illum_sum)
-        self.complex_projections.shift_manager.stage_shift(shift, enums.ShiftType.CIRC)
+        self.complex_projections.shift_manager.stage_shift(
+            shift=shift,
+            function_type=enums.ShiftType.CIRC,
+            alignment_options=self.options.cross_correlation,
+        )
         print("Cross-correlation shift stored in shift_manager")
 
     def get_projection_matching_shift(self):
@@ -42,7 +46,11 @@ class LaminographyAlignmentTask:
             self.phase_projections, self.options.projection_matching
         )
         shift = self.pma_object.run()
-        self.phase_projections.shift_manager.stage_shift(shift, enums.ShiftType.FFT)
+        self.phase_projections.shift_manager.stage_shift(
+            shift=shift,
+            function_type=enums.ShiftType.FFT,
+            alignment_options=self.options.projection_matching,
+        )
         print("Projection-matching shift stored in shift_manager")
 
     def get_complex_projection_masks(self, enable_plotting: bool = False):

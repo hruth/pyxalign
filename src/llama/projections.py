@@ -65,7 +65,7 @@ class Projections:
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / pixel_size])
         n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
         return n_pix
-    
+
     @property
     def size(self):
         return self.data.shape[1:]
@@ -73,8 +73,14 @@ class Projections:
     def pin_projections(self):
         self.data = gpu_utils.pin_memory(self.data)
 
-    def apply_staged_shift(self):
-        self.shift_manager.apply_staged_shift(self)
+    def apply_staged_shift(self, device_options: Optional[DeviceOptions] = None):
+        if device_options is None:
+            device_options = DeviceOptions()
+        self.shift_manager.apply_staged_shift(
+            images=self.data,
+            device_options=device_options,
+            pinned_results=self.data,
+        )
 
     def plot_projections(self, process_function: callable = lambda x: x):
         plotters.make_image_slider_plot(process_function(self.data))
@@ -158,28 +164,39 @@ class ShiftManager:
         self,
         shift: np.ndarray,
         function_type: enums.ShiftType,
+        alignment_options: AlignmentOptions,
     ):
         self.staged_shift = shift
         self.staged_function_type = function_type
+        self.staged_alignment_options = alignment_options
 
     def unstage_shift(self):
         # Store staged values
         self.past_shifts += [self.staged_shift]
         self.past_shift_functions += [self.staged_function_type]
-        # Clear the staged shift
+        self.past_shift_options += [self.staged_alignment_options]
+        # Clear the staged variables
         self.staged_shift = np.zeros_like(self.staged_shift)
+        self.staged_function_type = None
+        self.staged_alignment_options = None
 
     def apply_staged_shift(
         self,
         images: np.ndarray,
-        device_options: DeviceOptions,
-        pinned_results: Optional[np.ndarray],
+        device_options: Optional[DeviceOptions] = None,
+        pinned_results: Optional[np.ndarray] = None,
     ):
         if self.is_shift_nonzero():
             shift_options = ShiftOptions(
-                enabled=True, type=self.staged_function_type, device_options=device_options
+                enabled=True,
+                type=self.staged_function_type,
+                device_options=device_options,
             )
-            images[:] = Shifter(shift_options).run(images, self.staged_shift, pinned_results)
+            images[:] = Shifter(shift_options).run(
+                images=images,
+                shift=self.staged_shift,
+                pinned_results=pinned_results,
+            )
             self.unstage_shift()
         else:
             print("There is no shift to apply!")
