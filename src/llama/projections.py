@@ -131,8 +131,10 @@ class ComplexProjections(Projections):
 
 
 class PhaseProjections(Projections):
-    def get_3D_reconstruction(self, filter_inputs: bool = False):
-        astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
+    def get_3D_reconstruction(
+        self, filter_inputs: bool = False, pinned_filtered_sinogram: Optional[np.ndarray] = None
+    ):
+        astra.set_gpu_index(self.options.reconstruct.astra.back_project_gpu_indices)
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
             sinogram=self.data,
             angles=self.angles,
@@ -142,8 +144,19 @@ class PhaseProjections(Projections):
             tilt_angle=self.options.experiment.tilt_angle,
             skew_angle=self.options.experiment.skew_angle,
         )
+        if filter_inputs:
+            sinogram = reconstruct.filter_sinogram(
+                sinogram=self.data,
+                vectors=vectors,
+                device_options=self.options.reconstruct.filter.device,
+                pinned_results=pinned_filtered_sinogram,
+            )
+        else:
+            sinogram = self.data
         astra_config = reconstruct.create_astra_reconstructor_config(
-            self.data, scan_geometry_config, vectors
+            sinogram=sinogram,
+            scan_geometry_config=scan_geometry_config,
+            vectors=vectors,
         )
         reconstruction = reconstruct.get_3D_reconstruction(astra_config)
         return reconstruction

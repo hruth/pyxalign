@@ -119,11 +119,9 @@ def rad_tap(X, Y, tap_pix, zero_rad):
     return taper_func
 
 
-def get_tukey_window(
-    size: Union[list, np.ndarray, tuple], A: float, scipy_module: ModuleType = scipy
-) -> np.ndarray:
+def get_tukey_window(size: Union[list, np.ndarray, tuple], A: float) -> np.ndarray:
     tukey_window = (
-        scipy_module.signal.windows.tukey(size[0], A)[:, None] * scipy_module.signal.windows.tukey(size[1], A)
+        scipy.signal.windows.tukey(size[0], A)[:, None] * scipy.signal.windows.tukey(size[1], A)
     ).astype(r_type)
 
     return tukey_window

@@ -37,4 +37,3 @@ if __name__ == "__main__":
     for i in range(5):
         time_move_to_gpu(pinned_array)
         # cp.get_default_memory_pool().free_all_blocks()
-

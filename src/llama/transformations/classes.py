@@ -49,7 +49,7 @@ class Downsampler(Transformation):
         # Note: currently the linear downsampling function also has the option to shift
         # the inputs.
         if self.enabled:
-            if self.options.type is DownsampleType.LINEAR:
+            if self.options.type is DownsampleType.LINEAR and shift is not None:
                 self.function = device_handling_wrapper(
                     func=maps.get_downsample_func_by_enum(self.options.type),
                     options=self.options.device_options,

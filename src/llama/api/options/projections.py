@@ -4,7 +4,7 @@ import dataclasses
 from llama.api.options.device import DeviceOptions
 
 from llama.api.options.options import ExperimentOptions, MaskOptions, PhaseUnwrapOptions
-from llama.api.options.reconstruct import AstraReconstructOptions
+from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.transform import CropOptions, DownsampleOptions
 
 
@@ -12,7 +12,7 @@ from llama.api.options.transform import CropOptions, DownsampleOptions
 class ProjectionOptions:
     experiment: ExperimentOptions = field(default_factory=ExperimentOptions)
 
-    astra: AstraReconstructOptions = field(default_factory=AstraReconstructOptions)
+    reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
 
     mask: MaskOptions = field(default_factory=MaskOptions)
 

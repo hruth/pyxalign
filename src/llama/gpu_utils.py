@@ -1,5 +1,6 @@
 from functools import wraps
 import traceback
+from types import ModuleType
 from typing import List, Optional
 import cupy as cp
 import scipy
@@ -108,7 +109,7 @@ def get_fft_backend(array: ArrayType):
     return fft_backend
 
 
-def get_scipy_module(array: ArrayType):  # , submodule: enums.SciPySubmodules) -> ModuleType:
+def get_scipy_module(array: ArrayType) -> ModuleType:  # , submodule: enums.SciPySubmodules) -> ModuleType:
     module = cp.get_array_module(array)
 
     if module.__name__ == "numpy":

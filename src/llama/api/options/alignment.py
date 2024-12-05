@@ -4,7 +4,7 @@ from dataclasses import field
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.projections import ProjectionOptions
-from llama.api.options.reconstruct import AstraReconstructOptions
+from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.transform import PreProcessingOptions, CropOptions, DownsampleOptions
 
 
@@ -44,13 +44,16 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     local_TV_lambda: float = 3e-4
 
-    astra: AstraReconstructOptions = field(default_factory=GPUOptions)
-
-    device_options: DeviceOptions = field(default_factory=DeviceOptions)
-
-    projections: ProjectionOptions = field(default_factory=ProjectionOptions)
-
     keep_on_gpu: bool = False
+
+    device: DeviceOptions = field(default_factory=DeviceOptions)
+
+    # projections: ProjectionOptions = field(default_factory=ProjectionOptions)
+    reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
+
+    crop: CropOptions = field(default_factory=CropOptions)
+
+    downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
 
     projection_shift_type: enums.ShiftType = enums.ShiftType.FFT
 

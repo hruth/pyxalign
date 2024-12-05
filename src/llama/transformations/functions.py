@@ -83,7 +83,7 @@ def image_crop_pad(
     return images
 
 
-def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
+def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
     is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
@@ -93,7 +93,8 @@ def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
 
     shape = images.shape
 
-    images = scipy_module.fft.fft2(images)
+    if apply_FFT:
+        images = scipy_module.fft.fft2(images)
 
     x_grid = (
         scipy_module.fft.ifftshift(
@@ -116,7 +117,8 @@ def image_shift_fft(images: ArrayType, shift: ArrayType) -> ArrayType:
     images = images * X
     images = images * Y
 
-    images = scipy_module.fft.ifft2(images)
+    if apply_FFT:
+        images = scipy_module.fft.ifft2(images)
 
     if is_real:
         images = xp.real(images)
@@ -152,7 +154,8 @@ def image_shift_linear(images: ArrayType, shift: Optional[ArrayType] = None) -> 
 @preserve_complexity_or_realness()
 def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     xp = cp.get_array_module(images)
-    fft_backend = get_fft_backend(images)
+    # fft_backend = get_fft_backend(images)
+    scipy_module: scipy = get_scipy_module(images)
 
     # Pad the array to prevent boundary issues
     pad_by = 2
@@ -169,27 +172,26 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     del padded_images
 
     # Downsample the image
-    with scipy.fft.set_backend(fft_backend):
-        images = scipy.fft.fft2(images)
-        # apply +/-0.5 px shift
-        images = image_shift_fft(images, xp.array([[-0.5, -0.5]], dtype=r_type), applyFFT=False)
-        # crop in the Fourier space
-        images = scipy.fft.ifftshift(
-            image_crop_pad(
-                scipy.fft.fftshift(images, axes=(1, 2)),
-                image_size_new[0],
-                image_size_new[1],
-            ),
-            axes=(1, 2),
-        )
-        # apply -/+0.5 px shift in the cropped space
-        images = image_shift_fft(images, xp.array([[0.5, 0.5]]), applyFFT=False)
-        images = scipy.fft.ifft2(images)
-        # scale to keep the average constant
-        images = images * scale
-        # remove the padding
-        a = int(pad_by / 2)
-        images = images[:, a : (image_size_new[0] - a), a : (image_size_new[1] - a)]
+    images = scipy_module.fft.fft2(images)
+    # apply +/-0.5 px shift
+    images = image_shift_fft(images, xp.array([[-0.5, -0.5]], dtype=r_type), apply_FFT=False)
+    # crop in the Fourier space
+    images = scipy_module.fft.ifftshift(
+        image_crop_pad(
+            scipy.fft.fftshift(images, axes=(1, 2)),
+            image_size_new[0],
+            image_size_new[1],
+        ),
+        axes=(1, 2),
+    )
+    # apply -/+0.5 px shift in the cropped space
+    images = image_shift_fft(images, xp.array([[0.5, 0.5]]), apply_FFT=False)
+    images = scipy_module.fft.ifft2(images)
+    # scale to keep the average constant
+    images = images * scale
+    # remove the padding
+    a = int(pad_by / 2)
+    images = images[:, a : (image_size_new[0] - a), a : (image_size_new[1] - a)]
 
     return images
 
@@ -203,6 +205,9 @@ def image_downsample_linear(
     xp = cp.get_array_module(images)
     scipy_module = get_scipy_module(images)
     interpolator = scipy_module.interpolate.RegularGridInterpolator
+
+    if shift is None:
+        shift = xp.zeros((len(images), 2), dtype=r_type)
 
     n_z, n_x, n_y = images.shape
     X = xp.arange(0, n_x, dtype=int)

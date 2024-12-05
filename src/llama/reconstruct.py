@@ -1,8 +1,11 @@
 from typing import Optional
 import numpy as np
+import cupy as cp
+import scipy
 import astra
 
 from llama.api.options.device import DeviceOptions
+from llama.gpu_utils import get_scipy_module
 import llama.projections as projections
 from llama.api.types import r_type, ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
@@ -108,7 +111,7 @@ def get_astra_reconstructor_geometry(
 
 
 def create_astra_reconstructor_config(
-    sinogram: np.ndarray, scan_geometry_config: dict, vectors: np.ndarray
+    sinogram: np.ndarray, scan_geometry_config: dict, vectors: np.ndarray,
 ):
     geometries = get_geometries(scan_geometry_config, vectors)
     astra_config = astra.astra_dict("BP3D_CUDA")  # update this for cpu option later
@@ -160,102 +163,96 @@ def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarr
     return reconstruction
 
 
-# def filter_sinogram(
-#     sinogram: ArrayType,
-#     vectors: np.ndarray,
-#     apply_filter_device_options: DeviceOptions,
-#     pinned_results: Optional[np.ndarray],
-# ) -> ArrayType:
-#     # calculate the original angles
-#     # can these lines be replaced?
-#     theta = np.pi - np.arctan2(vectors[:, 1], -vectors[:, 0])
-#     lamino_angle = np.pi / 2 - np.arctan2(vectors[:, 2], vectors[:, 0] / np.cos(theta))
+def filter_sinogram(
+    sinogram: ArrayType,
+    vectors: np.ndarray,
+    device_options: DeviceOptions,
+    pinned_results: Optional[np.ndarray],
+) -> ArrayType:
+    xp = cp.get_array_module(sinogram)
+    # calculate the original angles
+    # can these lines be replaced?
+    theta = np.pi - np.arctan2(vectors[:, 1], -vectors[:, 0])
+    lamino_angle = np.pi / 2 - np.arctan2(vectors[:, 2], vectors[:, 0] / np.cos(theta))
 
-#     # determine weights in case of irregular fourier space sampling
-#     theta = np.mod(theta - theta[0], np.pi)
-#     sort_idx = np.argsort(theta)
-#     sorted_theta = theta[sort_idx]
-#     n_proj = len(sinogram)
+    # determine weights in case of irregular fourier space sampling
+    theta = np.mod(theta - theta[0], np.pi)
+    sort_idx = np.argsort(theta)
+    sorted_theta = theta[sort_idx]
+    n_proj = len(sinogram)
 
-#     weights = np.zeros(n_proj)
-#     weights[1 : n_proj - 1] = -sorted_theta[0 : n_proj - 2] / 2 + sorted_theta[2:] / 2
-#     weights[0] = sorted_theta[1] - sorted_theta[0]
-#     weights[-1] = sorted_theta[-1] - sorted_theta[-2]
-#     weights[sort_idx] = weights  # unsort
-#     if np.any(weights > 2 * np.median(weights)):
-#         weights[weights > 2 * np.median(weights)] = np.median(weights)
-#     weights = weights / np.mean(weights)
-#     weights = weights * (np.pi / 2 / n_proj) * np.sin(lamino_angle)
-#     weights = weights.astype(r_type)
+    weights = np.zeros(n_proj)
+    weights[1 : n_proj - 1] = -sorted_theta[0 : n_proj - 2] / 2 + sorted_theta[2:] / 2
+    weights[0] = sorted_theta[1] - sorted_theta[0]
+    weights[-1] = sorted_theta[-1] - sorted_theta[-2]
+    weights[sort_idx] = weights  # unsort
+    if np.any(weights > 2 * np.median(weights)):
+        weights[weights > 2 * np.median(weights)] = np.median(weights)
+    weights = weights / np.mean(weights)
+    weights = weights * (np.pi / 2 / n_proj) * np.sin(lamino_angle)
+    weights = weights.astype(r_type)
 
-#     H = design_filter(sinogram.shape[2])
+    filter = design_filter(sinogram.shape[2])
 
-#     # account for laminography tilt + unequal spacing of the tomo
-#     # angles
-#     H = weights[:, None] * H
+    # account for laminography tilt + unequal spacing of the tomo
+    # angles
+    filter = weights[:, None] * filter
 
-#     apply_filter_wrapped = device_handling_wrapper(
-#         func=apply_filter,
-#         options=apply_filter_device_options,
-#         chunkable_inputs_for_gpu_idx=[0],
-#         chunkable_inputs_for_cpu_idx=[1],
-#         pinned_results=pinned_results,
-#     )
+    apply_filter_wrapped = device_handling_wrapper(
+        func=apply_filter,
+        options=device_options,
+        chunkable_inputs_for_gpu_idx=[0],
+        chunkable_inputs_for_cpu_idx=[1],
+        pinned_results=pinned_results,
+    )
     
-#     filtered_sinogram = apply_filter_wrapped(sinogram, H, sinogram.shape[2])
+    filtered_sinogram = apply_filter_wrapped(sinogram, filter, sinogram.shape[2])
 
-#     # Check this is true for the mixed memory config
-#     assert filtered_sinogram is sinogram
+    # Check this is true for the mixed memory config
+    # assert filtered_sinogram is sinogram
 
-#     # RESUME HERE -- NEED TO SEE HOW TO DEAL WITH PINNED RESULTS IN THE 
-#     # GET_3D_RECONSTRUCTION METHOD IN THE PROJECTIONS
+    # RESUME HERE -- NEED TO SEE HOW TO DEAL WITH PINNED RESULTS IN THE 
+    # GET_3D_RECONSTRUCTION METHOD IN THE PROJECTIONS
 
-#     return pinnedResults
-
-# @gpuOptimize(projLengthInputForGPU=[0], projLengthInputForCPU=[1], projLengthOutput=[0])
-# def apply_filter(sinogram, H, Nw, *, gpuSettings={}, pinnedResults=None, streamList=[]):
-
-#     # filteredSinogram = np.zeros(sinogram.shape, dtype=np.float32)
-
-#     # m = H.shape[0]
-#     # padWidth = int((H.shape[0] - Nw)/2)
-#     m = H.shape[1]
-#     padWidth = int((H.shape[1] - Nw)/2)
-#     if Nw % 2 == 0:
-#         arrayPadder = ([0, 0], [0, 0], [padWidth, padWidth])
-#     else:
-#         arrayPadder = ([0, 0], [0, 0], [padWidth, padWidth + 1])
-
-#     # tmpSinogram = sinogram
-
-#     sinogram = cp.pad(sinogram, arrayPadder, 'symmetric')
-
-#     # sinogram holds fft of projections
-#     with scipy.fft.set_backend(cufft):
-#         sinogram = scipy.fft.fft(sinogram, axis=2)
-
-#     sinogram = sinogram*cp.array(H[:, np.newaxis])
-
-#     with scipy.fft.set_backend(cufft):
-#         sinogram = scipy.fft.ifft(sinogram, axis=2)
-#     sinogram = cp.real(sinogram)
-
-#     # Truncate the filtered projections
-#     truncIdx = np.arange(m/2 - Nw/2, m/2 + Nw/2, dtype=int)
-#     sinogram = sinogram[:, :, truncIdx]
-
-#     return sinogram
+    return filtered_sinogram
 
 
-# def design_filter(width: int, d: float = 1.0) -> ArrayType:
-#     order = np.max([64, 2**(np.ceil(np.log2(2*width)))])
-#     filt = np.linspace(0, 1, int(order/2), dtype=np.float32)
-#     # Frequency axis up to Nyquist
-#     w = np.linspace(0, np.pi, int(order/2), dtype=np.float32)
-#     # Crop the frequency response
-#     filt[w > np.pi*d] = 0 
-#     # Make filter symmetric
-#     filt = np.append(filt, filt[::-1]) 
+def apply_filter(sinogram: ArrayType, filter: ArrayType, n_pix_width: int) -> ArrayType:
+    xp = cp.get_array_module(sinogram)
+    scipy_module: scipy = get_scipy_module(sinogram)
 
-#     return filt
+    m = filter.shape[1]
+    pad_width = int((filter.shape[1] - n_pix_width) / 2)
+    if n_pix_width % 2 == 0:
+        array_padder = ([0, 0], [0, 0], [pad_width, pad_width])
+    else:
+        array_padder = ([0, 0], [0, 0], [pad_width, pad_width + 1])
 
+    sinogram = xp.pad(sinogram, array_padder, "symmetric")
+
+    # sinogram holds fft of projections
+    sinogram = scipy_module.fft.fft(sinogram, axis=2)
+
+    sinogram = sinogram * xp.array(filter[:, None])
+
+    sinogram = scipy_module.fft.ifft(sinogram, axis=2)
+    sinogram = xp.real(sinogram)
+
+    # Truncate the filtered projections
+    truncate_idx = np.arange(m / 2 - n_pix_width / 2, m / 2 + n_pix_width / 2, dtype=int)
+    sinogram = sinogram[:, :, truncate_idx]
+
+    return sinogram
+
+
+def design_filter(width: int, d: float = 1.0) -> ArrayType:
+    order = np.max([64, 2 ** (np.ceil(np.log2(2 * width)))])
+    filter = np.linspace(0, 1, int(order / 2), dtype=r_type)
+    # Frequency axis up to Nyquist
+    w = np.linspace(0, np.pi, int(order / 2), dtype=r_type)
+    # Crop the frequency response
+    filter[w > np.pi * d] = 0
+    # Make filter symmetric
+    filter = np.append(filter, filter[::-1])
+
+    return filter
