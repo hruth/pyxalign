@@ -1,7 +1,7 @@
 import argparse
 import time
 import numpy as np
-
+import cupy as cp
 from llama.gpu_utils import is_pinned
 from llama.projections import ComplexProjections
 from llama.api.options.transform import ShiftOptions
@@ -232,6 +232,52 @@ def test_fft_shift_class_gpu_chunked_multigpu(pytestconfig, overwrite_results=Fa
         check_results
     )
 
+def test_fft_shift_class_stay_on_gpu(pytestconfig, overwrite_results=False, check_results=True):
+    if pytestconfig is not None:
+        overwrite_results = pytestconfig.getoption("overwrite_results")
+    test_name = "test_fft_shift_class_stay_on_gpu"
+    comparison_test_name = "test_fft_shift_class_cpu"
+    complex_projections = tutils.prepare_data(filename)
+    if repeat_array:
+        tutils.repeat_array(complex_projections, n_reps)
+    t0 = time.time()
+    # shifted_projections = shift_projections(
+    #     complex_projections,
+    #     device_type=enums.DeviceType.GPU,
+    #     shift_type=enums.ShiftType.FFT,
+    #     chunking_enabled=False,
+    # )
+
+    n_images = len(complex_projections.angles)
+    shift_array_size = (complex_projections.n_projections, 2)
+    shift = (
+        np.zeros(shift_array_size)
+        + np.linspace(0, complex_projections.data.shape[2], n_images)[:, None]
+    ).astype(r_type)
+
+    shift_options = ShiftOptions()
+    shift_options.enabled = True
+    shift_options.device_options.device_type = enums.DeviceType.GPU,
+    shift_options.type = enums.ShiftType.FFT
+    shift_options.device_options.gpu.chunk_length = 100
+    shift_options.device_options.gpu.chunking_enabled = False
+    shifter = Shifter(shift_options)
+
+
+    shifted_projections = shifter.run(
+        cp.array(complex_projections.data), cp.array(shift)
+    ).get()
+
+    print(test_name, time.time() - t0)
+    tutils.check_or_record_results(
+        shifted_projections,
+        test_name,
+        comparison_test_name,
+        overwrite_results,
+        tutils.ResultType.PROJECTIONS_COMPLEX,
+        check_results
+    )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -249,6 +295,7 @@ if __name__ == "__main__":
     test_circ_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
     test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
     test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
+    test_fft_shift_class_stay_on_gpu(None, args.overwrite_results, not args.skip_comparison)
 
 
     # test_fft_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
