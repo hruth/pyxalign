@@ -12,6 +12,7 @@ from llama.api.types import ArrayType
 
 # To do:
 # 1) check gpu profiling results with nsight-sys
+# 2) allow chunking on cpu
 
 
 class InputArgumentsHandler:
