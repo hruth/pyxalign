@@ -1,27 +1,12 @@
-from typing import List, Optional, Union
+from typing import Optional
 import numpy as np
 import astra
 import copy
-from time import time
-from llama.api import enums, maps
-from llama.api.options.alignment import AlignmentOptions
-from llama.api.options.device import DeviceOptions
 
-from llama.api.options.projections import ProjectionOptions
-from llama.api.options.transform import ShiftOptions, UpsampleOptions
-import llama.gpu_utils as gpu_utils
-from llama.gpu_wrapper import device_handling_wrapper
-from llama.mask import estimate_reliability_region_mask, blur_masks
 import llama.image_processing as ip
-
-import llama.plotting.plotters as plotters
 from llama import reconstruct
-
-# from llama.projections import PhaseProjections
 import llama.projections as projections
-from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropper
-from llama.transformations.functions import image_shift_fft
-from llama.unwrap import unwrap_phase
+
 from llama.api.types import ArrayType, r_type
 
 
@@ -66,7 +51,7 @@ class Laminogram:
             vectors=vectors,
         )
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(astra_config)
-    
+
     def get_forward_projection(self, pinned_forward_projection: Optional[np.ndarray] = None):
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
         forward_projections = reconstruct.get_forward_projection(

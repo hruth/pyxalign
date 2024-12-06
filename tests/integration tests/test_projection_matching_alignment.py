@@ -65,7 +65,8 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
     shift = task.phase_projections.shift_manager.staged_shift
 
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
-    # assert task.pma_object.
+    assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
+    assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
     tutils.check_or_record_results(
         task.pma_object.aligned_projections.laminogram.data,
         test_name,
@@ -75,6 +76,46 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
         check_results,
     )
 
+def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_results=True):
+    if pytestconfig is not None:
+        overwrite_results = pytestconfig.getoption("overwrite_results")
+
+    test_name = "test_pma_mixed_multi_gpu"
+    comparison_test_name = "test_pma_mixed"
+
+    task.options.projection_matching.iterations = n_iterations
+
+    task.options.projection_matching.keep_on_gpu = False
+    n_gpus = 3
+    parent_gpu_settings = DeviceOptions(
+        device_type=enums.DeviceType.GPU,
+        gpu=GPUOptions(
+            chunking_enabled=True,
+            chunk_length=chunk_length,
+            gpu_indices=[i for i in range(n_gpus)],
+            n_gpus=n_gpus,
+        ),
+    )
+    task.options.projection_matching.device = parent_gpu_settings
+    task.options.projection_matching.reconstruct.filter.device = parent_gpu_settings
+    use_all_gpus_for_astra(task.options.projection_matching.reconstruct)
+
+    t0 = time()
+    task.get_projection_matching_shift()
+    print(time() - t0)
+    shift = task.phase_projections.shift_manager.staged_shift
+
+    assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
+    assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
+    assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
+    tutils.check_or_record_results(
+        task.pma_object.aligned_projections.laminogram.data,
+        test_name,
+        comparison_test_name,
+        overwrite_results,
+        tutils.ResultType.RECONSTRUCTION,
+        check_results,
+    )
 
 def test_pma_fully_on_gpu(pytestconfig, overwrite_results=False, check_results=True):
     if pytestconfig is not None:
@@ -100,6 +141,8 @@ def test_pma_fully_on_gpu(pytestconfig, overwrite_results=False, check_results=T
     shift = task.phase_projections.shift_manager.staged_shift
 
     assert task.pma_object.memory_config is enums.MemoryConfig.GPU_ONLY
+    assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
+    assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
     tutils.check_or_record_results(
         task.pma_object.aligned_projections.laminogram.data,
         test_name,
@@ -150,6 +193,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     test_pma_mixed(
+        None, overwrite_results=args.overwrite_results, check_results=not args.skip_comparison
+    )
+    test_pma_mixed_multi_gpu(
         None, overwrite_results=args.overwrite_results, check_results=not args.skip_comparison
     )
     test_pma_fully_on_gpu(

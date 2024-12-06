@@ -100,6 +100,7 @@ class ProjectionMatchingAligner(Aligner):
             return
         # Get forward projection
         self.aligned_projections.laminogram.get_forward_projection(self.pinned_forward_projection)
+        # Find optimal shift
 
     @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
