@@ -58,7 +58,7 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
 
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
     tutils.check_or_record_results(
-        task.pma_object.reconstruction,
+        task.pma_object.aligned_projections.laminogram.data,
         test_name,
         comparison_test_name,
         overwrite_results,
@@ -91,7 +91,7 @@ def test_pma_fully_on_gpu(pytestconfig, overwrite_results=False, check_results=T
 
     assert task.pma_object.memory_config is enums.MemoryConfig.GPU_ONLY
     tutils.check_or_record_results(
-        task.pma_object.reconstruction,
+        task.pma_object.aligned_projections.laminogram.data,
         test_name,
         comparison_test_name,
         overwrite_results,
@@ -124,7 +124,7 @@ def test_pma_fully_on_cpu(pytestconfig, overwrite_results=False, check_results=T
 
     assert task.pma_object.memory_config is enums.MemoryConfig.CPU_ONLY
     tutils.check_or_record_results(
-        task.pma_object.reconstruction,
+        task.pma_object.aligned_projections.laminogram.data,
         test_name,
         comparison_test_name,
         overwrite_results,

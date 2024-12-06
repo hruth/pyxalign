@@ -62,3 +62,13 @@ class PhaseUnwrapOptions:
 
     poly_fit_order: int = 1
 
+
+@dataclasses.dataclass
+class RegularizationOptions:
+    enabled: bool = False
+
+    local_TV: bool = False
+
+    local_TV_lambda: float = 3e-4
+
+

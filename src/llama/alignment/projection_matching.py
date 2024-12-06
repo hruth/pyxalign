@@ -19,7 +19,8 @@ import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type, c_type
 
 # To do: 
-# -add option for creating pinned arrays to speed up downsampling
+# - add option for creating pinned arrays to speed up downsampling
+# - make sure you aren't creating and not deleting a bunch of astra objects
 
 
 class ProjectionMatchingAligner(Aligner):
@@ -72,7 +73,13 @@ class ProjectionMatchingAligner(Aligner):
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
 
     @timer()
-    def iterate(self, unshifted_projections, unshifted_masks, tukey_window, circulo):
+    def iterate(
+        self,
+        unshifted_projections: ArrayType,
+        unshifted_masks: ArrayType,
+        tukey_window: ArrayType,
+        circulo: ArrayType,
+    ):
         "Execute an iteration of the projection-matching aligment loop"
         xp = self.xp
 
@@ -82,9 +89,18 @@ class ProjectionMatchingAligner(Aligner):
         # Get back projection:
         # - use method from projections class and add filtering
         # - later, add ability to re-use the same astra_config
-        self.reconstruction = self.aligned_projections.get_3D_reconstruction(
+        self.aligned_projections.get_3D_reconstruction(
             filter_inputs=True, pinned_filtered_sinogram=self.pinned_filtered_sinogram
         )
+        # self.aligned_projections.laminogram.apply_circular_window(circulo)
+        # self.reconstruction[:] = self.reconstruction * circulo
+        if self.options.regularization.enabled:
+            self.regularize_reconstruction()
+        if self.iteration == self.options.iterations:
+            return
+        # Get forward projection
+
+        
 
     @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
@@ -115,6 +131,10 @@ class ProjectionMatchingAligner(Aligner):
             )
         else:
             self.pinned_filtered_sinogram = None
+
+    @timer()
+    def regularize_reconstruction(self):
+        pass
 
     def initialize_arrays(self):
         self.memory_config = maps.get_memory_config_enum(
@@ -170,7 +190,7 @@ class ProjectionMatchingAligner(Aligner):
         # Generate window for removing edge issues
         tukey_window = ip.get_tukey_window(self.aligned_projections.size, A=0.2, xp=self.xp)
         # Generate circular mask for reconstruction
-        circulo = ip.apply_3D_apodization(np.zeros(self.n_pix), 0, 5).astype(r_type)
+        circulo = self.aligned_projections.laminogram.get_circular_window()
 
         if self.memory_config is MemoryConfig.MIXED:
             tukey_window = gutils.pin_memory(tukey_window)

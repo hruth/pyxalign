@@ -1,4 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, ParamSpec
+from inspect import signature
+
 import numpy as np
 import astra
 import copy
@@ -10,6 +12,7 @@ from llama.api.options.projections import ProjectionOptions
 from llama.api.options.transform import ShiftOptions, UpsampleOptions
 import llama.gpu_utils as gpu_utils
 from llama.gpu_wrapper import device_handling_wrapper
+from llama.laminogram import Laminogram
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
@@ -18,6 +21,9 @@ from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropp
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
 from llama.api.types import ArrayType
+
+# Define a ParamSpec for Projections.__init__
+# P = ParamSpec("P")
 
 
 class Projections:
@@ -29,7 +35,7 @@ class Projections:
         masks: Optional[np.ndarray] = None,
         shift_manager: Optional["ShiftManager"] = None,
         center_of_rotation: Optional[np.ndarray] = None,
-    ):
+    ) -> List:
         self.options = options
         self.angles = angles
 
@@ -50,6 +56,8 @@ class Projections:
         if center_of_rotation is None:
             self.center_of_rotation = np.array(projections.shape[1:]) / 2
 
+        self._post_init()
+
     @property
     def n_projections(self) -> int:
         return self.data.__len__()
@@ -69,6 +77,10 @@ class Projections:
     @property
     def size(self):
         return self.data.shape[1:]
+
+    def _post_init(self):
+        "For running children specific code after instantiation"
+        pass
 
     def pin_projections(self):
         self.data = gpu_utils.pin_memory(self.data)
@@ -131,35 +143,16 @@ class ComplexProjections(Projections):
 
 
 class PhaseProjections(Projections):
+    def _post_init(self):
+        self.laminogram = Laminogram(self)
+
     def get_3D_reconstruction(
         self, filter_inputs: bool = False, pinned_filtered_sinogram: Optional[np.ndarray] = None
     ):
-        astra.set_gpu_index(self.options.reconstruct.astra.back_project_gpu_indices)
-        scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
-            sinogram=self.data,
-            angles=self.angles,
-            n_pix=self.reconstructed_object_dimensions,
-            center_of_rotation=self.center_of_rotation,
-            lamino_angle=self.options.experiment.laminography_angle,
-            tilt_angle=self.options.experiment.tilt_angle,
-            skew_angle=self.options.experiment.skew_angle,
+        self.laminogram.generate_laminogram(
+            filter_inputs=filter_inputs,
+            pinned_filtered_sinogram=pinned_filtered_sinogram,
         )
-        if filter_inputs:
-            sinogram = reconstruct.filter_sinogram(
-                sinogram=self.data,
-                vectors=vectors,
-                device_options=self.options.reconstruct.filter.device,
-                pinned_results=pinned_filtered_sinogram,
-            )
-        else:
-            sinogram = self.data
-        astra_config = reconstruct.create_astra_reconstructor_config(
-            sinogram=sinogram,
-            scan_geometry_config=scan_geometry_config,
-            vectors=vectors,
-        )
-        reconstruction = reconstruct.get_3D_reconstruction(astra_config)
-        return reconstruction
 
 
 class ShiftManager:

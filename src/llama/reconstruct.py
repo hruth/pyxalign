@@ -25,16 +25,16 @@ def get_astra_reconstructor_geometry(
     skew_angle: float = 0.0,
 ) -> tuple[dict, np.ndarray]:
     pixel_scale = [1, 1]
-    scan_geometry_config = {}
-    scan_geometry_config["iVolX"] = n_pix[0]
-    scan_geometry_config["iVolY"] = n_pix[1]
-    scan_geometry_config["iVolZ"] = n_pix[2]
-    scan_geometry_config["iProj_angles"] = len(angles)
-    scan_geometry_config["iProjU"] = sinogram.shape[2]
-    scan_geometry_config["iProjV"] = sinogram.shape[1]
-    scan_geometry_config["iRaysPerDet"] = 1
-    scan_geometry_config["iRaysPerDetDim"] = 1
-    scan_geometry_config["iRaysPerVoxelDim"] = 1
+    scan_geometry_config_inputs = {}
+    scan_geometry_config_inputs["iVolX"] = n_pix[0]
+    scan_geometry_config_inputs["iVolY"] = n_pix[1]
+    scan_geometry_config_inputs["iVolZ"] = n_pix[2]
+    scan_geometry_config_inputs["iProj_angles"] = len(angles)
+    scan_geometry_config_inputs["iProjU"] = sinogram.shape[2]
+    scan_geometry_config_inputs["iProjV"] = sinogram.shape[1]
+    scan_geometry_config_inputs["iRaysPerDet"] = 1
+    scan_geometry_config_inputs["iRaysPerDetDim"] = 1
+    scan_geometry_config_inputs["iRaysPerVoxelDim"] = 1
     sourceDistance = 1
 
     # Get projection geometry
@@ -108,7 +108,7 @@ def get_astra_reconstructor_geometry(
             * (1 - np.cos(skew_angle[i] / 2))
         )
 
-    return scan_geometry_config, vectors
+    return scan_geometry_config_inputs, vectors
 
 
 def create_astra_reconstructor_config(
@@ -122,7 +122,7 @@ def create_astra_reconstructor_config(
     astra_config["ProjectionDataId"] = astra.data3d.create(
         "-sino", geometries["proj_geom"], sinogram.transpose([1, 0, 2])
     )
-    return astra_config
+    return astra_config, geometries
 
 
 def get_geometries(scan_geometry_config: dict, vectors: np.ndarray) -> dict:

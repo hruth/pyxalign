@@ -3,6 +3,7 @@ import dataclasses
 from dataclasses import field
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions, GPUOptions
+from llama.api.options.options import RegularizationOptions
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.transform import PreProcessingOptions, CropOptions, DownsampleOptions
@@ -40,9 +41,7 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     min_step_size: float = 0.01
 
-    local_TV: bool = False
-
-    local_TV_lambda: float = 3e-4
+    regularization: RegularizationOptions  = field(default_factory=RegularizationOptions)
 
     keep_on_gpu: bool = False
 
