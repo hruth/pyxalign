@@ -147,8 +147,8 @@ def image_shift_circ(images: ArrayType, shift: ArrayType) -> ArrayType:
     return images
 
 
-def image_shift_linear(images: ArrayType, shift: Optional[ArrayType] = None) -> ArrayType:
-    return functools.partial(image_downsample_linear, scale=1)
+def image_shift_linear(images: ArrayType, shift: ArrayType) -> ArrayType:
+    return image_downsample_linear(images, 1, shift)
 
 
 @preserve_complexity_or_realness()

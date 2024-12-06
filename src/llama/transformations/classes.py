@@ -16,6 +16,7 @@ from llama.api.options.transform import (
 from llama.api.types import ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.transformations.functions import image_crop
+from llama.timer import timer
 # from llama.api import enums
 
 
@@ -39,6 +40,7 @@ class Downsampler(Transformation):
         super().__init__(options)
         self.options: DownsampleOptions = options
 
+    @timer("Downsampler")
     def run(
         self,
         images: ArrayType,
@@ -77,6 +79,7 @@ class Upsampler(Transformation):
         super().__init__(options)
         self.options: UpsampleOptions = options
 
+    @timer("Upsampler")
     def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image upsampling functions"""
         if self.enabled:
@@ -98,7 +101,8 @@ class Shifter(Transformation):
     ):
         super().__init__(options)
         self.options: ShiftOptions = options
-
+    
+    @timer("Shifter")
     def run(
         self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None
     ) -> ArrayType:

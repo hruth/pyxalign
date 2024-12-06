@@ -5,6 +5,8 @@ from enum import StrEnum, auto
 from llama.api.options.projections import ProjectionOptions
 
 from llama.projections import ComplexProjections
+from llama.task import LaminographyAlignmentTask
+from llama.io import load
 
 
 class ResultType(StrEnum):
@@ -12,6 +14,7 @@ class ResultType(StrEnum):
     PROJECTIONS_PHASE = auto()
     PROJECTIONS_AMPLITUDE = auto()
     PROJECTIONS_COMPLEX = auto()
+    RECONSTRUCTION = auto()
 
 
 def get_ci_data_dir():
@@ -42,17 +45,23 @@ def generate_results_path(test_name: str, variable_type: ResultType):
 
 def save_results_data(data: np.ndarray, test_name: str, variable_type: ResultType):
     os.makedirs(generate_results_folder(test_name), exist_ok=True)
-    filepath = generate_results_path(test_name, variable_type)
-    np.save(filepath, data)
-    print("Data saved to " + filepath)
+    file_path = generate_results_path(test_name, variable_type)
+    np.save(file_path, data)
+    print("Data saved to " + file_path)
 
 
-def load_input_projection_data(filename: str) -> tuple[np.ndarray, np.ndarray]:
-    filepath = os.path.join(get_ci_input_data_dir(), filename)
-    with h5py.File(filepath, "r") as h5file:
+def load_input_projection_data(file_name: str) -> tuple[np.ndarray, np.ndarray]:
+    file_path = os.path.join(get_ci_input_data_dir(), file_name)
+    with h5py.File(file_path, "r") as h5file:
         complex_projections = h5file["complex_projections"][:]
         angles = h5file["angles"][:]
     return complex_projections, angles
+
+
+def load_task(file_name: str) -> LaminographyAlignmentTask:
+    file_path = os.path.join(get_ci_input_data_dir(), file_name)
+    task = load.load_task(file_path, exclude="complex_projections")
+    return task
 
 
 def compare_data(
@@ -62,8 +71,8 @@ def compare_data(
     atol=1e-3,
     rtol=1e-3,
 ):
-    filepath = generate_results_path(comparison_test_name, variable_type)
-    old_data = np.load(filepath)
+    file_path = generate_results_path(comparison_test_name, variable_type)
+    old_data = np.load(file_path)
     print_comparison_stats(data, old_data)
     if not np.allclose(data, old_data, atol=atol, rtol=rtol):
         raise AssertionError
@@ -100,18 +109,17 @@ def check_or_record_results(
 ):
     if check_results:
         if overwrite_results:
-            save_results_data(results, test_name, result_type)
+            if test_name is comparison_test_name:
+                save_results_data(results, test_name, result_type)
         else:
             compare_data(results, comparison_test_name, result_type)
         print_passed_string(test_name)
 
 
-def prepare_data(filename) -> ComplexProjections:
-    complex_projections, angles = load_input_projection_data(filename)
+def prepare_data(file_name) -> ComplexProjections:
+    complex_projections, angles = load_input_projection_data(file_name)
     projection_options = ProjectionOptions()
-    complex_projections = ComplexProjections(
-        complex_projections, angles, projection_options
-    )
+    complex_projections = ComplexProjections(complex_projections, angles, projection_options)
     return complex_projections
 
 

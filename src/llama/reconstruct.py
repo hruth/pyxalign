@@ -9,6 +9,7 @@ from llama.gpu_utils import get_scipy_module
 import llama.projections as projections
 from llama.api.types import r_type, ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
+from llama.timer import timer
 
 
 # def get_astra_reconstructor_geometry(
@@ -111,7 +112,9 @@ def get_astra_reconstructor_geometry(
 
 
 def create_astra_reconstructor_config(
-    sinogram: np.ndarray, scan_geometry_config: dict, vectors: np.ndarray,
+    sinogram: np.ndarray,
+    scan_geometry_config: dict,
+    vectors: np.ndarray,
 ):
     geometries = get_geometries(scan_geometry_config, vectors)
     astra_config = astra.astra_dict("BP3D_CUDA")  # update this for cpu option later
@@ -145,6 +148,7 @@ def update_astra_reconstructor_sinogram(sinogram: np.ndarray, astra_config: dict
     astra.data3d.store(astra_config["ProjectionDataId"], sinogram.transpose([1, 0, 2]))
 
 
+@timer()
 def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarray, dict, dict]:
     # Create the algorithm object from the configuration structure
     alg_id = astra.algorithm.create(astra_config)
@@ -163,6 +167,7 @@ def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarr
     return reconstruction
 
 
+@timer()
 def filter_sinogram(
     sinogram: ArrayType,
     vectors: np.ndarray,
@@ -205,13 +210,13 @@ def filter_sinogram(
         chunkable_inputs_for_cpu_idx=[1],
         pinned_results=pinned_results,
     )
-    
+
     filtered_sinogram = apply_filter_wrapped(sinogram, filter, sinogram.shape[2])
 
     # Check this is true for the mixed memory config
     # assert filtered_sinogram is sinogram
 
-    # RESUME HERE -- NEED TO SEE HOW TO DEAL WITH PINNED RESULTS IN THE 
+    # RESUME HERE -- NEED TO SEE HOW TO DEAL WITH PINNED RESULTS IN THE
     # GET_3D_RECONSTRUCTION METHOD IN THE PROJECTIONS
 
     return filtered_sinogram

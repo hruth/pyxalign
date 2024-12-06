@@ -57,7 +57,7 @@ class InputArgumentsHandler:
             gpu_utils.check_gpu_list(self.options.n_gpus, self.options.gpu_indices)
             self.gpu_list = self.options.gpu_indices[: self.options.n_gpus]
             # The number of gpus should not exceed the number of chunks
-            self.gpu_list = self.gpu_list[:self.n_chunks]
+            self.gpu_list = self.gpu_list[: self.n_chunks]
 
     def initialize_single_iter_args(self):
         """Initialize the list of args that will be passed to the wrapped
@@ -186,7 +186,9 @@ class GPUStager:
         elif type(numpy_chunk_array) is cp.ndarray:
             cupy_chunk_array[:] = numpy_chunk_array
 
-    def get_next_chunked_inputs(self, gpu_idx: int, list_idx: int, iter: int) -> cp.ndarray:
+    def get_next_chunked_inputs(
+        self, gpu_idx: int, list_idx: int, iter: int
+    ) -> cp.ndarray:
         if self.inputs_already_on_gpu:
             idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
             return self.chunkable_inputs_for_gpu[list_idx][idx_start:idx_stop]
@@ -223,7 +225,7 @@ class OutputResultsHandler:
             chunked_results = (chunked_results,)
         # iterate through the tuple of results
         for i in range(len(chunked_results)):
-            if self.already_on_gpu:
+            if self.already_on_gpu and type(self.full_results[i]) is not np.ndarray:
                 self.full_results[i][idx_start:idx_stop] = chunked_results[i]
             else:
                 chunked_results[i].get(out=self.full_results[i][idx_start:idx_stop])
@@ -239,15 +241,19 @@ class OutputResultsHandler:
 
         if type(chunked_results) is not tuple:
             chunked_results = (chunked_results,)
-        
+
         self.full_results: tuple = ()
 
         for chunked_result in chunked_results:
             output_array_size = (self.output_array_length, *chunked_result.shape[1:])
             if self.already_on_gpu:
-                self.full_results += (cp.empty(output_array_size, dtype=chunked_result.dtype),)
+                self.full_results += (
+                    cp.empty(output_array_size, dtype=chunked_result.dtype),
+                )
             else:
-                self.full_results += (np.empty(output_array_size, dtype=chunked_result.dtype),)
+                self.full_results += (
+                    np.empty(output_array_size, dtype=chunked_result.dtype),
+                )
 
 
 class Iterator:
@@ -255,7 +261,7 @@ class Iterator:
         self,
         inputs: InputArgumentsHandler,
         outputs: OutputResultsHandler,
-        func: callable
+        func: callable,
     ):
         self.inputs = inputs
         self.outputs = outputs
@@ -312,9 +318,9 @@ def device_handling_wrapper(
 ) -> callable:
     """Wrapper that efficiently splits inputs into chunks and transfers them between
     the gpu and cpu.
-    
-    When using the wrapped function, the input arguments referred to by 
-    `chunkable_inputs_for_gpu_idx`, `chunkable_inputs_for_cpu_idx`, and 
+
+    When using the wrapped function, the input arguments referred to by
+    `chunkable_inputs_for_gpu_idx`, `chunkable_inputs_for_cpu_idx`, and
     `common_inputs_for_gpu_idx` must be passed in as args, not kwargs.
     """
 

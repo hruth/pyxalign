@@ -7,6 +7,7 @@ from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.transform import ShiftOptions
 from llama.projections import PhaseProjections, Projections
+from llama.timer import timer
 from llama.transformations.classes import Shifter
 from llama.transformations.functions import image_shift_fft
 import llama.image_processing as ip
@@ -70,6 +71,7 @@ class ProjectionMatchingAligner(Aligner):
             print("Iteration: ", self.iteration)
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
 
+    @timer()
     def iterate(self, unshifted_projections, unshifted_masks, tukey_window, circulo):
         "Execute an iteration of the projection-matching aligment loop"
         xp = self.xp
@@ -84,6 +86,7 @@ class ProjectionMatchingAligner(Aligner):
             filter_inputs=True, pinned_filtered_sinogram=self.pinned_filtered_sinogram
         )
 
+    @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
         if self.iteration != 0:
             shift_update = self.total_shift / self.scale
@@ -98,13 +101,17 @@ class ProjectionMatchingAligner(Aligner):
                 pinned_results=self.aligned_projections.masks,
             )
 
+    @timer()
     def initialize_attributes(self):
         xp = cp.get_array_module(self.aligned_projections.data)
         self.n_pix = self.aligned_projections.reconstructed_object_dimensions
         self.mass = xp.median(xp.abs(self.aligned_projections.data).mean(axis=(1, 2)))
-        if self.memory_config is MemoryConfig.MIXED:
+        if self.memory_config is not MemoryConfig.CPU_ONLY:
             self.pinned_filtered_sinogram = gutils.pin_memory(
-                np.empty_like(self.aligned_projections.data)
+                np.empty(
+                    self.aligned_projections.data.shape,
+                    self.aligned_projections.data.dtype,
+                )
             )
         else:
             self.pinned_filtered_sinogram = None
@@ -161,7 +168,7 @@ class ProjectionMatchingAligner(Aligner):
 
     def initialize_windows(self) -> tuple[ArrayType, ArrayType]:
         # Generate window for removing edge issues
-        tukey_window = ip.get_tukey_window(self.aligned_projections.size, A=0.2)
+        tukey_window = ip.get_tukey_window(self.aligned_projections.size, A=0.2, xp=self.xp)
         # Generate circular mask for reconstruction
         circulo = ip.apply_3D_apodization(np.zeros(self.n_pix), 0, 5).astype(r_type)
 

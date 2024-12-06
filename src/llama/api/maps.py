@@ -33,6 +33,7 @@ def get_shift_func_by_enum(key: DownsampleType) -> ShiftProtocol:
     return {
         ShiftType.CIRC: llama.transformations.functions.image_shift_circ,
         ShiftType.FFT: llama.transformations.functions.image_shift_fft,
+        ShiftType.LINEAR: llama.transformations.functions.image_shift_linear,
     }[key]
 
 
