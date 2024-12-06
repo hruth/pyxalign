@@ -5,6 +5,7 @@ from time import time
 
 from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.projections import ProjectionOptions
+from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.task import AlignmentTaskOptions
 from llama.task import LaminographyAlignmentTask
 from llama.projections import ComplexProjections
@@ -31,6 +32,12 @@ def load_input_task():
     return task
 
 
+def use_all_gpus_for_astra(reconstruct_options: ReconstructOptions):
+    gpu_indices = gutils.get_available_gpus()
+    reconstruct_options.astra.forward_project_gpu_indices = gpu_indices
+    reconstruct_options.astra.back_project_gpu_indices = (0,)
+
+
 task = load_input_task()
 
 
@@ -50,6 +57,7 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
     )
     task.options.projection_matching.device = parent_gpu_settings
     task.options.projection_matching.reconstruct.filter.device = parent_gpu_settings
+    use_all_gpus_for_astra(task.options.projection_matching.reconstruct)
 
     t0 = time()
     task.get_projection_matching_shift()
@@ -57,6 +65,7 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
     shift = task.phase_projections.shift_manager.staged_shift
 
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
+    # assert task.pma_object.
     tutils.check_or_record_results(
         task.pma_object.aligned_projections.laminogram.data,
         test_name,
@@ -83,6 +92,7 @@ def test_pma_fully_on_gpu(pytestconfig, overwrite_results=False, check_results=T
     )
     task.options.projection_matching.device = parent_gpu_settings
     task.options.projection_matching.reconstruct.filter.device = parent_gpu_settings
+    use_all_gpus_for_astra(task.options.projection_matching.reconstruct)
 
     t0 = time()
     task.get_projection_matching_shift()
@@ -136,8 +146,15 @@ def test_pma_fully_on_cpu(pytestconfig, overwrite_results=False, check_results=T
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--overwrite-results", action="store_true")
+    parser.add_argument("--skip-comparison", action="store_true")
     args = parser.parse_args()
 
-    test_pma_mixed(None, overwrite_results=args.overwrite_results)
-    test_pma_fully_on_gpu(None, overwrite_results=args.overwrite_results)
-    test_pma_fully_on_cpu(None, overwrite_results=args.overwrite_results)
+    test_pma_mixed(
+        None, overwrite_results=args.overwrite_results, check_results=not args.skip_comparison
+    )
+    test_pma_fully_on_gpu(
+        None, overwrite_results=args.overwrite_results, check_results=not args.skip_comparison
+    )
+    test_pma_fully_on_cpu(
+        None, overwrite_results=args.overwrite_results, check_results=not args.skip_comparison
+    )

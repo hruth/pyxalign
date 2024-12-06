@@ -10,7 +10,7 @@ ENABLE_TIMING = True
 
 tabs = ""
 
-
+# This function should NOT be used to wrap any functions that will be "chunked"
 def timer(prefix: str = ""):
     """Decorator to time a function and print the function name if ENABLE_TIMING is True."""
     if prefix != "":

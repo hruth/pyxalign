@@ -1,6 +1,4 @@
-from typing import List, Optional, ParamSpec
-from inspect import signature
-
+from typing import List, Optional
 import numpy as np
 import astra
 import copy
@@ -21,9 +19,6 @@ from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropp
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
 from llama.api.types import ArrayType
-
-# Define a ParamSpec for Projections.__init__
-# P = ParamSpec("P")
 
 
 class Projections:

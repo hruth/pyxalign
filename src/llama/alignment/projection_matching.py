@@ -1,8 +1,9 @@
+from typing import Union, Optional
 import numpy as np
 import cupy as cp
 import scipy
 import copy
-from typing import Union
+
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.transform import ShiftOptions
@@ -18,7 +19,7 @@ from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type, c_type
 
-# To do: 
+# To do:
 # - add option for creating pinned arrays to speed up downsampling
 # - make sure you aren't creating and not deleting a bunch of astra objects
 
@@ -92,15 +93,13 @@ class ProjectionMatchingAligner(Aligner):
         self.aligned_projections.get_3D_reconstruction(
             filter_inputs=True, pinned_filtered_sinogram=self.pinned_filtered_sinogram
         )
-        # self.aligned_projections.laminogram.apply_circular_window(circulo)
-        # self.reconstruction[:] = self.reconstruction * circulo
+        self.aligned_projections.laminogram.apply_circular_window(circulo)
         if self.options.regularization.enabled:
             self.regularize_reconstruction()
         if self.iteration == self.options.iterations:
             return
         # Get forward projection
-
-        
+        self.aligned_projections.laminogram.get_forward_projection(self.pinned_forward_projection)
 
     @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
@@ -124,13 +123,14 @@ class ProjectionMatchingAligner(Aligner):
         self.mass = xp.median(xp.abs(self.aligned_projections.data).mean(axis=(1, 2)))
         if self.memory_config is not MemoryConfig.CPU_ONLY:
             self.pinned_filtered_sinogram = gutils.pin_memory(
-                np.empty(
-                    self.aligned_projections.data.shape,
-                    self.aligned_projections.data.dtype,
-                )
+                np.empty(self.aligned_projections.data.shape, dtype=r_type)
+            )
+            self.pinned_forward_projection = gutils.pin_memory(
+                np.empty(self.aligned_projections.data.shape, dtype=r_type)
             )
         else:
             self.pinned_filtered_sinogram = None
+            self.pinned_forward_projection = None
 
     @timer()
     def regularize_reconstruction(self):

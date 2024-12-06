@@ -261,3 +261,29 @@ def design_filter(width: int, d: float = 1.0) -> ArrayType:
     filter = np.append(filter, filter[::-1])
 
     return filter
+
+
+@timer()
+def get_forward_projection(
+    reconstruction: np.ndarray,
+    geometries: dict,
+    pinned_forward_projection: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    forward_projection_ID = astra.create_sino3d_gpu(
+        reconstruction,
+        geometries["proj_geom"],
+        geometries["vol_geom"],
+        returnData=False,
+    )
+    # .get_shared *may* be faster than .get
+    if pinned_forward_projection is None:
+        pinned_forward_projection = astra.data3d.get_shared(forward_projection_ID).transpose(
+            [1, 0, 2]
+        )
+    else:
+        pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_ID).transpose(
+            [1, 0, 2]
+        )
+    astra.data3d.delete(forward_projection_ID)
+
+    return pinned_forward_projection

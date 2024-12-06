@@ -2,6 +2,7 @@ from typing import List, Optional, Union
 import numpy as np
 import astra
 import copy
+from time import time
 from llama.api import enums, maps
 from llama.api.options.alignment import AlignmentOptions
 from llama.api.options.device import DeviceOptions
@@ -40,7 +41,6 @@ class Laminogram:
         # Copy the settings used at the time of the reconstruction
         self.options = copy.deepcopy(self.projections.options.reconstruct)
         self.experiment_options = copy.deepcopy(self.projections.options.experiment)
-
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
             sinogram=self.projections.data,
@@ -66,6 +66,22 @@ class Laminogram:
             vectors=vectors,
         )
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(astra_config)
+    
+    def get_forward_projection(self, pinned_forward_projection: Optional[np.ndarray] = None):
+        astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
+        forward_projections = reconstruct.get_forward_projection(
+            reconstruction=self.data,
+            geometries=self.geometries,
+            pinned_forward_projection=pinned_forward_projection,
+        )
+        # Create a projections object in case I want to use any of the
+        # projections object methods
+        self.model_forward_projections = projections.PhaseProjections(
+            projections=forward_projections,
+            options=self.projections.options,
+            angles=self.projections.angles,
+            center_of_rotation=self.projections.center_of_rotation,
+        )
 
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):
         if circulo is None:

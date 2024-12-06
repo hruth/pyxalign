@@ -11,8 +11,12 @@ from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.types import ArrayType
 
 # To do:
-# 1) check gpu profiling results with nsight-sys
-# 2) allow chunking on cpu
+# - check gpu profiling results with nsight-sys
+# - allow chunking on cpu
+#   - in other code, you should update the pinned_results=None
+#     that are automatically used for cpu memory config to 
+#     be an unpinned numpy array. I wonder if there is any
+#     utility to pinning memory for this case.
 
 
 class InputArgumentsHandler:
