@@ -18,6 +18,7 @@ from llama.api.enums import DeviceType, MemoryConfig
 from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type, c_type
+from llama.gpu_wrapper import device_handling_wrapper
 
 # To do:
 # - add option for creating pinned arrays to speed up downsampling
@@ -54,16 +55,17 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.masks = self.aligned_projections.masks * 1
 
         # Run the PMA algorithm
-        shift = self.calculate_alignment_shift()
+        self.calculate_alignment_shift()
+        # Re-scale the shift
+        shift = self.total_shift * self.scale
 
         return shift
 
     # Notes about initial implementation:
     # - initial shift not supported
-    # - only doing the pinned memory case first
 
     @gutils.memory_releasing_error_handler
-    def calculate_alignment_shift(self):
+    def calculate_alignment_shift(self) -> ArrayType:
         unshifted_masks, unshifted_projections = self.initialize_arrays()
         self.initialize_attributes()
         self.initialize_shifters()
@@ -101,19 +103,20 @@ class ProjectionMatchingAligner(Aligner):
         # Get forward projection
         self.aligned_projections.laminogram.get_forward_projection(self.pinned_forward_projection)
         # Find optimal shift
+        self.get_shift_update()
 
     @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
         if self.iteration != 0:
-            shift_update = self.total_shift / self.scale
+            # shift_update = self.total_shift / self.scale
             self.projection_shifter.run(
                 images=unshifted_projections,
-                shift=shift_update,
+                shift=self.total_shift,
                 pinned_results=self.aligned_projections.data,
             )
             self.mask_shifter.run(
                 images=unshifted_masks,
-                shift=shift_update,
+                shift=self.total_shift,
                 pinned_results=self.aligned_projections.masks,
             )
 
@@ -122,6 +125,7 @@ class ProjectionMatchingAligner(Aligner):
         xp = cp.get_array_module(self.aligned_projections.data)
         self.n_pix = self.aligned_projections.reconstructed_object_dimensions
         self.mass = xp.median(xp.abs(self.aligned_projections.data).mean(axis=(1, 2)))
+        # Prepare pre-allocated and pinned arrays
         if self.memory_config is not MemoryConfig.CPU_ONLY:
             self.pinned_filtered_sinogram = gutils.pin_memory(
                 np.empty(self.aligned_projections.data.shape, dtype=r_type)
@@ -129,9 +133,102 @@ class ProjectionMatchingAligner(Aligner):
             self.pinned_forward_projection = gutils.pin_memory(
                 np.empty(self.aligned_projections.data.shape, dtype=r_type)
             )
+            n_proj = self.aligned_projections.n_projections
+            if self.memory_config is MemoryConfig.MIXED:
+                self.shift_update = gutils.pin_memory(np.empty((n_proj, 2), dtype=r_type))
+                self.pinned_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
+                self.pinned_unfiltered_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
+            elif self.memory_config is MemoryConfig.GPU_ONLY:
+                self.shift_update = cp.empty((n_proj, 2), dtype=r_type)
+                self.pinned_error = cp.empty((n_proj), dtype=r_type)
+                self.pinned_unfiltered_error = cp.empty((n_proj), dtype=r_type)
         else:
             self.pinned_filtered_sinogram = None
             self.pinned_forward_projection = None
+            self.shift_update = None
+            self.pinned_error = None
+            self.pinned_unfiltered_error = None
+
+    @timer()
+    def get_shift_update(self):
+        wrapped_func = device_handling_wrapper(
+            func=self.calculate_shift_update,
+            options=self.options.device,
+            chunkable_inputs_for_gpu_idx=[0, 1, 2],
+            common_inputs_for_gpu_idx=[4],
+            pinned_results=(
+                self.shift_update,
+                self.pinned_error,
+                self.pinned_unfiltered_error,
+            ),
+        )
+        # Later, you could update the gpu wrapper
+        # to move arrays to the gpu in chunks if they 
+        # are on the cpu. For now, just move the whole
+        # array.
+        if self.memory_config is MemoryConfig.GPU_ONLY:
+            forward_projection_input = cp.array(
+                self.aligned_projections.laminogram.model_forward_projections.data
+            )
+        else:
+            forward_projection_input = (
+                self.aligned_projections.laminogram.model_forward_projections.data
+            )
+        wrapped_func(
+            self.aligned_projections.data,
+            self.aligned_projections.masks,
+            forward_projection_input,
+            self.options.high_pass_filter,
+            self.mass,
+        )
+        # The shifts -- which started on the gpu -- are put back onto the cpu!
+        self.total_shift += self.shift_update
+
+    @staticmethod
+    def calculate_shift_update(
+        sinogram: ArrayType,
+        masks: ArrayType,
+        forward_projection_model: ArrayType,
+        high_pass_filter: ArrayType,
+        mass: float,
+    ) -> tuple[ArrayType, ArrayType, ArrayType]:
+        xp = cp.get_array_module(sinogram)
+
+        projections_residuals = sinogram - forward_projection_model
+
+        # calculate error using unfiltered residual
+        unfiltered_error = get_pm_error(projections_residuals, masks, mass)
+
+        projections_residuals = ip.apply_1D_high_pass_filter(
+            projections_residuals, 2, high_pass_filter
+        )
+        # projections_residuals = ip.apply_1D_high_pass_filter(
+        #     projections_residuals, 2, high_pass_filter
+        # )
+
+        # calculate error using filtered residual
+        error = get_pm_error(projections_residuals, masks, mass)
+
+        # Calculate the alignment shift
+        dX = ip.get_filtered_image_gradient(forward_projection_model, 0, high_pass_filter)
+        dX = ip.apply_1D_high_pass_filter(dX, 2, high_pass_filter)
+        x_shift = -(
+            xp.sum(masks * dX * projections_residuals, axis=(1, 2))
+            / xp.sum(masks * dX**2, axis=(1, 2))
+        )
+        del dX
+
+        dY = ip.get_filtered_image_gradient(forward_projection_model, 1, high_pass_filter)
+        dY = ip.apply_1D_high_pass_filter(dY, 1, high_pass_filter)
+        y_shift = -(
+            xp.sum(masks * dY * projections_residuals, axis=(1, 2))
+            / xp.sum(masks * dY**2, axis=(1, 2))
+        )
+        del dY
+
+        shift = xp.array([x_shift, y_shift]).transpose().astype(r_type)
+
+        return shift, error, unfiltered_error
 
     @timer()
     def regularize_reconstruction(self):
@@ -143,6 +240,7 @@ class ProjectionMatchingAligner(Aligner):
         )
 
         if self.memory_config is MemoryConfig.GPU_ONLY:
+            cp.cuda.Device(self.options.device.gpu.gpu_indices[0]).use()
             initializer_function = cp.array
             self.xp = cp
             self.scipy_module: scipy = gutils.get_scipy_module(cp.array(1))
@@ -197,3 +295,9 @@ class ProjectionMatchingAligner(Aligner):
             tukey_window = gutils.pin_memory(tukey_window)
 
         return tukey_window, circulo
+
+
+def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):
+    xp = cp.get_array_module(projections_residuals)
+    error = xp.sqrt(xp.mean((masks * projections_residuals) ** 2, axis=(1, 2))) / mass
+    return error.astype(r_type)

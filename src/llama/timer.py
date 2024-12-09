@@ -21,6 +21,7 @@ def timer(prefix: str = ""):
             if ENABLE_TIMING:
                 global tabs
                 spaces = 5
+                # print(f"{tabs}Running function '{prefix}{func.__name__}'...")
                 tabs += " " * spaces
                 start_time = time.time()
                 result = func(*args, **kwargs)

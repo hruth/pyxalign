@@ -4,3 +4,4 @@
 *.vscode*
 *load_test_data.py*
 untracked_tests/*
+*.env

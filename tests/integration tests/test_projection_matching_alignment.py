@@ -38,7 +38,7 @@ def use_all_gpus_for_astra(reconstruct_options: ReconstructOptions):
     reconstruct_options.astra.back_project_gpu_indices = (0,)
 
 
-task = load_input_task()
+# task = load_input_task()
 
 
 def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
@@ -47,6 +47,7 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
 
     test_name = "test_pma_mixed"
     comparison_test_name = "test_pma_mixed"
+    task = load_input_task()
 
     task.options.projection_matching.iterations = n_iterations
 
@@ -67,6 +68,13 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
+    assert gutils.is_pinned(
+        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+    )
+    assert (
+        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+        is task.pma_object.pinned_forward_projection
+    )
     tutils.check_or_record_results(
         task.pma_object.aligned_projections.laminogram.data,
         test_name,
@@ -82,6 +90,7 @@ def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_result
 
     test_name = "test_pma_mixed_multi_gpu"
     comparison_test_name = "test_pma_mixed"
+    task = load_input_task()
 
     task.options.projection_matching.iterations = n_iterations
 
@@ -108,6 +117,13 @@ def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_result
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
+    assert gutils.is_pinned(
+        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+    )
+    assert (
+        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+        is task.pma_object.pinned_forward_projection
+    )
     tutils.check_or_record_results(
         task.pma_object.aligned_projections.laminogram.data,
         test_name,
@@ -123,6 +139,7 @@ def test_pma_fully_on_gpu(pytestconfig, overwrite_results=False, check_results=T
 
     test_name = "test_pma_fully_on_gpu"
     comparison_test_name = "test_pma_mixed"
+    task = load_input_task()
 
     task.options.projection_matching.iterations = n_iterations
 
@@ -159,6 +176,7 @@ def test_pma_fully_on_cpu(pytestconfig, overwrite_results=False, check_results=T
 
     test_name = "test_pma_fully_on_cpu"
     comparison_test_name = "test_pma_mixed"
+    task = load_input_task()
 
     task.options.projection_matching.iterations = n_iterations
 

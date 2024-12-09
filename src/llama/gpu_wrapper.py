@@ -14,9 +14,12 @@ from llama.api.types import ArrayType
 # - check gpu profiling results with nsight-sys
 # - allow chunking on cpu
 #   - in other code, you should update the pinned_results=None
-#     that are automatically used for cpu memory config to 
+#     that are automatically used for cpu memory config to
 #     be an unpinned numpy array. I wonder if there is any
 #     utility to pinning memory for this case.
+# - Later, you could update the gpu wrapper
+#   to move arrays to the gpu in chunks if they
+#   are on the cpu. For now, this is handled externally.
 
 
 class InputArgumentsHandler:
@@ -37,9 +40,7 @@ class InputArgumentsHandler:
         self.inputs_already_on_gpu = inputs_already_on_gpu
         if self.options.chunking_enabled:
             self.chunk_length = options.chunk_length
-            self.n_chunks = int(
-                np.ceil(len(self.chunkable_inputs_for_gpu[0]) / self.chunk_length)
-            )
+            self.n_chunks = int(np.ceil(len(self.chunkable_inputs_for_gpu[0]) / self.chunk_length))
         else:
             self.n_chunks = 1
             self.chunk_length = len(self.chunkable_inputs_for_gpu[0])
@@ -85,10 +86,7 @@ class InputArgumentsHandler:
         for gpu in self.gpu_list:
             with cp.cuda.Device(gpu).use():
                 self.common_inputs_on_gpu += [
-                    [
-                        cp.array(self.args[arg_idx])
-                        for arg_idx in self.common_inputs_for_gpu_idx
-                    ]
+                    [cp.array(self.args[arg_idx]) for arg_idx in self.common_inputs_for_gpu_idx]
                 ]
 
     def update_chunked_list(self, iter: int, gpu_idx: int):
@@ -160,10 +158,7 @@ class GPUStager:
 
     def create_gpu_containers(self) -> List[cp.ndarray]:
         "Create the list of cupy arrays that will hold chunks of the chunkable inputs for gpu"
-        return [
-            self.create_container_element(array)
-            for array in self.chunkable_inputs_for_gpu
-        ]
+        return [self.create_container_element(array) for array in self.chunkable_inputs_for_gpu]
 
     def create_container_element(self, array: ArrayType) -> cp.ndarray:
         "Create the cupy array that will hold chunks from the input numpy array"
@@ -183,17 +178,13 @@ class GPUStager:
         idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
         numpy_chunk_array = self.chunkable_inputs_for_gpu[arg_idx][idx_start:idx_stop]
         self.revised_chunk_length = len(numpy_chunk_array)
-        cupy_chunk_array = self.list_of_arrays[gpu_idx][arg_idx][
-            : self.revised_chunk_length
-        ]
+        cupy_chunk_array = self.list_of_arrays[gpu_idx][arg_idx][: self.revised_chunk_length]
         if type(numpy_chunk_array) is np.ndarray:
             cupy_chunk_array.set(numpy_chunk_array)
         elif type(numpy_chunk_array) is cp.ndarray:
             cupy_chunk_array[:] = numpy_chunk_array
 
-    def get_next_chunked_inputs(
-        self, gpu_idx: int, list_idx: int, iter: int
-    ) -> cp.ndarray:
+    def get_next_chunked_inputs(self, gpu_idx: int, list_idx: int, iter: int) -> cp.ndarray:
         if self.inputs_already_on_gpu:
             idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
             return self.chunkable_inputs_for_gpu[list_idx][idx_start:idx_stop]
@@ -222,9 +213,7 @@ class OutputResultsHandler:
             self.initialize_full_results(chunked_results)
         self.insert_into_full_results(chunked_results, iter)
 
-    def insert_into_full_results(
-        self, chunked_results: Union[tuple, cp.ndarray], iter: int
-    ):
+    def insert_into_full_results(self, chunked_results: Union[tuple, cp.ndarray], iter: int):
         idx_start, idx_stop = get_chunk_indices(iter, self.chunk_length)
         if type(chunked_results) is not tuple:
             chunked_results = (chunked_results,)
@@ -252,13 +241,9 @@ class OutputResultsHandler:
         for chunked_result in chunked_results:
             output_array_size = (self.output_array_length, *chunked_result.shape[1:])
             if self.already_on_gpu:
-                self.full_results += (
-                    cp.empty(output_array_size, dtype=chunked_result.dtype),
-                )
+                self.full_results += (cp.empty(output_array_size, dtype=chunked_result.dtype),)
             else:
-                self.full_results += (
-                    np.empty(output_array_size, dtype=chunked_result.dtype),
-                )
+                self.full_results += (np.empty(output_array_size, dtype=chunked_result.dtype),)
 
 
 class Iterator:
@@ -293,9 +278,7 @@ def get_chunk_indices(iter, chunk_length) -> tuple[int, int]:
     return idx_start, idx_stop
 
 
-def check_if_arrays_are_on_same_device(
-    args: tuple, chunkable_inputs_for_gpu_idx: int
-) -> bool:
+def check_if_arrays_are_on_same_device(args: tuple, chunkable_inputs_for_gpu_idx: int) -> bool:
     idx = chunkable_inputs_for_gpu_idx
     all_arrays_on_cpu = all([cp.get_array_module(args[i]) is np for i in idx])
     all_arrays_on_gpu = all([cp.get_array_module(args[i]) is cp for i in idx])
@@ -303,13 +286,25 @@ def check_if_arrays_are_on_same_device(
         all_arrays_on_same_gpu = all([args[i].device == args[0].device for i in idx])
     else:
         all_arrays_on_same_gpu = False
-    all_arrays_on_same_device = all_arrays_on_cpu or (
-        all_arrays_on_gpu and all_arrays_on_same_gpu
-    )
+    all_arrays_on_same_device = all_arrays_on_cpu or (all_arrays_on_gpu and all_arrays_on_same_gpu)
     if not all_arrays_on_same_device:
         raise Exception("chunkable_inputs_for_gpu must be on the same device!")
 
     return all_arrays_on_same_gpu
+
+
+# def check_if_arrays_are_on_same_device(
+#     args: tuple, chunkable_inputs_for_gpu_idx: int, device_type: DeviceType
+# ) -> bool:
+#     idx = chunkable_inputs_for_gpu_idx
+#     arrays_on_cpu_idx = [cp.get_array_module(args[i]) is np for i in idx]
+#     arrays_on_gpu_idx = [cp.get_array_module(args[i]) is cp for i in idx]
+
+#     if device_type is DeviceType.GPU and any(arrays_on_cpu_idx):
+#         # Move array on cpu to gpu
+
+
+#     return all_arrays_on_same_gpu
 
 
 @gpu_utils.memory_releasing_error_handler
