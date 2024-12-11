@@ -293,20 +293,6 @@ def check_if_arrays_are_on_same_device(args: tuple, chunkable_inputs_for_gpu_idx
     return all_arrays_on_same_gpu
 
 
-# def check_if_arrays_are_on_same_device(
-#     args: tuple, chunkable_inputs_for_gpu_idx: int, device_type: DeviceType
-# ) -> bool:
-#     idx = chunkable_inputs_for_gpu_idx
-#     arrays_on_cpu_idx = [cp.get_array_module(args[i]) is np for i in idx]
-#     arrays_on_gpu_idx = [cp.get_array_module(args[i]) is cp for i in idx]
-
-#     if device_type is DeviceType.GPU and any(arrays_on_cpu_idx):
-#         # Move array on cpu to gpu
-
-
-#     return all_arrays_on_same_gpu
-
-
 @gpu_utils.memory_releasing_error_handler
 def device_handling_wrapper(
     func: callable,

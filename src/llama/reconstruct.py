@@ -43,7 +43,7 @@ def get_astra_reconstructor_geometry(
     tilt_angle = np.pi / 180 * tilt_angle * np.ones((len(angles), 1))
     skew_angle = np.pi / 180 * skew_angle * np.ones((len(angles), 1))
     pixel_scale = pixel_scale * np.ones((len(angles), 2))
-    rotation_center = np.array([center_of_rotation[1], center_of_rotation[0]], dtype=np.float32)
+    rotation_center = np.array([center_of_rotation[1], center_of_rotation[0]], dtype=r_type)
     CoR_offset = (
         rotation_center - np.array(sinogram.shape[1:][::-1]) / 2
     )  # Might need the sign flipped!
@@ -275,13 +275,14 @@ def get_forward_projection(
         geometries["vol_geom"],
         returnData=False,
     )
-    # .get_shared *may* be faster than .get
+    # There ma be a way to use .get_shared to save time and/or memory, 
+    # but it may cause segmentation fault issues?
     if pinned_forward_projection is None:
-        pinned_forward_projection = astra.data3d.get_shared(forward_projection_ID).transpose(
+        pinned_forward_projection = astra.data3d.get(forward_projection_ID).transpose(
             [1, 0, 2]
         )
     else:
-        pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_ID).transpose(
+        pinned_forward_projection[:] = astra.data3d.get(forward_projection_ID).transpose(
             [1, 0, 2]
         )
     astra.data3d.delete(forward_projection_ID)

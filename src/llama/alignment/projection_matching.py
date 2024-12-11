@@ -56,6 +56,10 @@ class ProjectionMatchingAligner(Aligner):
 
         # Run the PMA algorithm
         self.calculate_alignment_shift()
+
+        if self.memory_config is MemoryConfig.GPU_ONLY:
+            self.move_arrays_back_to_cpu()
+
         # Re-scale the shift
         shift = self.total_shift * self.scale
 
@@ -174,16 +178,25 @@ class ProjectionMatchingAligner(Aligner):
             forward_projection_input = (
                 self.aligned_projections.laminogram.model_forward_projections.data
             )
-        wrapped_func(
+
+        (
+            self.shift_update,
+            self.pinned_error,
+            self.pinned_unfiltered_error,
+        ) = wrapped_func(
             self.aligned_projections.data,
             self.aligned_projections.masks,
             forward_projection_input,
             self.options.high_pass_filter,
             self.mass,
         )
+        self.post_process_shift()
         # The shifts -- which started on the gpu -- are put back onto the cpu!
         self.total_shift += self.shift_update
 
+    def post_process_shift(self):
+        self.shift_update *= self.options.step_relax
+    
     @staticmethod
     def calculate_shift_update(
         sinogram: ArrayType,
@@ -295,6 +308,14 @@ class ProjectionMatchingAligner(Aligner):
             tukey_window = gutils.pin_memory(tukey_window)
 
         return tukey_window, circulo
+
+    def move_arrays_back_to_cpu(self):
+        self.total_shift = self.total_shift.get()
+        self.aligned_projections.data = self.aligned_projections.data.get()
+        self.aligned_projections.masks = self.aligned_projections.masks.get()
+        self.shift_update = self.shift_update.get()
+        self.pinned_error = self.pinned_error.get()
+        self.pinned_unfiltered_error = self.pinned_unfiltered_error.get()
 
 
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):

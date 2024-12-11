@@ -5,6 +5,7 @@ import scipy
 
 # import functools.partial as partial
 import functools
+from llama.timer import timer
 from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
 
@@ -83,10 +84,10 @@ def image_crop_pad(
     return images
 
 
+@preserve_complexity_or_realness()
 def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
-    is_real = not xp.issubdtype(images.dtype, xp.complexfloating)
 
     x = shift[:, 0][:, None]
     y = shift[:, 1][:, None]
@@ -120,9 +121,6 @@ def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True)
     if apply_FFT:
         images = scipy_module.fft.ifft2(images)
 
-    if is_real:
-        images = xp.real(images)
-
     return images
 
 
@@ -153,6 +151,7 @@ def image_shift_linear(images: ArrayType, shift: ArrayType) -> ArrayType:
 
 @preserve_complexity_or_realness()
 def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
+    # DOESN'T WORK PROPERLY YET
     xp = cp.get_array_module(images)
     # fft_backend = get_fft_backend(images)
     scipy_module: scipy = get_scipy_module(images)
@@ -160,7 +159,7 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
     # Pad the array to prevent boundary issues
     pad_by = 2
     image_size = xp.array(images.shape, dtype=int)[1:]
-    image_size_new = xp.round(xp.ceil(image_size / scale / 2) * 2) + pad_by
+    image_size_new = (xp.round(xp.ceil(image_size / scale / 2) * 2) + pad_by).astype(int)
     scale = xp.prod(image_size_new - pad_by) / xp.prod(image_size)
     downsample = int(xp.ceil(xp.sqrt(1 / scale)))
     pad_width = int(downsample * pad_by / 2)
@@ -185,7 +184,7 @@ def image_downsample_fft(images: ArrayType, scale: int) -> ArrayType:
         axes=(1, 2),
     )
     # apply -/+0.5 px shift in the cropped space
-    images = image_shift_fft(images, xp.array([[0.5, 0.5]]), apply_FFT=False)
+    images = image_shift_fft(images, xp.array([[0.5, 0.5]], dtype=r_type), apply_FFT=False)
     images = scipy_module.fft.ifft2(images)
     # scale to keep the average constant
     images = images * scale

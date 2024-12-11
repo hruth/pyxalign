@@ -30,18 +30,23 @@ class Projections:
         masks: Optional[np.ndarray] = None,
         shift_manager: Optional["ShiftManager"] = None,
         center_of_rotation: Optional[np.ndarray] = None,
+        skip_pre_processing: bool = False,
     ) -> List:
         self.options = options
         self.angles = angles
 
-        # Crop and downsample input data if enabled
-        self.data = Cropper(self.options.crop).run(projections)
-        self.data = Downsampler(self.options.downsample).run(self.data)
-        if masks is not None:
-            self.masks = Cropper(self.options.crop).run(masks)
-            mask_downsample_options = copy.deepcopy(self.options.downsample)
-            self.options.downsample.type = self.options.mask_downsample_type
-            self.masks = Downsampler(mask_downsample_options).run(self.masks)
+        self.data = projections
+        self.masks = masks
+        if not skip_pre_processing:
+            # Crop and downsample input data if enabled
+            self.data = Cropper(self.options.crop).run(self.data)
+            self.data = Downsampler(self.options.downsample).run(self.data)
+            if self.masks is not None:
+                self.masks = Cropper(self.options.crop).run(self.masks)
+                mask_downsample_options = copy.deepcopy(self.options.downsample)
+                # self.options.downsample.type = self.options.mask_downsample_type # I overrode it???? ok then
+                mask_downsample_options.type = self.options.mask_downsample_type
+                self.masks = Downsampler(mask_downsample_options).run(self.masks)
 
         if shift_manager is not None:
             self.shift_manager = copy.deepcopy(shift_manager)
@@ -49,7 +54,7 @@ class Projections:
             self.shift_manager = ShiftManager(self.n_projections)
 
         if center_of_rotation is None:
-            self.center_of_rotation = np.array(projections.shape[1:]) / 2
+            self.center_of_rotation = np.array(self.data.shape[1:]) / 2
 
         self._post_init()
 

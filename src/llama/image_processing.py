@@ -167,8 +167,7 @@ def apply_1D_high_pass_filter(images: ArrayType, axis: int, sigma: float, apply_
         # Not implemented
         pass
     else:
-        # spectral_filter = scipy_module.fft.fftshift(xp.exp(1 / (-(x**2) / sigma**2)))
-        spectral_filter = scipy_module.fft.fftshift(xp.exp(1 / (-(x**2) / sigma**2)) + 1e-10)
+        spectral_filter = scipy_module.fft.fftshift(xp.exp(1 / (-(x**2) / sigma**2)))
 
 
     shape = [1, 1, 1]

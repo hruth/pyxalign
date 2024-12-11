@@ -66,7 +66,9 @@ class Laminogram:
             options=self.projections.options,
             angles=self.projections.angles,
             center_of_rotation=self.projections.center_of_rotation,
+            skip_pre_processing=True,
         )
+        astra.clear()
 
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):
         if circulo is None:

@@ -19,7 +19,7 @@ n_iterations = 3
 chunk_length = 20
 
 
-def load_input_task():
+def load_input_task() -> LaminographyAlignmentTask:
     scale = 4
     task = tutils.load_task(file_name)
 
