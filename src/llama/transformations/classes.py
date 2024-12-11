@@ -58,7 +58,12 @@ class Downsampler(Transformation):
                     chunkable_inputs_for_gpu_idx=[0, 2],
                     pinned_results=pinned_results,
                 )
-                return self.function(images, self.options.scale, shift)
+                return self.function(
+                    images,
+                    self.options.scale,
+                    shift,
+                    use_gaussian_filter=self.options.use_gaussian_filter,
+                )
             else:
                 self.function = device_handling_wrapper(
                     func=maps.get_downsample_func_by_enum(self.options.type),
@@ -66,7 +71,11 @@ class Downsampler(Transformation):
                     chunkable_inputs_for_gpu_idx=[0],
                     pinned_results=pinned_results,
                 )
-                return self.function(images, self.options.scale)
+                return self.function(
+                    images,
+                    self.options.scale,
+                    use_gaussian_filter=self.options.use_gaussian_filter,
+                )
         else:
             return images
 

@@ -38,6 +38,8 @@ class DownsampleOptions(TransformOptions):
 
     device_options: DeviceOptions = field(default_factory=DeviceOptions)
 
+    use_gaussian_filter: bool = False
+
 
 @dataclasses.dataclass
 class UpsampleOptions(TransformOptions):

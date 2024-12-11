@@ -153,16 +153,29 @@ def image_shift_linear(images: ArrayType, shift: ArrayType) -> ArrayType:
     return image_downsample_linear(images, 1, shift)
 
 
-@preserve_complexity_or_realness()
-def image_downsample_fft(images: ArrayType, scale: int, interp_sign = -1) -> ArrayType:
-    # DOESN'T WORK PROPERLY YET
+def apply_gaussian_filter(images: ArrayType, scale: int, in_place=True) -> ArrayType:
     xp = cp.get_array_module(images)
-    # fft_backend = get_fft_backend(images)
     scipy_module: scipy = get_scipy_module(images)
+    
+    gaussian_filter = scipy_module.ndimage.gaussian_filter
+    for i in range(len(images)):
+        images[i] = gaussian_filter(images[i], scale)
 
-    # Pad the array to prevent boundary issues
-    pad_by = 2
+    images = images / gaussian_filter(xp.ones(images.shape[1:], dtype=r_type), scale)
+
+    return images
+
+
+@preserve_complexity_or_realness()
+def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=False) -> ArrayType:
+    xp = cp.get_array_module(images)
+    scipy_module: scipy = get_scipy_module(images)
+    interp_sign = -1
+
+    if use_gaussian_filter:
+        images = apply_gaussian_filter(images, scale)
     image_size = xp.array(images.shape, dtype=int)[1:]
+    pad_by = 2
     image_size_new = (xp.round(xp.ceil(image_size / scale / 2) * 2) + pad_by).astype(int)
     scale = xp.prod(image_size_new - pad_by) / xp.prod(image_size)
     downsample = int(xp.ceil(xp.sqrt(1 / scale)))
@@ -200,7 +213,7 @@ def image_downsample_fft(images: ArrayType, scale: int, interp_sign = -1) -> Arr
 
 
 def image_downsample_linear(
-    images: ArrayType, scale: int, shift: Optional[ArrayType] = None
+    images: ArrayType, scale: int, shift: Optional[ArrayType] = None, use_gaussian_filter: bool = False
 ) -> ArrayType:
     # Note: this function also is used to shift the data if the scale is set to 0.
     # This function should not be used with complex data
@@ -211,6 +224,9 @@ def image_downsample_linear(
 
     if shift is None:
         shift = xp.zeros((len(images), 2), dtype=r_type)
+
+    if use_gaussian_filter:
+        images = apply_gaussian_filter(images, scale)
 
     n_z, n_x, n_y = images.shape
     X = xp.arange(0, n_x, dtype=int)
@@ -249,7 +265,9 @@ def image_downsample_linear(
     return new_images
 
 
-def image_downsample_nearest(images: ArrayType, scale: int) -> ArrayType:
+def image_downsample_nearest(images: ArrayType, scale: int, use_gaussian_filter: bool = False) -> ArrayType:
+    if use_gaussian_filter:
+        images = apply_gaussian_filter(images, scale)
     return images[:, ::scale, ::scale]
 
 
