@@ -45,7 +45,7 @@ def run_pma():
     # PMA settings
     n_iterations = 300
     task.options.projection_matching.iterations = n_iterations
-    task.options.projection_matching.downsample.enabled = True
+    task.options.projection_matching.downsample.enabled = False
     task.options.projection_matching.downsample.scale = 4
     task.options.projection_matching.downsample.type = DownsampleType.LINEAR
 

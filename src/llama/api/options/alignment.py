@@ -40,6 +40,8 @@ class ProjectionMatchingOptions(AlignmentOptions):
     step_relax: float = 0.1
 
     min_step_size: float = 0.01
+    
+    max_step_size: float = 0.5
 
     regularization: RegularizationOptions  = field(default_factory=RegularizationOptions)
 

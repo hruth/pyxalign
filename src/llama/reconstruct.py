@@ -15,6 +15,7 @@ from llama.timer import timer
 # def get_astra_reconstructor_geometry(
 #     projections: "projections.PhaseProjections",
 # ) -> tuple[dict, np.ndarray]:
+@timer()
 def get_astra_reconstructor_geometry(
     sinogram: np.ndarray,
     angles: np.ndarray,
@@ -111,6 +112,7 @@ def get_astra_reconstructor_geometry(
     return scan_geometry_config_inputs, vectors
 
 
+@timer()
 def create_astra_reconstructor_config(
     sinogram: np.ndarray,
     scan_geometry_config: dict,

@@ -48,7 +48,7 @@ def downsample_projections(
     )
     device_options = DeviceOptions(device_type=device_type, gpu=gpu_options)
     downsample_options = DownsampleOptions(
-        type=downsample_type, scale=scale, enabled=True, device_options=device_options
+        type=downsample_type, scale=scale, enabled=True, device=device_options
     )
     downsampler = Downsampler(downsample_options)
     processed_projections = downsampler.run(complex_projections.data, shift)

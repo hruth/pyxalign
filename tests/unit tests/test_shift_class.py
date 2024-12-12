@@ -35,12 +35,12 @@ def shift_projections(
 
     shift_options = ShiftOptions()
     shift_options.enabled = True
-    shift_options.device_options.device_type = device_type
+    shift_options.device.device_type = device_type
     shift_options.type = shift_type
-    shift_options.device_options.gpu.chunk_length = chunk_length
-    shift_options.device_options.gpu.chunking_enabled = chunking_enabled
-    shift_options.device_options.gpu.n_gpus = n_gpus
-    shift_options.device_options.gpu.gpu_indices = gpu_indices
+    shift_options.device.gpu.chunk_length = chunk_length
+    shift_options.device.gpu.chunking_enabled = chunking_enabled
+    shift_options.device.gpu.n_gpus = n_gpus
+    shift_options.device.gpu.gpu_indices = gpu_indices
     shifter = Shifter(shift_options)
     shifted_projections = shifter.run(
         complex_projections.data, shift, pinned_results=complex_projections.data
@@ -257,10 +257,10 @@ def test_fft_shift_class_stay_on_gpu(pytestconfig, overwrite_results=False, chec
 
     shift_options = ShiftOptions()
     shift_options.enabled = True
-    shift_options.device_options.device_type = enums.DeviceType.GPU,
+    shift_options.device.device_type = enums.DeviceType.GPU,
     shift_options.type = enums.ShiftType.FFT
-    shift_options.device_options.gpu.chunk_length = 100
-    shift_options.device_options.gpu.chunking_enabled = False
+    shift_options.device.gpu.chunk_length = 100
+    shift_options.device.gpu.chunking_enabled = False
     shifter = Shifter(shift_options)
 
 

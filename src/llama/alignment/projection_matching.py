@@ -43,6 +43,7 @@ class ProjectionMatchingAligner(Aligner):
             angles=self.projections.angles,
             options=projection_options,
             masks=self.projections.masks,
+            center_of_rotation=self.projections.center_of_rotation,
         )
         if self.options.downsample.enabled:
             self.scale = self.options.downsample.scale
@@ -191,11 +192,40 @@ class ProjectionMatchingAligner(Aligner):
             self.mass,
         )
         self.post_process_shift()
-        # The shifts -- which started on the gpu -- are put back onto the cpu!
+
         self.total_shift += self.shift_update
 
     def post_process_shift(self):
+        xp = self.xp
+
+        # Reduce the shift on this increment by a relaxation factor
+        max_allowed_step = self.options.max_step_size
+        idx = xp.abs(self.shift_update) > max_allowed_step
+        self.shift_update[idx] = max_allowed_step * xp.sign(self.shift_update[idx])
         self.shift_update *= self.options.step_relax
+
+        # Center the shifts around zero in the vertical direction
+        self.shift_update[:, 1] = self.shift_update[:, 1] - xp.median(self.shift_update[:, 1])
+
+        # Prevent outliers if the result begins quickly oscillating around the solution
+        max_recorded_step = xp.quantile(xp.abs(self.shift_update), 0.99, axis=0)
+        max_recorded_step[max_recorded_step > max_allowed_step] = max_allowed_step
+
+        # Do not allow more than max_allowed_step px per iteration
+        idx = xp.abs(self.shift_update) > max_allowed_step
+        self.shift_update[idx] = xp.min(max_recorded_step) * xp.sign(self.shift_update[idx])
+
+        # Remove degree of freedom in the vertical dimension (avoid drifts)
+        angles = xp.array(self.aligned_projections.angles)
+        orthbase = xp.array([xp.sin(angles * xp.pi / 180), xp.cos(angles * xp.pi / 180)])
+        A = xp.matmul(orthbase, orthbase.transpose())
+        B = xp.matmul(orthbase, self.shift_update[:, 0])
+        coefs = xp.matmul(xp.linalg.inv(A), B[:, None])
+
+        # Avoid object drifts within the reconstructed field of view
+        self.shift_update[:, 0] = (
+            self.shift_update[:, 0] - xp.matmul(orthbase.transpose(), coefs)[:, 0]
+        )
     
     @staticmethod
     def calculate_shift_update(
@@ -287,12 +317,12 @@ class ProjectionMatchingAligner(Aligner):
         projections_shift_options = ShiftOptions(
             enabled=True,
             type=self.options.projection_shift_type,
-            device_options=device_options,
+            device=device_options,
         )
         mask_shift_options = ShiftOptions(
             enabled=True,
             type=self.options.mask_shift_type,
-            device_options=device_options,
+            device=device_options,
         )
 
         self.projection_shifter = Shifter(projections_shift_options)

@@ -16,7 +16,7 @@ class TransformOptions(ABC):
 
     enabled: bool = False
 
-    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+    device: DeviceOptions = field(default_factory=DeviceOptions)
 
 
 @dataclasses.dataclass
@@ -25,7 +25,7 @@ class ShiftOptions(TransformOptions):
 
     enabled: bool = False
 
-    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+    device: DeviceOptions = field(default_factory=DeviceOptions)
 
 
 @dataclasses.dataclass
@@ -36,7 +36,7 @@ class DownsampleOptions(TransformOptions):
 
     enabled: bool = False
 
-    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+    device: DeviceOptions = field(default_factory=DeviceOptions)
 
     use_gaussian_filter: bool = False
 
@@ -49,7 +49,7 @@ class UpsampleOptions(TransformOptions):
 
     enabled: bool = False
 
-    device_options: DeviceOptions = field(default_factory=DeviceOptions)
+    device: DeviceOptions = field(default_factory=DeviceOptions)
 
 
 @dataclasses.dataclass

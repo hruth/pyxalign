@@ -6,6 +6,7 @@ import copy
 import llama.image_processing as ip
 from llama import reconstruct
 import llama.projections as projections
+from llama.timer import timer
 
 from llama.api.types import ArrayType, r_type
 
@@ -18,6 +19,7 @@ class Laminogram:
         # Store a reference to the projections
         self.projections = projections
 
+    @timer()
     def generate_laminogram(
         self,
         filter_inputs: bool = False,

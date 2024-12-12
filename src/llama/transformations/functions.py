@@ -204,7 +204,7 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
     images = image_shift_fft(images, interp_sign * xp.array([[0.5, 0.5]], dtype=r_type), apply_FFT=False)
     images = scipy_module.fft.ifft2(images)
     # scale to keep the average constant
-    images = images * scale
+    images = images * scale.astype(r_type)
     # remove the padding
     a = int(pad_by / 2)
     images = images[:, a : (image_size_new[0] - a), a : (image_size_new[1] - a)]

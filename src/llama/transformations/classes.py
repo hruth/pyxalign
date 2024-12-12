@@ -54,7 +54,7 @@ class Downsampler(Transformation):
             if self.options.type is DownsampleType.LINEAR and shift is not None:
                 self.function = device_handling_wrapper(
                     func=maps.get_downsample_func_by_enum(self.options.type),
-                    options=self.options.device_options,
+                    options=self.options.device,
                     chunkable_inputs_for_gpu_idx=[0, 2],
                     pinned_results=pinned_results,
                 )
@@ -67,7 +67,7 @@ class Downsampler(Transformation):
             else:
                 self.function = device_handling_wrapper(
                     func=maps.get_downsample_func_by_enum(self.options.type),
-                    options=self.options.device_options,
+                    options=self.options.device,
                     chunkable_inputs_for_gpu_idx=[0],
                     pinned_results=pinned_results,
                 )
@@ -94,7 +94,7 @@ class Upsampler(Transformation):
         if self.enabled:
             self.function = device_handling_wrapper(
                 func=maps.get_upsample_func_by_enum(self.options.type),
-                options=self.options.device_options,
+                options=self.options.device,
                 chunkable_inputs_for_gpu_idx=[0],
                 pinned_results=pinned_results,
             )
@@ -119,7 +119,7 @@ class Shifter(Transformation):
         if self.enabled:
             self.function = device_handling_wrapper(
                 func=maps.get_shift_func_by_enum(self.options.type),
-                options=self.options.device_options,
+                options=self.options.device,
                 chunkable_inputs_for_gpu_idx=[0, 1],
                 pinned_results=pinned_results,
             )

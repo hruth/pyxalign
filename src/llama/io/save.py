@@ -23,7 +23,8 @@ def save_projections(projections: Projections, file_path: str, group_name: str, 
     h5_group = h5_obj.create_group(group_name)
     for attr in save_attr_strings:
         if attr in projections.__dict__.keys():
-            h5_group.create_dataset(attr, data=getattr(projections, attr))
+            if hasattr(projections, 'masks') and getattr(projections, attr) is not None:
+                h5_group.create_dataset(attr, data=getattr(projections, attr))
 
     save_options(projections.options, h5_group.create_group("options"))
     print(f"Array saved to {file_path}")
@@ -40,10 +41,6 @@ def save_options(obj, h5_obj: Union[h5py.Group, h5py.File]):
             save_options(value, h5_obj.create_group(field_name))
         elif isinstance(value, StrEnum):
             # Handle enums
-            h5_obj.attrs[field_name] = value._value_
-        elif isinstance(value, (int, float, str, bool)):
-            # Handle basic data types
-            h5_obj.attrs[field_name] = value
-        elif isinstance(value, (list, tuple)):
-            # Handle lists
+            h5_obj.create_dataset(field_name, data=value._value_)
+        else:
             h5_obj.create_dataset(field_name, data=value)

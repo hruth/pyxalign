@@ -25,7 +25,7 @@ class MaskOptions:
         type=enums.DownsampleType.NEAREST,
         scale=4,
         enabled=True,
-        device_options=DeviceOptions(enums.DeviceType.CPU),
+        device=DeviceOptions(enums.DeviceType.CPU),
     )
 
     # upsample_options = UpsampleOptions(

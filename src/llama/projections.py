@@ -18,7 +18,7 @@ from llama import reconstruct
 from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropper
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
-from llama.api.types import ArrayType
+from llama.api.types import ArrayType, r_type
 
 
 class Projections:
@@ -34,9 +34,13 @@ class Projections:
     ) -> List:
         self.options = options
         self.angles = angles
-
         self.data = projections
         self.masks = masks
+        if center_of_rotation is None:
+            self.center_of_rotation = np.array(self.data.shape[1:], dtype=r_type) / 2
+        else:
+            self.center_of_rotation = np.array(center_of_rotation, dtype=r_type)
+        
         if not skip_pre_processing:
             # Crop and downsample input data if enabled
             self.data = Cropper(self.options.crop).run(self.data)
@@ -44,17 +48,20 @@ class Projections:
             if self.masks is not None:
                 self.masks = Cropper(self.options.crop).run(self.masks)
                 mask_downsample_options = copy.deepcopy(self.options.downsample)
-                # self.options.downsample.type = self.options.mask_downsample_type # I overrode it???? ok then
                 mask_downsample_options.type = self.options.mask_downsample_type
                 self.masks = Downsampler(mask_downsample_options).run(self.masks)
+            # Update pixel size
+            if self.options.downsample.enabled:
+                self.options.experiment.pixel_size = (
+                    self.options.experiment.pixel_size * self.options.downsample.scale
+                )
+            # Update
+            self.update_center_of_rotation()
 
         if shift_manager is not None:
             self.shift_manager = copy.deepcopy(shift_manager)
         else:
             self.shift_manager = ShiftManager(self.n_projections)
-
-        if center_of_rotation is None:
-            self.center_of_rotation = np.array(self.data.shape[1:]) / 2
 
         self._post_init()
 
@@ -81,6 +88,14 @@ class Projections:
     def _post_init(self):
         "For running children specific code after instantiation"
         pass
+
+    def update_center_of_rotation(self):
+        if self.options.downsample.enabled:
+            self.center_of_rotation = self.center_of_rotation / self.options.downsample.scale
+        if self.options.crop.enabled:
+            # to do: add CoR update for when cropping is not symmetric. Will affect
+            # how to handle downsampling CoR as well.
+            pass
 
     def pin_projections(self):
         self.data = gpu_utils.pin_memory(self.data)
@@ -196,7 +211,7 @@ class ShiftManager:
             shift_options = ShiftOptions(
                 enabled=True,
                 type=self.staged_function_type,
-                device_options=device_options,
+                device=device_options,
             )
             images[:] = Shifter(shift_options).run(
                 images=images,

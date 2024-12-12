@@ -13,6 +13,11 @@ T = TypeVar("T")
 
 
 def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
+    def get_masks(group, h5_obj):
+        if "masks" in h5_obj[group].keys():
+            return h5_obj[group]["masks"][:]
+        else:
+            return None
     with h5py.File(file_path, "r") as h5_obj:
         group = "complex_projections"
         if group in h5_obj.keys() and group not in exclude:
@@ -20,7 +25,7 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
                 projections=h5_obj[group + "/data"][:],
                 angles=h5_obj[group + "/angles"][:],
                 options=load_options(h5_obj[group], ProjectionOptions),
-                masks=h5_obj[group + "/masks"][:],
+                masks=get_masks(group, h5_obj),
                 shift_manager=None,  # needs to be updated later
             )
         else:
@@ -31,15 +36,15 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
             phase_projections = PhaseProjections(
                 projections=h5_obj[group + "/data"][:],
                 angles=h5_obj[group + "/angles"][:],
-                options=load_options(h5_obj[group], ProjectionOptions),
-                masks=h5_obj[group + "/masks"][:],
+                options=load_options(h5_obj[group]["options"], ProjectionOptions),
+                masks=get_masks(group, h5_obj),
                 shift_manager=None,  # needs to be updated later
             )
         else:
             phase_projections = None
 
         task = LaminographyAlignmentTask(
-            options=load_options(h5_obj, AlignmentTaskOptions),
+            options=load_options(h5_obj["options"], AlignmentTaskOptions),
             complex_projections=complex_projections,
             phase_projections=phase_projections,
         )
@@ -71,6 +76,8 @@ def h5_to_dict(h5_obj: Union[h5py.Group, h5py.File]):
         elif isinstance(item, h5py.Dataset):
             # Convert datasets to their value
             result[key] = item[()]  # Use [()] to retrieve the data
+            if isinstance(result[key], bytes):
+                result[key] = result[key].decode()
 
     # Add attributes
     for attr in h5_obj.attrs:
