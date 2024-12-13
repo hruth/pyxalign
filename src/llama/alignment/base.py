@@ -4,7 +4,6 @@ import numpy as np
 import cupy as cp
 from llama.api.options.alignment import AlignmentOptions
 from llama.projections import Projections
-from llama.transformations.classes import PreProcesser
 
 
 class Aligner(ABC):
@@ -35,9 +34,6 @@ class Aligner(ABC):
     @abstractmethod
     def calculate_alignment_shift(self, projections: ArrayType, *args, **kwargs) -> np.ndarray:
         pass
-
-    def pre_process_projections(self) -> ArrayType:
-        return PreProcesser(self.options.pre_processing).run(self.projections.data)
 
     # def unstage_shift(self):
     #     if self.past_shifts != np.zeros((self.projections.n_projections, 2)):

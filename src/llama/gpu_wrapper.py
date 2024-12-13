@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, TypeVar, Union, Any
 import cupy as cp
 import numpy as np
 
@@ -20,6 +20,8 @@ from llama.api.types import ArrayType
 # - Later, you could update the gpu wrapper
 #   to move arrays to the gpu in chunks if they
 #   are on the cpu. For now, this is handled externally.
+
+T = TypeVar("T", bound=Callable[..., Any])
 
 
 class InputArgumentsHandler:
@@ -251,7 +253,7 @@ class Iterator:
         self,
         inputs: InputArgumentsHandler,
         outputs: OutputResultsHandler,
-        func: callable,
+        func: T,
     ):
         self.inputs = inputs
         self.outputs = outputs
@@ -278,7 +280,7 @@ def get_chunk_indices(iter, chunk_length) -> tuple[int, int]:
     return idx_start, idx_stop
 
 
-def check_if_arrays_are_on_same_device(args: tuple, chunkable_inputs_for_gpu_idx: int) -> bool:
+def check_if_arrays_are_on_same_device(args: tuple, chunkable_inputs_for_gpu_idx: List[int]) -> bool:
     idx = chunkable_inputs_for_gpu_idx
     all_arrays_on_cpu = all([cp.get_array_module(args[i]) is np for i in idx])
     all_arrays_on_gpu = all([cp.get_array_module(args[i]) is cp for i in idx])
@@ -295,13 +297,13 @@ def check_if_arrays_are_on_same_device(args: tuple, chunkable_inputs_for_gpu_idx
 
 @gpu_utils.memory_releasing_error_handler
 def device_handling_wrapper(
-    func: callable,
+    func: T,
     options: DeviceOptions,
-    chunkable_inputs_for_gpu_idx: List[int] = list[0],
+    chunkable_inputs_for_gpu_idx: List[int] = [0],
     chunkable_inputs_for_cpu_idx: List[int] = [],
     common_inputs_for_gpu_idx: List[int] = [],
     pinned_results: Optional[Union[np.ndarray, tuple]] = None,
-) -> callable:
+) -> T:
     """Wrapper that efficiently splits inputs into chunks and transfers them between
     the gpu and cpu.
 

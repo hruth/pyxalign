@@ -1,25 +1,11 @@
 import os
-import argparse
-import time
 import numpy as np
-import cupy as cp
-from llama.api.options.device import DeviceOptions
-from llama.api.options.task import AlignmentTaskOptions
-from llama.gpu_utils import is_pinned
-from llama.projections import ComplexProjections, PhaseProjections
+
+from llama.projections import PhaseProjections
 from llama.task import LaminographyAlignmentTask
-from llama.transformations.classes import Shifter
 from llama.api import enums
 from llama.io import save, load
-
-# import llama.api.options as opts
-from llama.api.options.transform import ShiftOptions
-from llama.api.options.projections import ProjectionOptions
-from llama.api.options.options import ExperimentOptions
-from llama.api.options.reconstruct import FilterOptions, ReconstructOptions
-
-import llama.test_utils as tutils
-from llama.api.types import r_type
+from llama.api.options import ProjectionOptions, AlignmentTaskOptions
 
 
 def test_task_io(pytestconfig=None, overwrite_results=False, check_results=True):
@@ -50,7 +36,7 @@ def test_task_io(pytestconfig=None, overwrite_results=False, check_results=True)
     # Create task options
     task_options = AlignmentTaskOptions()
     task_options.projection_matching.iterations = 999
-    task_options.projection_matching.regularization.local_TV = 789
+    task_options.projection_matching.regularization.local_TV = True
     # Create task
     task = LaminographyAlignmentTask(options=task_options, phase_projections=projections)
     # save task

@@ -1,3 +1,4 @@
+from os import name
 from typing import Union, Optional
 import numpy as np
 import cupy as cp
@@ -144,9 +145,9 @@ class ProjectionMatchingAligner(Aligner):
                 self.pinned_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
                 self.pinned_unfiltered_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
             elif self.memory_config is MemoryConfig.GPU_ONLY:
-                self.shift_update = cp.empty((n_proj, 2), dtype=r_type)
-                self.pinned_error = cp.empty((n_proj), dtype=r_type)
-                self.pinned_unfiltered_error = cp.empty((n_proj), dtype=r_type)
+                self.shift_update = cp.empty((n_proj, 2), dtype=r_type) # type: ignore
+                self.pinned_error = cp.empty((n_proj), dtype=r_type) # type: ignore
+                self.pinned_unfiltered_error = cp.empty((n_proj), dtype=r_type) # type: ignore
         else:
             self.pinned_filtered_sinogram = None
             self.pinned_forward_projection = None
@@ -286,15 +287,15 @@ class ProjectionMatchingAligner(Aligner):
             cp.cuda.Device(self.options.device.gpu.gpu_indices[0]).use()
             initializer_function = cp.array
             self.xp = cp
-            self.scipy_module: scipy = gutils.get_scipy_module(cp.array(1))
+            self.scipy_module = gutils.get_scipy_module(cp.array(1))
         elif self.memory_config is MemoryConfig.MIXED:
             initializer_function = gutils.pin_memory
             self.xp = np
-            self.scipy_module: scipy = gutils.get_scipy_module(cp.array(1))
+            self.scipy_module = gutils.get_scipy_module(cp.array(1))
         elif self.memory_config is MemoryConfig.CPU_ONLY:
             initializer_function = lambda x: (x * 1)  # noqa: E731
             self.xp = np
-            self.scipy_module: scipy = gutils.get_scipy_module(np.array(1))
+            self.scipy_module = gutils.get_scipy_module(np.array(1))
 
         unshifted_projections = initializer_function(self.aligned_projections.data)
         unshifted_masks = initializer_function(self.aligned_projections.masks)

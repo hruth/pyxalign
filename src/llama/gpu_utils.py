@@ -1,7 +1,7 @@
 from functools import wraps
 import traceback
 from types import ModuleType
-from typing import List, Optional
+from typing import Any, Callable, List, Optional, Literal, TypeVar
 import cupy as cp
 import scipy
 import cupyx
@@ -13,6 +13,8 @@ from typing import Union
 import llama.api.enums as enums
 
 from llama.api.types import ArrayType
+
+T = TypeVar("T", bound=Callable[..., Any])
 
 
 def get_available_gpus() -> tuple[int]:
@@ -109,7 +111,7 @@ def get_fft_backend(array: ArrayType):
     return fft_backend
 
 
-def get_scipy_module(array: ArrayType) -> ModuleType:  # , submodule: enums.SciPySubmodules) -> ModuleType:
+def get_scipy_module(array: ArrayType) -> ModuleType: #  Literal[scipy, cupyx.scipy]:#ModuleType:  # , submodule: enums.SciPySubmodules) -> ModuleType:
     module = cp.get_array_module(array)
 
     if module.__name__ == "numpy":
@@ -120,7 +122,7 @@ def get_scipy_module(array: ArrayType) -> ModuleType:  # , submodule: enums.SciP
     return scipy_module
 
 
-def memory_releasing_error_handler(func, show_info: bool = False):
+def memory_releasing_error_handler(func, show_info: bool = False) -> T:
     @wraps(func)
     def wrapped(*args, **kwargs):
         try:
