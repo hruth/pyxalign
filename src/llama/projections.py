@@ -35,6 +35,7 @@ class Projections:
         self.options = options
         self.angles = angles
         self.data = projections
+        self.masks = masks
         if center_of_rotation is None:
             self.center_of_rotation = np.array(self.data.shape[1:], dtype=r_type) / 2
         else:
