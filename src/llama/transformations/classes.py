@@ -6,7 +6,6 @@ from llama.api.enums import DownsampleType, UpsampleType
 import llama.api.maps as maps
 from llama.api.options.transform import (
     DownsampleOptions,
-    PreProcessingOptions,
     ShiftOptions,
     TransformOptions,
     UpsampleOptions,
@@ -148,20 +147,3 @@ class Cropper(Transformation):
             )
         else:
             return images
-
-
-class PreProcesser(Transformation):
-    def __init__(
-        self,
-        options: PreProcessingOptions,
-    ):
-        super().__init__(options)
-        self.options = options
-        # self.enabled = options.enabled
-
-    def run(self, images: ArrayType) -> ArrayType:
-        # To add:
-        # shift
-        # crop
-        images = Downsampler(self.options.downsample_options).run(images)
-        return images

@@ -6,7 +6,7 @@ from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.options import RegularizationOptions
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.reconstruct import ReconstructOptions
-from llama.api.options.transform import PreProcessingOptions, CropOptions, DownsampleOptions
+from llama.api.options.transform import CropOptions, DownsampleOptions
 
 
 @dataclasses.dataclass
