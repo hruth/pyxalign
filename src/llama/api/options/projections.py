@@ -25,4 +25,6 @@ class ProjectionOptions:
 
     mask_downsample_type: enums.DownsampleType = enums.DownsampleType.LINEAR
 
+    mask_downsample_use_gaussian_filter: bool = False
+
     # phase_ramp_removal: PhaseRampRemovalOptions = field(default_factory=PhaseRampRemovalOptions)
