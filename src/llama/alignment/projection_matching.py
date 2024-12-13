@@ -173,11 +173,11 @@ class ProjectionMatchingAligner(Aligner):
         # array.
         if self.memory_config is MemoryConfig.GPU_ONLY:
             forward_projection_input = cp.array(
-                self.aligned_projections.laminogram.model_forward_projections.data
+                self.aligned_projections.laminogram.forward_projections.data
             )
         else:
             forward_projection_input = (
-                self.aligned_projections.laminogram.model_forward_projections.data
+                self.aligned_projections.laminogram.forward_projections.data
             )
 
         (

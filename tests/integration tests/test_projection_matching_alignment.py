@@ -25,7 +25,7 @@ def load_input_task() -> LaminographyAlignmentTask:
 
     task.phase_projections.data = gutils.pin_memory(task.phase_projections.data)
     task.phase_projections.masks = gutils.pin_memory(task.phase_projections.masks)
-    task.phase_projections.options.experiment.pixel_size = 2.74671658e-08 * scale
+    task.phase_projections.pixel_size = 2.74671658e-08 * scale
     task.phase_projections.options.experiment.tilt_angle = 0
     task.phase_projections.options.experiment.skew_angle = 0
 
@@ -69,10 +69,10 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
     assert gutils.is_pinned(
-        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+        task.pma_object.aligned_projections.laminogram.forward_projections.data
     )
     assert (
-        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+        task.pma_object.aligned_projections.laminogram.forward_projections.data
         is task.pma_object.pinned_forward_projection
     )
     tutils.check_or_record_results(
@@ -118,10 +118,10 @@ def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_result
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
     assert gutils.is_pinned(
-        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+        task.pma_object.aligned_projections.laminogram.forward_projections.data
     )
     assert (
-        task.pma_object.aligned_projections.laminogram.model_forward_projections.data
+        task.pma_object.aligned_projections.laminogram.forward_projections.data
         is task.pma_object.pinned_forward_projection
     )
     tutils.check_or_record_results(

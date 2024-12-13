@@ -26,7 +26,7 @@ def load_input_task() -> LaminographyAlignmentTask:
 
     task.phase_projections.data = gutils.pin_memory(task.phase_projections.data)
     task.phase_projections.masks = gutils.pin_memory(task.phase_projections.masks)
-    task.phase_projections.options.experiment.pixel_size = 2.74671658e-08 * scale
+    task.phase_projections.pixel_size = 2.74671658e-08 * scale
     task.phase_projections.options.experiment.tilt_angle = 0
     task.phase_projections.options.experiment.skew_angle = 0
 

@@ -52,9 +52,9 @@ class Projections:
                 self.masks = Downsampler(mask_downsample_options).run(self.masks)
             # Update pixel size
             if self.options.downsample.enabled:
-                self.options.experiment.pixel_size = (
-                    self.options.experiment.pixel_size * self.options.downsample.scale
-                )
+                self.pixel_size = self.options.experiment.pixel_size * self.options.downsample.scale
+            else:
+                self.pixel_size = self.options.experiment.pixel_size * 1
             # Update
             self.update_center_of_rotation()
 
@@ -73,11 +73,10 @@ class Projections:
     def reconstructed_object_dimensions(self) -> np.ndarray:
         laminography_angle = self.options.experiment.laminography_angle
         sample_thickness = self.options.experiment.sample_thickness
-        pixel_size = self.options.experiment.pixel_size
         n_lateral_pixels = np.ceil(
             0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
         )
-        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / pixel_size])
+        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
         n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
         return n_pix
 

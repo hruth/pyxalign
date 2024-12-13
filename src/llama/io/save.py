@@ -10,7 +10,7 @@ from llama.api.options.task import AlignmentTaskOptions
 
 
 def save_task(task: LaminographyAlignmentTask, file_path: str, exclude: list[str] = []):
-    save_attr_strings = ["complex_projections", "phase_projections"]
+    save_attr_strings = ["complex_projections", "phase_projections", "laminogram"]
     with h5py.File(file_path, "w") as h5_obj:
         for attr in save_attr_strings:
             if attr in task.__dict__.keys() and attr not in exclude:
@@ -18,12 +18,14 @@ def save_task(task: LaminographyAlignmentTask, file_path: str, exclude: list[str
         save_options(task.options, h5_obj.create_group("options"))
 
 
-def save_projections(projections: Projections, file_path: str, group_name: str, h5_obj: h5py.File):
+def save_projections(
+    projections: Projections, file_path: str, group_name: str, h5_obj: h5py.File
+):
     save_attr_strings = ["data", "angles", "masks"]
     h5_group = h5_obj.create_group(group_name)
     for attr in save_attr_strings:
         if attr in projections.__dict__.keys():
-            if hasattr(projections, 'masks') and getattr(projections, attr) is not None:
+            if hasattr(projections, attr) and getattr(projections, attr) is not None:
                 h5_group.create_dataset(attr, data=getattr(projections, attr))
 
     save_options(projections.options, h5_group.create_group("options"))

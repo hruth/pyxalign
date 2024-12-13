@@ -63,7 +63,7 @@ class Laminogram:
         )
         # Create a projections object in case I want to use any of the
         # projections object methods
-        self.model_forward_projections = projections.PhaseProjections(
+        self.forward_projections = projections.PhaseProjections(
             projections=forward_projections,
             options=self.projections.options,
             angles=self.projections.angles,

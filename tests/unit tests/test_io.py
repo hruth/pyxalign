@@ -68,10 +68,7 @@ def test_task_io(pytestconfig=None, overwrite_results=False, check_results=True)
     # check projection experiment options
     assert task.options == loaded_task.options
     assert projection_options.experiment == loaded_task.phase_projections.options.experiment
-    assert (
-        projection_options.reconstruct.filter
-        == loaded_task.phase_projections.options.reconstruct.filter
-    )
+    assert np.allclose(task.phase_projections.data, loaded_task.phase_projections.data)
 
 
 if __name__ == "__main__":
