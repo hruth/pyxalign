@@ -9,7 +9,7 @@ from llama.api import enums
 class ExperimentOptions:
     laminography_angle: float = 61.1
 
-    tilt_angle: float = -70.0
+    tilt_angle: float = 0
 
     skew_angle: float = 0
 

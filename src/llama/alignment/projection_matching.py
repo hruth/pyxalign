@@ -36,6 +36,7 @@ class ProjectionMatchingAligner(Aligner):
     def run(self) -> np.ndarray:
         # Create the projections object
         projection_options = copy.deepcopy(self.projections.options)
+        projection_options.experiment.pixel_size = self.projections.pixel_size
         projection_options.crop = self.options.crop
         projection_options.downsample = self.options.downsample
         projection_options.reconstruct = self.options.reconstruct
@@ -59,7 +60,7 @@ class ProjectionMatchingAligner(Aligner):
         # Run the PMA algorithm
         self.calculate_alignment_shift()
 
-        if self.memory_config is MemoryConfig.GPU_ONLY:
+        if self.memory_config == MemoryConfig.GPU_ONLY:
             self.move_arrays_back_to_cpu()
 
         # Re-scale the shift
@@ -132,7 +133,7 @@ class ProjectionMatchingAligner(Aligner):
         self.n_pix = self.aligned_projections.reconstructed_object_dimensions
         self.mass = xp.median(xp.abs(self.aligned_projections.data).mean(axis=(1, 2)))
         # Prepare pre-allocated and pinned arrays
-        if self.memory_config is not MemoryConfig.CPU_ONLY:
+        if not (self.memory_config == MemoryConfig.CPU_ONLY):
             self.pinned_filtered_sinogram = gutils.pin_memory(
                 np.empty(self.aligned_projections.data.shape, dtype=r_type)
             )
@@ -140,11 +141,11 @@ class ProjectionMatchingAligner(Aligner):
                 np.empty(self.aligned_projections.data.shape, dtype=r_type)
             )
             n_proj = self.aligned_projections.n_projections
-            if self.memory_config is MemoryConfig.MIXED:
+            if self.memory_config == MemoryConfig.MIXED:
                 self.shift_update = gutils.pin_memory(np.empty((n_proj, 2), dtype=r_type))
                 self.pinned_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
                 self.pinned_unfiltered_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
-            elif self.memory_config is MemoryConfig.GPU_ONLY:
+            elif self.memory_config == MemoryConfig.GPU_ONLY:
                 self.shift_update = cp.empty((n_proj, 2), dtype=r_type) # type: ignore
                 self.pinned_error = cp.empty((n_proj), dtype=r_type) # type: ignore
                 self.pinned_unfiltered_error = cp.empty((n_proj), dtype=r_type) # type: ignore
@@ -172,7 +173,7 @@ class ProjectionMatchingAligner(Aligner):
         # to move arrays to the gpu in chunks if they 
         # are on the cpu. For now, just move the whole
         # array.
-        if self.memory_config is MemoryConfig.GPU_ONLY:
+        if self.memory_config == MemoryConfig.GPU_ONLY:
             forward_projection_input = cp.array(
                 self.aligned_projections.laminogram.forward_projections.data
             )
@@ -283,16 +284,16 @@ class ProjectionMatchingAligner(Aligner):
             self.options.keep_on_gpu, self.options.device.device_type
         )
 
-        if self.memory_config is MemoryConfig.GPU_ONLY:
+        if self.memory_config == MemoryConfig.GPU_ONLY:
             cp.cuda.Device(self.options.device.gpu.gpu_indices[0]).use()
             initializer_function = cp.array
             self.xp = cp
             self.scipy_module = gutils.get_scipy_module(cp.array(1))
-        elif self.memory_config is MemoryConfig.MIXED:
+        elif self.memory_config == MemoryConfig.MIXED:
             initializer_function = gutils.pin_memory
             self.xp = np
             self.scipy_module = gutils.get_scipy_module(cp.array(1))
-        elif self.memory_config is MemoryConfig.CPU_ONLY:
+        elif self.memory_config == MemoryConfig.CPU_ONLY:
             initializer_function = lambda x: (x * 1)  # noqa: E731
             self.xp = np
             self.scipy_module = gutils.get_scipy_module(np.array(1))
@@ -300,7 +301,7 @@ class ProjectionMatchingAligner(Aligner):
         unshifted_projections = initializer_function(self.aligned_projections.data)
         unshifted_masks = initializer_function(self.aligned_projections.masks)
 
-        if self.memory_config is not MemoryConfig.CPU_ONLY:
+        if not (self.memory_config == MemoryConfig.CPU_ONLY):
             self.aligned_projections.data = initializer_function(self.aligned_projections.data)
             self.aligned_projections.masks = initializer_function(self.aligned_projections.masks)
 
@@ -312,7 +313,7 @@ class ProjectionMatchingAligner(Aligner):
 
     def initialize_shifters(self):
         device_options = copy.deepcopy(self.options.device)
-        if self.memory_config is MemoryConfig.GPU_ONLY:
+        if self.memory_config == MemoryConfig.GPU_ONLY:
             device_options.device_type = DeviceType.GPU
 
         projections_shift_options = ShiftOptions(
@@ -335,7 +336,7 @@ class ProjectionMatchingAligner(Aligner):
         # Generate circular mask for reconstruction
         circulo = self.aligned_projections.laminogram.get_circular_window()
 
-        if self.memory_config is MemoryConfig.MIXED:
+        if self.memory_config == MemoryConfig.MIXED:
             tukey_window = gutils.pin_memory(tukey_window)
 
         return tukey_window, circulo

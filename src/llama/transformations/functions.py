@@ -153,12 +153,18 @@ def image_shift_linear(images: ArrayType, shift: ArrayType) -> ArrayType:
     return image_downsample_linear(images, 1, shift)
 
 
-def apply_gaussian_filter(images: ArrayType, scale: int, in_place=True) -> ArrayType:
+def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
-    
+
+    # May not always be necessary
+    images = images * 1
+
     gaussian_filter = scipy_module.ndimage.gaussian_filter
     for i in range(len(images)):
+        # in place replacement is required here for matching the old
+        # version, but it might be more correct to make it not in-place
+        # later
         images[i] = gaussian_filter(images[i], scale)
 
     images = images / gaussian_filter(xp.ones(images.shape[1:], dtype=r_type), scale)

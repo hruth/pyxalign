@@ -49,14 +49,20 @@ class Projections:
                 self.masks = Cropper(self.options.crop).run(self.masks)
                 mask_downsample_options = copy.deepcopy(self.options.downsample)
                 mask_downsample_options.type = self.options.mask_downsample_type
+                mask_downsample_options.use_gaussian_filter = (
+                    self.options.mask_downsample_use_gaussian_filter
+                )
                 self.masks = Downsampler(mask_downsample_options).run(self.masks)
-            # Update pixel size
-            if self.options.downsample.enabled:
-                self.pixel_size = self.options.experiment.pixel_size * self.options.downsample.scale
-            else:
-                self.pixel_size = self.options.experiment.pixel_size * 1
             # Update
             self.update_center_of_rotation()
+
+        # Update pixel size
+        # When copying options, to a new projection, make sure to properly
+        # set the pixel size!
+        if self.options.downsample.enabled and not skip_pre_processing:
+            self.pixel_size = self.options.experiment.pixel_size * self.options.downsample.scale
+        else:
+            self.pixel_size = self.options.experiment.pixel_size * 1
 
         if shift_manager is not None:
             self.shift_manager = copy.deepcopy(shift_manager)

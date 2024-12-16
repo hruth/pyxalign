@@ -45,9 +45,7 @@ def get_astra_reconstructor_geometry(
     skew_angle = np.pi / 180 * skew_angle * np.ones((len(angles), 1))
     pixel_scale = pixel_scale * np.ones((len(angles), 2))
     rotation_center = np.array([center_of_rotation[1], center_of_rotation[0]], dtype=r_type)
-    CoR_offset = (
-        rotation_center - np.array(sinogram.shape[1:][::-1]) / 2
-    )  # Might need the sign flipped!
+    CoR_offset = (rotation_center - np.array(sinogram.shape[1:][::-1]) / 2)[::-1]
 
     # We generate the same geometry as the circular one above.
     vectors = np.zeros((len(angles), 12))
