@@ -128,8 +128,11 @@ def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True)
     return images
 
 
-def image_shift_circ(images: ArrayType, shift: ArrayType) -> ArrayType:
+def image_shift_circ(images: ArrayType, shift: ArrayType, in_place=False) -> ArrayType:
     xp = cp.get_array_module(images)
+
+    if not in_place:
+        images = images * 1
 
     x = shift[:, 0]
     y = shift[:, 1]

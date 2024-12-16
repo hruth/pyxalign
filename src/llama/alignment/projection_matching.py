@@ -239,7 +239,7 @@ class ProjectionMatchingAligner(Aligner):
     ) -> tuple[ArrayType, ArrayType, ArrayType]:
         xp = cp.get_array_module(sinogram)
 
-        projections_residuals = sinogram - forward_projection_model
+        projections_residuals = forward_projection_model - sinogram
 
         # calculate error using unfiltered residual
         unfiltered_error = get_pm_error(projections_residuals, masks, mass)

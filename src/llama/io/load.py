@@ -26,6 +26,7 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
                 angles=h5_obj[group + "/angles"][:],
                 options=load_options(h5_obj[group], ProjectionOptions),
                 masks=get_masks(group, h5_obj),
+                center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
                 shift_manager=None,  # needs to be updated later
             )
         else:
@@ -38,6 +39,7 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
                 angles=h5_obj[group + "/angles"][:],
                 options=load_options(h5_obj[group]["options"], ProjectionOptions),
                 masks=get_masks(group, h5_obj),
+                center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
                 shift_manager=None,  # needs to be updated later
             )
         else:

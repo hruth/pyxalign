@@ -21,7 +21,7 @@ def save_task(task: LaminographyAlignmentTask, file_path: str, exclude: list[str
 def save_projections(
     projections: Projections, file_path: str, group_name: str, h5_obj: h5py.File
 ):
-    save_attr_strings = ["data", "angles", "masks"]
+    save_attr_strings = ["data", "angles", "masks", "center_of_rotation"]
     h5_group = h5_obj.create_group(group_name)
     for attr in save_attr_strings:
         if attr in projections.__dict__.keys():

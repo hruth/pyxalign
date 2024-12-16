@@ -3,5 +3,6 @@
 *tests/notebooks*
 *.vscode*
 *load_test_data.py*
+*demo_utils.py*
 untracked_tests/*
 *.env

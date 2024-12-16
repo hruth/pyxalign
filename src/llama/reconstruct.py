@@ -172,7 +172,7 @@ def filter_sinogram(
     sinogram: ArrayType,
     vectors: np.ndarray,
     device_options: DeviceOptions,
-    pinned_results: Optional[np.ndarray],
+    pinned_results: Optional[np.ndarray]=None,
 ) -> ArrayType:
     xp = cp.get_array_module(sinogram)
     # calculate the original angles
@@ -197,6 +197,7 @@ def filter_sinogram(
     weights = weights * (np.pi / 2 / n_proj) * np.sin(lamino_angle)
     weights = weights.astype(r_type)
 
+    # The size here doesn't make a ton of sense, should look into it later.
     filter = design_filter(sinogram.shape[2])
 
     # account for laminography tilt + unequal spacing of the tomo
