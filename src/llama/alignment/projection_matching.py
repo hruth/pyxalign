@@ -9,7 +9,7 @@ from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.transform import ShiftOptions
 from llama.projections import PhaseProjections, Projections
-from llama.timer import timer
+from llama.timer import timer, delete_elapsed_time_arrays
 from llama.transformations.classes import Shifter
 from llama.transformations.functions import image_shift_fft
 import llama.image_processing as ip
@@ -30,10 +30,11 @@ class ProjectionMatchingAligner(Aligner):
     def __init__(self, projections: PhaseProjections, options: ProjectionMatchingOptions):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
+        delete_elapsed_time_arrays()
         # self.options.reconstruct.filter.device = self.options.device
 
     @gutils.memory_releasing_error_handler
-    def run(self) -> np.ndarray:
+    def run(self, initial_shift: Optional[np.ndarray] = None) -> np.ndarray:
         # Create the projections object
         projection_options = copy.deepcopy(self.projections.options)
         projection_options.experiment.pixel_size = self.projections.pixel_size
@@ -56,6 +57,11 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.data = self.aligned_projections.data * 1
         if self.aligned_projections.masks is self.projections.masks:
             self.aligned_projections.masks = self.aligned_projections.masks * 1
+
+        if initial_shift is None:
+            self.initial_shift = np.zeros((self.aligned_projections.n_projections, 2), dtype=r_type)
+        else:
+            self.initial_shift = initial_shift
 
         # Run the PMA algorithm
         self.calculate_alignment_shift()
@@ -81,6 +87,9 @@ class ProjectionMatchingAligner(Aligner):
         for self.iteration in range(self.options.iterations):
             print("Iteration: ", self.iteration)
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
+            is_step_size_below_threshold = self.print_step_size_update()
+            if is_step_size_below_threshold:
+                break
 
     @timer()
     def iterate(
@@ -114,18 +123,16 @@ class ProjectionMatchingAligner(Aligner):
 
     @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
-        if self.iteration != 0:
-            # shift_update = self.total_shift / self.scale
-            self.projection_shifter.run(
-                images=unshifted_projections,
-                shift=self.total_shift,
-                pinned_results=self.aligned_projections.data,
-            )
-            self.mask_shifter.run(
-                images=unshifted_masks,
-                shift=self.total_shift,
-                pinned_results=self.aligned_projections.masks,
-            )
+        self.projection_shifter.run(
+            images=unshifted_projections,
+            shift=self.total_shift,
+            pinned_results=self.aligned_projections.data,
+        )
+        self.mask_shifter.run(
+            images=unshifted_masks,
+            shift=self.total_shift,
+            pinned_results=self.aligned_projections.masks,
+        )
 
     @timer()
     def initialize_attributes(self):
@@ -146,9 +153,9 @@ class ProjectionMatchingAligner(Aligner):
                 self.pinned_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
                 self.pinned_unfiltered_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
             elif self.memory_config == MemoryConfig.GPU_ONLY:
-                self.shift_update = cp.empty((n_proj, 2), dtype=r_type) # type: ignore
-                self.pinned_error = cp.empty((n_proj), dtype=r_type) # type: ignore
-                self.pinned_unfiltered_error = cp.empty((n_proj), dtype=r_type) # type: ignore
+                self.shift_update = cp.empty((n_proj, 2), dtype=r_type)  # type: ignore
+                self.pinned_error = cp.empty((n_proj), dtype=r_type)  # type: ignore
+                self.pinned_unfiltered_error = cp.empty((n_proj), dtype=r_type)  # type: ignore
         else:
             self.pinned_filtered_sinogram = None
             self.pinned_forward_projection = None
@@ -170,7 +177,7 @@ class ProjectionMatchingAligner(Aligner):
             ),
         )
         # Later, you could update the gpu wrapper
-        # to move arrays to the gpu in chunks if they 
+        # to move arrays to the gpu in chunks if they
         # are on the cpu. For now, just move the whole
         # array.
         if self.memory_config == MemoryConfig.GPU_ONLY:
@@ -178,9 +185,7 @@ class ProjectionMatchingAligner(Aligner):
                 self.aligned_projections.laminogram.forward_projections.data
             )
         else:
-            forward_projection_input = (
-                self.aligned_projections.laminogram.forward_projections.data
-            )
+            forward_projection_input = self.aligned_projections.laminogram.forward_projections.data
 
         (
             self.shift_update,
@@ -228,7 +233,7 @@ class ProjectionMatchingAligner(Aligner):
         self.shift_update[:, 0] = (
             self.shift_update[:, 0] - xp.matmul(orthbase.transpose(), coefs)[:, 0]
         )
-    
+
     @staticmethod
     def calculate_shift_update(
         sinogram: ArrayType,
@@ -307,7 +312,7 @@ class ProjectionMatchingAligner(Aligner):
 
         self.total_shift = self.xp.zeros(
             (self.aligned_projections.angles.shape[0], 2), dtype=r_type
-        )
+        ) + self.xp.array(self.initial_shift / self.scale, dtype=r_type)
 
         return unshifted_masks, unshifted_projections
 
@@ -348,6 +353,19 @@ class ProjectionMatchingAligner(Aligner):
         self.shift_update = self.shift_update.get()
         self.pinned_error = self.pinned_error.get()
         self.pinned_unfiltered_error = self.pinned_unfiltered_error.get()
+
+    def print_step_size_update(self) -> bool:
+        # Check if the step size update is small enough to stop the loop
+        xp = self.xp
+        max_shift_step_size = xp.max(
+            xp.quantile(xp.abs(self.shift_update * self.scale), 0.995, axis=0)
+        )
+        print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
+        if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
+            print("Minimum step size reached, stopping loop...")
+            return True
+        else:
+            return False
 
 
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):

@@ -41,7 +41,7 @@ def get_shift_func_by_enum(key: DownsampleType) -> ShiftProtocol:
 def get_memory_config_enum(keep_on_gpu: bool, device_type: DeviceType):
     if keep_on_gpu:
         return MemoryConfig.GPU_ONLY
-    elif device_type is DeviceType.GPU:
+    elif device_type == DeviceType.GPU:
         return MemoryConfig.MIXED
     else:
         return MemoryConfig.CPU_ONLY

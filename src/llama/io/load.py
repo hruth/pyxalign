@@ -13,6 +13,7 @@ T = TypeVar("T")
 
 
 def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
+    print("Loading task from", file_path, "...")
     def get_masks(group, h5_obj):
         if "masks" in h5_obj[group].keys():
             return h5_obj[group]["masks"][:]
@@ -50,6 +51,8 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
             complex_projections=complex_projections,
             phase_projections=phase_projections,
         )
+
+        print("Loading complete")
 
     return task
 

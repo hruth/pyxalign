@@ -16,14 +16,13 @@ class LaminographyAlignmentTask:
         phase_projections: Optional[PhaseProjections] = None,
     ):
         self.options = options
-        if complex_projections is not None:
-            self.complex_projections = complex_projections
-        if phase_projections is not None:
-            self.phase_projections = phase_projections
         if phase_projections is None and complex_projections is None:
             raise Exception(
                 "Projections must be included when creating an instance of LaminographyAlignmentTask"
             )
+        
+        self.complex_projections = complex_projections
+        self.phase_projections = phase_projections
 
     def get_cross_correlation_shift(self):
         # Only for complex projections for now
@@ -41,11 +40,11 @@ class LaminographyAlignmentTask:
         )
         print("Cross-correlation shift stored in shift_manager")
 
-    def get_projection_matching_shift(self):
+    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray]=None):
         self.pma_object = ProjectionMatchingAligner(
             self.phase_projections, self.options.projection_matching
         )
-        shift = self.pma_object.run()
+        shift = self.pma_object.run(initial_shift=initial_shift)
         self.phase_projections.shift_manager.stage_shift(
             shift=shift,
             function_type=enums.ShiftType.FFT,

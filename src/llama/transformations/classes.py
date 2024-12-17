@@ -49,7 +49,7 @@ class Downsampler(Transformation):
         """Calls one of the image downsampling functions"""
         # Note: currently the linear downsampling function also has the option to shift
         # the inputs.
-        if self.enabled:
+        if self.enabled and self.options.scale != 1:
             if self.options.type is DownsampleType.LINEAR and shift is not None:
                 self.function = device_handling_wrapper(
                     func=maps.get_downsample_func_by_enum(self.options.type),
