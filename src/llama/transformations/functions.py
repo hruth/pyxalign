@@ -101,21 +101,13 @@ def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True)
     if apply_FFT:
         images = scipy_module.fft.fft2(images)
 
-    x_grid = (
-        scipy_module.fft.ifftshift(
-            xp.arange(-np.fix(shape[2] / 2), np.ceil(shape[2] / 2), dtype=r_type)
-        )
-        / shape[2]
-    )
+    x_grid = xp.arange(-np.fix(shape[2] / 2), np.ceil(shape[2] / 2), dtype=r_type)
+    x_grid = scipy_module.fft.ifftshift(x_grid) / shape[2]
     X = (x * x_grid)[:, None, :]
     X = xp.exp(-2j * np.pi * X)
 
-    y_grid = (
-        scipy_module.fft.ifftshift(
-            xp.arange(-np.fix(shape[1] / 2), np.ceil(shape[1] / 2), dtype=r_type)
-        )
-        / shape[1]
-    )
+    y_grid = xp.arange(-np.fix(shape[1] / 2), np.ceil(shape[1] / 2), dtype=r_type)
+    y_grid = scipy_module.fft.ifftshift(y_grid) / shape[1]
     Y = (y * y_grid)[:, :, None]
     Y = xp.exp(-2j * xp.pi * Y)
 
@@ -282,3 +274,36 @@ def image_downsample_nearest(images: ArrayType, scale: int, use_gaussian_filter:
 
 def image_upsample_nearest(images: ArrayType, scale: int) -> ArrayType:
     return images.repeat(scale, axis=1).repeat(scale, axis=2)
+
+
+@preserve_complexity_or_realness()
+def image_rotate_fft(images: ArrayType, theta: float) -> ArrayType:
+    xp = cp.get_array_module(images)
+    scipy_module = get_scipy_module(images)
+
+    M, N = images.shape[1:]
+
+    n_rotations = round(theta / 90)
+    theta = theta - 90 * n_rotations
+
+    x_grid = xp.matrix(xp.arange(-np.fix(M / 2), np.ceil(M / 2), dtype=r_type)).transpose()
+    x_grid = scipy_module.fft.ifftshift(x_grid) / M
+    y_grid = xp.matrix(xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type))
+    y_grid = scipy_module.fft.ifftshift(y_grid) / N
+
+    M_grid = xp.matrix(xp.arange(1, M + 1, dtype=r_type)).transpose() - xp.floor(M / 2) - 0.5
+    N_grid = xp.matrix(xp.arange(1, N + 1, dtype=r_type)) - xp.floor(N / 2) - 0.5
+
+    n_x = -xp.sin(theta * xp.pi / 180) * x_grid
+    n_y = xp.tan(theta / 2 * xp.pi / 180) * y_grid
+
+    assert type(n_x) is r_type
+
+    m_1 = xp.exp(-2j * xp.pi * M_grid * n_y)
+    m_2 = xp.exp(-2j * xp.pi * xp.multiply(N_grid, n_x))
+
+    images = scipy_module.fft.ifft(xp.multiply(scipy.fft.fft(images, axis=2), m_1), axis=2)
+    images = scipy_module.fft.ifft(xp.multiply(scipy.fft.fft(images, axis=1), m_2), axis=1)
+    images = scipy_module.fft.ifft(xp.multiply(scipy.fft.fft(images, axis=2), m_1), axis=2)
+
+    return images
