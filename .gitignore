@@ -6,3 +6,4 @@
 *demo_utils.py*
 untracked_tests/*
 *.env
+.loglogin
