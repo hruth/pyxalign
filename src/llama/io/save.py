@@ -13,7 +13,11 @@ def save_task(task: LaminographyAlignmentTask, file_path: str, exclude: list[str
     save_attr_strings = ["complex_projections", "phase_projections", "laminogram"]
     with h5py.File(file_path, "w") as h5_obj:
         for attr in save_attr_strings:
-            if attr in task.__dict__.keys() and attr not in exclude:
+            if (
+                attr in task.__dict__.keys()
+                and getattr(task, attr) is not None
+                and attr not in exclude
+            ):
                 save_projections(getattr(task, attr), file_path, attr, h5_obj)
         save_options(task.options, h5_obj.create_group("options"))
 
