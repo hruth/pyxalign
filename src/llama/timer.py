@@ -15,8 +15,16 @@ tabs = ""
 timing_array_prefix = "elapsed_time_"
 
 
+def toggle_timer(enable: Optional[bool] = None):
+    global ENABLE_TIMING
+    if enable is None:
+        ENABLE_TIMING = not ENABLE_TIMING
+    else:
+        ENABLE_TIMING = enable
+
+
 # This function should NOT be used to wrap any functions that will be "chunked"
-def timer(prefix: str = "", save_elapsed_time: bool = True):
+def timer(prefix: str = "", save_elapsed_time: bool = True, enabled: bool = True):
     """Decorator to time a function and print the function name if ENABLE_TIMING is True."""
     if prefix != "":
         prefix = prefix + "."
@@ -24,7 +32,7 @@ def timer(prefix: str = "", save_elapsed_time: bool = True):
     def decorator(func: T) -> T:
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if ENABLE_TIMING:
+            if enabled and globals().get("ENABLE_TIMING", False):
                 global tabs
                 spaces = 5
                 print(f"{tabs}Running function '{prefix}{func.__name__}'...")
@@ -33,9 +41,7 @@ def timer(prefix: str = "", save_elapsed_time: bool = True):
                 result = func(*args, **kwargs)
                 elapsed_time = time.time() - start_time
                 tabs = tabs[:-spaces]
-                print(
-                    f"{tabs}Function '{prefix}{func.__name__}': {elapsed_time:.4f} seconds"
-                )
+                print(f"{tabs}Function '{prefix}{func.__name__}': {elapsed_time:.4f} seconds")
                 if save_elapsed_time:
                     update_elapsed_time_array(save_elapsed_time, prefix, func, elapsed_time)
                 return result
@@ -99,8 +105,8 @@ def plot_elapsed_time_bar_plot(
     sorted_keys = [list(elapsed_time_dict.keys())[i] for i in sorted_indices]
 
     # Create a horizontal bar plot
-    plt.figure()#figsize=(10, 6))
-    bars = plt.barh(range(len(sorted_sums)), sorted_sums, color='skyblue')
+    plt.figure()  # figsize=(10, 6))
+    bars = plt.barh(range(len(sorted_sums)), sorted_sums, color="skyblue")
     plt.gca().invert_yaxis()  # Invert the y-axis to have the largest bar on top
 
     # Add labels at the start of each bar
@@ -109,15 +115,18 @@ def plot_elapsed_time_bar_plot(
             0,  # Start at the left edge
             bar.get_y() + bar.get_height() / 2,  # Vertically centered
             " " + label,
-            ha='left', va='center', fontsize=10, fontweight='bold'
+            ha="left",
+            va="center",
+            fontsize=10,
+            fontweight="bold",
         )
 
     # Set x-axis and title
     plt.grid(linestyle=":")
     plt.gca().set_axisbelow(True)
-    plt.xlabel('Elapsed Time (s)')
+    plt.xlabel("Elapsed Time (s)")
     plt.ylabel("Function")
-    plt.title('Total elapsed time for each function')
+    plt.title("Total elapsed time for each function")
     plt.tight_layout()
     plt.show()
 
@@ -134,15 +143,15 @@ def plot_elapsed_time_vs_iteration(
         elapsed_time_dict = return_top_n_entries(elapsed_time_dict, top_n)
 
     for k, v in elapsed_time_dict.items():
-        if hasattr(v, '__len__') and len(v) > 5:  # temp fix
+        if hasattr(v, "__len__") and len(v) > 5:  # temp fix
             plt.plot(v, linestyle, label=k)
-    
+
     plt.legend()
     plt.grid(linestyle=":")
     plt.gca().set_axisbelow(True)
-    plt.ylabel('Elapsed Time (s)')
+    plt.ylabel("Elapsed Time (s)")
     plt.xlabel("Iteration")
-    plt.title('Elapsed time vs iteration')
+    plt.title("Elapsed time vs iteration")
     plt.tight_layout()
     # plt.show()
 
@@ -167,9 +176,9 @@ def return_top_n_entries(elapsed_time_dict: dict, top_n: int) -> dict:
     # if top_n is not None:
     # Sort dictionary items based on the sum of their values and get top N
     sorted_items = sorted(
-        elapsed_time_dict.items(), 
-        key=lambda x: sum(x[1]) if hasattr(x[1], '__iter__') else float('-inf'),
-        reverse=True
+        elapsed_time_dict.items(),
+        key=lambda x: sum(x[1]) if hasattr(x[1], "__iter__") else float("-inf"),
+        reverse=True,
     )[:top_n]
     elapsed_time_dict = dict(sorted_items)
 

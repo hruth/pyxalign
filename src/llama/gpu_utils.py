@@ -1,7 +1,7 @@
 from functools import wraps
 import traceback
 from types import ModuleType
-from typing import Any, Callable, List, Optional, Literal, TypeVar
+from typing import Any, Callable, List, Optional, TypeVar
 import cupy as cp
 import scipy
 import cupyx
@@ -11,6 +11,7 @@ import cupyx.scipy.fft as cufft
 import numpy as np
 from typing import Union
 import llama.api.enums as enums
+from llama.timer import timer
 
 from llama.api.types import ArrayType
 
@@ -63,15 +64,19 @@ def check_gpu_list(num_gpus: int, gpu_indices: List[int]):
         )
 
 
-def pin_memory(array: np.ndarray):
+@timer()
+def pin_memory(array: np.ndarray, force_repin: bool = False) -> np.ndarray:
     # Could use cupyx.empty_pinned instead to make it simpler..
-    # Allocate pinned memory
-    mem = cp.cuda.alloc_pinned_memory(array.nbytes)
-    # Create a new 1D array from an existing buffer
-    # Just makes a array of zeros with the same data type and size as the buffer
-    ret = np.frombuffer(mem, array.dtype, array.size).reshape(array.shape)
-    ret[...] = array
-    return ret
+    if force_repin or not is_pinned(array):
+        # Allocate pinned memory
+        mem = cp.cuda.alloc_pinned_memory(array.nbytes)
+        # Create a new 1D array from an existing buffer
+        # Just makes a array of zeros with the same data type and size as the buffer
+        ret = np.frombuffer(mem, array.dtype, array.size).reshape(array.shape)
+        ret[...] = array
+        return ret
+    else: 
+        return array
 
 
 def is_pinned(array: ArrayType) -> bool:
@@ -111,7 +116,9 @@ def get_fft_backend(array: ArrayType):
     return fft_backend
 
 
-def get_scipy_module(array: ArrayType) -> ModuleType: #  Literal[scipy, cupyx.scipy]:#ModuleType:  # , submodule: enums.SciPySubmodules) -> ModuleType:
+def get_scipy_module(
+    array: ArrayType,
+) -> ModuleType:  #  Literal[scipy, cupyx.scipy]:#ModuleType:  # , submodule: enums.SciPySubmodules) -> ModuleType:
     module = cp.get_array_module(array)
 
     if module.__name__ == "numpy":
