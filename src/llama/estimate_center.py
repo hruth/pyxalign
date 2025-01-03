@@ -154,7 +154,13 @@ def plot_center_of_rotation_estimate_results(
     ax[1, 1].legend()
     ax[1, 1].grid(linestyle=":")
 
-    # ax[0, 1].axis('off')  # Turn off the axis for the empty subplot
+    y_ranges = (np.diff(ax[1, 0].get_ylim()), np.diff(ax[1, 1].get_ylim()))
+    idx_max = np.argmax(y_ranges)
+    shared_range = y_ranges[idx_max] / 2 * np.array([-1, 1])
+    if idx_max == 0:
+        ax[1, 1].set_ylim(np.mean(ax[1, 1].get_ylim()) + shared_range)
+    elif idx_max == 1:
+        ax[1, 0].set_ylim(np.mean(ax[1, 0].get_ylim()) + shared_range)
 
     # Adjust layout
     plt.tight_layout()
