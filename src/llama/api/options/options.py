@@ -1,8 +1,9 @@
 import dataclasses
 from dataclasses import field
 from llama.api.options.device import DeviceOptions
-from llama.api.options.transform import DownsampleOptions, UpsampleOptions
+from llama.api.options.transform import DownsampleOptions
 from llama.api import enums
+from functools import partial
 
 
 @dataclasses.dataclass
@@ -20,12 +21,10 @@ class ExperimentOptions:
 
 @dataclasses.dataclass
 class MaskOptions:
-    # downsample_options = DownsampleOptions = field(default_factory=DownsampleOptions)
-    downsample = DownsampleOptions(
-        type=enums.DownsampleType.NEAREST,
-        scale=4,
-        enabled=True,
-        device=DeviceOptions(enums.DeviceType.CPU),
+    downsample: DownsampleOptions = field(
+        default_factory=partial(
+            DownsampleOptions, type=enums.DownsampleType.NEAREST, scale=4, enabled=True
+        )
     )
 
     # upsample_options = UpsampleOptions(
@@ -42,17 +41,11 @@ class MaskOptions:
 
 
 @dataclasses.dataclass
-class EstimateCenterOptions:
-    downsampling: int = 8
-
-    iterations: int = 2
-
-
-@dataclasses.dataclass
 class PhaseRampRemovalOptions:
     iterations: int = 5
 
     downsampling: int = 8
+
 
 @dataclasses.dataclass
 class PhaseUnwrapOptions:
@@ -70,5 +63,3 @@ class RegularizationOptions:
     local_TV: bool = False
 
     local_TV_lambda: float = 3e-4
-
-

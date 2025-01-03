@@ -8,13 +8,12 @@ from .transform import (
     TransformOptions,
 )
 from .alignment import AlignmentOptions, CrossCorrelationOptions, ProjectionMatchingOptions
-from .projections import ProjectionOptions
+from .projections import CoordinateSearchOptions, EstimateCenterOptions, ProjectionOptions
 from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions
 from .task import AlignmentTaskOptions
 from .options import (
     ExperimentOptions,
     MaskOptions,
-    EstimateCenterOptions,
     PhaseRampRemovalOptions,
     PhaseUnwrapOptions,
     RegularizationOptions,

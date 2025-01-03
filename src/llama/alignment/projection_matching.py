@@ -1,33 +1,28 @@
-from os import name
-from typing import Union, Optional
+from typing import Optional
 import numpy as np
 import cupy as cp
-import scipy
 import copy
 
 from llama.alignment.base import Aligner
-from llama.api.options.projections import ProjectionOptions
 from llama.api.options.transform import ShiftOptions
-from llama.projections import PhaseProjections, Projections
+# from llama.projections import PhaseProjections
+import llama.projections as projections
 from llama.timer import timer, delete_elapsed_time_arrays
 from llama.transformations.classes import Shifter
-from llama.transformations.functions import image_shift_fft
 import llama.image_processing as ip
-import llama.api.enums as enums
 import llama.api.maps as maps
 from llama.api.enums import DeviceType, MemoryConfig
 from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
-from llama.api.types import ArrayType, r_type, c_type
+from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
 
 # To do:
 # - add option for creating pinned arrays to speed up downsampling
-# - make sure you aren't creating and not deleting a bunch of astra objects
 
 
 class ProjectionMatchingAligner(Aligner):
-    def __init__(self, projections: PhaseProjections, options: ProjectionMatchingOptions):
+    def __init__(self, projections: "projections.PhaseProjections", options: ProjectionMatchingOptions):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
         delete_elapsed_time_arrays()
@@ -41,7 +36,7 @@ class ProjectionMatchingAligner(Aligner):
         projection_options.crop = self.options.crop
         projection_options.downsample = self.options.downsample
         projection_options.reconstruct = self.options.reconstruct
-        self.aligned_projections = PhaseProjections(
+        self.aligned_projections = projections.PhaseProjections(
             projections=self.projections.data,
             angles=self.projections.angles,
             options=projection_options,

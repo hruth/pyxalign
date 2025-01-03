@@ -3,11 +3,11 @@ from llama.api.types import ArrayType
 import numpy as np
 import cupy as cp
 from llama.api.options.alignment import AlignmentOptions
-from llama.projections import Projections
+import llama.projections as projections
 
 
 class Aligner(ABC):
-    def __init__(self, projections: Projections, options: AlignmentOptions):
+    def __init__(self, projections: "projections.Projections", options: AlignmentOptions):
         self.projections = projections  # this is a reference to the main dataset
         self.options = options
         self.shift = np.zeros((projections.n_projections, 2))

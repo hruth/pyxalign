@@ -1,8 +1,8 @@
 from typing import List, Optional
 import numpy as np
-import astra
 import copy
-from llama.api import enums, maps
+from llama.estimate_center import estimate_center_of_rotation, CenterOfRotationEstimateResults
+from llama.api import enums
 from llama.api.options.alignment import AlignmentOptions
 from llama.api.options.device import DeviceOptions
 
@@ -14,7 +14,6 @@ from llama.laminogram import Laminogram
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
-from llama import reconstruct
 from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropper
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
@@ -40,7 +39,7 @@ class Projections:
             self.center_of_rotation = np.array(self.data.shape[1:], dtype=r_type) / 2
         else:
             self.center_of_rotation = np.array(center_of_rotation, dtype=r_type)
-        
+
         if not skip_pre_processing:
             # Crop and downsample input data if enabled
             self.data = Cropper(self.options.crop).run(self.data)
@@ -53,7 +52,6 @@ class Projections:
                     self.options.mask_downsample_use_gaussian_filter
                 )
                 self.masks = Downsampler(mask_downsample_options).run(self.masks)
-            # Update
             self.update_center_of_rotation()
 
         # Update pixel size
@@ -172,6 +170,11 @@ class PhaseProjections(Projections):
         self.laminogram.generate_laminogram(
             filter_inputs=filter_inputs,
             pinned_filtered_sinogram=pinned_filtered_sinogram,
+        )
+
+    def estimate_center_of_rotation(self) -> CenterOfRotationEstimateResults:
+        return estimate_center_of_rotation(
+            self.data, self.angles, self.masks, self.options.estimate_center
         )
 
 

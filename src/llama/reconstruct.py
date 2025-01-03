@@ -6,15 +6,11 @@ import astra
 
 from llama.api.options.device import DeviceOptions
 from llama.gpu_utils import get_scipy_module
-import llama.projections as projections
 from llama.api.types import r_type, ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.timer import timer
 
 
-# def get_astra_reconstructor_geometry(
-#     projections: "projections.PhaseProjections",
-# ) -> tuple[dict, np.ndarray]:
 @timer()
 def get_astra_reconstructor_geometry(
     sinogram: np.ndarray,
@@ -172,7 +168,7 @@ def filter_sinogram(
     sinogram: ArrayType,
     vectors: np.ndarray,
     device_options: DeviceOptions,
-    pinned_results: Optional[np.ndarray]=None,
+    pinned_results: Optional[np.ndarray] = None,
 ) -> ArrayType:
     xp = cp.get_array_module(sinogram)
     # calculate the original angles
@@ -276,16 +272,12 @@ def get_forward_projection(
         geometries["vol_geom"],
         returnData=False,
     )
-    # There ma be a way to use .get_shared to save time and/or memory, 
+    # There ma be a way to use .get_shared to save time and/or memory,
     # but it may cause segmentation fault issues?
     if pinned_forward_projection is None:
-        pinned_forward_projection = astra.data3d.get(forward_projection_ID).transpose(
-            [1, 0, 2]
-        )
+        pinned_forward_projection = astra.data3d.get(forward_projection_ID).transpose([1, 0, 2])
     else:
-        pinned_forward_projection[:] = astra.data3d.get(forward_projection_ID).transpose(
-            [1, 0, 2]
-        )
+        pinned_forward_projection[:] = astra.data3d.get(forward_projection_ID).transpose([1, 0, 2])
     astra.data3d.delete(forward_projection_ID)
 
     return pinned_forward_projection
