@@ -191,7 +191,9 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
     # Downsample the image
     images = scipy_module.fft.fft2(images)
     # apply +/-0.5 px shift
-    images = image_shift_fft(images, interp_sign * xp.array([[-0.5, -0.5]], dtype=r_type), apply_FFT=False)
+    images = image_shift_fft(
+        images, interp_sign * xp.array([[-0.5, -0.5]], dtype=r_type), apply_FFT=False
+    )
     # crop in the Fourier space
     images = scipy_module.fft.ifftshift(
         image_crop_pad(
@@ -202,7 +204,9 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
         axes=(1, 2),
     )
     # apply -/+0.5 px shift in the cropped space
-    images = image_shift_fft(images, interp_sign * xp.array([[0.5, 0.5]], dtype=r_type), apply_FFT=False)
+    images = image_shift_fft(
+        images, interp_sign * xp.array([[0.5, 0.5]], dtype=r_type), apply_FFT=False
+    )
     images = scipy_module.fft.ifft2(images)
     # scale to keep the average constant
     images = images * scale.astype(r_type)
@@ -214,7 +218,10 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
 
 
 def image_downsample_linear(
-    images: ArrayType, scale: int, shift: Optional[ArrayType] = None, use_gaussian_filter: bool = False
+    images: ArrayType,
+    scale: int,
+    shift: Optional[ArrayType] = None,
+    use_gaussian_filter: bool = False,
 ) -> ArrayType:
     # Note: this function also is used to shift the data if the scale is set to 0.
     # This function should not be used with complex data
@@ -266,7 +273,9 @@ def image_downsample_linear(
     return new_images
 
 
-def image_downsample_nearest(images: ArrayType, scale: int, use_gaussian_filter: bool = False) -> ArrayType:
+def image_downsample_nearest(
+    images: ArrayType, scale: int, use_gaussian_filter: bool = False
+) -> ArrayType:
     if use_gaussian_filter:
         images = apply_gaussian_filter(images, scale)
     return images[:, ::scale, ::scale]
@@ -278,6 +287,7 @@ def image_upsample_nearest(images: ArrayType, scale: int) -> ArrayType:
 
 @preserve_complexity_or_realness()
 def image_rotate_fft(images: ArrayType, theta: float) -> ArrayType:
+    """Rotates the image around the z-axis (0th axis) of the input images"""
     xp = cp.get_array_module(images)
     scipy_module = get_scipy_module(images)
 
@@ -291,17 +301,38 @@ def image_rotate_fft(images: ArrayType, theta: float) -> ArrayType:
     y_grid = xp.matrix(xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type))
     y_grid = scipy_module.fft.ifftshift(y_grid) / N
 
-    M_grid = xp.matrix(xp.arange(1, M + 1, dtype=r_type)).transpose() - xp.floor(M / 2) - 0.5
-    N_grid = xp.matrix(xp.arange(1, N + 1, dtype=r_type)) - xp.floor(N / 2) - 0.5
+    m_grid = xp.matrix(xp.arange(1, M + 1, dtype=r_type)).transpose() - xp.floor(M / 2) - 0.5
+    n_grid = xp.matrix(xp.arange(1, N + 1, dtype=r_type)) - xp.floor(N / 2) - 0.5
 
     n_x = -xp.sin(theta * xp.pi / 180) * x_grid
     n_y = xp.tan(theta / 2 * xp.pi / 180) * y_grid
 
-    m_1 = xp.array(xp.exp(-2j * xp.pi * M_grid * n_y)).astype(c_type)
-    m_2 = xp.array(xp.exp(-2j * xp.pi * xp.multiply(N_grid, n_x))).astype(c_type)
+    m_1 = xp.array(xp.exp(-2j * xp.pi * m_grid * n_y)).astype(c_type)
+    m_2 = xp.array(xp.exp(-2j * xp.pi * xp.multiply(n_grid, n_x))).astype(c_type)
 
     images = scipy_module.fft.ifft(xp.multiply(scipy_module.fft.fft(images, axis=2), m_1), axis=2)
     images = scipy_module.fft.ifft(xp.multiply(scipy_module.fft.fft(images, axis=1), m_2), axis=1)
     images = scipy_module.fft.ifft(xp.multiply(scipy_module.fft.fft(images, axis=2), m_1), axis=2)
+
+    return images
+
+
+@preserve_complexity_or_realness()
+def image_shear_fft(images: ArrayType, theta: float) -> ArrayType:
+    """Shears the image about the z-axis (0th axis) of the input images"""
+    xp = cp.get_array_module(images)
+    scipy_module = get_scipy_module(images)
+
+    M, N = images.shape[1:]
+
+    y_grid = xp.matrix(xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type))
+    y_grid = scipy_module.fft.ifftshift(y_grid) / N
+    n_y = xp.tan(theta / 2 * xp.pi / 180) * y_grid
+    m_grid = xp.array(
+        (xp.matrix(xp.arange(1, M + 1) - np.floor(M / 2)).transpose() * 2j * xp.pi), dtype=c_type
+    )
+    images = scipy_module.fft.ifft(
+        xp.multiply(scipy_module.fft.fft(images, axis=2), xp.exp(-xp.multiply(m_grid, n_y))), axis=2
+    )
 
     return images
