@@ -9,7 +9,7 @@ from llama.timer import timer
 from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
 
-from llama.api.types import ArrayType, r_type
+from llama.api.types import ArrayType, r_type, c_type
 
 
 def image_crop(
@@ -297,13 +297,11 @@ def image_rotate_fft(images: ArrayType, theta: float) -> ArrayType:
     n_x = -xp.sin(theta * xp.pi / 180) * x_grid
     n_y = xp.tan(theta / 2 * xp.pi / 180) * y_grid
 
-    assert type(n_x) is r_type
+    m_1 = xp.array(xp.exp(-2j * xp.pi * M_grid * n_y)).astype(c_type)
+    m_2 = xp.array(xp.exp(-2j * xp.pi * xp.multiply(N_grid, n_x))).astype(c_type)
 
-    m_1 = xp.exp(-2j * xp.pi * M_grid * n_y)
-    m_2 = xp.exp(-2j * xp.pi * xp.multiply(N_grid, n_x))
-
-    images = scipy_module.fft.ifft(xp.multiply(scipy.fft.fft(images, axis=2), m_1), axis=2)
-    images = scipy_module.fft.ifft(xp.multiply(scipy.fft.fft(images, axis=1), m_2), axis=1)
-    images = scipy_module.fft.ifft(xp.multiply(scipy.fft.fft(images, axis=2), m_1), axis=2)
+    images = scipy_module.fft.ifft(xp.multiply(scipy_module.fft.fft(images, axis=2), m_1), axis=2)
+    images = scipy_module.fft.ifft(xp.multiply(scipy_module.fft.fft(images, axis=1), m_2), axis=1)
+    images = scipy_module.fft.ifft(xp.multiply(scipy_module.fft.fft(images, axis=2), m_1), axis=2)
 
     return images
