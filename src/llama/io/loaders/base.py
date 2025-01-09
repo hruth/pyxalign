@@ -5,25 +5,39 @@ from tkinter import N
 import pandas as pd
 import numpy as np
 
-# The loader should:
-# - get scan info from dat-file
-# - use pattern recognition on saved data
-
 
 class ExperimentSubset:
-    def __init__(self, scan_numbers: np.ndarray, angles: np.ndarray, experiment_name: str):
+    def __init__(
+        self,
+        scan_numbers: np.ndarray,
+        angles: np.ndarray,
+        experiment_name: str,
+        parent_projections_folder: str,
+    ):
         self.angles = angles
         self.scan_numbers = scan_numbers
         self.experiment_name = experiment_name
+        self.parent_projections_folder = parent_projections_folder
+        self.projection_folder: list[str] = []
+        self.projection_files: list[str] = []
+
+    def get_projection_analysis_file_info(self, *args, **kwargs):
+        # Get the folders containing and names of the projection files for each scan number
+        raise NotImplementedError
+
+    def record_projection_path_and_files(self, *args, **kwargs):
+        # Save a list of projection folder and file names for each scan number
+        raise NotImplementedError
 
 
-class ExperimentRecords(ABC):
+class ExperimentLoader(ABC):
     scan_numbers: np.ndarray
     angles: np.ndarray
     experiment_names: list[str]
     subsets: dict[str, ExperimentSubset]
     selected_experiment: ExperimentSubset
-    selected_projections: list[np.ndarray]
+    parent_projections_folder: str
+    experiment_subset_class: type
 
     def load_experiment(self):
         raise NotImplementedError
@@ -46,7 +60,8 @@ class ExperimentRecords(ABC):
         allowed_inputs = range(1, len(self.subsets) + 1)
         while True:
             try:
-                user_input = input(prompt)
+                # user_input = input(prompt)
+                user_input = 1
                 input_index = int(user_input)
                 if input_index not in allowed_inputs:
                     raise ValueError
@@ -59,67 +74,12 @@ class ExperimentRecords(ABC):
         self.subsets = {}
         for unique_name in np.unique(self.experiment_names):
             idx = [index for index, name in enumerate(self.experiment_names) if name == unique_name]
-            self.subsets[unique_name] = ExperimentSubset(
-                self.scan_numbers[idx], self.angles[idx], unique_name
+            self.subsets[unique_name] = self.experiment_subset_class(
+                self.scan_numbers[idx],
+                self.angles[idx],
+                unique_name,
+                self.parent_projections_folder,
             )
-
-
-class TestRecords(ExperimentRecords):
-    def __init__(self, dat_file_path: str, projections_folder: str):
-        self.dat_file_path = dat_file_path
-        self.parent_projections_folder = projections_folder
-
-    def load_experiment(self):
-        self.get_basic_experiment_metadata(dat_file_path)
-        self.selected_experiment = self.select_experiment()
-        self.selected_projections = self.get_projection_analysis_data()
-
-    def get_basic_experiment_metadata(self, dat_file_path: str):
-        # read dat-file
-        column_names = [
-            "scan_number",
-            "target_rotation_angle",
-            "measured_rotation_angle",
-            "unknown0",
-            "sequence",
-            "unknown1",
-            "experiment_name",
-        ]
-        dat_file_contents = txt_to_dataframe(
-            dat_file_path, column_names, delimiter=" ", header=None
-        )
-        dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna(
-            "unlabeled"
-        )
-
-        self.scan_numbers = dat_file_contents["scan_number"].to_numpy()
-        self.angles = dat_file_contents["measured_rotation_angle"].to_numpy()
-        self.experiment_names = dat_file_contents["experiment_name"].to_list()
-
-        self.get_experiment_subsets()
-
-    def get_projection_analysis_data(self):
-        for scan_number in self.selected_experiment.scan_numbers:
-            proj_relative_folder_path = generate_projection_relative_path(
-                scan_number,
-                n_digits=5,
-                n_scans_per_folder=1000,
-            )
-            projection_folder = os.path.join(
-                self.parent_projections_folder, proj_relative_folder_path
-            )
-            print(projection_folder)
-
-    def get_projections(self) -> list[np.ndarray]:
-        pass
-
-    # def get_projection_folder(self, scan_number: int, n_scans_per_folder: int = 1000) -> str:
-    #     lower_bound = int(np.floor(scan_number / n_scans_per_folder)) * n_scans_per_folder
-    #     sub_folder_name = generate_projection_group_sub_folder(
-    #         lower_bound, lower_bound + n_scans_per_folder
-    #     )
-    #     projection_folder = os.path.join(self.parent_projections_folder, sub_folder_name)
-    #     return projection_folder
 
 
 def txt_to_dataframe(file_path: str, column_names: list[str], delimiter: str, header=None):
