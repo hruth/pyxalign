@@ -1,6 +1,7 @@
 from abc import ABC
 from ast import Name
 import os
+from tkinter import N
 import pandas as pd
 import numpy as np
 
@@ -40,7 +41,7 @@ class ExperimentRecords(ABC):
             return experiment_string
 
         prompt = "Select the experiment to load:\n"
-        for index, name in enumerate(np.unique(self.experiment_names)):
+        for index, name in enumerate(self.subsets.keys()):
             prompt += generate_experiment_description(name, index)
         allowed_inputs = range(1, len(self.subsets) + 1)
         while True:
@@ -50,7 +51,7 @@ class ExperimentRecords(ABC):
                 if input_index not in allowed_inputs:
                     raise ValueError
                 else:
-                    return list(self.subsets.values())[input_index]
+                    return list(self.subsets.values())[input_index - 1]
             except ValueError:
                 print(f"Invalid input. Please enter a number 1 through {allowed_inputs[-1]}.")
 
@@ -66,12 +67,12 @@ class ExperimentRecords(ABC):
 class TestRecords(ExperimentRecords):
     def __init__(self, dat_file_path: str, projections_folder: str):
         self.dat_file_path = dat_file_path
-        self.projections_folder = projections_folder
+        self.parent_projections_folder = projections_folder
 
     def load_experiment(self):
         self.get_basic_experiment_metadata(dat_file_path)
         self.selected_experiment = self.select_experiment()
-        self.selected_projections = self.get_projections()
+        self.selected_projections = self.get_projection_analysis_data()
 
     def get_basic_experiment_metadata(self, dat_file_path: str):
         # read dat-file
@@ -97,8 +98,28 @@ class TestRecords(ExperimentRecords):
 
         self.get_experiment_subsets()
 
+    def get_projection_analysis_data(self):
+        for scan_number in self.selected_experiment.scan_numbers:
+            proj_relative_folder_path = generate_projection_relative_path(
+                scan_number,
+                n_digits=5,
+                n_scans_per_folder=1000,
+            )
+            projection_folder = os.path.join(
+                self.parent_projections_folder, proj_relative_folder_path
+            )
+            print(projection_folder)
+
     def get_projections(self) -> list[np.ndarray]:
         pass
+
+    # def get_projection_folder(self, scan_number: int, n_scans_per_folder: int = 1000) -> str:
+    #     lower_bound = int(np.floor(scan_number / n_scans_per_folder)) * n_scans_per_folder
+    #     sub_folder_name = generate_projection_group_sub_folder(
+    #         lower_bound, lower_bound + n_scans_per_folder
+    #     )
+    #     projection_folder = os.path.join(self.parent_projections_folder, sub_folder_name)
+    #     return projection_folder
 
 
 def txt_to_dataframe(file_path: str, column_names: list[str], delimiter: str, header=None):
@@ -109,3 +130,37 @@ def txt_to_dataframe(file_path: str, column_names: list[str], delimiter: str, he
     except Exception as e:
         print(f"An error occurred while reading the file: {e}")
         return None
+
+
+def generate_projection_relative_path(
+    scan_number: int, n_digits: int, n_scans_per_folder: int
+) -> str:
+    return os.path.join(
+        generate_projection_group_sub_folder(
+            scan_number,
+            n_scans_per_folder,
+            n_digits,
+        ),
+        generate_single_projection_sub_folder(
+            scan_number,
+            n_digits,
+        ),
+    )
+
+
+def generate_single_projection_sub_folder(scan_number: int, n_digits) -> str:
+    "Generate name of subfolder corresponding to a single projection"
+    return f"S{str(scan_number).zfill(n_digits)}"
+
+
+def generate_projection_group_sub_folder(
+    scan_number: int, n_scans_per_folder: int, n_digits: int
+) -> str:
+    "Get name of subfolder containing folders for each scan number"
+    lower_bound = int(np.floor(scan_number / n_scans_per_folder)) * n_scans_per_folder
+    upper_bound = lower_bound + n_scans_per_folder
+    start = str(lower_bound).zfill(n_digits)
+    end = str(upper_bound - 1).zfill(n_digits)
+
+    # Construct the pattern
+    return f"S{start}-{end}"
