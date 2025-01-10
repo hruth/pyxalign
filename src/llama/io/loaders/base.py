@@ -83,6 +83,7 @@ def generate_selection_user_prompt(
     options_list: list[str],
     options_info_list: Optional[list[str]] = None,
     options_info_type_string: Optional[str] = None,
+    use_option: Optional[str] = None
 ) -> tuple[int, str]:
     # Ensure inputs are lists
     options_list = list(options_list)
@@ -107,6 +108,16 @@ def generate_selection_user_prompt(
                 return (input_index, options_list[input_index])
         except ValueError:
             print(f"Invalid input. Please enter a number 1 through {allowed_inputs[-1]}.")
+
+def get_boolean_user_input(prompt: str) -> bool:
+    while True:
+        user_input = input(f"{prompt} (y/n): ").strip().lower()
+        if user_input in {"y", "yes"}:
+            return True
+        elif user_input in {"n", "no"}:
+            return False
+        else:
+            print("Invalid input. Please enter 'y' or 'n'.")
 
 
 if __name__ == "__main__":

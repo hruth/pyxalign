@@ -1,3 +1,4 @@
+from typing import Optional
 from uu import Error
 import numpy as np
 import os
@@ -10,6 +11,7 @@ from llama.io.loaders.base import (
     ExperimentLoader,
     ExperimentSubset,
     generate_selection_user_prompt,
+    get_boolean_user_input,
 )
 
 
@@ -44,38 +46,70 @@ class LamniSubset(ExperimentSubset):
             )
 
     def load_projections(self):
-        selected_metadata = self.select_metadata_type()
+        self.selected_metadata_list = [self.select_metadata_type()]
         for i in tqdm(range(self.n_scans)):
+            # Skip this iteration if there are no projection files
             if self.projection_files[i] == []:
                 continue
-            matched_strings = [
-                string for string in self.projection_files[i] if selected_metadata in string
-            ]
-            if len(matched_strings) > 1:
-                raise Error(
-                    "More than one match obtained!\nIf you get this error, it"
-                    + " means there is a bug in the code that needs to be fixed."
+            while True:
+                # Find file strings with matching types
+                matched_strings = self.find_matching_metadata(
+                    self.selected_metadata_list, self.projection_files[i]
                 )
-            elif matched_strings == []:
-                print(f"No projections loaded for scan {self.scan_numbers[i]}")
-                continue
-                # Add logic for selecting other metadata type if nothing found
-                # input(prompt)
-            time.sleep(1e-1)
+                if len(matched_strings) == 1:
+                    # Load data
+                    time.sleep(1e-1)
+                    # file_path = os.path.join(self.projection_folders[i], matched_strings[0])
+                    # self.load_projection_and_metadata(file_path, self.scan_numbers[i])
+                    break
+                elif len(matched_strings) > 1:
+                    raise Error(
+                        "More than one match obtained!\nIf you get this error, it"
+                        + " means there is a bug in the code that needs to be fixed."
+                    )
+                elif matched_strings == []:
+                    prompt = (
+                        "No projection files with the specified metadata type(s) "
+                        + f"were found for scan {self.scan_numbers[i]}.\n"
+                        + "Select an option:\n"
+                        + "y: Select another acceptable metadata type\n"
+                        + "n: continue without loading\n"
+                    )
+                    select_new_metadata = get_boolean_user_input(prompt)
+                    if select_new_metadata:
+                        # Select a new metadata type to load
+                        self.selected_metadata_list += [
+                            self.select_metadata_type(exclude=self.selected_metadata_list)
+                        ]
+                    else:
+                        break
 
-            # file_path = os.path.join(self.projection_folders[i], matched_strings[0])
-            # self.load_projection_and_metadata(file_path, self.scan_numbers[i])
+    def find_matching_metadata(
+        self, selected_metadata_list: list[str], projection_files: list[str]
+    ) -> list[str]:
+        for selected_metadata in selected_metadata_list:
+            matched_strings = [string for string in projection_files if selected_metadata in string]
+            if matched_strings != []:
+                break
+        return matched_strings
 
     def load_projection_and_metadata(self, file_path: str, scan_number: int):
         self.ptycho_params[scan_number] = load_h5_group(file_path, "/reconstruction/p")
         with h5py.File(file_path) as File:
             self.projections[scan_number] = File["/reconstruction/object"][:]
 
-    def select_metadata_type(self) -> str:
+    def select_metadata_type(self, exclude: Optional[list[str]] = None) -> str:
+        if exclude is not None:
+            remaining_metadata_options = {
+                k: self.metadata_count[k] for k in self.metadata_count.keys() if k not in exclude
+            }
+        else:
+            remaining_metadata_options = self.metadata_count
+
         _, selected_metadata = generate_selection_user_prompt(
             load_object_type_string="projection metadata type",
-            options_list=self.metadata_count.keys(),
-            options_info_list=[count for count in self.metadata_count.values()],
+            options_list=remaining_metadata_options.keys(),
+            options_info_list=[count for count in remaining_metadata_options.values()],
             options_info_type_string="scans",
         )
         return selected_metadata
@@ -217,4 +251,3 @@ def filter_string(input_string: str) -> str:
     result = result.replace("_recons.h5", "")
     # Return the cleaned string, stripping extra whitespace
     return result.strip()
-
