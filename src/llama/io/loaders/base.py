@@ -1,6 +1,7 @@
 from abc import ABC
-from typing import Optional
+from typing import Optional, Self
 import numpy as np
+import traceback
 
 
 class ExperimentSubset:
@@ -52,12 +53,13 @@ class ExperimentLoader(ABC):
     def get_projections(self, *args, **kwargs):
         pass
 
-    def select_experiment(self) -> ExperimentSubset:
+    def select_experiment(self, use_option: Optional[str] = None) -> ExperimentSubset:
         _, selected_key = generate_selection_user_prompt(
             load_object_type_string="experiment",
             options_list=self.subsets.keys(),
             options_info_list=[subset.n_scans for subset in self.subsets.values()],
             options_info_type_string="scans",
+            use_option=use_option,
         )
         return self.subsets[selected_key]
 
@@ -84,8 +86,16 @@ def generate_selection_user_prompt(
     options_list: list[str],
     options_info_list: Optional[list[str]] = None,
     options_info_type_string: Optional[str] = None,
-    use_option: Optional[str] = None
+    use_option: Optional[str] = None,
 ) -> tuple[int, str]:
+    # Use pre-provided option if it was passed in
+    if use_option is not None:
+        try:
+            index = list(options_list).index(use_option)
+            return (index, use_option)
+        except ValueError:
+            print("Provided option is not allowed because it is not available in `options_list`")
+            print(traceback.format_exc())
     # Ensure inputs are lists
     options_list = list(options_list)
     if options_info_list is not None:
@@ -109,6 +119,7 @@ def generate_selection_user_prompt(
                 return (input_index, options_list[input_index])
         except ValueError:
             print(f"Invalid input. Please enter a number 1 through {allowed_inputs[-1]}.")
+
 
 def get_boolean_user_input(prompt: str) -> bool:
     while True:

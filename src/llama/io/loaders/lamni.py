@@ -1,22 +1,31 @@
-from typing import Optional
-from uu import Error
+from typing import Optional, Self
 import numpy as np
 import os
 import re
 import pandas as pd
 import h5py
 from tqdm import tqdm
-import time
+import multiprocessing as mp
+import traceback
+from time import time
 from llama.io.loaders.base import (
     ExperimentLoader,
     ExperimentSubset,
     generate_selection_user_prompt,
     get_boolean_user_input,
 )
+from llama.api.types import r_type, c_type
 
 
 class LamniSubset(ExperimentSubset):
     ptycho_params: dict[int, dict] = {}
+    selected_metadata_list: list[str] = []
+
+    def set_selected_metadata(self, selected_metadata_list: list[str]):
+        # Pass in selected metadata when you don't want to go through
+        # the prompts again
+        if selected_metadata_list is not None:
+            self.selected_metadata_list = selected_metadata_list
 
     def get_projection_analysis_file_info(self):
         for scan_number in self.scan_numbers:
@@ -45,10 +54,11 @@ class LamniSubset(ExperimentSubset):
                 [metadata_string in string for string in file_list]
             )
 
-    def select_and_load_projections(self):
+    def select_and_load_projections(self, ask_for_backup_metadata: bool = True):
         """Select which projections to load and then load the projections."""
-        self.selected_metadata_list = [self.select_metadata_type()]
-        for i in tqdm(range(self.n_scans)):
+        if self.selected_metadata_list == []:
+            self.selected_metadata_list = [self.select_metadata_type()]
+        for i in range(self.n_scans):
             # Skip this iteration if there are no projection files
             if self.projection_files[i] == []:
                 print(f"No projections loaded for {self.scan_numbers[i]}")
@@ -59,12 +69,17 @@ class LamniSubset(ExperimentSubset):
                     self.selected_metadata_list, self.projection_files[i]
                 )
                 if proj_file_string is not None:
-                    # Load data
-                    file_path = os.path.join(self.projection_folders[i], proj_file_string)
-                    self.load_projection_and_metadata(file_path, self.scan_numbers[i])
-                    self.file_paths[self.scan_numbers[i]] = file_path
+                    # get the file path to the reconstruction file
+                    self.file_paths[self.scan_numbers[i]] = os.path.join(
+                        self.projection_folders[i], proj_file_string
+                    )
+                    # extract the ptychography reconstruction parameters
+                    self.ptycho_params[self.scan_numbers[i]] = load_h5_group(
+                        self.file_paths[self.scan_numbers[i]],
+                        "/reconstruction/p",
+                    )
                     break
-                else:
+                elif ask_for_backup_metadata:
                     prompt = (
                         "No projection files with the specified metadata type(s) "
                         + f"were found for scan {self.scan_numbers[i]}.\n"
@@ -80,7 +95,13 @@ class LamniSubset(ExperimentSubset):
                         ]
                     else:
                         print(f"No projections loaded for {self.scan_numbers[i]}")
+                        prompt = "Remember this choice for remaining projections?"
+                        ask_for_backup_metadata = not get_boolean_user_input(prompt)
                         break
+                else:
+                    break
+        # Load projections
+        self.projections = parallel_load_all_projections(self.file_paths)
 
     def find_matching_metadata(
         self, selected_metadata_list: list[str], projection_files: list[str]
@@ -90,9 +111,9 @@ class LamniSubset(ExperimentSubset):
             if len(matched_strings) == 1:
                 return matched_strings[0]
             elif len(matched_strings) > 1:
-                # If this gets triggered, I just need to create a match 
+                # If this gets triggered, I just need to create a match
                 # finder that breaks the "tie"
-                raise Error(
+                raise Exception(
                     "More than one match obtained!\nIf you get this error, it"
                     + " means there is a bug in the code that needs to be fixed."
                 )
@@ -122,18 +143,25 @@ class LamniSubset(ExperimentSubset):
 class LamniLoader(ExperimentLoader):
     "Class for reading a specific file structure type"
 
+    selected_experiment: LamniSubset
+    subsets: dict[str, LamniSubset]
     experiment_subset_class: type = LamniSubset
 
     def __init__(self, dat_file_path: str, projections_folder: str):
         self.dat_file_path = dat_file_path
         self.parent_projections_folder = projections_folder
 
-    def load_experiment(self):
+    def load_experiment(
+        self,
+        n_processes: int = 1,
+        selected_experiment_name: Optional[str] = None,
+        selected_metadata_list: Optional[list[str]] = None,
+    ):
         self.get_basic_experiment_metadata(self.dat_file_path)
-        self.selected_experiment = self.select_experiment()
+        self.selected_experiment = self.select_experiment(use_option=selected_experiment_name)
+        self.selected_experiment.set_selected_metadata(selected_metadata_list)
         self.selected_experiment.get_projection_analysis_file_info()
         self.selected_experiment.select_and_load_projections()
-        # self.selected_experiment.select_metadata_type()
 
     def get_basic_experiment_metadata(self, dat_file_path: str):
         # read dat-file
@@ -255,3 +283,33 @@ def filter_string(input_string: str) -> str:
     result = result.replace("_recons.h5", "")
     # Return the cleaned string, stripping extra whitespace
     return result.strip()
+
+
+def load_projection(file_path: str) -> np.ndarray:
+    "Load a single projection"
+    h5 = h5py.File(file_path, "r")
+    projection = h5["/reconstruction/object"][:, :].astype(c_type)
+    return projection
+
+
+def parallel_load_all_projections(
+    file_paths: dict,
+    n_processes: int,
+) -> dict[int, np.ndarray]:
+    "Use a process pool to load all of the projections"
+
+    try:
+        print("Loading projections into list...")
+        t_0 = time()
+        with mp.Pool(processes=n_processes) as pool:
+            projections_map = tqdm(
+                pool.imap(load_projection, file_paths.values()), total=len(file_paths)
+            )
+            # projections_map = pool.map(load_projection, file_paths.values())
+            projections = dict(zip(file_paths.keys(), projections_map))
+        print(f"Loading complete. Duration: {time() - t_0}")
+    except Exception as ex:
+        print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+        print(traceback.format_exc())
+
+    return projections
