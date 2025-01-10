@@ -1,7 +1,9 @@
+from uu import Error
 import numpy as np
 import os
-
+import re
 import pandas as pd
+import h5py
 from llama.io.loaders.base import (
     ExperimentLoader,
     ExperimentSubset,
@@ -9,6 +11,8 @@ from llama.io.loaders.base import (
 
 
 class LamniSubset(ExperimentSubset):
+    ptycho_params: dict[int, dict] = {}
+
     def get_projection_analysis_file_info(self):
         for scan_number in self.scan_numbers:
             proj_relative_folder_path = generate_projection_relative_path(
@@ -20,11 +24,63 @@ class LamniSubset(ExperimentSubset):
                 self.parent_projections_folder, proj_relative_folder_path
             )
             self.record_projection_path_and_files(projection_folder)
-            print(projection_folder)
+        self.extract_metadata_from_all_titles()
 
     def record_projection_path_and_files(self, folder: str):
-        self.projection_folder += [folder]
+        self.projection_folders += [folder]
         self.projection_files += [os.listdir(folder)]
+
+    def extract_metadata_from_all_titles(self):
+        file_list = np.concatenate(self.projection_files).ravel()
+        self.unique_metadata = list(set([filter_string(file_string) for file_string in file_list]))
+        # Count occurences for that metadata string
+        self.metadata_count = {}
+        for metadata_string in self.unique_metadata:
+            self.metadata_count[metadata_string] = np.sum(
+                [metadata_string in string for string in file_list]
+            )
+
+    def load_projections(self):
+        selected_metadata = self.select_metadata_type()
+        for i in range(self.n_scans):
+            if self.projection_files[i] == []:
+                continue
+            matched_strings = [
+                string for string in self.projection_files[i] if selected_metadata in string
+            ]
+            if len(matched_strings) > 1:
+                raise Error("More than one match obtained!")
+            elif matched_strings == []:
+                print(f"No projections loaded for scan {self.scan_numbers[i]}")
+                continue
+                # Add logic for selecting other metadata type if nothing found
+                # input(prompt)
+            file_path = os.path.join(self.projection_folders[i], matched_strings[0])
+            self.ptycho_params[self.scan_numbers[i]]
+            # self.ptycho_params[self.scan_numbers[i]] = load_h5_group(file_path, "/reconstruction/p")
+            # with h5py.File(file_path) as File:
+                # self.projections[self.scan_numbers[i]] = File["/reconstruction/object"][:]
+
+    def select_metadata_type(self) -> str:
+        def generate_metadata_description(metadata_string: str, i: int):
+            counts = self.metadata_count[metadata_string]
+            return f"{i+1}. {metadata_string} ({counts} scans)\n"
+
+        prompt = "Select the metadata type to load:\n"
+        for index, name in enumerate(self.metadata_count.keys()):
+            prompt += generate_metadata_description(name, index)
+
+        allowed_inputs = range(1, len(self.metadata_count) + 1)
+        while True:
+            try:
+                user_input = input(prompt)
+                input_index = int(user_input)
+                if input_index not in allowed_inputs:
+                    raise ValueError
+                else:
+                    return list(self.metadata_count.keys())[input_index - 1]
+            except ValueError:
+                print(f"Invalid input. Please enter a number 1 through {allowed_inputs[-1]}.")
 
 
 class LamniLoader(ExperimentLoader):
@@ -40,6 +96,8 @@ class LamniLoader(ExperimentLoader):
         self.get_basic_experiment_metadata(self.dat_file_path)
         self.selected_experiment = self.select_experiment()
         self.selected_experiment.get_projection_analysis_file_info()
+        self.selected_experiment.load_projections()
+        # self.selected_experiment.select_metadata_type()
 
     def get_basic_experiment_metadata(self, dat_file_path: str):
         # read dat-file
@@ -90,6 +148,34 @@ def txt_to_dataframe(file_path: str, column_names: list[str], delimiter: str, he
         return None
 
 
+def load_h5_group(file_path, group_path="/"):
+    """
+    Load and print the structure and data of a group in an HDF5 file.
+
+    :param file_path: Path to the HDF5 file.
+    :param group_path: Path to the group in the HDF5 file (default is root).
+    :return: A dictionary representing the group structure and data.
+    """
+
+    def recursive_load(group):
+        group_data = {}
+        for key in group.keys():
+            item = group[key]
+            if isinstance(item, h5py.Group):
+                # Recursively load nested groups
+                group_data[key] = recursive_load(item)
+            elif isinstance(item, h5py.Dataset):
+                # Load dataset
+                group_data[key] = item[()]  # Load the data
+            else:
+                print(f"Unsupported HDF5 item: {key}")
+        return group_data
+
+    with h5py.File(file_path, "r") as h5_file:
+        target_group = h5_file[group_path]
+        return recursive_load(target_group)
+
+
 def generate_projection_relative_path(
     scan_number: int, n_digits: int, n_scans_per_folder: int
 ) -> str:
@@ -122,3 +208,17 @@ def generate_projection_group_sub_folder(
 def generate_single_projection_sub_folder(scan_number: int, n_digits) -> str:
     "Generate name of subfolder corresponding to a single projection"
     return f"S{str(scan_number).zfill(n_digits)}"
+
+
+def filter_string(input_string: str) -> str:
+    # Define the pattern to match "S" followed by 5 digits
+    pattern = re.compile(r"S\d{5}_")
+    # Remove all occurrences of the pattern
+    result = pattern.sub("", input_string)
+    # Remove the specific string "recons.h5"
+    result = result.replace("_recons.h5", "")
+    # Return the cleaned string, stripping extra whitespace
+    return result.strip()
+
+
+

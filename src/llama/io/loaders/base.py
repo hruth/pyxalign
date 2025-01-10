@@ -1,10 +1,12 @@
 from abc import ABC
-from ast import Name
-from tkinter import N
 import numpy as np
 
 
 class ExperimentSubset:
+    projection_folders: list[str] = []
+    projection_files: list[str] = []
+    projections: dict[int, np.ndarray] = {}
+
     def __init__(
         self,
         scan_numbers: np.ndarray,
@@ -16,8 +18,6 @@ class ExperimentSubset:
         self.scan_numbers = scan_numbers
         self.experiment_name = experiment_name
         self.parent_projections_folder = parent_projections_folder
-        self.projection_folder: list[str] = []
-        self.projection_files: list[str] = []
 
     def get_projection_analysis_file_info(self, *args, **kwargs):
         # Get the folders containing and names of the projection files for each scan number
@@ -26,6 +26,10 @@ class ExperimentSubset:
     def record_projection_path_and_files(self, *args, **kwargs):
         # Save a list of projection folder and file names for each scan number
         raise NotImplementedError
+
+    @property
+    def n_scans(self):
+        return len(self.scan_numbers)
 
 
 class ExperimentLoader(ABC):
