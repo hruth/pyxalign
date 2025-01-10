@@ -7,6 +7,7 @@ class ExperimentSubset:
     projection_folders: list[str] = []
     projection_files: list[str] = []
     projections: dict[int, np.ndarray] = {}
+    file_paths: dict[int, str] = {}
 
     def __init__(
         self,

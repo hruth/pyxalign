@@ -45,29 +45,26 @@ class LamniSubset(ExperimentSubset):
                 [metadata_string in string for string in file_list]
             )
 
-    def load_projections(self):
+    def select_and_load_projections(self):
+        """Select which projections to load and then load the projections."""
         self.selected_metadata_list = [self.select_metadata_type()]
         for i in tqdm(range(self.n_scans)):
             # Skip this iteration if there are no projection files
             if self.projection_files[i] == []:
+                print(f"No projections loaded for {self.scan_numbers[i]}")
                 continue
             while True:
                 # Find file strings with matching types
-                matched_strings = self.find_matching_metadata(
+                proj_file_string = self.find_matching_metadata(
                     self.selected_metadata_list, self.projection_files[i]
                 )
-                if len(matched_strings) == 1:
+                if proj_file_string is not None:
                     # Load data
-                    time.sleep(1e-1)
-                    # file_path = os.path.join(self.projection_folders[i], matched_strings[0])
-                    # self.load_projection_and_metadata(file_path, self.scan_numbers[i])
+                    file_path = os.path.join(self.projection_folders[i], proj_file_string)
+                    self.load_projection_and_metadata(file_path, self.scan_numbers[i])
+                    self.file_paths[self.scan_numbers[i]] = file_path
                     break
-                elif len(matched_strings) > 1:
-                    raise Error(
-                        "More than one match obtained!\nIf you get this error, it"
-                        + " means there is a bug in the code that needs to be fixed."
-                    )
-                elif matched_strings == []:
+                else:
                     prompt = (
                         "No projection files with the specified metadata type(s) "
                         + f"were found for scan {self.scan_numbers[i]}.\n"
@@ -82,16 +79,23 @@ class LamniSubset(ExperimentSubset):
                             self.select_metadata_type(exclude=self.selected_metadata_list)
                         ]
                     else:
+                        print(f"No projections loaded for {self.scan_numbers[i]}")
                         break
 
     def find_matching_metadata(
         self, selected_metadata_list: list[str], projection_files: list[str]
-    ) -> list[str]:
+    ) -> str:
         for selected_metadata in selected_metadata_list:
             matched_strings = [string for string in projection_files if selected_metadata in string]
-            if matched_strings != []:
-                break
-        return matched_strings
+            if len(matched_strings) == 1:
+                return matched_strings[0]
+            elif len(matched_strings) > 1:
+                # If this gets triggered, I just need to create a match 
+                # finder that breaks the "tie"
+                raise Error(
+                    "More than one match obtained!\nIf you get this error, it"
+                    + " means there is a bug in the code that needs to be fixed."
+                )
 
     def load_projection_and_metadata(self, file_path: str, scan_number: int):
         self.ptycho_params[scan_number] = load_h5_group(file_path, "/reconstruction/p")
@@ -128,7 +132,7 @@ class LamniLoader(ExperimentLoader):
         self.get_basic_experiment_metadata(self.dat_file_path)
         self.selected_experiment = self.select_experiment()
         self.selected_experiment.get_projection_analysis_file_info()
-        self.selected_experiment.load_projections()
+        self.selected_experiment.select_and_load_projections()
         # self.selected_experiment.select_metadata_type()
 
     def get_basic_experiment_metadata(self, dat_file_path: str):
