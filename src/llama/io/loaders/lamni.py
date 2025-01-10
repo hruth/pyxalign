@@ -4,9 +4,12 @@ import os
 import re
 import pandas as pd
 import h5py
+from tqdm import tqdm
+import time
 from llama.io.loaders.base import (
     ExperimentLoader,
     ExperimentSubset,
+    generate_selection_user_prompt,
 )
 
 
@@ -42,45 +45,40 @@ class LamniSubset(ExperimentSubset):
 
     def load_projections(self):
         selected_metadata = self.select_metadata_type()
-        for i in range(self.n_scans):
+        for i in tqdm(range(self.n_scans)):
             if self.projection_files[i] == []:
                 continue
             matched_strings = [
                 string for string in self.projection_files[i] if selected_metadata in string
             ]
             if len(matched_strings) > 1:
-                raise Error("More than one match obtained!")
+                raise Error(
+                    "More than one match obtained!\nIf you get this error, it"
+                    + " means there is a bug in the code that needs to be fixed."
+                )
             elif matched_strings == []:
                 print(f"No projections loaded for scan {self.scan_numbers[i]}")
                 continue
                 # Add logic for selecting other metadata type if nothing found
                 # input(prompt)
-            file_path = os.path.join(self.projection_folders[i], matched_strings[0])
-            self.ptycho_params[self.scan_numbers[i]]
-            # self.ptycho_params[self.scan_numbers[i]] = load_h5_group(file_path, "/reconstruction/p")
-            # with h5py.File(file_path) as File:
-                # self.projections[self.scan_numbers[i]] = File["/reconstruction/object"][:]
+            time.sleep(1e-1)
+
+            # file_path = os.path.join(self.projection_folders[i], matched_strings[0])
+            # self.load_projection_and_metadata(file_path, self.scan_numbers[i])
+
+    def load_projection_and_metadata(self, file_path: str, scan_number: int):
+        self.ptycho_params[scan_number] = load_h5_group(file_path, "/reconstruction/p")
+        with h5py.File(file_path) as File:
+            self.projections[scan_number] = File["/reconstruction/object"][:]
 
     def select_metadata_type(self) -> str:
-        def generate_metadata_description(metadata_string: str, i: int):
-            counts = self.metadata_count[metadata_string]
-            return f"{i+1}. {metadata_string} ({counts} scans)\n"
-
-        prompt = "Select the metadata type to load:\n"
-        for index, name in enumerate(self.metadata_count.keys()):
-            prompt += generate_metadata_description(name, index)
-
-        allowed_inputs = range(1, len(self.metadata_count) + 1)
-        while True:
-            try:
-                user_input = input(prompt)
-                input_index = int(user_input)
-                if input_index not in allowed_inputs:
-                    raise ValueError
-                else:
-                    return list(self.metadata_count.keys())[input_index - 1]
-            except ValueError:
-                print(f"Invalid input. Please enter a number 1 through {allowed_inputs[-1]}.")
+        _, selected_metadata = generate_selection_user_prompt(
+            load_object_type_string="projection metadata type",
+            options_list=self.metadata_count.keys(),
+            options_info_list=[count for count in self.metadata_count.values()],
+            options_info_type_string="scans",
+        )
+        return selected_metadata
 
 
 class LamniLoader(ExperimentLoader):
@@ -219,6 +217,4 @@ def filter_string(input_string: str) -> str:
     result = result.replace("_recons.h5", "")
     # Return the cleaned string, stripping extra whitespace
     return result.strip()
-
-
 
