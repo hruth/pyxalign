@@ -13,7 +13,8 @@ from llama.io.loaders.base import (
 )
 from llama.api.types import r_type, c_type
 from llama.io.loaders.utils import (
-    generate_selection_user_prompt,
+    generate_list_input_user_prompt,
+    generate_single_input_user_prompt,
     get_boolean_user_input,
     load_h5_group,
 )
@@ -103,16 +104,35 @@ class LamniLoader:
         scan_numbers: np.ndarray,
         angles: np.ndarray,
         experiment_name: str,
+        sequences: np.ndarray,
         parent_projections_folder: str,
     ):
         self.angles = angles
         self.scan_numbers = scan_numbers
         self.experiment_name = experiment_name
+        self.sequences = sequences
         self.parent_projections_folder = parent_projections_folder
 
     @property
     def n_scans(self):
         return len(self.scan_numbers)
+
+    def remove_sequences(self, sequences_to_keep: list[int]):
+        keep_index = [sequence in sequences_to_keep for sequence in self.sequences]
+        # Remove unwanted sequences from arrays and lists
+        self.sequences = self.sequences[keep_index]
+        self.angles = self.angles[keep_index]
+        self.scan_numbers = self.scan_numbers[keep_index]
+
+        # Remove data from dicts
+        def return_dict_subset(d: dict, keep_keys):
+            return {k: v for k, v in d.items() if k in keep_keys}
+
+        self.projection_folders = return_dict_subset(self.projection_folders, sequences_to_keep)
+        self.projection_files = return_dict_subset(self.projection_files, sequences_to_keep)
+        self.file_paths = return_dict_subset(self.file_paths, sequences_to_keep)
+        self.projections = return_dict_subset(self.projections, sequences_to_keep)
+        self.ptycho_params = return_dict_subset(self.ptycho_params, sequences_to_keep)
 
     def get_projection_analysis_file_info(self):
         """
@@ -131,8 +151,9 @@ class LamniLoader:
         self.extract_metadata_from_all_titles()
 
     def record_projection_path_and_files(self, folder: str, scan_number: int):
-        self.projection_folders[scan_number] = folder
-        self.projection_files[scan_number] = os.listdir(folder)
+        if os.path.exists(folder) and os.listdir(folder) != []:
+            self.projection_folders[scan_number] = folder
+            self.projection_files[scan_number] = os.listdir(folder)
 
     def extract_metadata_from_all_titles(self):
         file_list = np.concatenate(list(self.projection_files.values())).ravel()
@@ -158,32 +179,29 @@ class LamniLoader:
             self.selected_metadata_list = [self.select_metadata_type()]
         else:
             self.selected_metadata_list = selected_metadata_list
-        for i in range(self.n_scans):
-            # Skip this iteration if there are no projection files
-            if self.projection_files[self.scan_numbers[i]] == []:
-                print(f"No projections loaded for {self.scan_numbers[i]}")
-                continue
+        # for i in range(self.n_scans):
+        for scan_number in self.projection_folders.keys():
             while True:
                 # Find file strings with matching types
                 proj_file_string = self.find_matching_metadata(
-                    self.selected_metadata_list, self.projection_files[self.scan_numbers[i]]
+                    self.selected_metadata_list, self.projection_files[scan_number]
                 )
                 if proj_file_string is not None:
                     # get the file path to the reconstruction file
-                    self.file_paths[self.scan_numbers[i]] = os.path.join(
-                        self.projection_folders[self.scan_numbers[i]], proj_file_string
+                    self.file_paths[scan_number] = os.path.join(
+                        self.projection_folders[scan_number], proj_file_string
                     )
                     # extract the ptychography reconstruction parameters
                     if load_ptycho_params:
-                        self.ptycho_params[self.scan_numbers[i]] = load_h5_group(
-                            self.file_paths[self.scan_numbers[i]],
+                        self.ptycho_params[scan_number] = load_h5_group(
+                            self.file_paths[scan_number],
                             "/reconstruction/p",
                         )
                     break
                 elif ask_for_backup_metadata:
                     prompt = (
                         "No projection files with the specified metadata type(s) "
-                        + f"were found for scan {self.scan_numbers[i]}.\n"
+                        + f"were found for scan {scan_number}.\n"
                         + "Select an option:\n"
                         + "y: Select another acceptable metadata type\n"
                         + "n: continue without loading\n"
@@ -195,7 +213,7 @@ class LamniLoader:
                             self.select_metadata_type(exclude=self.selected_metadata_list)
                         ]
                     else:
-                        print(f"No projections loaded for {self.scan_numbers[i]}")
+                        print(f"No projections loaded for {scan_number}")
                         prompt = "Remember this choice for remaining projections?"
                         ask_for_backup_metadata = not get_boolean_user_input(prompt)
                         break
@@ -232,7 +250,7 @@ class LamniLoader:
         else:
             remaining_metadata_options = self.metadata_count
 
-        _, selected_metadata = generate_selection_user_prompt(
+        _, selected_metadata = generate_single_input_user_prompt(
             load_object_type_string="projection metadata type",
             options_list=remaining_metadata_options.keys(),
             options_info_list=[count for count in remaining_metadata_options.values()],
@@ -241,7 +259,9 @@ class LamniLoader:
         return selected_metadata
 
 
-def extract_experiment_data(dat_file_path: str) -> tuple[np.ndarray, np.ndarray, list[str]]:
+def extract_experiment_data(
+    dat_file_path: str,
+) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
     """
     Extract scan number, measurement angle, and experiment name from the
     dat file
@@ -260,8 +280,9 @@ def extract_experiment_data(dat_file_path: str) -> tuple[np.ndarray, np.ndarray,
     scan_numbers = dat_file_contents["scan_number"].to_numpy()
     angles = dat_file_contents["measured_rotation_angle"].to_numpy()
     experiment_names = dat_file_contents["experiment_name"].to_list()
+    sequence_number = dat_file_contents["sequence"].to_numpy()
 
-    return (scan_numbers, angles, experiment_names)
+    return (scan_numbers, angles, experiment_names, sequence_number)
 
 
 def get_experiment_subsets(
@@ -269,6 +290,7 @@ def get_experiment_subsets(
     scan_numbers: np.ndarray,
     angles: np.ndarray,
     experiment_names: list[str],
+    sequences: np.ndarray,
 ) -> dict[str, LamniLoader]:
     subsets = {}
     for unique_name in np.unique(experiment_names):
@@ -277,6 +299,7 @@ def get_experiment_subsets(
             scan_numbers[idx],
             angles[idx],
             unique_name,
+            sequences[idx],
             parent_projections_folder,
         )
     return subsets
@@ -287,21 +310,35 @@ def select_experiment(
     scan_numbers: np.ndarray,
     angles: np.ndarray,
     experiment_names: list[str],
-    use_option: Optional[str] = None,
+    sequences: np.ndarray,
+    use_experiment_name: Optional[str] = None,
+    use_sequence: Optional[str] = None,
 ) -> LamniLoader:
     """
     Select the experiment you want to load.
     """
+    # Select experiment subset to load
     subsets = get_experiment_subsets(
-        parent_projections_folder, scan_numbers, angles, experiment_names
+        parent_projections_folder, scan_numbers, angles, experiment_names, sequences
     )
-    _, selected_key = generate_selection_user_prompt(
+    _, selected_key = generate_single_input_user_prompt(
         load_object_type_string="experiment",
         options_list=subsets.keys(),
         options_info_list=[subset.n_scans for subset in subsets.values()],
         options_info_type_string="scans",
-        use_option=use_option,
+        use_option=use_experiment_name,
     )
+    selected_experiment = subsets[selected_key]
+    # Select sequences subset to load
+    unique_sequences, sequence_counts = np.unique(selected_experiment.sequences, return_counts=True)
+    _, selected_sequences = generate_list_input_user_prompt(
+        load_object_type_string="sequences",
+        options_list=unique_sequences,
+        options_info_list=sequence_counts,
+        options_info_type_string="scans",
+        use_option=use_sequence,
+    )
+    selected_experiment.remove_sequences(selected_sequences)
     return subsets[selected_key]
 
 
@@ -315,13 +352,14 @@ def load_experiment(
     """
     Load an experiment that is saved with the lamni structure.
     """
-    scan_numbers, angles, experiment_names = extract_experiment_data(dat_file_path)
+    scan_numbers, angles, experiment_names, sequences = extract_experiment_data(dat_file_path)
     selected_experiment = select_experiment(
         parent_projections_folder,
         scan_numbers,
         angles,
         experiment_names,
-        use_option=selected_experiment_name,
+        sequences,
+        use_experiment_name=selected_experiment_name,
     )
     selected_experiment.get_projection_analysis_file_info()
     selected_experiment.select_and_load_projections(n_processes, selected_metadata_list)
@@ -369,7 +407,8 @@ def filter_string(input_string: str) -> str:
     # Remove all occurrences of the pattern
     result = pattern.sub("", input_string)
     # Remove the specific string "recons.h5"
-    result = result.replace("_recons.h5", "")
+    # result = result.replace("_recons.h5", "")
+    result = result.replace(".h5", "")
     # Return the cleaned string, stripping extra whitespace
     return result.strip()
 
@@ -380,6 +419,9 @@ def load_projection(file_path: str) -> np.ndarray:
     projection = h5["/reconstruction/object"][:, :].astype(c_type)
     return projection
 
+def dummy_load_projections(file_path: str) -> np.ndarray:
+    "For testing purposes"
+    return np.random.rand(*(10, 10))
 
 def parallel_load_all_projections(
     file_paths: dict,
@@ -391,8 +433,11 @@ def parallel_load_all_projections(
         print("Loading projections into list...")
         t_0 = time()
         with mp.Pool(processes=n_processes) as pool:
+            # projections_map = tqdm(
+            #     pool.imap(load_projection, file_paths.values()), total=len(file_paths)
+            # )
             projections_map = tqdm(
-                pool.imap(load_projection, file_paths.values()), total=len(file_paths)
+                pool.imap(dummy_load_projections, file_paths.values()), total=len(file_paths)
             )
             # projections_map = pool.map(load_projection, file_paths.values())
             projections = dict(zip(file_paths.keys(), projections_map))
