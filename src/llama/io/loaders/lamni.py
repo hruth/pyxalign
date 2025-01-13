@@ -1,4 +1,4 @@
-from typing import Optional, Self, TypeVar
+from typing import Optional
 import numpy as np
 import os
 import re
@@ -9,17 +9,44 @@ import multiprocessing as mp
 import traceback
 from time import time
 from llama.io.loaders.base import (
-    generate_selection_user_prompt,
-    get_boolean_user_input,
+    StandardData,
 )
 from llama.api.types import r_type, c_type
+from llama.io.loaders.utils import (
+    generate_selection_user_prompt,
+    get_boolean_user_input,
+    load_h5_group,
+)
 
 
 class LamniLoader:
+    """
+    Class for loading ptychography reconstructions saved in the *Lamni*
+    file structure format.
+
+    Attributes
+    ----------
+    ptycho_params : dict[int, dict]
+        Stores the ptychoshelves ptychography reconstruction settings that
+        are stored in the `p` group of the h5 file.
+    selected_metadata_list : list[str]
+        List of projection metadata types that are allowed to be loaded, in
+        prioritized order. The metadata types are strings extracted from the
+        projection file names.
+    projection_folders : list[str]
+        The full file path to the folder containing projection files.
+    projection_files : list[list[str]]
+        Names of each file in `projection_folders`.
+    projections : dict[int, np.ndarray]
+        Dictionary that maps scan number to the projection array.
+    file_paths : dict[int, str]
+        Dictionary that maps scan number to the full projection file path.
+    """
+
     ptycho_params: dict[int, dict] = {}
     selected_metadata_list: list[str] = []
     projection_folders: list[str] = []
-    projection_files: list[str] = []
+    projection_files: list[list[str]] = []
     projections: dict[int, np.ndarray] = {}
     file_paths: dict[int, str] = {}
 
@@ -98,10 +125,10 @@ class LamniLoader:
                         self.projection_folders[i], proj_file_string
                     )
                     # extract the ptychography reconstruction parameters
-                    self.ptycho_params[self.scan_numbers[i]] = load_h5_group(
-                        self.file_paths[self.scan_numbers[i]],
-                        "/reconstruction/p",
-                    )
+                    # self.ptycho_params[self.scan_numbers[i]] = load_h5_group(
+                    #     self.file_paths[self.scan_numbers[i]],
+                    #     "/reconstruction/p",
+                    # )
                     break
                 elif ask_for_backup_metadata:
                     prompt = (
@@ -178,7 +205,7 @@ def extract_experiment_data(dat_file_path: str) -> tuple[np.ndarray, np.ndarray,
         "unknown1",
         "experiment_name",
     ]
-    dat_file_contents = txt_to_dataframe(dat_file_path, column_names, delimiter=" ", header=None)
+    dat_file_contents = pd.read_csv(dat_file_path, names=column_names, delimiter=" ", header=None)
     dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("unlabeled")
     scan_numbers = dat_file_contents["scan_number"].to_numpy()
     angles = dat_file_contents["measured_rotation_angle"].to_numpy()
@@ -252,42 +279,29 @@ def load_experiment(
     return selected_experiment
 
 
-def txt_to_dataframe(file_path: str, column_names: list[str], delimiter: str, header=None):
-    try:
-        # Read the space-delimited file into a DataFrame
-        df = pd.read_csv(file_path, names=column_names, delimiter=delimiter, header=header)
-        return df
-    except Exception as e:
-        print(f"An error occurred while reading the file: {e}")
-        return None
-
-
-def load_h5_group(file_path, group_path="/"):
-    """
-    Load and print the structure and data of a group in an HDF5 file.
-
-    :param file_path: Path to the HDF5 file.
-    :param group_path: Path to the group in the HDF5 file (default is root).
-    :return: A dictionary representing the group structure and data.
-    """
-
-    def recursive_load(group):
-        group_data = {}
-        for key in group.keys():
-            item = group[key]
-            if isinstance(item, h5py.Group):
-                # Recursively load nested groups
-                group_data[key] = recursive_load(item)
-            elif isinstance(item, h5py.Dataset):
-                # Load dataset
-                group_data[key] = item[()]  # Load the data
-            else:
-                print(f"Unsupported HDF5 item: {key}")
-        return group_data
-
-    with h5py.File(file_path, "r") as h5_file:
-        target_group = h5_file[group_path]
-        return recursive_load(target_group)
+def load_data_from_lamni_format(
+    dat_file_path: str,
+    parent_projections_folder: str,
+    n_processes: int = 1,
+    selected_experiment_name: Optional[str] = None,
+    selected_metadata_list: Optional[list[str]] = None,
+) -> StandardData:
+    # Load lamni-formatted projection data
+    lamni_loader = load_experiment(
+        dat_file_path=dat_file_path,
+        parent_projections_folder=parent_projections_folder,
+        n_processes=n_processes,
+        selected_experiment_name=selected_experiment_name,
+        selected_metadata_list=selected_metadata_list,
+    )
+    # Load data into standard format
+    standard_data = StandardData(
+        lamni_loader.projections,
+        lamni_loader.angles,
+        lamni_loader.scan_numbers,
+        lamni_loader.file_paths,
+    )
+    return standard_data
 
 
 def generate_projection_relative_path(

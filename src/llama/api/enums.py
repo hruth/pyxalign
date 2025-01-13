@@ -32,3 +32,7 @@ class MemoryConfig(StrEnum):
     GPU_ONLY = auto()
     MIXED = auto()
     CPU_ONLY = auto()
+
+
+class InputFileStructureType(StrEnum):
+    LAMNI = auto()
