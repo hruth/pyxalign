@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Optional, Self
+from typing import Optional, Self, TypeVar
 import numpy as np
 import traceback
 

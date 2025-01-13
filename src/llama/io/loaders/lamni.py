@@ -1,4 +1,4 @@
-from typing import Optional, Self
+from typing import Optional, Self, TypeVar
 import numpy as np
 import os
 import re
@@ -54,7 +54,7 @@ class LamniSubset(ExperimentSubset):
                 [metadata_string in string for string in file_list]
             )
 
-    def select_and_load_projections(self, ask_for_backup_metadata: bool = True):
+    def select_and_load_projections(self, n_processes: int, ask_for_backup_metadata: bool = True):
         """Select which projections to load and then load the projections."""
         if self.selected_metadata_list == []:
             self.selected_metadata_list = [self.select_metadata_type()]
@@ -101,7 +101,7 @@ class LamniSubset(ExperimentSubset):
                 else:
                     break
         # Load projections
-        self.projections = parallel_load_all_projections(self.file_paths)
+        self.projections = parallel_load_all_projections(self.file_paths, n_processes)
 
     def find_matching_metadata(
         self, selected_metadata_list: list[str], projection_files: list[str]
@@ -141,7 +141,9 @@ class LamniSubset(ExperimentSubset):
 
 
 class LamniLoader(ExperimentLoader):
-    "Class for reading a specific file structure type"
+    """
+    Class for reading a specific file structure type
+    """
 
     selected_experiment: LamniSubset
     subsets: dict[str, LamniSubset]
@@ -161,7 +163,7 @@ class LamniLoader(ExperimentLoader):
         self.selected_experiment = self.select_experiment(use_option=selected_experiment_name)
         self.selected_experiment.set_selected_metadata(selected_metadata_list)
         self.selected_experiment.get_projection_analysis_file_info()
-        self.selected_experiment.select_and_load_projections()
+        self.selected_experiment.select_and_load_projections(n_processes)
 
     def get_basic_experiment_metadata(self, dat_file_path: str):
         # read dat-file
