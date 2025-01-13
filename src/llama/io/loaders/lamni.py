@@ -19,36 +19,84 @@ from llama.io.loaders.utils import (
 )
 
 
+def load_data_from_lamni_format(
+    dat_file_path: str,
+    parent_projections_folder: str,
+    n_processes: int = 1,
+    selected_experiment_name: Optional[str] = None,
+    selected_metadata_list: Optional[list[str]] = None,
+) -> StandardData:
+    """
+    Function for loading lamni-formatted projection data and returning
+    it in the standardized format.
+    """
+    # Load lamni-formatted projection data
+    lamni_loader = load_experiment(
+        dat_file_path=dat_file_path,
+        parent_projections_folder=parent_projections_folder,
+        n_processes=n_processes,
+        selected_experiment_name=selected_experiment_name,
+        selected_metadata_list=selected_metadata_list,
+    )
+    # Get indices of scan numbers where projections were loaded
+    loaded_proj_idx = [
+        scan_number in lamni_loader.projections.keys() for scan_number in lamni_loader.scan_numbers
+    ]
+    # Load data into standard format
+    standard_data = StandardData(
+        lamni_loader.projections,
+        lamni_loader.angles[loaded_proj_idx],
+        lamni_loader.scan_numbers[loaded_proj_idx],
+        lamni_loader.file_paths,
+    )
+    return standard_data
+
+
 class LamniLoader:
     """
-    Class for loading ptychography reconstructions saved in the *Lamni*
+    Class for loading ptychography reconstructions saved in the Lamni
     file structure format.
+
+    Parameters
+    ----------
+    scan_numbers : np.ndarray
+        Scan number of each projection, according to the dat file.
+    angles : np.ndarray
+        Measurement angles for each projection, according to the dat
+        file.
+    experiment_name : str
+        Name of the experiment to load, according to the dat file.
+    parent_projections_folder : str
+        Path to folder containing saved projection data.
 
     Attributes
     ----------
     ptycho_params : dict[int, dict]
-        Stores the ptychoshelves ptychography reconstruction settings that
-        are stored in the `p` group of the h5 file.
+        Stores the ptychoshelves ptychography reconstruction settings
+        that are stored in the `p` group of the h5 file.
     selected_metadata_list : list[str]
-        List of projection metadata types that are allowed to be loaded, in
-        prioritized order. The metadata types are strings extracted from the
-        projection file names.
-    projection_folders : list[str]
-        The full file path to the folder containing projection files.
-    projection_files : list[list[str]]
-        Names of each file in `projection_folders`.
+        List of projection metadata types that are allowed to be
+        loaded, in prioritized order. The metadata types are strings
+        extracted from the projection file names.
+    projection_folders : dict[int, str]
+        Dictionary that maps scan number to the path to the folder
+        containing projection files.
+    projection_files : dict[int, list[str]]
+        Dictionary that maps scan number to files in the projection
+        folder.
     projections : dict[int, np.ndarray]
         Dictionary that maps scan number to the projection array.
     file_paths : dict[int, str]
-        Dictionary that maps scan number to the full projection file path.
+        Dictionary that maps scan number to the full projection file
+        path.
     """
 
     ptycho_params: dict[int, dict] = {}
     selected_metadata_list: list[str] = []
-    projection_folders: list[str] = []
-    projection_files: list[list[str]] = []
-    projections: dict[int, np.ndarray] = {}
+    projection_folders: dict[int, str] = {}
+    projection_files: dict[int, list[str]] = {}
     file_paths: dict[int, str] = {}
+    projections: dict[int, np.ndarray] = {}
 
     def __init__(
         self,
@@ -79,15 +127,15 @@ class LamniLoader:
             projection_folder = os.path.join(
                 self.parent_projections_folder, proj_relative_folder_path
             )
-            self.record_projection_path_and_files(projection_folder)
+            self.record_projection_path_and_files(projection_folder, scan_number)
         self.extract_metadata_from_all_titles()
 
-    def record_projection_path_and_files(self, folder: str):
-        self.projection_folders += [folder]
-        self.projection_files += [os.listdir(folder)]
+    def record_projection_path_and_files(self, folder: str, scan_number: int):
+        self.projection_folders[scan_number] = folder
+        self.projection_files[scan_number] = os.listdir(folder)
 
     def extract_metadata_from_all_titles(self):
-        file_list = np.concatenate(self.projection_files).ravel()
+        file_list = np.concatenate(list(self.projection_files.values())).ravel()
         self.unique_metadata = list(set([filter_string(file_string) for file_string in file_list]))
         # Count occurences for that metadata string
         self.metadata_count = {}
@@ -101,6 +149,7 @@ class LamniLoader:
         n_processes: int,
         selected_metadata_list: Optional[None],
         ask_for_backup_metadata: bool = True,
+        load_ptycho_params: bool = False,
     ):
         """
         Select which projections to load and then load the projections.
@@ -111,24 +160,25 @@ class LamniLoader:
             self.selected_metadata_list = selected_metadata_list
         for i in range(self.n_scans):
             # Skip this iteration if there are no projection files
-            if self.projection_files[i] == []:
+            if self.projection_files[self.scan_numbers[i]] == []:
                 print(f"No projections loaded for {self.scan_numbers[i]}")
                 continue
             while True:
                 # Find file strings with matching types
                 proj_file_string = self.find_matching_metadata(
-                    self.selected_metadata_list, self.projection_files[i]
+                    self.selected_metadata_list, self.projection_files[self.scan_numbers[i]]
                 )
                 if proj_file_string is not None:
                     # get the file path to the reconstruction file
                     self.file_paths[self.scan_numbers[i]] = os.path.join(
-                        self.projection_folders[i], proj_file_string
+                        self.projection_folders[self.scan_numbers[i]], proj_file_string
                     )
                     # extract the ptychography reconstruction parameters
-                    # self.ptycho_params[self.scan_numbers[i]] = load_h5_group(
-                    #     self.file_paths[self.scan_numbers[i]],
-                    #     "/reconstruction/p",
-                    # )
+                    if load_ptycho_params:
+                        self.ptycho_params[self.scan_numbers[i]] = load_h5_group(
+                            self.file_paths[self.scan_numbers[i]],
+                            "/reconstruction/p",
+                        )
                     break
                 elif ask_for_backup_metadata:
                     prompt = (
@@ -277,31 +327,6 @@ def load_experiment(
     selected_experiment.select_and_load_projections(n_processes, selected_metadata_list)
 
     return selected_experiment
-
-
-def load_data_from_lamni_format(
-    dat_file_path: str,
-    parent_projections_folder: str,
-    n_processes: int = 1,
-    selected_experiment_name: Optional[str] = None,
-    selected_metadata_list: Optional[list[str]] = None,
-) -> StandardData:
-    # Load lamni-formatted projection data
-    lamni_loader = load_experiment(
-        dat_file_path=dat_file_path,
-        parent_projections_folder=parent_projections_folder,
-        n_processes=n_processes,
-        selected_experiment_name=selected_experiment_name,
-        selected_metadata_list=selected_metadata_list,
-    )
-    # Load data into standard format
-    standard_data = StandardData(
-        lamni_loader.projections,
-        lamni_loader.angles,
-        lamni_loader.scan_numbers,
-        lamni_loader.file_paths,
-    )
-    return standard_data
 
 
 def generate_projection_relative_path(
