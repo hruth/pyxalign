@@ -9,25 +9,40 @@ import multiprocessing as mp
 import traceback
 from time import time
 from llama.io.loaders.base import (
-    ExperimentLoader,
-    ExperimentSubset,
     generate_selection_user_prompt,
     get_boolean_user_input,
 )
 from llama.api.types import r_type, c_type
 
 
-class LamniSubset(ExperimentSubset):
+class LamniLoader:
     ptycho_params: dict[int, dict] = {}
     selected_metadata_list: list[str] = []
+    projection_folders: list[str] = []
+    projection_files: list[str] = []
+    projections: dict[int, np.ndarray] = {}
+    file_paths: dict[int, str] = {}
 
-    def set_selected_metadata(self, selected_metadata_list: list[str]):
-        # Pass in selected metadata when you don't want to go through
-        # the prompts again
-        if selected_metadata_list is not None:
-            self.selected_metadata_list = selected_metadata_list
+    def __init__(
+        self,
+        scan_numbers: np.ndarray,
+        angles: np.ndarray,
+        experiment_name: str,
+        parent_projections_folder: str,
+    ):
+        self.angles = angles
+        self.scan_numbers = scan_numbers
+        self.experiment_name = experiment_name
+        self.parent_projections_folder = parent_projections_folder
+
+    @property
+    def n_scans(self):
+        return len(self.scan_numbers)
 
     def get_projection_analysis_file_info(self):
+        """
+        Find projection h5 files and record the metadata stored in the title strings
+        """
         for scan_number in self.scan_numbers:
             proj_relative_folder_path = generate_projection_relative_path(
                 scan_number,
@@ -54,10 +69,19 @@ class LamniSubset(ExperimentSubset):
                 [metadata_string in string for string in file_list]
             )
 
-    def select_and_load_projections(self, n_processes: int, ask_for_backup_metadata: bool = True):
-        """Select which projections to load and then load the projections."""
-        if self.selected_metadata_list == []:
+    def select_and_load_projections(
+        self,
+        n_processes: int,
+        selected_metadata_list: Optional[None],
+        ask_for_backup_metadata: bool = True,
+    ):
+        """
+        Select which projections to load and then load the projections.
+        """
+        if selected_metadata_list is None:
             self.selected_metadata_list = [self.select_metadata_type()]
+        else:
+            self.selected_metadata_list = selected_metadata_list
         for i in range(self.n_scans):
             # Skip this iteration if there are no projection files
             if self.projection_files[i] == []:
@@ -140,68 +164,92 @@ class LamniSubset(ExperimentSubset):
         return selected_metadata
 
 
-class LamniLoader(ExperimentLoader):
+def extract_experiment_data(dat_file_path: str) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """
-    Class for reading a specific file structure type
+    Extract scan number, measurement angle, and experiment name from the
+    dat file
     """
+    column_names = [
+        "scan_number",
+        "target_rotation_angle",
+        "measured_rotation_angle",
+        "unknown0",
+        "sequence",
+        "unknown1",
+        "experiment_name",
+    ]
+    dat_file_contents = txt_to_dataframe(dat_file_path, column_names, delimiter=" ", header=None)
+    dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("unlabeled")
+    scan_numbers = dat_file_contents["scan_number"].to_numpy()
+    angles = dat_file_contents["measured_rotation_angle"].to_numpy()
+    experiment_names = dat_file_contents["experiment_name"].to_list()
 
-    selected_experiment: LamniSubset
-    subsets: dict[str, LamniSubset]
-    experiment_subset_class: type = LamniSubset
+    return (scan_numbers, angles, experiment_names)
 
-    def __init__(self, dat_file_path: str, projections_folder: str):
-        self.dat_file_path = dat_file_path
-        self.parent_projections_folder = projections_folder
 
-    def load_experiment(
-        self,
-        n_processes: int = 1,
-        selected_experiment_name: Optional[str] = None,
-        selected_metadata_list: Optional[list[str]] = None,
-    ):
-        self.get_basic_experiment_metadata(self.dat_file_path)
-        self.selected_experiment = self.select_experiment(use_option=selected_experiment_name)
-        self.selected_experiment.set_selected_metadata(selected_metadata_list)
-        self.selected_experiment.get_projection_analysis_file_info()
-        self.selected_experiment.select_and_load_projections(n_processes)
-
-    def get_basic_experiment_metadata(self, dat_file_path: str):
-        # read dat-file
-        column_names = [
-            "scan_number",
-            "target_rotation_angle",
-            "measured_rotation_angle",
-            "unknown0",
-            "sequence",
-            "unknown1",
-            "experiment_name",
-        ]
-        dat_file_contents = txt_to_dataframe(
-            dat_file_path, column_names, delimiter=" ", header=None
+def get_experiment_subsets(
+    parent_projections_folder: str,
+    scan_numbers: np.ndarray,
+    angles: np.ndarray,
+    experiment_names: list[str],
+) -> dict[str, LamniLoader]:
+    subsets = {}
+    for unique_name in np.unique(experiment_names):
+        idx = [index for index, name in enumerate(experiment_names) if name == unique_name]
+        subsets[unique_name] = LamniLoader(
+            scan_numbers[idx],
+            angles[idx],
+            unique_name,
+            parent_projections_folder,
         )
-        dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna(
-            "unlabeled"
-        )
+    return subsets
 
-        self.scan_numbers = dat_file_contents["scan_number"].to_numpy()
-        self.angles = dat_file_contents["measured_rotation_angle"].to_numpy()
-        self.experiment_names = dat_file_contents["experiment_name"].to_list()
 
-        self.get_experiment_subsets()
+def select_experiment(
+    parent_projections_folder: str,
+    scan_numbers: np.ndarray,
+    angles: np.ndarray,
+    experiment_names: list[str],
+    use_option: Optional[str] = None,
+) -> LamniLoader:
+    """
+    Select the experiment you want to load.
+    """
+    subsets = get_experiment_subsets(
+        parent_projections_folder, scan_numbers, angles, experiment_names
+    )
+    _, selected_key = generate_selection_user_prompt(
+        load_object_type_string="experiment",
+        options_list=subsets.keys(),
+        options_info_list=[subset.n_scans for subset in subsets.values()],
+        options_info_type_string="scans",
+        use_option=use_option,
+    )
+    return subsets[selected_key]
 
-    def get_experiment_subsets(self):
-        self.subsets = {}
-        for unique_name in np.unique(self.experiment_names):
-            idx = [index for index, name in enumerate(self.experiment_names) if name == unique_name]
-            self.subsets[unique_name] = self.experiment_subset_class(
-                self.scan_numbers[idx],
-                self.angles[idx],
-                unique_name,
-                self.parent_projections_folder,
-            )
 
-    def get_projections(self) -> list[np.ndarray]:
-        pass
+def load_experiment(
+    dat_file_path: str,
+    parent_projections_folder: str,
+    n_processes: int = 1,
+    selected_experiment_name: Optional[str] = None,
+    selected_metadata_list: Optional[list[str]] = None,
+) -> LamniLoader:
+    """
+    Load an experiment that is saved with the lamni structure.
+    """
+    scan_numbers, angles, experiment_names = extract_experiment_data(dat_file_path)
+    selected_experiment = select_experiment(
+        parent_projections_folder,
+        scan_numbers,
+        angles,
+        experiment_names,
+        use_option=selected_experiment_name,
+    )
+    selected_experiment.get_projection_analysis_file_info()
+    selected_experiment.select_and_load_projections(n_processes, selected_metadata_list)
+
+    return selected_experiment
 
 
 def txt_to_dataframe(file_path: str, column_names: list[str], delimiter: str, header=None):
