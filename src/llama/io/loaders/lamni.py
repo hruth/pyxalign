@@ -59,8 +59,7 @@ def load_data_from_lamni_format(
     parent_projections_folder: str,
     n_processes: int = 1,
     options: Optional[LamniLoadOptions] = None,
-    return_loader: bool = False,
-) -> Union[StandardData, tuple[StandardData, "LamniLoader"]]:
+) -> StandardData:
     """
     Function for loading lamni-formatted projection data and returning
     it in the standardized format.
@@ -86,10 +85,8 @@ def load_data_from_lamni_format(
         lamni_loader.scan_numbers[loaded_proj_idx],
         lamni_loader.file_paths,
     )
-    if return_loader:
-        return standard_data, lamni_loader
-    else:
-        return standard_data
+
+    return standard_data
 
 
 class LamniLoader:
@@ -183,7 +180,10 @@ class LamniLoader:
                 self.parent_projections_folder, proj_relative_folder_path
             )
             self.record_projection_path_and_files(projection_folder, scan_number)
-        print(f"{len(self.projection_folders)} scans have projection one or more projection files.", flush=True)
+        print(
+            f"{len(self.projection_folders)} scans have projection one or more projection files.",
+            flush=True,
+        )
 
     def record_projection_path_and_files(self, folder: str, scan_number: int):
         if os.path.exists(folder) and os.listdir(folder) != []:

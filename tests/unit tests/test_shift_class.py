@@ -2,7 +2,8 @@ import argparse
 import time
 import numpy as np
 import cupy as cp
-from llama.gpu_utils import is_pinned
+import pytest
+from llama.gpu_utils import get_available_gpus, is_pinned
 from llama.projections import ComplexProjections
 from llama.api.options.transform import ShiftOptions
 from llama.transformations.classes import Shifter
@@ -201,7 +202,11 @@ def test_fft_shift_class_gpu_chunked_pinned(pytestconfig, overwrite_results=Fals
         check_results
     )
 
-def test_fft_shift_class_gpu_chunked_multigpu(pytestconfig, overwrite_results=False, check_results=True):
+def test_fft_shift_class_gpu_chunked_multigpu(
+    pytestconfig, overwrite_results=False, check_results=True
+):
+    if len(get_available_gpus()) < 5:
+        pytest.skip("Not enough GPUs, skipping test")
     if pytestconfig is not None:
         overwrite_results = pytestconfig.getoption("overwrite_results")
     test_name = "test_fft_shift_class_gpu_chunked_multigpu"
@@ -294,27 +299,6 @@ if __name__ == "__main__":
     test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
     test_circ_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
     test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
-    test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
+    if len(get_available_gpus()) > 5:
+        test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
     test_fft_shift_class_stay_on_gpu(None, args.overwrite_results, not args.skip_comparison)
-
-
-    # test_fft_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-    # test_fft_shift_class_gpu(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-
-    # test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-    # test_fft_shift_class_gpu_chunked(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-
-    # test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-    # test_fft_shift_class_gpu_chunked_pinned(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-
-    # test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-    # test_fft_shift_class_gpu_chunked_multigpu(None, args.overwrite_results, not args.skip_comparison)
-    # time.sleep(0.2)
-

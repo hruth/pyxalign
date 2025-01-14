@@ -48,5 +48,7 @@ def save_options(obj, h5_obj: Union[h5py.Group, h5py.File]):
         elif isinstance(value, StrEnum):
             # Handle enums
             h5_obj.create_dataset(field_name, data=value._value_)
-        else:
+        elif value is not None:
             h5_obj.create_dataset(field_name, data=value)
+        else:
+            pass

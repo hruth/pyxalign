@@ -3,6 +3,8 @@ import h5py
 import numpy as np
 from time import time
 
+import pytest
+
 from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.reconstruct import ReconstructOptions
@@ -17,6 +19,8 @@ import llama.gpu_utils as gutils
 file_name = "task_3a4bd4a_downsampled_4x.h5"
 n_iterations = 3
 chunk_length = 20
+
+skip_multi_gpu_if = len(gutils.get_available_gpus()) < 3
 
 
 def load_input_task() -> LaminographyAlignmentTask:
@@ -68,9 +72,7 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
-    assert gutils.is_pinned(
-        task.pma_object.aligned_projections.laminogram.forward_projections.data
-    )
+    assert gutils.is_pinned(task.pma_object.aligned_projections.laminogram.forward_projections.data)
     assert (
         task.pma_object.aligned_projections.laminogram.forward_projections.data
         is task.pma_object.pinned_forward_projection
@@ -84,6 +86,8 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
         check_results,
     )
 
+
+@pytest.mark.skipif(skip_multi_gpu_if, reason="Skipping test -- not enough GPUs")
 def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_results=True):
     if pytestconfig is not None:
         overwrite_results = pytestconfig.getoption("overwrite_results")
@@ -117,9 +121,7 @@ def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_result
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
-    assert gutils.is_pinned(
-        task.pma_object.aligned_projections.laminogram.forward_projections.data
-    )
+    assert gutils.is_pinned(task.pma_object.aligned_projections.laminogram.forward_projections.data)
     assert (
         task.pma_object.aligned_projections.laminogram.forward_projections.data
         is task.pma_object.pinned_forward_projection
@@ -132,6 +134,7 @@ def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_result
         tutils.ResultType.RECONSTRUCTION,
         check_results,
     )
+
 
 def test_pma_fully_on_gpu(pytestconfig, overwrite_results=False, check_results=True):
     if pytestconfig is not None:
