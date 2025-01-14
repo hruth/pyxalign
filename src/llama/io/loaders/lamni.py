@@ -13,8 +13,7 @@ from llama.io.loaders.base import (
 )
 from llama.api.types import r_type, c_type
 from llama.io.loaders.utils import (
-    generate_list_input_user_prompt,
-    generate_single_input_user_prompt,
+    generate_input_user_prompt,
     get_boolean_user_input,
     load_h5_group,
 )
@@ -250,7 +249,7 @@ class LamniLoader:
         else:
             remaining_metadata_options = self.metadata_count
 
-        _, selected_metadata = generate_single_input_user_prompt(
+        _, selected_metadata = generate_input_user_prompt(
             load_object_type_string="projection metadata type",
             options_list=remaining_metadata_options.keys(),
             options_info_list=[count for count in remaining_metadata_options.values()],
@@ -321,7 +320,7 @@ def select_experiment(
     subsets = get_experiment_subsets(
         parent_projections_folder, scan_numbers, angles, experiment_names, sequences
     )
-    _, selected_key = generate_single_input_user_prompt(
+    _, selected_key = generate_input_user_prompt(
         load_object_type_string="experiment",
         options_list=subsets.keys(),
         options_info_list=[subset.n_scans for subset in subsets.values()],
@@ -331,9 +330,10 @@ def select_experiment(
     selected_experiment = subsets[selected_key]
     # Select sequences subset to load
     unique_sequences, sequence_counts = np.unique(selected_experiment.sequences, return_counts=True)
-    _, selected_sequences = generate_list_input_user_prompt(
+    _, selected_sequences = generate_input_user_prompt(
         load_object_type_string="sequences",
         options_list=unique_sequences,
+        allow_multiple_selections=True,
         options_info_list=sequence_counts,
         options_info_type_string="scans",
         use_option=use_sequence,
@@ -419,9 +419,11 @@ def load_projection(file_path: str) -> np.ndarray:
     projection = h5["/reconstruction/object"][:, :].astype(c_type)
     return projection
 
+
 def dummy_load_projections(file_path: str) -> np.ndarray:
     "For testing purposes"
     return np.random.rand(*(10, 10))
+
 
 def parallel_load_all_projections(
     file_paths: dict,
@@ -433,12 +435,12 @@ def parallel_load_all_projections(
         print("Loading projections into list...")
         t_0 = time()
         with mp.Pool(processes=n_processes) as pool:
-            # projections_map = tqdm(
-            #     pool.imap(load_projection, file_paths.values()), total=len(file_paths)
-            # )
             projections_map = tqdm(
-                pool.imap(dummy_load_projections, file_paths.values()), total=len(file_paths)
+                pool.imap(load_projection, file_paths.values()), total=len(file_paths)
             )
+            # projections_map = tqdm(
+            #     pool.imap(dummy_load_projections, file_paths.values()), total=len(file_paths)
+            # )
             # projections_map = pool.map(load_projection, file_paths.values())
             projections = dict(zip(file_paths.keys(), projections_map))
         print(f"Loading complete. Duration: {time() - t_0}")

@@ -2,6 +2,9 @@ from typing import Optional, Union
 import traceback
 import h5py
 import numpy as np
+import time
+
+border = 60 * "-"
 
 
 def load_h5_group(file_path, group_path="/"):
@@ -38,14 +41,15 @@ def generate_experiment_description(
     options_info_list: Optional[list[str]] = None,
     options_info_type_string: Optional[str] = None,
 ):
-    experiment_string = f"{index+1}. {option_string} ("
+    experiment_string = f"   {index+1}. {option_string} ("
     if options_info_list is not None:
         experiment_string += f"{options_info_list[index]}"
         if options_info_type_string is not None:
             experiment_string += f" {options_info_type_string}"
     return experiment_string + ")\n"
 
-def is_valid_option_provided(use_option: str, options_list: list[str]) -> Union[tuple, None]:
+
+def is_valid_option_provided(use_option: str, options_list: list) -> Union[tuple, None]:
     # Use pre-provided option if it was passed in
     if use_option is not None:
         try:
@@ -55,49 +59,60 @@ def is_valid_option_provided(use_option: str, options_list: list[str]) -> Union[
             print("Provided option is not allowed because it is not available in `options_list`")
             print(traceback.format_exc())
 
-def prompt_input_processing(options_list: list[str], options_info_list: Optional[list[str]]):
+
+def prompt_input_processing(options_list: list, options_info_list: Optional[list[str]]):
     # Ensure inputs are lists
     options_list = list(options_list)
     if options_info_list is not None:
         options_info_list = list(options_info_list)
     return options_list, options_info_list
 
-def generate_single_input_user_prompt(
-    load_object_type_string: str,
-    options_list: list[str],
-    options_info_list: Optional[list[str]] = None,
-    options_info_type_string: Optional[str] = None,
-    use_option: Optional[str] = None,
-) -> tuple[int, str]:
-    provided_option = is_valid_option_provided(use_option, options_list)
-    if provided_option is not None:
-        return provided_option
-    options_list, options_info_list = prompt_input_processing(options_list, options_info_list)
-    # Generate the user prompt
-    prompt = f"Select the {load_object_type_string} to load:\n"
-    for index, option_string in enumerate(options_list):
-        prompt += generate_experiment_description(
-            option_string, index, options_info_list, options_info_type_string
-        )
-    # Prompt the user to make a selection
+
+def get_user_input(
+    options_list: list, prompt: str, allow_multiple_selections: bool
+) -> tuple[Union[int, list[int]], ...]:
     allowed_inputs = range(0, len(options_list))
+    print(border + "\nUSER INPUT NEEDED\n" + prompt, flush=True)
     while True:
         try:
             user_input = input(prompt)
-            input_index = int(user_input) - 1
-            if input_index not in allowed_inputs:
+            if allow_multiple_selections:
+                parsed_input = [x - 1 for x in parse_space_delimited_integers(user_input)]
+                is_input_allowed = np.all([idx in allowed_inputs for idx in parsed_input])
+            else:
+                parsed_input = int(user_input) - 1
+                is_input_allowed = parsed_input in allowed_inputs
+            if not is_input_allowed:
                 raise ValueError
             else:
-                print(f"Selected option {input_index + 1}. {options_list[input_index]}")
-                return (input_index, options_list[input_index])
+                if allow_multiple_selections:
+                    selection = [options_list[idx] for idx in parsed_input]
+                    selection_string = f"Selected options: {selection}"
+                else:
+                    selection = options_list[parsed_input]
+                    selection_string = f"Selected option {parsed_input + 1}. {selection}"
+                print(selection_string + "\n" + border + "\n", flush=True)
+                return (parsed_input, selection)
         except ValueError:
-            print(f"Invalid input. Please enter a number 1 through {allowed_inputs[-1]}.")
+            if allow_multiple_selections:
+                print(
+                    f"{user_input} is not a valid input. Please enter a space delimited list "
+                    + f"whose elements are between 1 and {allowed_inputs[-1] + 1}.\n",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"{user_input} is not a valid input. "
+                    + f"Please enter a number 1 through {allowed_inputs[-1] + 1}.",
+                    flush=True,
+                )
 
 
-def generate_list_input_user_prompt(
+def generate_input_user_prompt(
     load_object_type_string: str,
-    options_list: list[str],
-    options_info_list: Optional[list[str]] = None,
+    options_list: list,
+    allow_multiple_selections: bool = False,
+    options_info_list: Optional[list] = None,
     options_info_type_string: Optional[str] = None,
     use_option: Optional[str] = None,
 ) -> tuple[int, str]:
@@ -106,36 +121,26 @@ def generate_list_input_user_prompt(
         return provided_option
     options_list, options_info_list = prompt_input_processing(options_list, options_info_list)
     # Generate the user prompt
-    prompt = (f"Select the {load_object_type_string} to load\n" 
-              + "Enter inputs as a series of integers seperated by spaces:\n")
+    if allow_multiple_selections:
+        prompt = (
+            f"Select the {load_object_type_string} to load\n"
+            + "Enter inputs as a series of integers seperated by spaces:\n"
+        )
+    else:
+        prompt = f"Select the {load_object_type_string} to load:\n"
     for index, option_string in enumerate(options_list):
         prompt += generate_experiment_description(
             option_string, index, options_info_list, options_info_type_string
         )
     # Prompt the user to make a selection
-    allowed_inputs = range(0, len(options_list))
-    while True:
-        try:
-            user_input = input(prompt)
-            input_list = np.array(parse_space_delimited_integers(user_input)) - 1
-            for input_index in input_list:
-                if input_index not in allowed_inputs:
-                    raise ValueError
-            else:
-                print(f"Selected options {input_list}")
-                return (input_list, [options_list[input_index] for input_index in input_list])
-        except ValueError:
-            print(
-                "Invalid input. Please enter a space delimited list whose elements are"
-                + f"between 1 and {allowed_inputs[-1]}."
-            )
+    return get_user_input(options_list, prompt, allow_multiple_selections=allow_multiple_selections)
 
 
 def parse_space_delimited_integers(input_string: str):
     """
     Parse a space-delimited string of integers.
 
-    This function checks if the input string is a valid space-delimited 
+    This function checks if the input string is a valid space-delimited
     string of integers. If valid, it converts the string into a list of integers.
     If invalid, it returns None.
 
@@ -149,15 +154,8 @@ def parse_space_delimited_integers(input_string: str):
     list of int or None
         A list of integers if the input string is valid, otherwise None.
     """
-    # try:
-    # Split the string by spaces
     parts = input_string.split()
-    
-    # Check if all parts are valid integers
-    # if all(part.isdigit() or (part.startswith('-') and part[1:].isdigit()) for part in parts):
     return [int(part) for part in parts]
-    # except Exception as e:
-    #     return None
 
 
 def get_boolean_user_input(prompt: str) -> bool:
@@ -173,7 +171,7 @@ def get_boolean_user_input(prompt: str) -> bool:
 
 if __name__ == "__main__":
     test_dict = {"option_1": "a", "option_2": "b", "option_3": "c"}
-    result = generate_single_input_user_prompt(
+    result = generate_input_user_prompt(
         load_object_type_string="experiment",
         options_list=test_dict.keys(),
         options_info_list=test_dict.values(),
