@@ -178,14 +178,17 @@ def parse_space_delimited_integers(input_string: str):
 
 
 def get_boolean_user_input(prompt: str) -> bool:
+    print(prompt, flush=True)
     while True:
         user_input = input(f"{prompt} (y/n): ").strip().lower()
         if user_input in {"y", "yes"}:
+            print("  Selected: y", flush=True)
             return True
         elif user_input in {"n", "no"}:
+            print("  Selected: n", flush=True)
             return False
         else:
-            print("Invalid input. Please enter 'y' or 'n'.")
+            print("Invalid input. Please enter 'y' or 'n'.", flush=True)
 
 
 if __name__ == "__main__":

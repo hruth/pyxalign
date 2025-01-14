@@ -17,6 +17,7 @@ from llama.io.loaders.utils import (
     generate_input_user_prompt,
     get_boolean_user_input,
     load_h5_group,
+    border,
 )
 
 
@@ -182,6 +183,7 @@ class LamniLoader:
                 self.parent_projections_folder, proj_relative_folder_path
             )
             self.record_projection_path_and_files(projection_folder, scan_number)
+        print(f"{len(self.projection_folders)} scans have projection one or more projection files.", flush=True)
 
     def record_projection_path_and_files(self, folder: str, scan_number: int):
         if os.path.exists(folder) and os.listdir(folder) != []:
@@ -230,12 +232,13 @@ class LamniLoader:
                         )
                     break
                 elif ask_for_backup_metadata:
+                    print(border, flush=True)
                     prompt = (
                         "No projection files with the specified metadata type(s) "
                         + f"were found for scan {scan_number}.\n"
                         + "Select an option:\n"
                         + "y: Select another acceptable metadata type\n"
-                        + "n: continue without loading\n"
+                        + "n: continue without loading"
                     )
                     select_new_metadata = get_boolean_user_input(prompt)
                     if select_new_metadata:
@@ -247,6 +250,7 @@ class LamniLoader:
                         print(f"No projections loaded for {scan_number}", flush=True)
                         prompt = "Remember this choice for remaining projections?"
                         ask_for_backup_metadata = not get_boolean_user_input(prompt)
+                        print(border, flush=True)
                         break
                 else:
                     break
