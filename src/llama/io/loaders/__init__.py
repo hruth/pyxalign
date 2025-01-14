@@ -1,1 +1,1 @@
-from .lamni import load_data_from_lamni_format
+from .lamni import load_data_from_lamni_format, LamniLoadOptions

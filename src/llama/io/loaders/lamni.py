@@ -1,4 +1,5 @@
 from typing import Optional, Union
+import dataclasses
 import numpy as np
 import os
 import re
@@ -19,29 +20,60 @@ from llama.io.loaders.utils import (
 )
 
 
+@dataclasses.dataclass
+class LamniLoadOptions:
+    selected_experiment_name: Optional[str] = None
+    """Name of the experiment to load. Use "unlabeled" to refer to
+    experiments that do not have a name specified in the dat file."""
+    selected_metadata_list: Optional[list[str]] = None
+    """        
+    List of projection metadata types that are allowed to be
+    loaded, in prioritized order. The metadata types are strings
+    extracted from the projection file names.
+    """
+    selected_sequences: Optional[list[int]] = None
+    """
+    List of sequence numbers to load in. Each sequence corresponds
+    to a set of measurements taken sequentially over a 360 degree range.
+    The sequence number of a projection comes from the dat file.
+    """
+    scan_start: Optional[int] = None
+    "Lower bound of scans to include."
+    scan_end: Optional[int] = None
+    "Upper bound of scans to include."
+
+
+    def print_selections(self):
+        if np.all([v is None for v in self.__dict__.values()]):
+            print("No loading options provided.", flush=True)
+        else:
+            print("User-provided loading options:", flush=True)
+            for k, v in self.__dict__.items():
+                if v is not None:
+                    print(f"  {k}: {v}", flush=True)
+            print(flush=True)
+
+
 def load_data_from_lamni_format(
     dat_file_path: str,
     parent_projections_folder: str,
     n_processes: int = 1,
-    selected_experiment_name: Optional[str] = None,
-    selected_metadata_list: Optional[list[str]] = None,
-    scan_start: Optional[int] = None,
-    scan_end: Optional[int] = None,
+    options: Optional[LamniLoadOptions] = None,
     return_loader: bool = False,
 ) -> Union[StandardData, tuple[StandardData, "LamniLoader"]]:
     """
     Function for loading lamni-formatted projection data and returning
     it in the standardized format.
     """
+    if options is None:
+        options = LamniLoadOptions()
+    options.print_selections()
     # Load lamni-formatted projection data
     lamni_loader = load_experiment(
         dat_file_path=dat_file_path,
         parent_projections_folder=parent_projections_folder,
         n_processes=n_processes,
-        selected_experiment_name=selected_experiment_name,
-        selected_metadata_list=selected_metadata_list,
-        scan_start=scan_start,
-        scan_end=scan_end,
+        options=options,
     )
     # Get indices of scan numbers where projections were loaded
     loaded_proj_idx = [
@@ -82,10 +114,6 @@ class LamniLoader:
     ptycho_params : dict[int, dict]
         Stores the ptychoshelves ptychography reconstruction settings
         that are stored in the `p` group of the h5 file.
-    selected_metadata_list : list[str]
-        List of projection metadata types that are allowed to be
-        loaded, in prioritized order. The metadata types are strings
-        extracted from the projection file names.
     projection_folders : dict[int, str]
         Dictionary that maps scan number to the path to the folder
         containing projection files.
@@ -185,7 +213,6 @@ class LamniLoader:
             self.selected_metadata_list = [self.select_metadata_type()]
         else:
             self.selected_metadata_list = selected_metadata_list
-        # for i in range(self.n_scans):
         for scan_number in self.projection_folders.keys():
             while True:
                 # Find file strings with matching types
@@ -225,7 +252,7 @@ class LamniLoader:
                         break
                 else:
                     break
-    
+
     def load_projections(self, n_processes: int):
         # Load projections
         self.projections = parallel_load_all_projections(self.file_paths, n_processes)
@@ -322,7 +349,7 @@ def get_experiment_subsets(
     return subsets
 
 
-def select_experiment(
+def select_experiment_and_sequences(
     parent_projections_folder: str,
     scan_numbers: np.ndarray,
     angles: np.ndarray,
@@ -358,12 +385,12 @@ def select_experiment(
         options_info_list += [f"scans {scan_start}-{scan_end}, {sum(sequence_idx)} scans"]
     selected_sequence_idx, _ = generate_input_user_prompt(
         load_object_type_string="sequences",
-        options_list=[f"sequence {x}" for x in unique_sequences],
+        options_list=unique_sequences,
         allow_multiple_selections=True,
         options_info_list=options_info_list,
         use_option=use_sequence,
+        prepend_option_with="Sequence",
     )
-    selected_sequences = unique_sequences[selected_sequence_idx]
     selected_experiment.remove_sequences(unique_sequences[selected_sequence_idx])
 
     return subsets[selected_experiment_name]
@@ -372,43 +399,41 @@ def select_experiment(
 def load_experiment(
     dat_file_path: str,
     parent_projections_folder: str,
-    n_processes: int = 1,
-    selected_experiment_name: Optional[str] = None,
-    selected_metadata_list: Optional[list[str]] = None,
-    scan_start: Optional[int] = None,
-    scan_end: Optional[int] = None,
+    n_processes: int,
+    options: LamniLoadOptions,
 ) -> LamniLoader:
     """
     Load an experiment that is saved with the lamni structure.
     """
     scan_numbers, angles, experiment_names, sequences = extract_experiment_data(
-        dat_file_path, scan_start, scan_end
+        dat_file_path, options.scan_start, options.scan_end
     )
-    selected_experiment = select_experiment(
+    selected_experiment = select_experiment_and_sequences(
         parent_projections_folder,
         scan_numbers,
         angles,
         experiment_names,
         sequences,
-        use_experiment_name=selected_experiment_name,
+        use_experiment_name=options.selected_experiment_name,
+        use_sequence=options.selected_sequences,
     )
     selected_experiment.get_projection_analysis_file_info()
-    selected_experiment.select_and_load_projections(selected_metadata_list)
+    selected_experiment.select_and_load_projections(options.selected_metadata_list)
     # Print data selection settings
     print("Use these settings to bypass user-selection on next load:")
     input_settings_string = (
-        f"\tselected_experiment_name=\"{selected_experiment.experiment_name}\",\n"
-        + f"\tselected_sequences={list(np.unique(selected_experiment.sequences))},\n"
-        + f"\tselected_metadata_list={selected_experiment.selected_metadata_list},\n"
+        f'  selected_experiment_name="{selected_experiment.experiment_name}",\n'
+        + f"  selected_sequences={list(np.unique(selected_experiment.sequences))},\n"
+        + f"  selected_metadata_list={selected_experiment.selected_metadata_list},\n"
     )
-    if scan_start is not None:
-        input_settings_string += f"\tscan_start={scan_start},\n"
-    if scan_end is not None:
-        input_settings_string += f"\tscan_end={scan_end},\n"
+    if options.scan_start is not None:
+        input_settings_string += f"  scan_start={options.scan_start},\n"
+    if options.scan_end is not None:
+        input_settings_string += f"  scan_end={options.scan_end},\n"
     print(input_settings_string)
     # Load projections
     selected_experiment.load_projections(n_processes)
- 
+
     return selected_experiment
 
 

@@ -49,12 +49,15 @@ def generate_experiment_description(
     return experiment_string + ")\n"
 
 
-def is_valid_option_provided(use_option: str, options_list: list) -> Union[tuple, None]:
+def is_valid_option_provided(use_option: str, options_list: list, allow_multiple_selections: bool) -> Union[tuple, None]:
     # Use pre-provided option if it was passed in
     if use_option is not None:
         try:
-            index = list(options_list).index(use_option)
-            return (index, use_option)
+            if allow_multiple_selections:
+                idx = [list(options_list).index(x) for x in use_option]
+            else:
+                idx = list(options_list).index(use_option)
+            return (idx, use_option)
         except ValueError:
             print("Provided option is not allowed because it is not available in `options_list`")
             print(traceback.format_exc())
@@ -69,7 +72,10 @@ def prompt_input_processing(options_list: list, options_info_list: Optional[list
 
 
 def get_user_input(
-    options_list: list, prompt: str, allow_multiple_selections: bool
+    options_list: list,
+    prompt: str,
+    allow_multiple_selections: bool,
+    prepend_option_with: str,
 ) -> tuple[Union[int, list[int]], ...]:
     allowed_inputs = range(0, len(options_list))
     print(border + "\nUSER INPUT NEEDED\n" + prompt, flush=True)
@@ -77,26 +83,27 @@ def get_user_input(
         try:
             user_input = input(prompt)
             if allow_multiple_selections:
-                parsed_input = [x - 1 for x in parse_space_delimited_integers(user_input)]
-                is_input_allowed = np.all([idx in allowed_inputs for idx in parsed_input])
+                selection_idx = [x - 1 for x in parse_space_delimited_integers(user_input)]
+                is_input_allowed = np.all([idx in allowed_inputs for idx in selection_idx])
             else:
-                parsed_input = int(user_input) - 1
-                is_input_allowed = parsed_input in allowed_inputs
+                selection_idx = int(user_input) - 1
+                is_input_allowed = selection_idx in allowed_inputs
             if not is_input_allowed:
                 raise ValueError
             else:
                 if allow_multiple_selections:
-                    selection = [options_list[idx] for idx in parsed_input]
+                    selection = [options_list[idx] for idx in selection_idx]
                     selection_string = [
-                        f"{idx + 1}. {x}" for idx, x in zip(parsed_input, selection)
+                        f"{idx + 1}. {prepend_option_with} {x}"
+                        for idx, x in zip(selection_idx, selection)
                     ]
                     selection_string = "  " + "\n  ".join(selection_string)
                     selection_string = f"Selected options:\n{selection_string}"
                 else:
-                    selection = options_list[parsed_input]
-                    selection_string = f"Selected option {parsed_input + 1}. {selection}"
+                    selection = options_list[selection_idx]
+                    selection_string = f"Selected option {selection_idx + 1}. {selection}"
                 print(selection_string + "\n" + border + "\n", flush=True)
-                return (parsed_input, selection)
+                return (selection_idx, selection)
         except ValueError:
             if allow_multiple_selections:
                 print(
@@ -118,9 +125,10 @@ def generate_input_user_prompt(
     allow_multiple_selections: bool = False,
     options_info_list: Optional[list] = None,
     options_info_type_string: Optional[str] = None,
+    prepend_option_with: Optional[str] = None,
     use_option: Optional[str] = None,
 ) -> tuple[int, str]:
-    provided_option = is_valid_option_provided(use_option, options_list)
+    provided_option = is_valid_option_provided(use_option, options_list, allow_multiple_selections)
     if provided_option is not None:
         return provided_option
     options_list, options_info_list = prompt_input_processing(options_list, options_info_list)
@@ -133,11 +141,18 @@ def generate_input_user_prompt(
     else:
         prompt = f"Select the {load_object_type_string} to load:\n"
     for index, option_string in enumerate(options_list):
+        if prepend_option_with is not None:
+            option_string = f"{prepend_option_with} {option_string}"
         prompt += generate_experiment_description(
             option_string, index, options_info_list, options_info_type_string
         )
     # Prompt the user to make a selection
-    return get_user_input(options_list, prompt, allow_multiple_selections=allow_multiple_selections)
+    return get_user_input(
+        options_list,
+        prompt,
+        allow_multiple_selections=allow_multiple_selections,
+        prepend_option_with=prepend_option_with,
+    )
 
 
 def parse_space_delimited_integers(input_string: str):
