@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 import os
 import re
@@ -25,7 +25,8 @@ def load_data_from_lamni_format(
     n_processes: int = 1,
     selected_experiment_name: Optional[str] = None,
     selected_metadata_list: Optional[list[str]] = None,
-) -> StandardData:
+    return_loader: bool = False,
+) -> Union[StandardData, tuple[StandardData, "LamniLoader"]]:
     """
     Function for loading lamni-formatted projection data and returning
     it in the standardized format.
@@ -49,7 +50,10 @@ def load_data_from_lamni_format(
         lamni_loader.scan_numbers[loaded_proj_idx],
         lamni_loader.file_paths,
     )
-    return standard_data
+    if return_loader:
+        return standard_data, lamni_loader
+    else:
+        return standard_data
 
 
 class LamniLoader:
@@ -212,7 +216,7 @@ class LamniLoader:
                             self.select_metadata_type(exclude=self.selected_metadata_list)
                         ]
                     else:
-                        print(f"No projections loaded for {scan_number}")
+                        print(f"No projections loaded for {scan_number}", flush=True)
                         prompt = "Remember this choice for remaining projections?"
                         ask_for_backup_metadata = not get_boolean_user_input(prompt)
                         break
