@@ -25,6 +25,8 @@ def load_data_from_lamni_format(
     n_processes: int = 1,
     selected_experiment_name: Optional[str] = None,
     selected_metadata_list: Optional[list[str]] = None,
+    scan_start: Optional[int] = None,
+    scan_end: Optional[int] = None,
     return_loader: bool = False,
 ) -> Union[StandardData, tuple[StandardData, "LamniLoader"]]:
     """
@@ -38,6 +40,8 @@ def load_data_from_lamni_format(
         n_processes=n_processes,
         selected_experiment_name=selected_experiment_name,
         selected_metadata_list=selected_metadata_list,
+        scan_start=scan_start,
+        scan_end=scan_end,
     )
     # Get indices of scan numbers where projections were loaded
     loaded_proj_idx = [
@@ -170,13 +174,12 @@ class LamniLoader:
 
     def select_and_load_projections(
         self,
-        n_processes: int,
         selected_metadata_list: Optional[None],
         ask_for_backup_metadata: bool = True,
         load_ptycho_params: bool = False,
     ):
         """
-        Select which projections to load and then load the projections.
+        Select which projections to load.
         """
         if selected_metadata_list is None:
             self.selected_metadata_list = [self.select_metadata_type()]
@@ -222,6 +225,8 @@ class LamniLoader:
                         break
                 else:
                     break
+    
+    def load_projections(self, n_processes: int):
         # Load projections
         self.projections = parallel_load_all_projections(self.file_paths, n_processes)
 
@@ -264,6 +269,8 @@ class LamniLoader:
 
 def extract_experiment_data(
     dat_file_path: str,
+    scan_start: Optional[int] = None,
+    scan_end: Optional[int] = None,
 ) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
     """
     Extract scan number, measurement angle, and experiment name from the
@@ -280,6 +287,13 @@ def extract_experiment_data(
     ]
     dat_file_contents = pd.read_csv(dat_file_path, names=column_names, delimiter=" ", header=None)
     dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("unlabeled")
+    if scan_start is not None:
+        idx = dat_file_contents["scan_number"] > scan_start
+        dat_file_contents = dat_file_contents[idx]
+    if scan_end is not None:
+        idx = dat_file_contents["scan_number"] < scan_end
+        dat_file_contents = dat_file_contents[idx]
+
     scan_numbers = dat_file_contents["scan_number"].to_numpy()
     angles = dat_file_contents["measured_rotation_angle"].to_numpy()
     experiment_names = dat_file_contents["experiment_name"].to_list()
@@ -324,26 +338,35 @@ def select_experiment(
     subsets = get_experiment_subsets(
         parent_projections_folder, scan_numbers, angles, experiment_names, sequences
     )
-    _, selected_key = generate_input_user_prompt(
+    _, selected_experiment_name = generate_input_user_prompt(
         load_object_type_string="experiment",
         options_list=subsets.keys(),
         options_info_list=[subset.n_scans for subset in subsets.values()],
         options_info_type_string="scans",
         use_option=use_experiment_name,
     )
-    selected_experiment = subsets[selected_key]
+    selected_experiment = subsets[selected_experiment_name]
+
     # Select sequences subset to load
-    unique_sequences, sequence_counts = np.unique(selected_experiment.sequences, return_counts=True)
-    _, selected_sequences = generate_input_user_prompt(
+    # Generate description strings for each option
+    unique_sequences = np.unique(selected_experiment.sequences)
+    options_info_list = []
+    for i in range(len(unique_sequences)):
+        sequence_idx = unique_sequences[i] == selected_experiment.sequences
+        scan_start = selected_experiment.scan_numbers[sequence_idx].min()
+        scan_end = selected_experiment.scan_numbers[sequence_idx].max()
+        options_info_list += [f"scans {scan_start}-{scan_end}, {sum(sequence_idx)} scans"]
+    selected_sequence_idx, _ = generate_input_user_prompt(
         load_object_type_string="sequences",
-        options_list=unique_sequences,
+        options_list=[f"sequence {x}" for x in unique_sequences],
         allow_multiple_selections=True,
-        options_info_list=sequence_counts,
-        options_info_type_string="scans",
+        options_info_list=options_info_list,
         use_option=use_sequence,
     )
-    selected_experiment.remove_sequences(selected_sequences)
-    return subsets[selected_key]
+    selected_sequences = unique_sequences[selected_sequence_idx]
+    selected_experiment.remove_sequences(unique_sequences[selected_sequence_idx])
+
+    return subsets[selected_experiment_name]
 
 
 def load_experiment(
@@ -352,11 +375,15 @@ def load_experiment(
     n_processes: int = 1,
     selected_experiment_name: Optional[str] = None,
     selected_metadata_list: Optional[list[str]] = None,
+    scan_start: Optional[int] = None,
+    scan_end: Optional[int] = None,
 ) -> LamniLoader:
     """
     Load an experiment that is saved with the lamni structure.
     """
-    scan_numbers, angles, experiment_names, sequences = extract_experiment_data(dat_file_path)
+    scan_numbers, angles, experiment_names, sequences = extract_experiment_data(
+        dat_file_path, scan_start, scan_end
+    )
     selected_experiment = select_experiment(
         parent_projections_folder,
         scan_numbers,
@@ -366,8 +393,22 @@ def load_experiment(
         use_experiment_name=selected_experiment_name,
     )
     selected_experiment.get_projection_analysis_file_info()
-    selected_experiment.select_and_load_projections(n_processes, selected_metadata_list)
-
+    selected_experiment.select_and_load_projections(selected_metadata_list)
+    # Print data selection settings
+    print("Use these settings to bypass user-selection on next load:")
+    input_settings_string = (
+        f"\tselected_experiment_name=\"{selected_experiment.experiment_name}\",\n"
+        + f"\tselected_sequences={list(np.unique(selected_experiment.sequences))},\n"
+        + f"\tselected_metadata_list={selected_experiment.selected_metadata_list},\n"
+    )
+    if scan_start is not None:
+        input_settings_string += f"\tscan_start={scan_start},\n"
+    if scan_end is not None:
+        input_settings_string += f"\tscan_end={scan_end},\n"
+    print(input_settings_string)
+    # Load projections
+    selected_experiment.load_projections(n_processes)
+ 
     return selected_experiment
 
 

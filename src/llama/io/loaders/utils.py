@@ -87,7 +87,11 @@ def get_user_input(
             else:
                 if allow_multiple_selections:
                     selection = [options_list[idx] for idx in parsed_input]
-                    selection_string = f"Selected options: {selection}"
+                    selection_string = [
+                        f"{idx + 1}. {x}" for idx, x in zip(parsed_input, selection)
+                    ]
+                    selection_string = "  " + "\n  ".join(selection_string)
+                    selection_string = f"Selected options:\n{selection_string}"
                 else:
                     selection = options_list[parsed_input]
                     selection_string = f"Selected option {parsed_input + 1}. {selection}"
