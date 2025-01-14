@@ -42,7 +42,6 @@ class LamniLoadOptions:
     scan_end: Optional[int] = None
     "Upper bound of scans to include."
 
-
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):
             print("No loading options provided.", flush=True)
@@ -120,15 +119,14 @@ class LamniLoader:
     projection_files : dict[int, list[str]]
         Dictionary that maps scan number to files in the projection
         folder.
-    projections : dict[int, np.ndarray]
-        Dictionary that maps scan number to the projection array.
     file_paths : dict[int, str]
         Dictionary that maps scan number to the full projection file
         path.
+    projections : dict[int, np.ndarray]
+        Dictionary that maps scan number to the projection array.
     """
 
     ptycho_params: dict[int, dict] = {}
-    selected_metadata_list: list[str] = []
     projection_folders: dict[int, str] = {}
     projection_files: dict[int, list[str]] = {}
     file_paths: dict[int, str] = {}
@@ -169,9 +167,10 @@ class LamniLoader:
         self.projections = return_dict_subset(self.projections, sequences_to_keep)
         self.ptycho_params = return_dict_subset(self.ptycho_params, sequences_to_keep)
 
-    def get_projection_analysis_file_info(self):
+    def get_projections_folders_and_file_names(self):
         """
-        Find projection h5 files and record the metadata stored in the title strings
+        Generate the folder path for all projections and get a list of
+        the files in that folder.
         """
         for scan_number in self.scan_numbers:
             proj_relative_folder_path = generate_projection_relative_path(
@@ -183,7 +182,6 @@ class LamniLoader:
                 self.parent_projections_folder, proj_relative_folder_path
             )
             self.record_projection_path_and_files(projection_folder, scan_number)
-        self.extract_metadata_from_all_titles()
 
     def record_projection_path_and_files(self, folder: str, scan_number: int):
         if os.path.exists(folder) and os.listdir(folder) != []:
@@ -200,7 +198,7 @@ class LamniLoader:
                 [metadata_string in string for string in file_list]
             )
 
-    def select_and_load_projections(
+    def select_projections(
         self,
         selected_metadata_list: Optional[None],
         ask_for_backup_metadata: bool = True,
@@ -417,8 +415,9 @@ def load_experiment(
         use_experiment_name=options.selected_experiment_name,
         use_sequence=options.selected_sequences,
     )
-    selected_experiment.get_projection_analysis_file_info()
-    selected_experiment.select_and_load_projections(options.selected_metadata_list)
+    selected_experiment.get_projections_folders_and_file_names()
+    selected_experiment.extract_metadata_from_all_titles()
+    selected_experiment.select_projections(options.selected_metadata_list)
     # Print data selection settings
     print("Use these settings to bypass user-selection on next load:")
     input_settings_string = (
