@@ -143,7 +143,8 @@ class Projections:
         upsample_options = UpsampleOptions(
             scale=downsample_options.scale, enabled=downsample_options.enabled
         )
-        return Upsampler(upsample_options).run(self.masks)
+        self.masks = Upsampler(upsample_options).run(self.masks)
+        # return Upsampler(upsample_options).run(self.masks)
 
     def blur_masks(self, kernel_sigma: int, use_gpu: bool = False):
         return blur_masks(self.masks, kernel_sigma, use_gpu)

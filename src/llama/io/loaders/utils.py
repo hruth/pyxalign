@@ -231,13 +231,13 @@ def convert_projection_dict_to_array(
         print("Rotating and flipping some projections...Completed")
 
     if new_shape is None:
-        new_shape = np.array([projection.shape for projection in projections.values()]).max(axis=0)
+        new_shape = np.max([projection.shape for projection in projections.values()], axis=0)
     else:
         new_shape = np.array(new_shape)
 
     # Force new shape to be compatible with downsampling functions with
     # downsampling up to divisible_by
-    new_shape = (np.floor(new_shape / (divisible_by * 2)) * (divisible_by * 2)).astype(int)
+    new_shape = (np.ceil(new_shape / (divisible_by * 2)) * (divisible_by * 2)).astype(int)
 
     # Fix projections dimensions through cropping and padding
     print("Fixing projections dimensions...")
