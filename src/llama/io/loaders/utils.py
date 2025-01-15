@@ -1,8 +1,16 @@
+import chunk
+from math import e
 from typing import Optional, Union
 import traceback
 import h5py
 import numpy as np
 import time
+from scipy import stats
+
+from tqdm import tqdm
+
+from llama.transformations.functions import image_crop_pad
+from llama.api.types import c_type
 
 border = 60 * "-"
 
@@ -189,6 +197,78 @@ def get_boolean_user_input(prompt: str) -> bool:
             return False
         else:
             print("Invalid input. Please enter 'y' or 'n'.", flush=True)
+
+
+def convert_projection_dict_to_array(
+    projections: dict[int, np.ndarray],
+    new_shape: Optional[tuple] = None,
+    repair_orientation: bool = False,
+    pad_mode: str = "constant",
+    pad_with_mode: bool = False,
+    divisible_by: int = 32,
+    chunk_length: int = 20,
+    delete_projection_dict: bool = False,
+) -> np.ndarray:
+    if pad_with_mode:
+        pad_mode = "constant"
+
+    # Reorient the projections -- only needed for specific data
+    # sets where projections are 90 degrees off from where they
+    # should be
+    if repair_orientation:
+        print("Rotating and flipping some projections...")
+        target_aspect_ratio = projections[0].shape[1] / projections[0].shape[0]
+        # for i in tqdm(range(len(projections))):
+        for k, projection in tqdm(projections.items()):
+            aspect_ratio = projection.shape[1] / projection.shape[0]
+            # Can try to change this aspect ratio if having issues later.
+            reorient_this_projection = (target_aspect_ratio < 1 and aspect_ratio > 1) or (
+                target_aspect_ratio > 1 and aspect_ratio < 1
+            )
+            if reorient_this_projection:
+                print("Reorienting projection", k)
+                projections[k] = np.fliplr(np.rot90(projection, -1))
+        print("Rotating and flipping some projections...Completed")
+
+    if new_shape is None:
+        new_shape = np.array([projection.shape for projection in projections.values()]).max(axis=0)
+    else:
+        new_shape = np.array(new_shape)
+
+    # Force new shape to be compatible with downsampling functions with
+    # downsampling up to divisible_by
+    new_shape = (np.floor(new_shape / (divisible_by * 2)) * (divisible_by * 2)).astype(int)
+
+    # Fix projections dimensions through cropping and padding
+    print("Fixing projections dimensions...")
+    for k, projection in tqdm(projections.items()):
+        if pad_with_mode:
+            pad_value = stats.mode(np.abs(projection), axis=None).mode
+        else:
+            pad_value = None
+        projections[k] = image_crop_pad(
+            projection, new_shape[0], new_shape[1], pad_mode, constant_values=pad_value
+        )
+    print("Fixing projections dimensions...Completed")
+
+    # Convert to array in chunks to avoid memory issues
+    print("Converting list to array...")
+    n_iterations = int(np.ceil(len(projections) / chunk_length))
+    all_keys = list(projections.keys())
+    for i in tqdm(range(n_iterations)):
+        keys = all_keys[i * chunk_length : (i + 1) * chunk_length]
+        if i == 0:
+            projections_array = np.stack([projections[key] for key in keys])
+        else:
+            projections_array = np.append(
+                projections_array, np.stack([projections[key] for key in keys]), axis=0
+            )
+        if delete_projection_dict:
+            for k in keys:
+                del projections[k]
+    print("Converting list to array..Completed")
+
+    return projections_array
 
 
 if __name__ == "__main__":

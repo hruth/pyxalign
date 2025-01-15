@@ -7,7 +7,7 @@ class StandardData:
 
     def __init__(
         self,
-        projections: list[np.ndarray],
+        projections: dict[int, np.ndarray],
         angles: np.ndarray,
         scan_numbers: Optional[np.ndarray],
         file_paths: Optional[list],

@@ -57,8 +57,18 @@ def image_crop(
 
 
 def image_crop_pad(
-    images: ArrayType, new_extent_y: int, new_extent_x: int, pad_mode: str = "constant"
+    images: ArrayType,
+    new_extent_y: int,
+    new_extent_x: int,
+    pad_mode: str = "constant",
+    constant_values = None,
 ):
+    if len(images.shape) == 2:
+        added_extra_dim = True
+        images = images[None]
+    else:
+        added_extra_dim = False
+
     [extent_y, extent_x] = images.shape[1:]
 
     # Crop
@@ -77,13 +87,16 @@ def image_crop_pad(
 
     # Pad
     if extent_y < new_extent_y:
-        w = new_extent_y - new_extent_y
+        w = new_extent_y - extent_y
         pad_width = ((0, 0), (int(np.ceil(w / 2)), int(np.floor(w / 2))), (0, 0))
-        images = np.pad(images, pad_width, mode=pad_mode)
+        images = np.pad(images, pad_width, mode=pad_mode, constant_values=constant_values)
     if extent_x < new_extent_x:
-        w = new_extent_x - new_extent_x
+        w = new_extent_x - extent_x
         pad_width = ((0, 0), (0, 0), (int(np.ceil(w / 2)), int(np.floor(w / 2))))
-        images = np.pad(images, pad_width, mode=pad_mode)
+        images = np.pad(images, pad_width, mode=pad_mode, constant_values=constant_values)
+
+    if added_extra_dim:
+        images = images[0]
 
     return images
 

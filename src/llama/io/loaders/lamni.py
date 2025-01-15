@@ -51,7 +51,6 @@ class LamniLoadOptions:
             for k, v in self.__dict__.items():
                 if v is not None:
                     print(f"  {k}: {v}", flush=True)
-            print(flush=True)
 
 
 def load_data_from_lamni_format(
@@ -433,7 +432,8 @@ def load_experiment(
         input_settings_string += f"  scan_start={options.scan_start},\n"
     if options.scan_end is not None:
         input_settings_string += f"  scan_end={options.scan_end},\n"
-    print(input_settings_string)
+    input_settings_string = input_settings_string[:-1]
+    print(input_settings_string, flush=True)
     # Load projections
     selected_experiment.load_projections(n_processes)
 
