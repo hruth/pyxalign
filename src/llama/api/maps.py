@@ -2,7 +2,14 @@ from typing import Callable, Union
 import numpy as np
 import cupy as cp
 
-from llama.api.enums import DownsampleType, ShiftType, UpsampleType, DeviceType, MemoryConfig
+from llama.api.enums import (
+    DownsampleType,
+    RotationType,
+    ShiftType,
+    UpsampleType,
+    DeviceType,
+    MemoryConfig,
+)
 import llama.transformations.functions
 import llama.gpu_utils as gutils
 
@@ -13,9 +20,13 @@ class ShiftProtocol:
     def __call__(self, images: ArrayType, shift: int) -> ArrayType: ...
 
 
+class RotationProtocol:
+    def __call__(self, images: ArrayType, angle: int) -> ArrayType: ...
+
+
 # Functions with enum inputs
 # To do: make a protocol to help with type hints
-def get_downsample_func_by_enum(key: DownsampleType) -> Callable[[ArrayType, int], ArrayType]:
+def get_downsample_func_by_enum(key: DownsampleType) -> Callable:
     return {
         DownsampleType.FFT: llama.transformations.functions.image_downsample_fft,
         DownsampleType.LINEAR: llama.transformations.functions.image_downsample_linear,
@@ -23,7 +34,7 @@ def get_downsample_func_by_enum(key: DownsampleType) -> Callable[[ArrayType, int
     }[key]
 
 
-def get_upsample_func_by_enum(key: UpsampleType) -> Callable[[ArrayType, int], ArrayType]:
+def get_upsample_func_by_enum(key: UpsampleType) -> Callable:
     return {
         UpsampleType.NEAREST: llama.transformations.functions.image_upsample_nearest,
     }[key]
@@ -34,6 +45,18 @@ def get_shift_func_by_enum(key: DownsampleType) -> ShiftProtocol:
         ShiftType.CIRC: llama.transformations.functions.image_shift_circ,
         ShiftType.FFT: llama.transformations.functions.image_shift_fft,
         ShiftType.LINEAR: llama.transformations.functions.image_shift_linear,
+    }[key]
+
+
+def get_rotation_func_by_enum(key: RotationType) -> RotationProtocol:
+    return {
+        RotationType.FFT: llama.transformations.functions.image_rotate_fft,
+    }[key]
+
+
+def get_shear_func_by_enum(key: RotationType) -> RotationProtocol:
+    return {
+        RotationType.FFT: llama.transformations.functions.image_shear_fft,
     }[key]
 
 

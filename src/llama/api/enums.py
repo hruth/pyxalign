@@ -14,6 +14,14 @@ class ShiftType(StrEnum):
     LINEAR = auto()
 
 
+class RotationType(StrEnum):
+    FFT = auto()
+
+
+class ShearType(StrEnum):
+    FFT = auto()
+
+
 class DownsampleType(StrEnum):
     FFT = auto()
     LINEAR = auto()

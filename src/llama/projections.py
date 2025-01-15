@@ -14,7 +14,7 @@ from llama.laminogram import Laminogram
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
-from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropper
+from llama.transformations.classes import Downsampler, Rotator, Shifter, Upsampler, Cropper
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
 from llama.api.types import ArrayType, r_type
