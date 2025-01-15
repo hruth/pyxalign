@@ -181,7 +181,7 @@ class LamniLoader:
             )
             self.record_projection_path_and_files(projection_folder, scan_number)
         print(
-            f"{len(self.projection_folders)} scans have projection one or more projection files.",
+            f"{len(self.projection_folders)} scans have one or more projection files.",
             flush=True,
         )
 
