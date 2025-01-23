@@ -111,13 +111,20 @@ def create_astra_reconstructor_config(
     sinogram: np.ndarray,
     scan_geometry_config: dict,
     vectors: np.ndarray,
-):
+    astra_config: Optional[dict] = None,
+) -> tuple[dict, dict]:
     geometries = get_geometries(scan_geometry_config, vectors)
-    astra_config = astra.astra_dict("BP3D_CUDA")  # update this for cpu option later
-    astra_config["ReconstructionDataId"] = astra.data3d.create("-vol", geometries["vol_geom"])
-    astra_config["ProjectionDataId"] = astra.data3d.create(
-        "-sino", geometries["proj_geom"], sinogram.transpose([1, 0, 2])
-    )
+    if astra_config is None:
+        astra_config = astra.astra_dict("BP3D_CUDA")  # update this for cpu option later
+        astra_config["ReconstructionDataId"] = astra.data3d.create("-vol", geometries["vol_geom"])
+        astra_config["ProjectionDataId"] = astra.data3d.create(
+            "-sino", geometries["proj_geom"], sinogram.transpose([1, 0, 2])
+        )
+    else:
+        astra.data3d.change_geometry(astra_config["ReconstructionDataId"], geometries["vol_geom"])
+        astra.data3d.change_geometry(astra_config["ProjectionDataId"], geometries["proj_geom"])
+        astra.data3d.store(astra_config["ProjectionDataId"], sinogram.transpose([1, 0, 2]))
+
     return astra_config, geometries
 
 
@@ -272,12 +279,18 @@ def get_forward_projection(
         geometries["vol_geom"],
         returnData=False,
     )
-    # There ma be a way to use .get_shared to save time and/or memory,
-    # but it may cause segmentation fault issues?
+
+    # if you are having issues with segmentation faults, it may be due to the
+    # use of get_shared. Using get_shared is slightly faster.
     if pinned_forward_projection is None:
-        pinned_forward_projection = astra.data3d.get(forward_projection_ID).transpose([1, 0, 2])
+        pinned_forward_projection = astra.data3d.get_shared(forward_projection_ID).transpose(
+            [1, 0, 2]
+        )
     else:
-        pinned_forward_projection[:] = astra.data3d.get(forward_projection_ID).transpose([1, 0, 2])
+        # pinned_forward_projection[:] = astra.data3d.get(forward_projection_ID).transpose([1, 0, 2])
+        pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_ID).transpose(
+            [1, 0, 2]
+        )
     astra.data3d.delete(forward_projection_ID)
 
     return pinned_forward_projection

@@ -18,6 +18,7 @@ class Laminogram:
     ):
         # Store a reference to the projections
         self.projections = projections
+        self.astra_config = None
 
     @timer()
     def generate_laminogram(
@@ -47,12 +48,12 @@ class Laminogram:
             )
         else:
             sinogram = self.projections.data
-        astra_config, self.geometries = reconstruct.create_astra_reconstructor_config(
+        self.astra_config, self.geometries = reconstruct.create_astra_reconstructor_config(
             sinogram=sinogram,
             scan_geometry_config=scan_geometry_config,
             vectors=vectors,
         )
-        self.data: np.ndarray = reconstruct.get_3D_reconstruction(astra_config)
+        self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
 
     def get_forward_projection(self, pinned_forward_projection: Optional[np.ndarray] = None):
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
@@ -72,6 +73,7 @@ class Laminogram:
         )
         astra.clear()
 
+    @timer()
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):
         if circulo is None:
             self.data[:] = self.data * self.get_circular_window()

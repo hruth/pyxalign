@@ -8,6 +8,7 @@ from llama.api.options.projections import (
 )
 from llama.api.types import r_type
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 
 class CenterOfRotationEstimateResults:
@@ -73,16 +74,18 @@ def estimate_center_of_rotation(
     )
 
     # Run projection-matching alignment at different center of rotation values
-    for i in range(num_v_pts):
-        for j in range(num_h_pts):
-            downsampled_projections.center_of_rotation = (
-                np.array([vertical_coordinates[i], horizontal_coordinates[j]]) / scale
-            )
-            pma_object = pm.ProjectionMatchingAligner(
-                downsampled_projections, options.projection_matching
-            )
-            pma_object.run()
-            center_of_rotation_estimate_results.update_errors(pma_object.pinned_error, i, j)
+    with tqdm(total=num_v_pts * num_h_pts, desc="Combined Loops") as progress_bar:
+        for i in range(num_v_pts):
+            for j in range(num_h_pts):
+                downsampled_projections.center_of_rotation = (
+                    np.array([vertical_coordinates[i], horizontal_coordinates[j]]) / scale
+                )
+                pma_object = pm.ProjectionMatchingAligner(
+                    downsampled_projections, options.projection_matching
+                )
+                pma_object.run()
+                center_of_rotation_estimate_results.update_errors(pma_object.pinned_error, i, j)
+                progress_bar.update(1)
 
     return center_of_rotation_estimate_results
 

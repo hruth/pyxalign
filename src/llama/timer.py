@@ -41,7 +41,8 @@ def timer(prefix: str = "", save_elapsed_time: bool = True, enabled: bool = True
                 result = func(*args, **kwargs)
                 elapsed_time = time.time() - start_time
                 tabs = tabs[:-spaces]
-                print(f"{tabs}Function '{prefix}{func.__name__}': {elapsed_time:.4f} seconds")
+                if elapsed_time > 1e-3:
+                    print(f"{tabs}Function '{prefix}{func.__name__}': {elapsed_time:.4f} seconds")
                 if save_elapsed_time:
                     update_elapsed_time_array(save_elapsed_time, prefix, func, elapsed_time)
                 return result
@@ -143,7 +144,7 @@ def plot_elapsed_time_vs_iteration(
         elapsed_time_dict = return_top_n_entries(elapsed_time_dict, top_n)
 
     for k, v in elapsed_time_dict.items():
-        if hasattr(v, "__len__") and len(v) > 5:  # temp fix
+        if hasattr(v, "__len__") and len(v) > 2:  # temp fix
             plt.plot(v, linestyle, label=k)
 
     plt.legend()

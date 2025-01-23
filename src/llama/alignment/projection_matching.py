@@ -16,6 +16,8 @@ from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
+from IPython.display import clear_output
+from tqdm import tqdm
 
 # To do:
 # - add option for creating pinned arrays to speed up downsampling
@@ -80,7 +82,8 @@ class ProjectionMatchingAligner(Aligner):
         tukey_window, circulo = self.initialize_windows()
 
         for self.iteration in range(self.options.iterations):
-            print("Iteration: ", self.iteration)
+        # for self.iteration in tqdm(range(self.options.iterations)):
+            print("Iteration: ", str(self.iteration) + "/" + str(self.options.iterations))
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
             is_step_size_below_threshold = self.print_step_size_update()
             if is_step_size_below_threshold:
@@ -99,7 +102,7 @@ class ProjectionMatchingAligner(Aligner):
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
         # Apply tukey window filter - convert to gpu chunked later
-        self.aligned_projections.masks[:] = tukey_window * self.aligned_projections.masks
+        self.apply_window_to_masks(tukey_window)
         # Get back projection:
         # - use method from projections class and add filtering
         # - later, add ability to re-use the same astra_config
@@ -274,6 +277,10 @@ class ProjectionMatchingAligner(Aligner):
         shift = xp.array([x_shift, y_shift]).transpose().astype(r_type)
 
         return shift, error, unfiltered_error
+    
+    @timer()
+    def apply_window_to_masks(self, tukey_window: ArrayType):
+        self.aligned_projections.masks[:] = tukey_window * self.aligned_projections.masks
 
     @timer()
     def regularize_reconstruction(self):
