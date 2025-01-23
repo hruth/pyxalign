@@ -8,6 +8,7 @@ import functools
 from llama.timer import timer
 from llama.gpu_utils import get_fft_backend, get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
+from llama.timer import timer
 
 from llama.api.types import ArrayType, r_type, c_type
 
@@ -133,6 +134,7 @@ def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True)
     return images
 
 
+@timer()
 def image_shift_circ(images: ArrayType, shift: ArrayType, in_place=False) -> ArrayType:
     xp = cp.get_array_module(images)
 
@@ -157,10 +159,12 @@ def image_shift_circ(images: ArrayType, shift: ArrayType, in_place=False) -> Arr
     return images
 
 
+@timer()
 def image_shift_linear(images: ArrayType, shift: ArrayType) -> ArrayType:
     return image_downsample_linear(images, 1, shift)
 
 
+@timer()
 def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
@@ -181,6 +185,7 @@ def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
 
 
 @preserve_complexity_or_realness()
+@timer()
 def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=False) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
@@ -230,6 +235,7 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
     return images
 
 
+@timer()
 def image_downsample_linear(
     images: ArrayType,
     scale: int,
@@ -286,6 +292,7 @@ def image_downsample_linear(
     return new_images
 
 
+@timer()
 def image_downsample_nearest(
     images: ArrayType, scale: int, use_gaussian_filter: bool = False
 ) -> ArrayType:
@@ -294,10 +301,12 @@ def image_downsample_nearest(
     return images[:, ::scale, ::scale]
 
 
+@timer()
 def image_upsample_nearest(images: ArrayType, scale: int) -> ArrayType:
     return images.repeat(scale, axis=1).repeat(scale, axis=2)
 
 
+@timer()
 @preserve_complexity_or_realness()
 def image_rotate_fft(images: ArrayType, theta: float) -> ArrayType:
     """Rotates the image around the z-axis (0th axis) of the input images"""
@@ -331,6 +340,7 @@ def image_rotate_fft(images: ArrayType, theta: float) -> ArrayType:
 
 
 @preserve_complexity_or_realness()
+@timer()
 def image_shear_fft(images: ArrayType, theta: float) -> ArrayType:
     """Shears the image about the z-axis (0th axis) of the input images"""
     xp = cp.get_array_module(images)

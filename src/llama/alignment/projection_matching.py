@@ -7,7 +7,7 @@ from llama.alignment.base import Aligner
 from llama.api.options.transform import ShiftOptions
 # from llama.projections import PhaseProjections
 import llama.projections as projections
-from llama.timer import timer, delete_elapsed_time_arrays
+from llama.timer import timer, clear_timer_globals
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip
 import llama.api.maps as maps
@@ -16,6 +16,7 @@ from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
+from llama.timer import timer
 from IPython.display import clear_output
 from tqdm import tqdm
 
@@ -24,13 +25,15 @@ from tqdm import tqdm
 
 
 class ProjectionMatchingAligner(Aligner):
+    @timer()
     def __init__(self, projections: "projections.PhaseProjections", options: ProjectionMatchingOptions):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
-        delete_elapsed_time_arrays()
+        # clear_timer_globals()
         # self.options.reconstruct.filter.device = self.options.device
 
     @gutils.memory_releasing_error_handler
+    @timer()
     def run(self, initial_shift: Optional[np.ndarray] = None) -> np.ndarray:
         # Create the projections object
         projection_options = copy.deepcopy(self.projections.options)
@@ -75,6 +78,7 @@ class ProjectionMatchingAligner(Aligner):
     # - initial shift not supported
 
     @gutils.memory_releasing_error_handler
+    @timer()
     def calculate_alignment_shift(self) -> ArrayType:
         unshifted_masks, unshifted_projections = self.initialize_arrays()
         self.initialize_attributes()
@@ -285,7 +289,8 @@ class ProjectionMatchingAligner(Aligner):
     @timer()
     def regularize_reconstruction(self):
         pass
-
+    
+    @timer()
     def initialize_arrays(self):
         self.memory_config = maps.get_memory_config_enum(
             self.options.keep_on_gpu, self.options.device.device_type
@@ -318,6 +323,7 @@ class ProjectionMatchingAligner(Aligner):
 
         return unshifted_masks, unshifted_projections
 
+    @timer()
     def initialize_shifters(self):
         device_options = copy.deepcopy(self.options.device)
         if self.memory_config == MemoryConfig.GPU_ONLY:
@@ -337,6 +343,7 @@ class ProjectionMatchingAligner(Aligner):
         self.projection_shifter = Shifter(projections_shift_options)
         self.mask_shifter = Shifter(mask_shift_options)
 
+    @timer()
     def initialize_windows(self) -> tuple[ArrayType, ArrayType]:
         # Generate window for removing edge issues
         tukey_window = ip.get_tukey_window(self.aligned_projections.size, A=0.2, xp=self.xp)
@@ -347,7 +354,8 @@ class ProjectionMatchingAligner(Aligner):
             tukey_window = gutils.pin_memory(tukey_window)
 
         return tukey_window, circulo
-
+    
+    @timer()
     def move_arrays_back_to_cpu(self):
         self.total_shift = self.total_shift.get()
         self.aligned_projections.data = self.aligned_projections.data.get()
@@ -370,6 +378,7 @@ class ProjectionMatchingAligner(Aligner):
             return False
 
 
+@timer()
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):
     xp = cp.get_array_module(projections_residuals)
     error = xp.sqrt(xp.mean((masks * projections_residuals) ** 2, axis=(1, 2))) / mass

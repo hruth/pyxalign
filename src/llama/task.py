@@ -6,6 +6,7 @@ from llama.alignment.projection_matching import ProjectionMatchingAligner
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
+from llama.timer import clear_timer_globals
 
 
 class LaminographyAlignmentTask:
@@ -25,6 +26,7 @@ class LaminographyAlignmentTask:
         self.phase_projections = phase_projections
 
     def get_cross_correlation_shift(self):
+        clear_timer_globals()
         # Only for complex projections for now
         # Does this really need to be saved as an attribute?
         self.cross_correlation_aligner = CrossCorrelationAligner(
@@ -41,6 +43,7 @@ class LaminographyAlignmentTask:
         print("Cross-correlation shift stored in shift_manager")
 
     def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray]=None):
+        clear_timer_globals()
         self.pma_object = ProjectionMatchingAligner(
             self.phase_projections, self.options.projection_matching
         )
@@ -53,6 +56,7 @@ class LaminographyAlignmentTask:
         print("Projection-matching shift stored in shift_manager")
 
     def get_complex_projection_masks(self, enable_plotting: bool = False):
+        clear_timer_globals()
         self.complex_projections.get_masks(enable_plotting)
 
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):

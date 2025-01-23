@@ -41,7 +41,7 @@ class Downsampler(Transformation):
         super().__init__(options)
         self.options: DownsampleOptions = options
 
-    @timer("Downsampler")
+    @timer()#"Downsampler")
     def run(
         self,
         images: ArrayType,
@@ -89,7 +89,7 @@ class Upsampler(Transformation):
         super().__init__(options)
         self.options: UpsampleOptions = options
 
-    @timer("Upsampler")
+    @timer()#"Upsampler")
     def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image upsampling functions"""
         if self.enabled:
@@ -112,7 +112,7 @@ class Shifter(Transformation):
         super().__init__(options)
         self.options: ShiftOptions = options
     
-    @timer("Shifter")
+    @timer()#"Shifter")
     def run(
         self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None
     ) -> ArrayType:
@@ -137,7 +137,7 @@ class Rotator(Transformation):
         super().__init__(options)
         self.options: RotationOptions = options
 
-    @timer("Rotator")
+    @timer()#"Rotator")
     def run(
         self, images: ArrayType, angle: float, pinned_results: Optional[np.ndarray] = None
     ) -> ArrayType:
@@ -162,7 +162,7 @@ class Shearer(Transformation):
         super().__init__(options)
         self.options: ShearOptions = options
 
-    @timer("Shearer")
+    @timer()#"Shearer")
     def run(
         self, images: ArrayType, angle: float, pinned_results: Optional[np.ndarray] = None
     ) -> ArrayType:
@@ -187,6 +187,7 @@ class Cropper(Transformation):
         super().__init__(options)
         self.options: CropOptions = options
 
+    @timer()
     def run(self, images: ArrayType) -> ArrayType:
         """Calls the image cropping function"""
         if self.enabled:

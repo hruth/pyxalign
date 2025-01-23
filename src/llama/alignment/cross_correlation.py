@@ -14,6 +14,7 @@ from llama.gpu_utils import get_scipy_module, pin_memory, memory_releasing_error
 from llama.api import enums
 from llama.transformations.classes import Cropper
 from llama.api.types import ArrayType, r_type, c_type
+from llama.timer import timer, InlineTimer
 
 
 class CrossCorrelationAligner(Aligner):
@@ -22,9 +23,10 @@ class CrossCorrelationAligner(Aligner):
         self.options: CrossCorrelationOptions = self.options  # for static checker and type checking
 
     @memory_releasing_error_handler
+    @timer()
     def run(self, illum_sum: np.ndarray) -> np.ndarray:
-        projections = Cropper(self.options.crop_options).run(self.projections.data)
-        illum_sum = Cropper(self.options.crop_options).run(illum_sum)
+        projections = Cropper(self.options.crop).run(self.projections.data)
+        illum_sum = Cropper(self.options.crop).run(illum_sum)
         shift = self.calculate_alignment_shift(
             projections=projections,
             angles=self.projections.angles,
@@ -32,6 +34,7 @@ class CrossCorrelationAligner(Aligner):
         )
         return shift
 
+    @timer()
     def calculate_alignment_shift(
         self, projections: np.ndarray, angles: np.ndarray, illum_sum: np.ndarray
     ) -> np.ndarray:
@@ -64,13 +67,19 @@ class CrossCorrelationAligner(Aligner):
 
         for i in range(self.options.iterations):
             print("Iteration", str(i))
+            inline_timer = InlineTimer(name="filter variation")
+            inline_timer.start()
             variation_fft = ip.filtered_fft(
                 variation, xp.array(shift_total), self.options.filter_data
             )
+            inline_timer.end()
+            inline_timer = InlineTimer(name="cross corr adjacent scans")
+            inline_timer.start()
             shift_relative = ip.get_cross_correlation_shift(
                 image=variation_fft[idx_sort],
                 image_ref=variation_fft[np.roll(idx_sort, -1)],
             )
+            inline_timer.end()
             if cp.get_array_module(shift_relative) is cp:
                 shift_relative = shift_relative.get()
             shift_relative = np.roll(shift_relative, 1, 0)
@@ -109,6 +118,7 @@ class CrossCorrelationAligner(Aligner):
         return shift
 
     @staticmethod
+    @timer()
     def get_variation(
         projections: ArrayType, weights: ArrayType, binning: int
     ) -> ArrayType:  # pick a more clear name later

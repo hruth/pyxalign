@@ -8,6 +8,7 @@ import skimage
 import scipy.fft
 import time
 from tqdm import tqdm
+from contextlib import nullcontext
 import matplotlib.pyplot as plt
 from llama.transformations.helpers import is_array_real
 from IPython.display import clear_output, display
@@ -17,9 +18,11 @@ from plotly.subplots import make_subplots
 
 from llama.api.options.options import MaskOptions
 from llama.gpu_utils import memory_releasing_error_handler, get_scipy_module
+from llama.timer import timer
 
 
 @memory_releasing_error_handler
+@timer()
 def estimate_reliability_region_mask(
     images: np.ndarray, options: MaskOptions, enable_plotting=False
 ):
@@ -77,7 +80,11 @@ def estimate_reliability_region_mask(
 
     for i in tqdm(range(len(images))):
         # time.sleep(0.01)
-        with fig_widget.batch_update():
+        if enable_plotting:
+            context_manager = fig_widget.batch_update()
+        else:
+            context_manager = nullcontext()
+        with context_manager:
             temp_sino = xp.array(images[i])
             ignore_idx = xp.abs(temp_sino) < 0.1
             temp_sino[ignore_idx] = 0
