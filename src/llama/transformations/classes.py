@@ -10,6 +10,8 @@ from llama.api.options.transform import (
     TransformOptions,
     UpsampleOptions,
     CropOptions,
+    ShearOptions,
+    RotationOptions,
 )
 
 from llama.api.types import ArrayType
@@ -123,6 +125,56 @@ class Shifter(Transformation):
                 pinned_results=pinned_results,
             )
             return self.function(images, shift)
+        else:
+            return images
+
+
+class Rotator(Transformation):
+    def __init__(
+        self,
+        options: RotationOptions,
+    ):
+        super().__init__(options)
+        self.options: RotationOptions = options
+
+    @timer("Rotator")
+    def run(
+        self, images: ArrayType, angle: float, pinned_results: Optional[np.ndarray] = None
+    ) -> ArrayType:
+        """Calls one of the image rotation functions"""
+        if self.enabled:
+            self.function = device_handling_wrapper(
+                func=maps.get_rotation_func_by_enum(self.options.type),
+                options=self.options.device,
+                chunkable_inputs_for_gpu_idx=[0],
+                pinned_results=pinned_results,
+            )
+            return self.function(images, angle)
+        else:
+            return images
+
+
+class Shearer(Transformation):
+    def __init__(
+        self,
+        options: ShearOptions,
+    ):
+        super().__init__(options)
+        self.options: ShearOptions = options
+
+    @timer("Shearer")
+    def run(
+        self, images: ArrayType, angle: float, pinned_results: Optional[np.ndarray] = None
+    ) -> ArrayType:
+        """Calls one of the image shearing functions"""
+        if self.enabled:
+            self.function = device_handling_wrapper(
+                func=maps.get_shear_func_by_enum(self.options.type),
+                options=self.options.device,
+                chunkable_inputs_for_gpu_idx=[0],
+                pinned_results=pinned_results,
+            )
+            return self.function(images, angle)
         else:
             return images
 

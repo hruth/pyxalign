@@ -3,7 +3,7 @@ import dataclasses
 from dataclasses import field
 from typing import Union
 import numpy as np
-from llama.api.enums import ShiftType, DownsampleType, UpsampleType
+from llama.api.enums import ShiftType, DownsampleType, UpsampleType, RotationType, ShearType
 from llama.api.options.device import DeviceOptions
 
 
@@ -22,6 +22,24 @@ class TransformOptions(ABC):
 @dataclasses.dataclass
 class ShiftOptions(TransformOptions):
     type: ShiftType = ShiftType.FFT
+
+    enabled: bool = False
+
+    device: DeviceOptions = field(default_factory=DeviceOptions)
+
+
+@dataclasses.dataclass
+class RotationOptions(TransformOptions):
+    type: ShiftType = RotationType.FFT
+
+    enabled: bool = False
+
+    device: DeviceOptions = field(default_factory=DeviceOptions)
+
+
+@dataclasses.dataclass
+class ShearOptions(TransformOptions):
+    type: ShiftType = ShearType.FFT
 
     enabled: bool = False
 

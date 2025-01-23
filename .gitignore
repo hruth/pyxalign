@@ -7,3 +7,5 @@
 untracked_tests/*
 *.env
 .loglogin
+*tests/demo/*
+*src/paths/*

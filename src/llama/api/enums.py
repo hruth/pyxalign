@@ -14,6 +14,14 @@ class ShiftType(StrEnum):
     LINEAR = auto()
 
 
+class RotationType(StrEnum):
+    FFT = auto()
+
+
+class ShearType(StrEnum):
+    FFT = auto()
+
+
 class DownsampleType(StrEnum):
     FFT = auto()
     LINEAR = auto()
@@ -32,3 +40,7 @@ class MemoryConfig(StrEnum):
     GPU_ONLY = auto()
     MIXED = auto()
     CPU_ONLY = auto()
+
+
+class InputFileStructureType(StrEnum):
+    LAMNI = auto()

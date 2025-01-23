@@ -14,7 +14,7 @@ from llama.laminogram import Laminogram
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
-from llama.transformations.classes import Downsampler, Shifter, Upsampler, Cropper
+from llama.transformations.classes import Downsampler, Rotator, Shifter, Upsampler, Cropper
 from llama.transformations.functions import image_shift_fft
 from llama.unwrap import unwrap_phase
 from llama.api.types import ArrayType, r_type
@@ -143,7 +143,8 @@ class Projections:
         upsample_options = UpsampleOptions(
             scale=downsample_options.scale, enabled=downsample_options.enabled
         )
-        return Upsampler(upsample_options).run(self.masks)
+        self.masks = Upsampler(upsample_options).run(self.masks)
+        # return Upsampler(upsample_options).run(self.masks)
 
     def blur_masks(self, kernel_sigma: int, use_gpu: bool = False):
         return blur_masks(self.masks, kernel_sigma, use_gpu)

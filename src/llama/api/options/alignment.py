@@ -27,7 +27,7 @@ class CrossCorrelationOptions(AlignmentOptions):
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    crop_options: CropOptions = field(default_factory=CropOptions)
+    crop: CropOptions = field(default_factory=CropOptions)
 
 
 @dataclasses.dataclass
