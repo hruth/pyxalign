@@ -78,7 +78,7 @@ def estimate_reliability_region_mask(
         )
         fig_widget = go.FigureWidget(fig)
 
-    for i in tqdm(range(len(images))):
+    for i in tqdm(range(len(images)), desc="calculate mask"):
         # time.sleep(0.01)
         if enable_plotting:
             context_manager = fig_widget.batch_update()

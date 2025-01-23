@@ -2,6 +2,7 @@ from functools import wraps
 from typing import Callable, List, Optional, TypeVar, Union, Any
 import cupy as cp
 import numpy as np
+from tqdm import tqdm
 
 from llama import gpu_utils
 
@@ -254,15 +255,21 @@ class Iterator:
         inputs: InputArgumentsHandler,
         outputs: OutputResultsHandler,
         func: T,
+        display_progress_bar: bool = False,
     ):
         self.inputs = inputs
         self.outputs = outputs
         self.func = func
         self.n_gpus = len(self.inputs.gpu_list)
+        self.display_progress_bar = display_progress_bar
 
     def run(self, kwargs: dict = {}):
         gpu_idx = 0
-        for iter in range(self.inputs.n_chunks):
+        if self.display_progress_bar:
+            iterate_over = tqdm(range(self.inputs.n_chunks), desc=self.func.__name__)
+        else:
+            iterate_over = range(self.inputs.n_chunks)
+        for iter in iterate_over:
             gpu = self.inputs.gpu_list[gpu_idx]
             cp.cuda.Device(gpu).use()
 
@@ -303,6 +310,8 @@ def device_handling_wrapper(
     chunkable_inputs_for_cpu_idx: List[int] = [],
     common_inputs_for_gpu_idx: List[int] = [],
     pinned_results: Optional[Union[np.ndarray, tuple]] = None,
+    display_progress_bar: bool = False,
+    progress_bar_name: Optional[str] = None,
 ) -> T:
     """Wrapper that efficiently splits inputs into chunks and transfers them between
     the gpu and cpu.
@@ -321,7 +330,11 @@ def device_handling_wrapper(
 
         ### case 1: cpu calculation ###
         if options.device_type == DeviceType.CPU:
-            result = func(*args, **kwargs)
+            if display_progress_bar:
+                for i in tqdm(range(1), desc=func.__name__):
+                    result = func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
             return result
 
         ### case 2: on gpu, multiple chunks, and potentially multiple GPUs ###
@@ -341,7 +354,7 @@ def device_handling_wrapper(
             pinned_results,
         )
 
-        iterator = Iterator(inputs, outputs, func)
+        iterator = Iterator(inputs, outputs, func, display_progress_bar)
         iterator.run(kwargs)
 
         return outputs.full_results
