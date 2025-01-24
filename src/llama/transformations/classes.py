@@ -41,7 +41,7 @@ class Downsampler(Transformation):
         super().__init__(options)
         self.options: DownsampleOptions = options
 
-    @timer()#"Downsampler")
+    @timer()
     def run(
         self,
         images: ArrayType,
@@ -71,6 +71,7 @@ class Downsampler(Transformation):
                     options=self.options.device,
                     chunkable_inputs_for_gpu_idx=[0],
                     pinned_results=pinned_results,
+                    display_progress_bar=True,
                 )
                 return self.function(
                     images,
@@ -89,7 +90,7 @@ class Upsampler(Transformation):
         super().__init__(options)
         self.options: UpsampleOptions = options
 
-    @timer()#"Upsampler")
+    @timer()
     def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image upsampling functions"""
         if self.enabled:
@@ -98,6 +99,7 @@ class Upsampler(Transformation):
                 options=self.options.device,
                 chunkable_inputs_for_gpu_idx=[0],
                 pinned_results=pinned_results,
+                display_progress_bar=True,
             )
             return self.function(images, self.options.scale)
         else:
@@ -112,7 +114,7 @@ class Shifter(Transformation):
         super().__init__(options)
         self.options: ShiftOptions = options
     
-    @timer()#"Shifter")
+    @timer()
     def run(
         self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None
     ) -> ArrayType:
@@ -137,9 +139,9 @@ class Rotator(Transformation):
         super().__init__(options)
         self.options: RotationOptions = options
 
-    @timer()#"Rotator")
+    @timer()
     def run(
-        self, images: ArrayType, angle: float, pinned_results: Optional[np.ndarray] = None
+        self, images: ArrayType, pinned_results: Optional[np.ndarray] = None
     ) -> ArrayType:
         """Calls one of the image rotation functions"""
         if self.enabled:
@@ -148,8 +150,9 @@ class Rotator(Transformation):
                 options=self.options.device,
                 chunkable_inputs_for_gpu_idx=[0],
                 pinned_results=pinned_results,
+                display_progress_bar=True,
             )
-            return self.function(images, angle)
+            return self.function(images, self.options.angle)
         else:
             return images
 
@@ -162,9 +165,9 @@ class Shearer(Transformation):
         super().__init__(options)
         self.options: ShearOptions = options
 
-    @timer()#"Shearer")
+    @timer()
     def run(
-        self, images: ArrayType, angle: float, pinned_results: Optional[np.ndarray] = None
+        self, images: ArrayType, pinned_results: Optional[np.ndarray] = None
     ) -> ArrayType:
         """Calls one of the image shearing functions"""
         if self.enabled:
@@ -173,8 +176,9 @@ class Shearer(Transformation):
                 options=self.options.device,
                 chunkable_inputs_for_gpu_idx=[0],
                 pinned_results=pinned_results,
+                display_progress_bar=True,
             )
-            return self.function(images, angle)
+            return self.function(images, self.options.angle)
         else:
             return images
 

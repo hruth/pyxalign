@@ -30,20 +30,24 @@ class ShiftOptions(TransformOptions):
 
 @dataclasses.dataclass
 class RotationOptions(TransformOptions):
-    type: ShiftType = RotationType.FFT
+    type: RotationType = RotationType.FFT
 
     enabled: bool = False
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
+
+    angle: float = 0.0
 
 
 @dataclasses.dataclass
 class ShearOptions(TransformOptions):
-    type: ShiftType = ShearType.FFT
+    type: ShearType = ShearType.FFT
 
     enabled: bool = False
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
+
+    angle: float = 0.0
 
 
 @dataclasses.dataclass

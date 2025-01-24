@@ -6,9 +6,16 @@ from .transform import (
     CropOptions,
     UpsampleOptions,
     TransformOptions,
+    RotationOptions,
+    ShearOptions,
 )
 from .alignment import AlignmentOptions, CrossCorrelationOptions, ProjectionMatchingOptions
-from .projections import CoordinateSearchOptions, EstimateCenterOptions, ProjectionOptions
+from .projections import (
+    CoordinateSearchOptions,
+    EstimateCenterOptions,
+    ProjectionOptions,
+    ProjectionTransformOptions,
+)
 from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions
 from .task import AlignmentTaskOptions
 from .options import (

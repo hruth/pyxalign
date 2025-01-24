@@ -9,7 +9,7 @@ from llama.api.options.options import (
     PhaseUnwrapOptions,
 )
 from llama.api.options.reconstruct import ReconstructOptions
-from llama.api.options.transform import CropOptions, DownsampleOptions
+from llama.api.options.transform import CropOptions, DownsampleOptions, RotationOptions
 from functools import partial
 
 
@@ -42,6 +42,21 @@ class EstimateCenterOptions:
 
 
 @dataclasses.dataclass
+class ProjectionTransformOptions:
+    crop: CropOptions = field(default_factory=CropOptions)
+
+    downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
+
+    mask_downsample_type: enums.DownsampleType = enums.DownsampleType.LINEAR
+
+    mask_downsample_use_gaussian_filter: bool = False
+
+    rotation: RotationOptions = field(default_factory=RotationOptions)
+
+    shear: RotationOptions = field(default_factory=RotationOptions)
+
+
+@dataclasses.dataclass
 class ProjectionOptions:
     experiment: ExperimentOptions = field(default_factory=ExperimentOptions)
 
@@ -52,14 +67,17 @@ class ProjectionOptions:
     # Technically this should really only be here for complex projections
     phase_unwrap: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)
 
-    crop: CropOptions = field(default_factory=CropOptions)
+    estimate_center: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)
 
-    downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
+    input_processing: ProjectionTransformOptions = field(default_factory=ProjectionTransformOptions)
 
-    mask_downsample_type: enums.DownsampleType = enums.DownsampleType.LINEAR
+    # crop: CropOptions = field(default_factory=CropOptions)
 
-    mask_downsample_use_gaussian_filter: bool = False
+    # downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
+
+    # mask_downsample_type: enums.DownsampleType = enums.DownsampleType.LINEAR
+
+    # mask_downsample_use_gaussian_filter: bool = False
 
     # phase_ramp_removal: PhaseRampRemovalOptions = field(default_factory=PhaseRampRemovalOptions)
 
-    estimate_center: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)

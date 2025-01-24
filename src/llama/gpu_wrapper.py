@@ -311,7 +311,6 @@ def device_handling_wrapper(
     common_inputs_for_gpu_idx: List[int] = [],
     pinned_results: Optional[Union[np.ndarray, tuple]] = None,
     display_progress_bar: bool = False,
-    progress_bar_name: Optional[str] = None,
 ) -> T:
     """Wrapper that efficiently splits inputs into chunks and transfers them between
     the gpu and cpu.

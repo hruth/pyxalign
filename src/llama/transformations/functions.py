@@ -306,25 +306,50 @@ def image_upsample_nearest(images: ArrayType, scale: int) -> ArrayType:
     return images.repeat(scale, axis=1).repeat(scale, axis=2)
 
 
+def will_rotation_flip_aspect_ratio(theta: float) -> bool:
+    n_rotations = round(theta / 90)
+    is_even = n_rotations % 2 == 0
+    return not is_even
+
+
+def rotateStackMod90(img, theta) -> ArrayType:
+    xp = cp.get_array_module(img)
+
+    numRotations = round(theta / 90)
+    img = xp.rot90(img, numRotations, axes=(1, 2))
+    theta = theta - 90 * numRotations
+
+    return img
+
+
 @timer()
 @preserve_complexity_or_realness()
-def image_rotate_fft(images: ArrayType, theta: float) -> ArrayType:
+def image_rotate_fft(
+    images: ArrayType, theta: float, preserve_aspect_ratio: bool = False
+) -> ArrayType:
     """Rotates the image around the z-axis (0th axis) of the input images"""
     xp = cp.get_array_module(images)
     scipy_module = get_scipy_module(images)
 
+    if not preserve_aspect_ratio:
+        # imageStack = lam.utils.rotateStackMod90(imageStack, tiltAngle)
+        images = rotateStackMod90(images, theta)
+        n_rotations = round(theta / 90)
+        theta = theta - 90 * n_rotations
+
     M, N = images.shape[1:]
 
-    n_rotations = round(theta / 90)
-    theta = theta - 90 * n_rotations
-
-    x_grid = xp.matrix(xp.arange(-np.fix(M / 2), np.ceil(M / 2), dtype=r_type)).transpose()
+    # x_grid = xp.matrix(xp.arange(-np.fix(M / 2), np.ceil(M / 2), dtype=r_type)).transpose()
+    x_grid = xp.arange(-np.fix(M / 2), np.ceil(M / 2), dtype=r_type)[:, None]
     x_grid = scipy_module.fft.ifftshift(x_grid) / M
-    y_grid = xp.matrix(xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type))
+    # y_grid = xp.matrix(xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type))
+    y_grid = xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type)[None, :]
     y_grid = scipy_module.fft.ifftshift(y_grid) / N
 
-    m_grid = xp.matrix(xp.arange(1, M + 1, dtype=r_type)).transpose() - xp.floor(M / 2) - 0.5
-    n_grid = xp.matrix(xp.arange(1, N + 1, dtype=r_type)) - xp.floor(N / 2) - 0.5
+    # m_grid = xp.matrix(xp.arange(1, M + 1, dtype=r_type)).transpose() - xp.floor(M / 2) - 0.5
+    # n_grid = xp.matrix(xp.arange(1, N + 1, dtype=r_type)) - xp.floor(N / 2) - 0.5
+    m_grid = xp.arange(1, M + 1, dtype=r_type)[:, None] - xp.floor(M / 2) - 0.5
+    n_grid = xp.arange(1, N + 1, dtype=r_type)[None, :] - xp.floor(N / 2) - 0.5
 
     n_x = -xp.sin(theta * xp.pi / 180) * x_grid
     n_y = xp.tan(theta / 2 * xp.pi / 180) * y_grid
@@ -348,12 +373,14 @@ def image_shear_fft(images: ArrayType, theta: float) -> ArrayType:
 
     M, N = images.shape[1:]
 
-    y_grid = xp.matrix(xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type))
+    # y_grid = xp.matrix(xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type))
+    y_grid = xp.arange(-np.fix(N / 2), np.ceil(N / 2), dtype=r_type)[None, :]
     y_grid = scipy_module.fft.ifftshift(y_grid) / N
-    n_y = xp.tan(theta / 2 * xp.pi / 180) * y_grid
-    m_grid = xp.array(
-        (xp.matrix(xp.arange(1, M + 1) - np.floor(M / 2)).transpose() * 2j * xp.pi), dtype=c_type
-    )
+    n_y = xp.tan(theta / 2 * xp.pi / 180).astype(xp.float32) * y_grid
+    # m_grid = xp.array(
+    #     (xp.matrix(xp.arange(1, M + 1) - np.floor(M / 2)).transpose() * 2j * xp.pi), dtype=c_type
+    # )
+    m_grid = xp.array(((xp.arange(1, M + 1) - np.floor(M / 2))[:, None] * 2j * xp.pi), dtype=c_type)
     images = scipy_module.fft.ifft(
         xp.multiply(scipy_module.fft.fft(images, axis=2), xp.exp(-xp.multiply(m_grid, n_y))), axis=2
     )
