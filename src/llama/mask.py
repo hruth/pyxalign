@@ -1,3 +1,5 @@
+from ctypes import Array
+from typing import Optional
 import cupy as cp
 import numpy as np
 import scipy
@@ -10,6 +12,9 @@ import time
 from tqdm import tqdm
 from contextlib import nullcontext
 import matplotlib.pyplot as plt
+from llama import gpu_utils
+from llama.api.options.device import DeviceOptions
+from llama.gpu_wrapper import device_handling_wrapper
 from llama.transformations.helpers import is_array_real
 from IPython.display import clear_output, display
 
@@ -18,7 +23,11 @@ from plotly.subplots import make_subplots
 
 from llama.api.options.options import MaskOptions
 from llama.gpu_utils import memory_releasing_error_handler, get_scipy_module
-from llama.timing.timer_utils import timer
+from llama.timing.timer_utils import timer, InlineTimer
+from llama.api.types import ArrayType, r_type
+
+from llama import options as opts
+from llama.api import enums
 
 
 @memory_releasing_error_handler
@@ -31,7 +40,9 @@ def estimate_reliability_region_mask(
     xp = cp  # need to generalize later for machines without gpu
     scipy_module: scipy = cupyx.scipy
 
-    masks = np.zeros(images.shape)
+    # masks = gpu_utils.pin_memory(np.zeros(images.shape))
+    masks = gpu_utils.create_empty_pinned_array(images.shape, dtype=r_type)
+    # masks = gpu_utils.create_empty_pinned_array(images.shape, dtype=np.uint8)
 
     # images = np.angle(images) # slow
     close_structure = xp.array(skimage.morphology.diamond(options.binary_close_coefficient))
@@ -92,13 +103,19 @@ def estimate_reliability_region_mask(
             if not is_array_real(temp_sino):
                 temp_sino = np.angle(temp_sino)  # * np.abs(temp_sino)
 
+            inline_timer = InlineTimer("scipy.ndimage.correlate")
+            inline_timer.start()
             if options.unsharp:
-                temp_sino = scipy_module.ndimage.correlate(temp_sino, unsharp_structure)
+                temp_sino[:] = scipy_module.ndimage.correlate(temp_sino, unsharp_structure)
+            inline_timer.end()
 
+            inline_timer = InlineTimer("sobel filter")
+            inline_timer.start()
             sobelx = scipy_module.ndimage.sobel(temp_sino, 1)
             sobely = scipy_module.ndimage.sobel(temp_sino, 0)
             temp_sino = xp.sqrt(sobelx**2 + sobely**2)
             temp_sino[temp_sino > 1] = 0
+            inline_timer.end()
 
             if enable_plotting:
                 # Sobel filtered plotting
@@ -107,29 +124,45 @@ def estimate_reliability_region_mask(
             center_point = (round(temp_sino.shape[0] / 2), round(temp_sino.shape[1] / 2))
             if isinstance(temp_sino, cp.ndarray):
                 temp_sino = temp_sino.get()
+            inline_timer = InlineTimer("flood_fill")
+            inline_timer.start()
             temp_sino = skimage.segmentation.flood_fill(temp_sino, center_point, 1)
+            # temp_sino = skimage.segmentation.flood_fill(temp_sino.astype(bool), center_point, 1)
+            inline_timer.end()
 
             if enable_plotting:
                 # Flood fill plotting
                 fig_widget.data[1].z = temp_sino
 
+            inline_timer = InlineTimer("skimage.filters.threshold_otsu")
+            inline_timer.start()
             level = skimage.filters.threshold_otsu(temp_sino)
             temp_sino = temp_sino > level
+            inline_timer.end()
             if enable_plotting:
                 fig_widget.data[2].z = temp_sino.astype(int)
 
+            inline_timer = InlineTimer("scipy.ndimage.binary_fill_holes")
+            inline_timer.start()
             if options.fill > 0:
                 # can be put on GPU, but much slower for some reason
                 temp_sino = scipy.ndimage.binary_fill_holes(temp_sino)
+            inline_timer.end()
             if enable_plotting:
                 fig_widget.data[3].z = temp_sino.astype(int)
 
             temp_sino = xp.array(temp_sino)
+            inline_timer = InlineTimer("ndimage.binary_close")
+            inline_timer.start()
             temp_sino = scipy_module.ndimage.binary_closing(temp_sino, close_structure)
+            inline_timer.end()
             if enable_plotting:
                 fig_widget.data[4].z = temp_sino.get().astype(int)
 
+            inline_timer = InlineTimer("ndimage.binary_erosion")
+            inline_timer.start()
             temp_sino = scipy_module.ndimage.binary_erosion(temp_sino, erode_structure)
+            inline_timer.end()
             if isinstance(temp_sino, cp.ndarray):
                 temp_sino = temp_sino.get()
             if enable_plotting:
@@ -137,15 +170,65 @@ def estimate_reliability_region_mask(
                 if i == 0:
                     display(fig_widget)
 
-        masks[i] = temp_sino
+            masks[i] = temp_sino
 
     return masks
+
+
+def close_images(
+    images: ArrayType,
+    binary_close_coefficient: int,
+    device_options: DeviceOptions,
+    pinned_results: Optional[np.ndarray] = None,
+):
+    def close_images_function(images, close_structure):
+        xp = cp.get_array_module(images)
+        scipy_module = gpu_utils.get_scipy_module(images)
+        new_images = xp.empty_like(images)
+        for i in range(len(new_images)):
+            new_images[i] = scipy_module.ndimage.binary_closing(images[i], close_structure)
+        return new_images
+
+    wrapped_func = device_handling_wrapper(
+        func=close_images_function,
+        options=device_options,
+        pinned_results=pinned_results,
+        common_inputs_for_gpu_idx=[1],
+        display_progress_bar=True,
+    )
+    close_structure = skimage.morphology.diamond(binary_close_coefficient)
+    return wrapped_func(images, close_structure)
+
+
+def erode_images(
+    images: ArrayType,
+    binary_erode_coefficient: int,
+    device_options: DeviceOptions,
+    pinned_results: Optional[np.ndarray] = None,
+):
+    def erode_images_function(images, erode_structure):
+        xp = cp.get_array_module(images)
+        scipy_module = gpu_utils.get_scipy_module(images)
+        new_images = xp.empty_like(images)
+        for i in range(len(new_images)):
+            new_images[i] = scipy_module.ndimage.binary_erosion(images[i], erode_structure)
+        return new_images
+
+    wrapped_func = device_handling_wrapper(
+        func=erode_images_function,
+        options=device_options,
+        pinned_results=pinned_results,
+        common_inputs_for_gpu_idx=[1],
+        display_progress_bar=True,
+    )
+    erode_structure = skimage.morphology.diamond(binary_erode_coefficient)
+    return wrapped_func(images, erode_structure)
 
 
 @memory_releasing_error_handler
 def blur_masks(masks: np.ndarray, kernel_sigma: int, use_gpu: bool = False):
     blurred_masks = np.zeros_like(masks)
-    for i in range(len(masks)):
+    for i in tqdm(range(len(masks)), desc="Apply gaussian blur to masks"):
         if use_gpu:
             blurred_masks[i] = cupyx.scipy.ndimage.gaussian_filter(
                 cp.array(masks[i]), kernel_sigma
