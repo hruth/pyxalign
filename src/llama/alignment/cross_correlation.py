@@ -14,7 +14,7 @@ from llama.gpu_utils import get_scipy_module, pin_memory, memory_releasing_error
 from llama.api import enums
 from llama.transformations.classes import Cropper
 from llama.api.types import ArrayType, r_type, c_type
-from llama.timer import timer, InlineTimer
+from llama.timing.timer_utils import timer, InlineTimer
 
 
 class CrossCorrelationAligner(Aligner):

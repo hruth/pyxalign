@@ -6,7 +6,7 @@ import copy
 import llama.image_processing as ip
 from llama import reconstruct
 import llama.projections as projections
-from llama.timer import timer
+from llama.timing.timer_utils import timer
 
 from llama.api.types import ArrayType, r_type
 

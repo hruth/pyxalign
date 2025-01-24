@@ -8,7 +8,7 @@ from llama.api.options.device import DeviceOptions
 from llama.gpu_utils import get_scipy_module
 from llama.api.types import r_type, ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.timer import timer
+from llama.timing.timer_utils import timer
 
 
 @timer()

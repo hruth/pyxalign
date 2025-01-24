@@ -11,7 +11,8 @@ import cupyx.scipy.fft as cufft
 import numpy as np
 from typing import Union
 import llama.api.enums as enums
-from llama.timer import timer
+# from llama.timer import timer
+import llama.timing.timer_utils as timer_utils
 
 from llama.api.types import ArrayType
 
@@ -64,7 +65,7 @@ def check_gpu_list(num_gpus: int, gpu_indices: List[int]):
         )
 
 
-@timer()
+@timer_utils.timer()
 def pin_memory(array: np.ndarray, force_repin: bool = False) -> np.ndarray:
     # Could use cupyx.empty_pinned instead to make it simpler..
     if force_repin or not is_pinned(array):
@@ -77,6 +78,11 @@ def pin_memory(array: np.ndarray, force_repin: bool = False) -> np.ndarray:
         return ret
     else: 
         return array
+
+
+@timer_utils.timer()
+def create_empty_pinned_array(shape: tuple, dtype: type[float]):
+    return cupyx.empty_pinned(shape=shape, dtype=dtype)
 
 
 def is_pinned(array: ArrayType) -> bool:

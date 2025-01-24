@@ -23,7 +23,7 @@ from llama.laminogram import Laminogram
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
-from llama.timer import timer
+from llama.timing.timer_utils import timer
 from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
 from llama.transformations.functions import image_shift_fft, will_rotation_flip_aspect_ratio
 from llama.unwrap import unwrap_phase

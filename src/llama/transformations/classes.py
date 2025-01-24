@@ -17,7 +17,7 @@ from llama.api.options.transform import (
 from llama.api.types import ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.transformations.functions import image_crop
-from llama.timer import timer
+from llama.timing.timer_utils import timer
 # from llama.api import enums
 
 

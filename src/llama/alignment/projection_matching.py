@@ -7,7 +7,7 @@ from llama.alignment.base import Aligner
 from llama.api.options.transform import ShiftOptions
 # from llama.projections import PhaseProjections
 import llama.projections as projections
-from llama.timer import timer, clear_timer_globals
+from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip
 import llama.api.maps as maps
@@ -16,7 +16,7 @@ from llama.api.options.alignment import ProjectionMatchingOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.timer import timer
+from llama.timing.timer_utils import timer
 from IPython.display import clear_output
 from tqdm import tqdm
 

@@ -18,7 +18,7 @@ from plotly.subplots import make_subplots
 
 from llama.api.options.options import MaskOptions
 from llama.gpu_utils import memory_releasing_error_handler, get_scipy_module
-from llama.timer import timer
+from llama.timing.timer_utils import timer
 
 
 @memory_releasing_error_handler

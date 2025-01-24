@@ -6,7 +6,7 @@ from llama.alignment.projection_matching import ProjectionMatchingAligner
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
-from llama.timer import clear_timer_globals
+from llama.timing.timer_utils import clear_timer_globals
 
 
 class LaminographyAlignmentTask:
