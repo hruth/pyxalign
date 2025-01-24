@@ -145,33 +145,16 @@ class InlineTimer:
             measure_overhead_start = time.time()
             saved_dict_reference = update_current_dict_reference(self.name)
             self.saved_dict_reference = saved_dict_reference
-
-            # Measure function execution time
-            self.start_gpu = cp.cuda.Event()
-            self.end_gpu = cp.cuda.Event()
-
-            self.start_gpu.record()
-            self.start_time = time.time()
-            # result = func(*args, **kwargs)
-            # end_gpu.record()
-            # end_gpu.synchronize()
-            # elapsed_time = time.time() - start_time
-            # t_gpu = cp.cuda.get_elapsed_time(start_gpu, end_gpu)
-            # print(elapsed_time, t_gpu)
-
             self.overhead_time = time.time() - measure_overhead_start
-            # torch.cuda.synchronize()
-            # self.start_time = time.time()
+            wait_for_process_completion_on_all_gpus()
+            self.start_time = time.time()
 
     def end(self):
         """
         Stops the timer and records the elapsed time if timing is enabled.
         """
         if self.enabled and globals().get("ENABLE_TIMING", False):
-            # torch.cuda.synchronize()
-            # elapsed_time = time.time() - self.start_time
-            self.end_gpu.record()
-            self.end_gpu.synchronize()
+            wait_for_process_completion_on_all_gpus()
             elapsed_time = time.time() - self.start_time
         
             measure_overhead_start = time.time()

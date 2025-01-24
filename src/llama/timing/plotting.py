@@ -2,7 +2,8 @@ from typing import Optional, List, Dict, Union
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
-from llama.timing.timer_utils import ADVANCED_TIME_DICT, ELAPSED_TIME_DICT
+# from llama.timing.timer_utils import ADVANCED_TIME_DICT, ELAPSED_TIME_DICT
+import llama.timing.timer_utils as timer_utils
 
 default_label_font_size = 8
 
@@ -45,13 +46,11 @@ def plot_elapsed_time_bar_plot(
     # If elapsed_time_dict was not passed in, use the
     # value from the global
     if elapsed_time_dict is None:
-        global ELAPSED_TIME_DICT
-        elapsed_time_dict = ELAPSED_TIME_DICT
+        elapsed_time_dict = timer_utils.ELAPSED_TIME_DICT
 
     if only_include_leafs:
         if advanced_time_dict is None:
-            global ADVANCED_TIME_DICT
-            advanced_time_dict = ADVANCED_TIME_DICT
+            advanced_time_dict = timer_utils.ADVANCED_TIME_DICT
         elapsed_time_dict = select_leaf_functions(advanced_time_dict)
 
     elapsed_time_dict = return_dict_subset_copy(elapsed_time_dict, include, exclude)
@@ -111,8 +110,7 @@ def plot_elapsed_time_bar_plot_advanced(
     """
 
     if advanced_time_dict is None:
-        global ADVANCED_TIME_DICT
-        advanced_time_dict = ADVANCED_TIME_DICT
+        advanced_time_dict = timer_utils.ADVANCED_TIME_DICT
 
     def find_key_in_nested_dict(nested_dict: dict, target_key):
         for key, value in nested_dict.items():
