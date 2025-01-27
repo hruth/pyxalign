@@ -85,34 +85,6 @@ class Projections:
 
         if not skip_pre_processing:
             self.transform_projections(self.options.input_processing)
-            # self.transform_projections(
-            #     self.options.crop,
-            #     self.options.downsample,
-            #     -self.options.experiment.tilt_angle,
-            #     -self.options.experiment.skew_angle,
-            #     self.options.mask_downsample_type,
-            #     self.options.mask_downsample_use_gaussian_filter
-            # )
-            # # Crop and downsample input data if enabled
-            # self.data = Cropper(self.options.crop).run(self.data)
-            # self.data = Downsampler(self.options.downsample).run(self.data)
-            # if self.masks is not None:
-            #     self.masks = Cropper(self.options.crop).run(self.masks)
-            #     mask_downsample_options = copy.deepcopy(self.options.downsample)
-            #     mask_downsample_options.type = self.options.mask_downsample_type
-            #     mask_downsample_options.use_gaussian_filter = (
-            #         self.options.mask_downsample_use_gaussian_filter
-            #     )
-            #     self.masks = Downsampler(mask_downsample_options).run(self.masks)
-            # self.update_center_of_rotation()
-
-        # Update pixel size
-        # When copying options, to a new projection, make sure to properly
-        # set the pixel size!
-        # if self.options.downsample.enabled and not skip_pre_processing:
-        #     self.pixel_size = self.options.experiment.pixel_size * self.options.downsample.scale
-        # else:
-        #     self.pixel_size = self.options.experiment.pixel_size * 1
 
         if shift_manager is not None:
             self.shift_manager = copy.deepcopy(shift_manager)
@@ -126,15 +98,15 @@ class Projections:
         self,
         options: ProjectionTransformOptions,
     ):
-        # # Transform the projections in the proper order
-        # if options.crop is not None:
-        #     self.crop_projections(options.crop)
-        # if options.downsample is not None:
-        #     self.downsample_projections(
-        #         options.downsample,
-        #         options.mask_downsample_type,
-        #         options.mask_downsample_use_gaussian_filter,
-        #     )
+        # Transform the projections in the proper order
+        if options.crop is not None:
+            self.crop_projections(options.crop)
+        if options.downsample is not None:
+            self.downsample_projections(
+                options.downsample,
+                options.mask_downsample_type,
+                options.mask_downsample_use_gaussian_filter,
+            )
         if options.rotation is not None:
             self.rotate_projections(options.rotation)
         if options.shear is not None:
@@ -304,6 +276,7 @@ class ComplexProjections(Projections):
             options=self.options.phase_unwrap.device,
             chunkable_inputs_for_gpu_idx=[0, 1],
             pinned_results=pinned_results,
+            display_progress_bar=True,
         )
         return unwrap_phase_wrapped(self.data, self.masks, self.options.phase_unwrap)
 
