@@ -85,6 +85,11 @@ def create_empty_pinned_array(shape: tuple, dtype: type[float]):
     return cupyx.empty_pinned(shape=shape, dtype=dtype)
 
 
+@timer_utils.timer()
+def create_empty_pinned_array_like(array: ArrayType):
+    return cupyx.empty_like_pinned(array)
+
+
 def is_pinned(array: ArrayType) -> bool:
     # Temporary -- this will only give the proper answer for large arrays
     min_array_size = 200

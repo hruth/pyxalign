@@ -251,7 +251,7 @@ def convert_projection_dict_to_array(
         )
     print("Fixing projections dimensions...Completed")
 
-    # Convert to array in chunks to avoid memory issues
+    # Convert to array in chunks to avoid memory issues in larger arrays
     print("Converting list to array...")
     n_iterations = int(np.ceil(len(projections) / chunk_length))
     all_keys = list(projections.keys())

@@ -35,15 +35,14 @@ def remove_sinogram_ramp():
     pass
 
 
-def phase_unwrap_2D(images: ArrayType, weights: ArrayType):
+def phase_unwrap_2D(images: ArrayType, weights: ArrayType, padding: int = 64):
     xp = cp.get_array_module(images)
 
     images = weights * images / (xp.abs(images) + 1e-10)
     del weights
 
-    padding = 64
-    padShape = xp.pad(images[0], padding, "symmetric").shape
-    padded_images = cp.zeros((len(images), padShape[0], padShape[1]), dtype=c_type)
+    pad_shape = xp.pad(images[0], padding, "symmetric").shape
+    padded_images = cp.zeros((len(images), pad_shape[0], pad_shape[1]), dtype=c_type)
     if np.any(padding) > 0:
         for i in range(len(images)):
             padded_images[i] = xp.pad(images[i], padding, "symmetric")

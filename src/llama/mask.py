@@ -26,9 +26,6 @@ from llama.gpu_utils import memory_releasing_error_handler, get_scipy_module
 from llama.timing.timer_utils import timer, InlineTimer
 from llama.api.types import ArrayType, r_type
 
-from llama import options as opts
-from llama.api import enums
-
 
 @memory_releasing_error_handler
 @timer()
