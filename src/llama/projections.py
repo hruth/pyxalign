@@ -187,6 +187,22 @@ class Projections:
             self.transform_tracker.update_shear(options.angle)
             # To do: insert code for updating center of rotation
 
+    def drop_projections(self, remove_idx: list[int]):
+        "Permanently remove specific projections from object"
+        keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
+
+        def return_modified_array(arr):
+            if gpu_utils.is_pinned(self.data):
+                arr = gpu_utils.pin_memory(arr[keep_idx])
+            else:
+                arr = arr[keep_idx]
+            return arr
+
+        self.data = return_modified_array(self.data)
+        if hasattr(self, "masks"):
+            self.masks = return_modified_array(self.masks)
+        self.angles = self.angles[keep_idx]
+
     @property
     def n_projections(self) -> int:
         return self.data.__len__()
@@ -265,8 +281,12 @@ class Projections:
         self.masks = Upsampler(upsample_options).run(self.masks)
         # return Upsampler(upsample_options).run(self.masks)
 
-    def blur_masks(self, kernel_sigma: int, use_gpu: bool = False):
-        return blur_masks(self.masks, kernel_sigma, use_gpu)
+    def blur_masks(
+        self, kernel_sigma: int, use_gpu: bool = False, masks: Optional[np.ndarray] = None
+    ):
+        if masks is None:
+            masks = self.masks
+        return blur_masks(masks, kernel_sigma, use_gpu)
 
 
 class ComplexProjections(Projections):
