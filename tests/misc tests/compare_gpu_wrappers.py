@@ -32,7 +32,7 @@ def filter_sinogram_new():
     laminogram.experiment_options = copy.deepcopy(laminogram.projections.options.experiment)
     astra.set_gpu_index(laminogram.options.astra.back_project_gpu_indices)
     scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
-        sinogram=laminogram.projections.data,
+        size=laminogram.projections.data,
         angles=laminogram.projections.angles,
         n_pix=laminogram.projections.reconstructed_object_dimensions,
         center_of_rotation=laminogram.projections.center_of_rotation,

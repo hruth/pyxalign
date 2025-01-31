@@ -9,7 +9,7 @@ from llama.api.options.transform import ShiftOptions
 
 # from llama.projections import PhaseProjections
 import llama.projections as projections
-from llama.timing.timer_utils import timer, clear_timer_globals
+from llama.timing.timer_utils import InlineTimer, timer, clear_timer_globals
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip
 import llama.api.maps as maps
@@ -204,6 +204,8 @@ class ProjectionMatchingAligner(Aligner):
         else:
             forward_projection_input = self.aligned_projections.laminogram.forward_projections.data
 
+        inline_timer = InlineTimer("wrapped get_shift_update")
+        inline_timer.start()
         (
             self.shift_update,
             self.pinned_error,
@@ -215,10 +217,12 @@ class ProjectionMatchingAligner(Aligner):
             self.options.high_pass_filter,
             self.mass,
         )
+        inline_timer.end()
         self.post_process_shift()
 
         self.total_shift += self.shift_update
 
+    @timer()
     def post_process_shift(self):
         xp = self.xp
 
@@ -252,6 +256,7 @@ class ProjectionMatchingAligner(Aligner):
         )
 
     @staticmethod
+    @timer()
     def calculate_shift_update(
         sinogram: ArrayType,
         masks: ArrayType,
@@ -299,7 +304,21 @@ class ProjectionMatchingAligner(Aligner):
 
     @timer()
     def apply_window_to_masks(self, tukey_window: ArrayType):
-        self.aligned_projections.masks[:] = tukey_window * self.aligned_projections.masks
+        # self.aligned_projections.masks[:] = tukey_window * self.aligned_projections.masks
+
+        def multiply_window_and_mask(masks, tukey_window):
+            return tukey_window * masks
+
+        apply_window_wrapped = device_handling_wrapper(
+            func=multiply_window_and_mask,
+            options=self.options.device,
+            chunkable_inputs_for_gpu_idx=[0],
+            common_inputs_for_gpu_idx=[1],
+            pinned_results=self.aligned_projections.masks,
+        )
+
+        return apply_window_wrapped(self.aligned_projections.masks, tukey_window)
+
 
     @timer()
     def regularize_reconstruction(self):

@@ -35,7 +35,7 @@ class Laminogram:
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         if not hasattr(self, "scan_geometry_config") or regenerate_reconstructor_geometry:
             self.scan_geometry_config, self.vectors = reconstruct.get_astra_reconstructor_geometry(
-                sinogram=self.projections.data,
+                size=self.projections.size,
                 angles=self.projections.angles,
                 n_pix=self.projections.reconstructed_object_dimensions,
                 center_of_rotation=self.projections.center_of_rotation,
@@ -60,10 +60,13 @@ class Laminogram:
         # if type(sinogram) is cp.ndarray:
         #     sinogram.get(out=pinned_filtered_sinogram)
         #     sinogram = pinned_filtered_sinogram
-        self.astra_config, self.geometries = reconstruct.create_astra_reconstructor_config(
-            sinogram=sinogram,
-            scan_geometry_config=self.scan_geometry_config,
-            vectors=self.vectors,
+        self.astra_config, self.geometries = (
+            reconstruct.create_or_update_astra_reconstructor_config(
+                sinogram=sinogram,
+                scan_geometry_config=self.scan_geometry_config,
+                vectors=self.vectors,
+                astra_config=self.astra_config,
+            )
         )
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
 
@@ -83,7 +86,7 @@ class Laminogram:
             center_of_rotation=self.projections.center_of_rotation,
             skip_pre_processing=True,
         )
-        astra.clear()
+        # astra.clear()
 
     @timer()
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):

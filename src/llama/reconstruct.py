@@ -8,12 +8,12 @@ from llama.api.options.device import DeviceOptions
 from llama.gpu_utils import get_scipy_module
 from llama.api.types import r_type, ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.timing.timer_utils import timer
+from llama.timing.timer_utils import timer, InlineTimer
 
 
 @timer()
 def get_astra_reconstructor_geometry(
-    sinogram: np.ndarray,
+    size: tuple[int, int],
     angles: np.ndarray,
     n_pix: np.ndarray,
     center_of_rotation: np.ndarray,
@@ -27,8 +27,8 @@ def get_astra_reconstructor_geometry(
     scan_geometry_config_inputs["iVolY"] = n_pix[1]
     scan_geometry_config_inputs["iVolZ"] = n_pix[2]
     scan_geometry_config_inputs["iProj_angles"] = len(angles)
-    scan_geometry_config_inputs["iProjU"] = sinogram.shape[2]
-    scan_geometry_config_inputs["iProjV"] = sinogram.shape[1]
+    scan_geometry_config_inputs["iProjU"] = size[1]
+    scan_geometry_config_inputs["iProjV"] = size[0]
     scan_geometry_config_inputs["iRaysPerDet"] = 1
     scan_geometry_config_inputs["iRaysPerDetDim"] = 1
     scan_geometry_config_inputs["iRaysPerVoxelDim"] = 1
@@ -41,7 +41,7 @@ def get_astra_reconstructor_geometry(
     skew_angle = np.pi / 180 * skew_angle * np.ones((len(angles), 1))
     pixel_scale = pixel_scale * np.ones((len(angles), 2))
     rotation_center = np.array([center_of_rotation[1], center_of_rotation[0]], dtype=r_type)
-    CoR_offset = (rotation_center - np.array(sinogram.shape[1:][::-1]) / 2)[::-1]
+    CoR_offset = (rotation_center - np.array(size[::-1]) / 2)[::-1]
 
     # We generate the same geometry as the circular one above.
     vectors = np.zeros((len(angles), 12))
@@ -107,7 +107,23 @@ def get_astra_reconstructor_geometry(
 
 
 @timer()
-def create_astra_reconstructor_config(
+def get_geometries(scan_geometry_config: dict, vectors: np.ndarray) -> dict:
+    geometries = {}
+    geometries["vol_geom"] = astra.create_vol_geom(
+        scan_geometry_config["iVolX"], scan_geometry_config["iVolY"], scan_geometry_config["iVolZ"]
+    )
+    geometries["proj_geom"] = astra.create_proj_geom(
+        "parallel3d_vec",
+        scan_geometry_config["iProjV"],  # detector rows
+        scan_geometry_config["iProjU"],  # detector columns
+        vectors,
+    )
+
+    return geometries
+
+
+@timer()
+def create_or_update_astra_reconstructor_config(
     sinogram: np.ndarray,
     scan_geometry_config: dict,
     vectors: np.ndarray,
@@ -128,21 +144,6 @@ def create_astra_reconstructor_config(
     return astra_config, geometries
 
 
-def get_geometries(scan_geometry_config: dict, vectors: np.ndarray) -> dict:
-    geometries = {}
-    geometries["vol_geom"] = astra.create_vol_geom(
-        scan_geometry_config["iVolX"], scan_geometry_config["iVolY"], scan_geometry_config["iVolZ"]
-    )
-    geometries["proj_geom"] = astra.create_proj_geom(
-        "parallel3d_vec",
-        scan_geometry_config["iProjV"],  # detector rows
-        scan_geometry_config["iProjU"],  # detector columns
-        vectors,
-    )
-
-    return geometries
-
-
 def update_astra_reconstructor_sinogram(sinogram: np.ndarray, astra_config: dict):
     # # may be unecessary
     # astra.data3d.change_geometry(astra_config["ReconstructionDataId"], geometries["vol_geom"])
@@ -158,7 +159,7 @@ def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarr
 
     # Run the reconstruction algorithm
     astra.algorithm.run(alg_id)
-    astra.algorithm.clear()
+    # astra.algorithm.clear()
 
     # Retrieve the reconstruction
     # rec = astra.data3d.get_shared(astra_config['ReconstructionDataId'])
@@ -178,6 +179,9 @@ def filter_sinogram(
     pinned_results: Optional[np.ndarray] = None,
 ) -> ArrayType:
     xp = cp.get_array_module(sinogram)
+
+    inline_timer = InlineTimer("pre-process")
+    inline_timer.start()
     # calculate the original angles
     # can these lines be replaced?
     theta = np.pi - np.arctan2(vectors[:, 1], -vectors[:, 0])
@@ -199,13 +203,17 @@ def filter_sinogram(
     weights = weights / np.mean(weights)
     weights = weights * (np.pi / 2 / n_proj) * np.sin(lamino_angle)
     weights = weights.astype(r_type)
+    inline_timer.end()
 
     # The size here doesn't make a ton of sense, should look into it later.
     filter = design_filter(sinogram.shape[2])
 
     # account for laminography tilt + unequal spacing of the tomo
     # angles
+    inline_timer = InlineTimer("multiply filter and weights")
+    inline_timer.start()
     filter = weights[:, None] * filter
+    inline_timer.end()
 
     apply_filter_wrapped = device_handling_wrapper(
         func=apply_filter,
@@ -215,7 +223,10 @@ def filter_sinogram(
         pinned_results=pinned_results,
     )
 
+    inline_timer = InlineTimer("apply_filter_wrapped")
+    inline_timer.start()
     filtered_sinogram = apply_filter_wrapped(sinogram, filter, sinogram.shape[2])
+    inline_timer.end()
 
     # Check this is true for the mixed memory config
     # assert filtered_sinogram is sinogram
@@ -226,6 +237,7 @@ def filter_sinogram(
     return filtered_sinogram
 
 
+@timer()
 def apply_filter(sinogram: ArrayType, filter: ArrayType, n_pix_width: int) -> ArrayType:
     xp = cp.get_array_module(sinogram)
     scipy_module: scipy = get_scipy_module(sinogram)
@@ -254,6 +266,7 @@ def apply_filter(sinogram: ArrayType, filter: ArrayType, n_pix_width: int) -> Ar
     return sinogram
 
 
+@timer()
 def design_filter(width: int, d: float = 1.0) -> ArrayType:
     order = np.max([64, 2 ** (np.ceil(np.log2(2 * width)))])
     filter = np.linspace(0, 1, int(order / 2), dtype=r_type)
@@ -291,6 +304,6 @@ def get_forward_projection(
         pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_ID).transpose(
             [1, 0, 2]
         )
-    astra.data3d.delete(forward_projection_ID)
+    # astra.data3d.delete(forward_projection_ID)
 
     return pinned_forward_projection
