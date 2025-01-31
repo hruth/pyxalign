@@ -24,4 +24,5 @@ from .options import (
     PhaseRampRemovalOptions,
     PhaseUnwrapOptions,
     RegularizationOptions,
+    UpdatePlotOptions,
 )

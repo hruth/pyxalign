@@ -16,9 +16,16 @@ class AstraOptions:
 
     forward_project_gpu_indices: Sequence[int] = (0,)
 
+@dataclasses.dataclass
+class GeometryOptions:
+    tilt_angle: float = 0.0
+
+    skew_angle: float = 0.0
 
 @dataclasses.dataclass
 class ReconstructOptions:
     astra: AstraOptions = field(default_factory=AstraOptions)
 
     filter: FilterOptions = field(default_factory=FilterOptions)
+
+    geometry: GeometryOptions = field(default_factory=GeometryOptions)

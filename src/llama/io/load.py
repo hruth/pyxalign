@@ -29,6 +29,7 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
                 masks=get_masks(group, h5_obj),
                 center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
                 shift_manager=None,  # needs to be updated later
+                skip_pre_processing=True,
             )
         else:
             complex_projections = None
@@ -42,6 +43,7 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
                 masks=get_masks(group, h5_obj),
                 center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
                 shift_manager=None,  # needs to be updated later
+                skip_pre_processing=True,
             )
         else:
             phase_projections = None

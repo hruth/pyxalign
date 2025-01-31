@@ -2,13 +2,19 @@ from typing import List, Optional
 import numpy as np
 import cupyx
 import copy
+import matplotlib.pyplot as plt
 from llama.api.options import transform
-from llama.estimate_center import estimate_center_of_rotation, CenterOfRotationEstimateResults
+from llama.estimate_center import (
+    estimate_center_of_rotation,
+    CenterOfRotationEstimateResults,
+    format_coordinate_options,
+    plot_coordinate_search_points,
+)
 from llama.api import enums
 from llama.api.options.alignment import AlignmentOptions
 from llama.api.options.device import DeviceOptions
 
-from llama.api.options.projections import ProjectionOptions, ProjectionTransformOptions
+from llama.api.options.projections import CoordinateSearchOptions, EstimateCenterOptions, ProjectionOptions, ProjectionTransformOptions
 from llama.api.options.transform import (
     CropOptions,
     RotationOptions,
@@ -23,9 +29,10 @@ from llama.laminogram import Laminogram
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
-from llama.timing.timer_utils import timer
+from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
 from llama.transformations.functions import image_shift_fft, will_rotation_flip_aspect_ratio
+from llama.transformations.helpers import is_array_real
 from llama.unwrap import unwrap_phase
 from llama.api.types import ArrayType, r_type
 
@@ -73,7 +80,7 @@ class Projections:
         self.angles = angles
         self.data = projections
         self.masks = masks
-        self.pixel_size = self.options.experiment.pixel_size * 1
+        self.pixel_size = self.options.experiment.pixel_size * 1  # change to property
         if transform_tracker is None:
             self.transform_tracker = TransformTracker()
         else:
@@ -215,7 +222,9 @@ class Projections:
             0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
         )
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
-        n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
+        n_pix[:2] = (np.ceil(n_pix[:2] / 32) * 32)
+        n_pix = n_pix.astype(int)
+        # n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
         return n_pix
 
     @property
@@ -253,8 +262,19 @@ class Projections:
         "Plot the shifted projections using the shift that was passed in."
         plotters.make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
 
-    def plot_sum_of_projections(self, process_function: callable = lambda x: x):
-        plotters.plot_sum_of_images(process_function(self.data))
+    def plot_sum_of_projections(self, process_function: callable = lambda x: x, show_cor: bool = False):
+        plt.imshow(process_function(self.data).sum(0))
+        if show_cor:
+            plt.plot(
+                self.center_of_rotation[1],
+                self.center_of_rotation[0],
+                "*",
+                color="red",
+                markersize=10,
+                markeredgecolor="black",
+            )
+        plt.show()
+
 
     def get_masks(self, enable_plotting: bool = False):
         mask_options = self.options.mask
@@ -288,6 +308,35 @@ class Projections:
             masks = self.masks
         return blur_masks(masks, kernel_sigma, use_gpu)
 
+    def show_center_of_rotation(
+        self,
+        plot_sum_of_projections: bool = True,
+        proj_idx: int = 0,
+        center_of_rotation: Optional[tuple] = None,
+        process_func: Optional[callable] = None,
+        show_plot: bool = True,
+    ):
+        if center_of_rotation is None:
+            center_of_rotation = self.center_of_rotation
+
+        if process_func is None:
+            if is_array_real(self.data):
+                process_func = lambda x: x
+            else:
+                process_func = np.angle
+
+        if plot_sum_of_projections:
+            image = process_func(self.data).sum(0)
+        else:
+            image = process_func(self.data[proj_idx])
+
+        plt.imshow(image, cmap="bone")
+        plt.plot(center_of_rotation[1], center_of_rotation[0], '.m', label="Center of Rotation")
+        plt.title(f"Center of Rotation\n(x={center_of_rotation[1]}, y={center_of_rotation[0]})")
+        plt.legend()
+        if show_plot:
+            plt.show()
+
 
 class ComplexProjections(Projections):
     def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
@@ -314,9 +363,41 @@ class PhaseProjections(Projections):
         )
 
     def estimate_center_of_rotation(self) -> CenterOfRotationEstimateResults:
+        clear_timer_globals()
+        estimate_center_options = self.return_auto_centered_search_options()
         return estimate_center_of_rotation(
-            self.data, self.angles, self.masks, self.options.estimate_center
+            self, self.angles, self.masks, estimate_center_options
         )
+
+    def plot_coordinate_search_points(
+        self,
+        proj_idx: int = 0,
+        plot_projection_sum: bool = False,
+    ):
+        # Plots the coordinate search points 
+        estimate_center_options = self.return_auto_centered_search_options()
+        horizontal_coordinate_array, _ = format_coordinate_options(
+            estimate_center_options.horizontal_coordinate
+        )
+        vertical_coordinate_array, _ = format_coordinate_options(
+            estimate_center_options.vertical_coordinate
+        )
+        plot_coordinate_search_points(
+            self.data,
+            horizontal_coordinate_array,
+            vertical_coordinate_array,
+            proj_idx=proj_idx,
+            plot_projection_sum=plot_projection_sum,
+        )
+
+    def return_auto_centered_search_options(self) -> EstimateCenterOptions:
+        modified_options = copy.deepcopy(self.options.estimate_center)
+        if self.options.estimate_center.horizontal_coordinate.center_estimate is None:
+            modified_options.horizontal_coordinate.center_estimate = self.center_of_rotation[1]
+        if self.options.estimate_center.vertical_coordinate.center_estimate is None:
+            modified_options.vertical_coordinate.center_estimate = self.center_of_rotation[0]
+
+        return modified_options
 
 
 class ShiftManager:
@@ -334,7 +415,7 @@ class ShiftManager:
         self,
         shift: np.ndarray,
         function_type: enums.ShiftType,
-        alignment_options: AlignmentOptions,
+        alignment_options: Optional[AlignmentOptions]=None,
     ):
         self.staged_shift = shift
         self.staged_function_type = function_type

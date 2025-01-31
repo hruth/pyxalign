@@ -21,6 +21,8 @@ class CoordinateSearchOptions:
 
     spacing: Optional[int] = None
 
+    enabled: bool = False
+
 
 @dataclasses.dataclass
 class EstimateCenterOptions:

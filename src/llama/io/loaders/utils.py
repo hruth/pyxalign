@@ -206,9 +206,11 @@ def convert_projection_dict_to_array(
     pad_mode: str = "constant",
     pad_with_mode: bool = False,
     divisible_by: int = 32,
-    chunk_length: int = 20,
+    chunk_length: int = 250,
     delete_projection_dict: bool = False,
 ) -> np.ndarray:
+    # Note: this always does some in-place replacement of the
+    # passed in dict. I will fix this in a later version.
     if pad_with_mode:
         pad_mode = "constant"
 

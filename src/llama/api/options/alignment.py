@@ -3,7 +3,7 @@ import dataclasses
 from dataclasses import field
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions
-from llama.api.options.options import RegularizationOptions
+from llama.api.options.options import RegularizationOptions, UpdatePlotOptions
 from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.transform import CropOptions, DownsampleOptions
 
@@ -39,16 +39,15 @@ class ProjectionMatchingOptions(AlignmentOptions):
     step_relax: float = 0.1
 
     min_step_size: float = 0.01
-    
+
     max_step_size: float = 0.5
 
-    regularization: RegularizationOptions  = field(default_factory=RegularizationOptions)
+    regularization: RegularizationOptions = field(default_factory=RegularizationOptions)
 
     keep_on_gpu: bool = False
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    # projections: ProjectionOptions = field(default_factory=ProjectionOptions)
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
 
     crop: CropOptions = field(default_factory=CropOptions)
@@ -58,3 +57,5 @@ class ProjectionMatchingOptions(AlignmentOptions):
     projection_shift_type: enums.ShiftType = enums.ShiftType.FFT
 
     mask_shift_type: enums.ShiftType = enums.ShiftType.CIRC
+
+    update_plot: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)

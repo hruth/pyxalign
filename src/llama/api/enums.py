@@ -44,3 +44,7 @@ class MemoryConfig(StrEnum):
 
 class InputFileStructureType(StrEnum):
     LAMNI = auto()
+
+class Direction(StrEnum):
+    HORIZONTAL = auto()
+    VERTICAL = auto()

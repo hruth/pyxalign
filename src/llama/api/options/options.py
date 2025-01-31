@@ -63,3 +63,9 @@ class RegularizationOptions:
     local_TV: bool = False
 
     local_TV_lambda: float = 3e-4
+
+@dataclasses.dataclass
+class UpdatePlotOptions:
+    enabled: bool = False
+
+    stride: int = 1

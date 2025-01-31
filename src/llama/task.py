@@ -67,6 +67,7 @@ class LaminographyAlignmentTask:
             self.complex_projections.options,
             self.complex_projections.masks,
             self.complex_projections.shift_manager,
+            skip_pre_processing=True,
         )
 
 

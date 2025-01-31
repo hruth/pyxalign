@@ -13,6 +13,7 @@ from llama.timing.timer_utils import timer
 from llama.api.types import ArrayType, r_type, c_type
 
 
+@timer()
 def image_crop(
     images: ArrayType,
     horizontal_range: int,
@@ -57,12 +58,13 @@ def image_crop(
         ]
 
 
+@timer()
 def image_crop_pad(
     images: ArrayType,
     new_extent_y: int,
     new_extent_x: int,
     pad_mode: str = "constant",
-    constant_values = None,
+    constant_values=None,
 ):
     if len(images.shape) == 2:
         added_extra_dim = True
@@ -102,6 +104,7 @@ def image_crop_pad(
     return images
 
 
+@timer()
 @preserve_complexity_or_realness()
 def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True) -> ArrayType:
     xp = cp.get_array_module(images)
@@ -184,8 +187,8 @@ def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
     return images
 
 
-@preserve_complexity_or_realness()
 @timer()
+@preserve_complexity_or_realness()
 def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=False) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
@@ -364,8 +367,8 @@ def image_rotate_fft(
     return images
 
 
-@preserve_complexity_or_realness()
 @timer()
+@preserve_complexity_or_realness()
 def image_shear_fft(images: ArrayType, theta: float) -> ArrayType:
     """Shears the image about the z-axis (0th axis) of the input images"""
     xp = cp.get_array_module(images)

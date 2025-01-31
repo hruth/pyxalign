@@ -81,6 +81,7 @@ def plot_elapsed_time_bar_plot_advanced(
     advanced_time_dict: Optional[dict] = None,
     exclude_below_time_fraction: float = 1e-2,
     sort: bool = False,
+    print_results: bool = True,
 ):
     """
     Plots a detailed breakdown of execution times for a specific function.
@@ -184,19 +185,23 @@ def plot_elapsed_time_bar_plot_advanced(
         top_n=top_n,
     )
 
-    print(text_bf(f"Execution summary of {function_name}\n"))
-    print(text_bf(f"Total execution time: {total_execution_time:.3g} s\n"))
-    print(text_bf("Execution times:"))
-    if sort:
-        idx = np.argsort(times[1:]) + 1
-    else:
-        idx = range(1, len(short_labels))
-    for i in idx:
-        print(f"{i}. {short_labels[i]}: {times[i]:.2g} s")
-    print()
-    print(text_bf("Function call stack info:"))
-    for i in range(1, len(full_call_stack_labels)):
-        print(f"{i}. {full_call_stack_labels[i]}")
+    if print_results:
+        print(text_bf(f"Execution summary of {function_name}\n"))
+        print(text_bf(f"Total execution time: {total_execution_time:.3g} s\n"))
+        print(text_bf("Execution times:"))
+        if sort:
+            idx = (np.argsort(times[1:]) + 1)[::-1]
+            print("Sorted by total execution time")
+        else:
+            idx = range(1, len(short_labels))
+            # print("Ordered by time of first function call")
+        for i, label_idx in enumerate(idx):
+            print(f"{i+1}. {short_labels[label_idx]}: {times[label_idx]:.2g} s")
+        print()
+        print(text_bf("Function call stack info:"))
+        print("Ordered by time of first function call")
+        for i in range(1, len(full_call_stack_labels)):
+            print(f"{i}. {full_call_stack_labels[i]}")
 
     selected_elapsed_times = dict(zip(short_labels, times))
     return selected_elapsed_times

@@ -4,7 +4,9 @@ import cupy as cp
 import copy
 
 from llama.alignment.base import Aligner
+from llama.api.options.projections import ProjectionTransformOptions
 from llama.api.options.transform import ShiftOptions
+
 # from llama.projections import PhaseProjections
 import llama.projections as projections
 from llama.timing.timer_utils import timer, clear_timer_globals
@@ -18,6 +20,7 @@ from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.timing.timer_utils import timer
 from IPython.display import clear_output
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 # To do:
@@ -26,9 +29,15 @@ from tqdm import tqdm
 
 class ProjectionMatchingAligner(Aligner):
     @timer()
-    def __init__(self, projections: "projections.PhaseProjections", options: ProjectionMatchingOptions):
+    def __init__(
+        self,
+        projections: "projections.PhaseProjections",
+        options: ProjectionMatchingOptions,
+        print_updates: bool = True,
+    ):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
+        self.print_updates = print_updates
         # clear_timer_globals()
         # self.options.reconstruct.filter.device = self.options.device
 
@@ -38,8 +47,13 @@ class ProjectionMatchingAligner(Aligner):
         # Create the projections object
         projection_options = copy.deepcopy(self.projections.options)
         projection_options.experiment.pixel_size = self.projections.pixel_size
-        projection_options.crop = self.options.crop
-        projection_options.downsample = self.options.downsample
+        # projection_options.input_processing.crop = self.options.crop
+        # projection_options.input_processing.downsample = self.options.downsample
+        projection_options.input_processing = ProjectionTransformOptions(
+            downsample=self.options.downsample,
+            crop=self.options.crop,
+        )
+
         projection_options.reconstruct = self.options.reconstruct
         self.aligned_projections = projections.PhaseProjections(
             projections=self.projections.data,
@@ -74,9 +88,6 @@ class ProjectionMatchingAligner(Aligner):
 
         return shift
 
-    # Notes about initial implementation:
-    # - initial shift not supported
-
     @gutils.memory_releasing_error_handler
     @timer()
     def calculate_alignment_shift(self) -> ArrayType:
@@ -85,11 +96,15 @@ class ProjectionMatchingAligner(Aligner):
         self.initialize_shifters()
         tukey_window, circulo = self.initialize_windows()
 
-        for self.iteration in range(self.options.iterations):
-        # for self.iteration in tqdm(range(self.options.iterations)):
-            print("Iteration: ", str(self.iteration) + "/" + str(self.options.iterations))
+        # for self.iteration in range(self.options.iterations):
+        if self.print_updates:
+            loop_over = tqdm(range(self.options.iterations), desc="projection matching loop")
+        else:
+            loop_over = range(self.options.iterations)
+        for self.iteration in loop_over:
+            # print("Iteration: ", str(self.iteration) + "/" + str(self.options.iterations))
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
-            is_step_size_below_threshold = self.print_step_size_update()
+            is_step_size_below_threshold = self.check_step_size_update()
             if is_step_size_below_threshold:
                 break
 
@@ -114,12 +129,12 @@ class ProjectionMatchingAligner(Aligner):
             filter_inputs=True, pinned_filtered_sinogram=self.pinned_filtered_sinogram
         )
         self.aligned_projections.laminogram.apply_circular_window(circulo)
-        if self.options.regularization.enabled:
-            self.regularize_reconstruction()
+        self.regularize_reconstruction()
         if self.iteration == self.options.iterations:
             return
         # Get forward projection
         self.aligned_projections.laminogram.get_forward_projection(self.pinned_forward_projection)
+        self.plot_update()
         # Find optimal shift
         self.get_shift_update()
 
@@ -281,15 +296,16 @@ class ProjectionMatchingAligner(Aligner):
         shift = xp.array([x_shift, y_shift]).transpose().astype(r_type)
 
         return shift, error, unfiltered_error
-    
+
     @timer()
     def apply_window_to_masks(self, tukey_window: ArrayType):
         self.aligned_projections.masks[:] = tukey_window * self.aligned_projections.masks
 
     @timer()
     def regularize_reconstruction(self):
-        pass
-    
+        if self.options.regularization.enabled:
+            pass
+
     @timer()
     def initialize_arrays(self):
         self.memory_config = maps.get_memory_config_enum(
@@ -354,7 +370,7 @@ class ProjectionMatchingAligner(Aligner):
             tukey_window = gutils.pin_memory(tukey_window)
 
         return tukey_window, circulo
-    
+
     @timer()
     def move_arrays_back_to_cpu(self):
         self.total_shift = self.total_shift.get()
@@ -364,18 +380,55 @@ class ProjectionMatchingAligner(Aligner):
         self.pinned_error = self.pinned_error.get()
         self.pinned_unfiltered_error = self.pinned_unfiltered_error.get()
 
-    def print_step_size_update(self) -> bool:
+    def check_step_size_update(self) -> bool:
         # Check if the step size update is small enough to stop the loop
         xp = self.xp
         max_shift_step_size = xp.max(
             xp.quantile(xp.abs(self.shift_update * self.scale), 0.995, axis=0)
         )
-        print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
+        if self.print_updates:
+            print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
         if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
             print("Minimum step size reached, stopping loop...")
             return True
         else:
             return False
+
+    @timer()
+    def plot_update(self, proj_idx: int = 0):
+        if self.options.update_plot.enabled and (
+            self.iteration % self.options.update_plot.stride == 0
+        ):
+            slice_idx = int(self.aligned_projections.laminogram.data.shape[0] / 2)
+            sort_idx = np.argsort(self.aligned_projections.angles)
+
+            total_shift = self.total_shift[sort_idx]
+            projection = self.aligned_projections.data[proj_idx]
+            model_projection = self.aligned_projections.laminogram.forward_projections.data[
+                proj_idx
+            ]
+            if self.options.keep_on_gpu:
+                total_shift = total_shift.get()
+                projection = projection.get()
+
+            clear_output(wait=True)
+            fig, ax = plt.subplots(2, 2, layout="compressed")
+            plt.suptitle(f"Projection-matching alignment\nIteration {self.iteration}")
+            plt.sca(ax[0, 0])
+            plt.title("Alignment shift")
+            plt.plot(total_shift)
+            plt.grid()
+            plt.xlim()
+            plt.sca(ax[0, 1])
+            plt.title("Middle slice of reconstruction")
+            plt.imshow(self.aligned_projections.laminogram.data[slice_idx])
+            plt.sca(ax[1, 0])
+            plt.title(f"Input projection {proj_idx}")
+            plt.imshow(projection)
+            plt.sca(ax[1, 1])
+            plt.title(f"Model projection {proj_idx}")
+            plt.imshow(model_projection)
+            plt.show()
 
 
 @timer()
