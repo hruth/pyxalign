@@ -1,9 +1,11 @@
 from abc import ABC
 import dataclasses
 from dataclasses import field
+from typing import Optional
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions
-from llama.api.options.options import RegularizationOptions, UpdatePlotOptions
+from llama.api.options.options import RegularizationOptions
+from llama.api.options.plotting import UpdatePlotOptions, PlotDataOptions
 from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.transform import CropOptions, DownsampleOptions
 
@@ -28,6 +30,15 @@ class CrossCorrelationOptions(AlignmentOptions):
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
     crop: CropOptions = field(default_factory=CropOptions)
+
+
+@dataclasses.dataclass
+class ProjectionMatchingPlotOptions:
+    update: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)
+
+    reconstruction: PlotDataOptions = field(default_factory=PlotDataOptions)
+
+    projections: PlotDataOptions = field(default_factory=PlotDataOptions)
 
 
 @dataclasses.dataclass
@@ -58,4 +69,6 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     mask_shift_type: enums.ShiftType = enums.ShiftType.CIRC
 
-    update_plot: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)
+    plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
+
+    # update_plot: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)

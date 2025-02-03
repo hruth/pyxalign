@@ -6,6 +6,7 @@ import copy
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
 from llama.api.options.transform import ShiftOptions
+from llama.laminogram import Laminogram
 
 # from llama.projections import PhaseProjections
 import llama.projections as projections
@@ -14,7 +15,7 @@ from llama.transformations.classes import Shifter
 import llama.image_processing as ip
 import llama.api.maps as maps
 from llama.api.enums import DeviceType, MemoryConfig
-from llama.api.options.alignment import ProjectionMatchingOptions
+from llama.api.options.alignment import ProjectionMatchingOptions, ProjectionMatchingPlotOptions
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
@@ -38,6 +39,7 @@ class ProjectionMatchingAligner(Aligner):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
         self.print_updates = print_updates
+        # self.plotter = ProjectionMatchingPlotter(self.options.plot)
         # clear_timer_globals()
         # self.options.reconstruct.filter.device = self.options.device
 
@@ -318,7 +320,6 @@ class ProjectionMatchingAligner(Aligner):
 
         return apply_window_wrapped(self.aligned_projections.masks, tukey_window)
 
-
     @timer()
     def regularize_reconstruction(self):
         if self.options.regularization.enabled:
@@ -413,39 +414,51 @@ class ProjectionMatchingAligner(Aligner):
             return False
 
     @timer()
-    def plot_update(self, proj_idx: int = 0):
-        if self.options.update_plot.enabled and (
-            self.iteration % self.options.update_plot.stride == 0
+    def plot_update(self):
+        if self.options.plot.update.enabled and (
+            self.iteration % self.options.plot.update.stride == 0
         ):
-            slice_idx = int(self.aligned_projections.laminogram.data.shape[0] / 2)
             sort_idx = np.argsort(self.aligned_projections.angles)
-
-            total_shift = self.total_shift[sort_idx]
-            projection = self.aligned_projections.data[proj_idx]
-            model_projection = self.aligned_projections.laminogram.forward_projections.data[
-                proj_idx
-            ]
+            sorted_angles = self.aligned_projections.angles[sort_idx]
+            sorted_total_shift = self.total_shift[sort_idx]
             if self.options.keep_on_gpu:
-                total_shift = total_shift.get()
-                projection = projection.get()
+                sorted_total_shift = sorted_total_shift.get()
+
+            pixel_size = self.aligned_projections.pixel_size
 
             clear_output(wait=True)
             fig, ax = plt.subplots(2, 2, layout="compressed")
             plt.suptitle(f"Projection-matching alignment\nIteration {self.iteration}")
+
             plt.sca(ax[0, 0])
             plt.title("Alignment shift")
-            plt.plot(total_shift)
+            plt.ylabel("Shift (px)")
+            plt.xlabel("Angle (deg)")
+            plt.plot(sorted_angles, sorted_total_shift)
             plt.grid()
-            plt.xlim()
+            plt.xlim([sorted_angles[0], sorted_angles[-1]])
+            ylim = plt.ylim()
+            twin_ax = plt.gca().twinx()
+            plt.sca(twin_ax)
+            plt.ylim([y * pixel_size * 1e6 for y in ylim])
+            plt.ylabel(r"Shift ($\mu m$)")
+
+            ax_color = "palevioletred"
+            twin_ax.spines["right"].set_color(ax_color)
+            twin_ax.yaxis.label.set_color(ax_color)
+            twin_ax.tick_params(axis="y", colors=ax_color)
+
             plt.sca(ax[0, 1])
-            plt.title("Middle slice of reconstruction")
-            plt.imshow(self.aligned_projections.laminogram.data[slice_idx])
+            self.aligned_projections.laminogram.plot_data(
+                self.options.plot.reconstruction, show_plot=False
+            )
+
             plt.sca(ax[1, 0])
-            plt.title(f"Input projection {proj_idx}")
-            plt.imshow(projection)
+            self.aligned_projections.plot_data(self.options.plot.projections, show_plot=False)
             plt.sca(ax[1, 1])
-            plt.title(f"Model projection {proj_idx}")
-            plt.imshow(model_projection)
+            self.aligned_projections.laminogram.forward_projections.plot_data(
+                self.options.plot.projections, title_string="Forward Projection", show_plot=False
+            )
             plt.show()
 
 

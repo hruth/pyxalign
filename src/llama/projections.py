@@ -1,9 +1,11 @@
+from numbers import Complex
 from typing import List, Optional
 import numpy as np
 import cupyx
 import copy
 import matplotlib.pyplot as plt
 from llama.api.options import transform
+from llama.api.options.plotting import PlotDataOptions
 from llama.estimate_center import (
     estimate_center_of_rotation,
     CenterOfRotationEstimateResults,
@@ -336,6 +338,42 @@ class Projections:
         plt.legend()
         if show_plot:
             plt.show()
+
+    def plot_data(
+        self,
+        options: PlotDataOptions = None,
+        title_string: Optional[str] = None,
+        show_plot: bool = True,
+    ):
+        if options is None:
+            options = PlotDataOptions()
+        else:
+            options = copy.deepcopy(options)
+
+        if isinstance(self, ComplexProjections) and options.process_func is None:
+            print("process_func not provided, defaulting to plotting angle of complex projections")
+            options.process_func = np.angle
+
+        full_title = f"Projection {options.index}"
+        if title_string is not None:
+            full_title = title_string + "\n" + full_title
+        plt.title(full_title)
+
+        plotters.plot_slice_of_3D_array(
+            self.data,
+            options,
+            self.pixel_size,
+            show_plot=show_plot,
+        )
+        # plotters.plot_slice_of_3D_array(
+        #     self.data,
+        #     widths=options.image.widths,
+        #     center_offsets=options.image.center_offsets,
+        #     idx=options.index,
+        #     cmap=options.image.cmap,
+        #     process_func=process_func,
+        #     show_plot=show_plot,
+        # )
 
 
 class ComplexProjections(Projections):

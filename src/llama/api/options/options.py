@@ -1,5 +1,9 @@
 import dataclasses
 from dataclasses import field
+from numbers import Number
+from typing import Optional
+
+from matplotlib.pyplot import viridis
 from llama.api.options.device import DeviceOptions
 from llama.api.options.transform import DownsampleOptions
 from llama.api import enums
@@ -63,9 +67,3 @@ class RegularizationOptions:
     local_TV: bool = False
 
     local_TV_lambda: float = 3e-4
-
-@dataclasses.dataclass
-class UpdatePlotOptions:
-    enabled: bool = False
-
-    stride: int = 1

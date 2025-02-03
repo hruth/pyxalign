@@ -9,7 +9,12 @@ from .transform import (
     RotationOptions,
     ShearOptions,
 )
-from .alignment import AlignmentOptions, CrossCorrelationOptions, ProjectionMatchingOptions
+from .alignment import (
+    AlignmentOptions,
+    CrossCorrelationOptions,
+    ProjectionMatchingOptions,
+    ProjectionMatchingPlotOptions,
+)
 from .projections import (
     CoordinateSearchOptions,
     EstimateCenterOptions,
@@ -24,5 +29,5 @@ from .options import (
     PhaseRampRemovalOptions,
     PhaseUnwrapOptions,
     RegularizationOptions,
-    UpdatePlotOptions,
 )
+from .plotting import UpdatePlotOptions, PlotDataOptions, ScalebarOptions

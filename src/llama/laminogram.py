@@ -3,9 +3,11 @@ import numpy as np
 import cupy as cp
 import astra
 import copy
+from llama.api.options.plotting import PlotDataOptions
 
 import llama.image_processing as ip
 from llama import reconstruct
+from llama.plotting.plotters import plot_slice_of_3D_array
 import llama.projections as projections
 from llama.timing.timer_utils import timer
 import matplotlib.pyplot as plt
@@ -79,9 +81,11 @@ class Laminogram:
         )
         # Create a projections object in case I want to use any of the
         # projections object methods
+        forward_projection_options = copy.deepcopy(self.projections.options)
+        forward_projection_options.experiment.pixel_size = self.projections.pixel_size
         self.forward_projections = projections.PhaseProjections(
             projections=forward_projections,
-            options=self.projections.options,
+            options=forward_projection_options,
             angles=self.projections.angles,
             center_of_rotation=self.projections.center_of_rotation,
             skip_pre_processing=True,
@@ -105,30 +109,21 @@ class Laminogram:
 
     def plot_data(
         self,
-        slice_idx: Optional[int] = None,
-        plot_sum: bool = False,
-        ax_lim_width: Optional[tuple] = None,
-        ax_lim_center: Optional[tuple] = None,
+        options: Optional[PlotDataOptions] = None,
         show_plot: bool = True,
     ):
-        if plot_sum is True:
-            laminogram = self.data.sum(0)
+        if options is None:
+            options = PlotDataOptions()
         else:
-            if slice_idx is None:
-                slice_idx = int(self.data.shape[0] / 2)
-            laminogram = self.data[slice_idx]
+            options = copy.deepcopy(options)
 
-        plt.imshow(self.data[slice_idx])
-        if ax_lim_center is None:
-            ax_lim_center = laminogram.shape[1:] / 2
-        if ax_lim_width is not None:
-            range_array = np.array([-ax_lim_width / 2, ax_lim_width / 2])
-            plt.xlim(ax_lim_center[0] + range_array)
-            plt.ylim(ax_lim_center[1] + range_array)
-        if plot_sum:
-            plt.title(f"3D Reconstruction: sum along z-axis")
-        else:
-            plt.title(f"3D Reconstruction: slice {slice_idx}")
+        if options.index is None:
+            options.index = int(self.data.shape[0] / 2)
 
-        if show_plot:
-            plt.show()
+        plt.title(f"Reconstruction Slice {options.index}")
+        plot_slice_of_3D_array(
+            self.data,
+            options,
+            self.projections.pixel_size,
+            show_plot=show_plot,
+        )
