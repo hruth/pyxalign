@@ -256,7 +256,6 @@ class ProjectionMatchingAligner(Aligner):
         )
 
     @staticmethod
-    @timer()
     def calculate_shift_update(
         sinogram: ArrayType,
         masks: ArrayType,
@@ -450,7 +449,6 @@ class ProjectionMatchingAligner(Aligner):
             plt.show()
 
 
-@timer()
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):
     xp = cp.get_array_module(projections_residuals)
     error = xp.sqrt(xp.mean((masks * projections_residuals) ** 2, axis=(1, 2))) / mass

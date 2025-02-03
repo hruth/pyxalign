@@ -12,8 +12,11 @@ from llama.timing.timer_utils import timer
 
 from llama.api.types import ArrayType, r_type, c_type
 
+enable_timing = False
+"""Enabling timing for these functions will prevent multi-gpu parallelization when they
+are used with `device_handling_wrapper`."""
 
-@timer()
+@timer(enable_timing)
 def image_crop(
     images: ArrayType,
     horizontal_range: int,
@@ -58,7 +61,7 @@ def image_crop(
         ]
 
 
-@timer()
+@timer(enable_timing)
 def image_crop_pad(
     images: ArrayType,
     new_extent_y: int,
@@ -104,7 +107,7 @@ def image_crop_pad(
     return images
 
 
-@timer()
+@timer(enable_timing)
 @preserve_complexity_or_realness()
 def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True) -> ArrayType:
     xp = cp.get_array_module(images)
@@ -137,7 +140,7 @@ def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True)
     return images
 
 
-@timer()
+@timer(enable_timing)
 def image_shift_circ(images: ArrayType, shift: ArrayType, in_place=False) -> ArrayType:
     xp = cp.get_array_module(images)
 
@@ -162,12 +165,12 @@ def image_shift_circ(images: ArrayType, shift: ArrayType, in_place=False) -> Arr
     return images
 
 
-@timer()
+@timer(enable_timing)
 def image_shift_linear(images: ArrayType, shift: ArrayType) -> ArrayType:
     return image_downsample_linear(images, 1, shift)
 
 
-@timer()
+@timer(enable_timing)
 def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
@@ -187,7 +190,7 @@ def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
     return images
 
 
-@timer()
+@timer(enable_timing)
 @preserve_complexity_or_realness()
 def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=False) -> ArrayType:
     xp = cp.get_array_module(images)
@@ -238,7 +241,7 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
     return images
 
 
-@timer()
+@timer(enable_timing)
 def image_downsample_linear(
     images: ArrayType,
     scale: int,
@@ -295,7 +298,7 @@ def image_downsample_linear(
     return new_images
 
 
-@timer()
+@timer(enable_timing)
 def image_downsample_nearest(
     images: ArrayType, scale: int, use_gaussian_filter: bool = False
 ) -> ArrayType:
@@ -304,7 +307,7 @@ def image_downsample_nearest(
     return images[:, ::scale, ::scale]
 
 
-@timer()
+@timer(enable_timing)
 def image_upsample_nearest(images: ArrayType, scale: int) -> ArrayType:
     return images.repeat(scale, axis=1).repeat(scale, axis=2)
 
@@ -325,7 +328,7 @@ def rotateStackMod90(img, theta) -> ArrayType:
     return img
 
 
-@timer()
+@timer(enable_timing)
 @preserve_complexity_or_realness()
 def image_rotate_fft(
     images: ArrayType, theta: float, preserve_aspect_ratio: bool = False
@@ -367,7 +370,7 @@ def image_rotate_fft(
     return images
 
 
-@timer()
+@timer(enable_timing)
 @preserve_complexity_or_realness()
 def image_shear_fft(images: ArrayType, theta: float) -> ArrayType:
     """Shears the image about the z-axis (0th axis) of the input images"""

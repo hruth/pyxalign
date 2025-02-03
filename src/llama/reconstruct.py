@@ -237,7 +237,6 @@ def filter_sinogram(
     return filtered_sinogram
 
 
-@timer()
 def apply_filter(sinogram: ArrayType, filter: ArrayType, n_pix_width: int) -> ArrayType:
     xp = cp.get_array_module(sinogram)
     scipy_module: scipy = get_scipy_module(sinogram)
