@@ -99,21 +99,23 @@ def plot_slice_of_3D_array(
 
 
 def add_scalebar(pixel_size: Number, image_width: int, scalebar_fractional_width: float = 0.15):
-    # Update the scalebar so that the width is always an integer in microns
-    round_to = 1e6
+    # Update the scalebar to be length in microns with exactly 2 decimals of precision
+    round_to = 1e-8
+    display_units = 1e-6
+    m = pixel_size / round_to
     scale_string = r"$\mu m$"
     scalebar_width_px = scalebar_fractional_width * image_width
-    scalebar_width_si = int(scalebar_width_px * pixel_size * round_to)
-    scalebar_width_px = scalebar_width_si / (pixel_size * round_to)
+    scalebar_width_px = int(scalebar_width_px * m) / m  # Round to round_to
+    scalebar_width_si = scalebar_width_px * pixel_size / display_units  # Convert to display_units
 
     scalebar = AnchoredSizeBar(
         transform=plt.gca().transData,
         size=scalebar_width_px,
-        label=f"{scalebar_width_si} {scale_string}",
+        label=f"{round(scalebar_width_si, 2)} {scale_string}",
         loc="lower right",
         color="sandybrown",
         frameon=False,
-        size_vertical=2,
-        fontproperties=fm.FontProperties(size=10, weight="bold"),
+        # size_vertical=2,
+        fontproperties=fm.FontProperties(size=10),#, weight="bold"),
     )
     plt.gca().add_artist(scalebar)

@@ -419,46 +419,78 @@ class ProjectionMatchingAligner(Aligner):
             self.iteration % self.options.plot.update.stride == 0
         ):
             sort_idx = np.argsort(self.aligned_projections.angles)
-            sorted_angles = self.aligned_projections.angles[sort_idx]
-            sorted_total_shift = self.total_shift[sort_idx]
+            angles = self.aligned_projections.angles[sort_idx]
+            total_shift = self.total_shift[sort_idx]
+            initial_shift = self.initial_shift[sort_idx]
             if self.options.keep_on_gpu:
-                sorted_total_shift = sorted_total_shift.get()
+                total_shift = total_shift.get()
 
             pixel_size = self.aligned_projections.pixel_size
 
             clear_output(wait=True)
-            fig, ax = plt.subplots(2, 2, layout="compressed")
+            fig = plt.figure(layout="compressed", figsize=(10, 10))
+
+            gs = fig.add_gridspec(3, 2, height_ratios = [1, 1, 2])
+            total_shift_axis = fig.add_subplot(gs[0, 0])
+            new_shift_axis = fig.add_subplot(gs[1, 0])
+            rec_axis = fig.add_subplot(gs[0:2, 1])
+            proj_axis = fig.add_subplot(gs[2, 0])
+            forward_proj_axis = fig.add_subplot(gs[2, 1])
+
             plt.suptitle(f"Projection-matching alignment\nIteration {self.iteration}")
 
-            plt.sca(ax[0, 0])
+            plt.sca(total_shift_axis)
             plt.title("Alignment shift")
             plt.ylabel("Shift (px)")
             plt.xlabel("Angle (deg)")
-            plt.plot(sorted_angles, sorted_total_shift)
+            initial_shift_colors = ((0.75, 0.75, 1), (1, 0.75, 0.75))
+            for i in range(2):
+                plt.plot(angles, initial_shift[:, i] / self.scale, color=initial_shift_colors[i])
+            plt.plot(angles, total_shift)
             plt.grid()
-            plt.xlim([sorted_angles[0], sorted_angles[-1]])
+            plt.xlim([angles[0], angles[-1]])
             ylim = plt.ylim()
+
             twin_ax = plt.gca().twinx()
             plt.sca(twin_ax)
             plt.ylim([y * pixel_size * 1e6 for y in ylim])
             plt.ylabel(r"Shift ($\mu m$)")
-
             ax_color = "palevioletred"
             twin_ax.spines["right"].set_color(ax_color)
             twin_ax.yaxis.label.set_color(ax_color)
             twin_ax.tick_params(axis="y", colors=ax_color)
 
-            plt.sca(ax[0, 1])
+            plt.sca(new_shift_axis)
+            plt.title("total_shift - initial_shift")
+            plt.ylabel("Shift (px)")
+            plt.xlabel("Angle (deg)")
+            plt.plot(angles, total_shift - initial_shift / self.scale)
+            plt.grid()
+            plt.xlim([angles[0], angles[-1]])
+
+            ylim = plt.ylim()
+            twin_ax = plt.gca().twinx()
+            plt.sca(twin_ax)
+            plt.ylim([y * pixel_size * 1e6 for y in ylim])
+            plt.ylabel(r"Shift ($\mu m$)")
+            ax_color = "palevioletred"
+            twin_ax.spines["right"].set_color(ax_color)
+            twin_ax.yaxis.label.set_color(ax_color)
+            twin_ax.tick_params(axis="y", colors=ax_color)
+
+            plt.sca(rec_axis)
             self.aligned_projections.laminogram.plot_data(
                 self.options.plot.reconstruction, show_plot=False
             )
 
-            plt.sca(ax[1, 0])
+            plt.sca(proj_axis)
             self.aligned_projections.plot_data(self.options.plot.projections, show_plot=False)
-            plt.sca(ax[1, 1])
+            plt.sca(forward_proj_axis)
             self.aligned_projections.laminogram.forward_projections.plot_data(
                 self.options.plot.projections, title_string="Forward Projection", show_plot=False
             )
+
+            # fig.tight_layout()
             plt.show()
 
 
