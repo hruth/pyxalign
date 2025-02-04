@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 import cupy as cp
 import scipy
@@ -9,7 +9,7 @@ from llama.gpu_utils import get_scipy_module
 from llama.api.types import r_type, ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.timing.timer_utils import timer, InlineTimer
-
+from astra.creators import astra_dict
 
 @timer()
 def get_astra_reconstructor_geometry(
@@ -107,41 +107,48 @@ def get_astra_reconstructor_geometry(
 
 
 @timer()
-def get_geometries(scan_geometry_config: dict, vectors: np.ndarray) -> dict:
-    geometries = {}
-    geometries["vol_geom"] = astra.create_vol_geom(
+def get_object_geometries(scan_geometry_config: dict, vectors: np.ndarray) -> dict:
+    object_geometries = {}
+    object_geometries["vol_geom"] = astra.create_vol_geom(
         scan_geometry_config["iVolX"], scan_geometry_config["iVolY"], scan_geometry_config["iVolZ"]
     )
-    geometries["proj_geom"] = astra.create_proj_geom(
+    object_geometries["proj_geom"] = astra.create_proj_geom(
         "parallel3d_vec",
         scan_geometry_config["iProjV"],  # detector rows
         scan_geometry_config["iProjU"],  # detector columns
         vectors,
     )
 
-    return geometries
+    return object_geometries
 
 
 @timer()
-def create_or_update_astra_reconstructor_config(
+def create_astra_reconstructor_config(
     sinogram: np.ndarray,
-    scan_geometry_config: dict,
-    vectors: np.ndarray,
+    object_geometries: dict,
+) -> tuple[dict, dict]:
+    astra_config = astra.astra_dict("BP3D_CUDA")  # update this for cpu option later
+    astra_config["ReconstructionDataId"] = astra.data3d.create(
+        "-vol", object_geometries["vol_geom"]
+    )
+    astra_config["ProjectionDataId"] = astra.data3d.create(
+        "-sino", object_geometries["proj_geom"], sinogram.transpose([1, 0, 2])
+    )
+    return astra_config
+
+
+@timer()
+def update_astra_reconstructor_config(
+    sinogram: np.ndarray,
+    object_geometries: dict,
     astra_config: Optional[dict] = None,
 ) -> tuple[dict, dict]:
-    geometries = get_geometries(scan_geometry_config, vectors)
-    if astra_config is None:
-        astra_config = astra.astra_dict("BP3D_CUDA")  # update this for cpu option later
-        astra_config["ReconstructionDataId"] = astra.data3d.create("-vol", geometries["vol_geom"])
-        astra_config["ProjectionDataId"] = astra.data3d.create(
-            "-sino", geometries["proj_geom"], sinogram.transpose([1, 0, 2])
-        )
-    else:
-        astra.data3d.change_geometry(astra_config["ReconstructionDataId"], geometries["vol_geom"])
-        astra.data3d.change_geometry(astra_config["ProjectionDataId"], geometries["proj_geom"])
-        astra.data3d.store(astra_config["ProjectionDataId"], sinogram.transpose([1, 0, 2]))
-
-    return astra_config, geometries
+    astra.data3d.change_geometry(
+        astra_config["ReconstructionDataId"], object_geometries["vol_geom"]
+    )
+    astra.data3d.change_geometry(astra_config["ProjectionDataId"], object_geometries["proj_geom"])
+    astra.data3d.store(astra_config["ProjectionDataId"], sinogram.transpose([1, 0, 2]))
+    return astra_config
 
 
 def update_astra_reconstructor_sinogram(sinogram: np.ndarray, astra_config: dict):
@@ -281,28 +288,63 @@ def design_filter(width: int, d: float = 1.0) -> ArrayType:
 
 @timer()
 def get_forward_projection(
-    reconstruction: np.ndarray,
-    geometries: dict,
+    reconstruction: Optional[np.ndarray] = None,
+    object_geometries: Optional[dict] = None,
     pinned_forward_projection: Optional[np.ndarray] = None,
-) -> np.ndarray:
-    forward_projection_ID = astra.create_sino3d_gpu(
-        reconstruction,
-        geometries["proj_geom"],
-        geometries["vol_geom"],
-        returnData=False,
-    )
+    # clear_astra_object: bool = True,
+    volume_id: Optional[int] = None,
+    forward_projection_id: Optional[int] = None,
+    return_id: bool = False,
+) -> Union[tuple[np.ndarray, int], np.ndarray]:  # -> np.ndarray:
+    error_message = """
+    The correct combination of inputs was not provided. You must pass
+    in one of the following combinations of inputs:
+        - volume_id and forward_projection_id
+        - reconstruction and forward_projection_id
+        - reconstruction and object_geometries
+        - volume_id and object_geometries
+    """
+    
+    
+    inline_timer = InlineTimer("create sino3d object")
+    inline_timer.start()
+    # if volume_id is not None:
+        # data = volume_id
+    # else:
+        # data = reconstruction
+
+    if volume_id is None:
+        volume_id = reconstruction
+    
+    if forward_projection_id is None:
+        forward_projection_id = astra.create_sino3d_gpu(
+            volume_id,
+            object_geometries["proj_geom"],
+            object_geometries["vol_geom"],
+            returnData=False,
+        )
+
+    if forward_projection_id is not None:
+        algString = 'FP3D_CUDA'
+        cfg = astra_dict(algString)
+        cfg['ProjectionDataId'] = forward_projection_id
+        cfg['VolumeDataId'] = volume_id
+        alg_id = astra.algorithm.create(cfg)
+        astra.algorithm.run(alg_id)
+        astra.algorithm.delete(alg_id)
+
+    inline_timer.end()
 
     # if you are having issues with segmentation faults, it may be due to the
     # use of get_shared. Using get_shared is slightly faster.
     if pinned_forward_projection is None:
-        pinned_forward_projection = astra.data3d.get_shared(forward_projection_ID).transpose(
-            [1, 0, 2]
-        )
+        pinned_forward_projection = astra.data3d.get_shared(forward_projection_id).transpose([1, 0, 2])
     else:
-        # pinned_forward_projection[:] = astra.data3d.get(forward_projection_ID).transpose([1, 0, 2])
-        pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_ID).transpose(
-            [1, 0, 2]
-        )
-    # astra.data3d.delete(forward_projection_ID)
+        pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_id).transpose([1, 0, 2])
+    # if clear_astra_object:
+        # astra.data3d.delete(volume_id)
 
-    return pinned_forward_projection
+    if return_id:
+        return pinned_forward_projection, forward_projection_id
+    else:
+        return pinned_forward_projection

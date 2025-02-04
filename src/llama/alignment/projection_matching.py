@@ -1,3 +1,5 @@
+import re
+import traceback
 from typing import Optional
 import numpy as np
 import cupy as cp
@@ -24,6 +26,7 @@ from llama.timing.timer_utils import timer
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import astra
 
 # To do:
 # - add option for creating pinned arrays to speed up downsampling
@@ -81,8 +84,14 @@ class ProjectionMatchingAligner(Aligner):
             self.initial_shift = initial_shift
 
         # Run the PMA algorithm
-        self.calculate_alignment_shift()
-
+        try:
+            self.calculate_alignment_shift()
+        except Exception as ex:
+            print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+            traceback.print_exc()
+        finally:
+            astra.clear()
+            
         if self.memory_config == MemoryConfig.GPU_ONLY:
             self.move_arrays_back_to_cpu()
 
@@ -129,7 +138,9 @@ class ProjectionMatchingAligner(Aligner):
         # - use method from projections class and add filtering
         # - later, add ability to re-use the same astra_config
         self.aligned_projections.get_3D_reconstruction(
-            filter_inputs=True, pinned_filtered_sinogram=self.pinned_filtered_sinogram
+            filter_inputs=True,
+            pinned_filtered_sinogram=self.pinned_filtered_sinogram,
+            reinitialize_astra=False,
         )
         if self.options.reconstruction_mask.enabled:
             self.aligned_projections.laminogram.apply_circular_window(circulo)
@@ -137,7 +148,12 @@ class ProjectionMatchingAligner(Aligner):
         if self.iteration == self.options.iterations:
             return
         # Get forward projection
-        self.aligned_projections.laminogram.get_forward_projection(self.pinned_forward_projection)
+        self.aligned_projections.laminogram.get_forward_projection(
+            pinned_forward_projection=self.pinned_forward_projection,
+            forward_projection_id=self.aligned_projections.laminogram.astra_config[
+                "ProjectionDataId"
+            ],
+        )
         # Find optimal shift
         self.get_shift_update()
         self.plot_update()

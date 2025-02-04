@@ -397,19 +397,21 @@ class PhaseProjections(Projections):
         self.laminogram = Laminogram(self)
 
     def get_3D_reconstruction(
-        self, filter_inputs: bool = False, pinned_filtered_sinogram: Optional[np.ndarray] = None
+        self,
+        filter_inputs: bool = False,
+        pinned_filtered_sinogram: Optional[np.ndarray] = None,
+        reinitialize_astra: bool = True,
     ):
         self.laminogram.generate_laminogram(
             filter_inputs=filter_inputs,
             pinned_filtered_sinogram=pinned_filtered_sinogram,
+            reinitialize_astra=reinitialize_astra,
         )
 
     def estimate_center_of_rotation(self) -> CenterOfRotationEstimateResults:
         clear_timer_globals()
         estimate_center_options = self.return_auto_centered_search_options()
-        return estimate_center_of_rotation(
-            self, self.angles, self.masks, estimate_center_options
-        )
+        return estimate_center_of_rotation(self, self.angles, self.masks, estimate_center_options)
 
     def plot_coordinate_search_points(
         self,

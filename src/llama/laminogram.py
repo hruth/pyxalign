@@ -23,19 +23,33 @@ class Laminogram:
         # Store a reference to the projections
         self.projections = projections
         self.astra_config = None
+        self.object_geometries = None
+        self.scan_geometry_config = None
+        self.vectors = None
+        self.forward_projection_id = None
+        self.options = copy.deepcopy(projections.options.reconstruct)
+        self.experiment_options = copy.deepcopy(projections.options.experiment)
 
-    @timer()
-    def generate_laminogram(
-        self,
-        filter_inputs: bool = False,
-        pinned_filtered_sinogram: Optional[np.ndarray] = None,
-        regenerate_reconstructor_geometry: bool = False,
-    ):
-        # Copy the settings used at the time of the reconstruction
-        self.options = copy.deepcopy(self.projections.options.reconstruct)
-        self.experiment_options = copy.deepcopy(self.projections.options.experiment)
-        astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
-        if not hasattr(self, "scan_geometry_config") or regenerate_reconstructor_geometry:
+    @property
+    def n_layers(self):
+        return self.projections.reconstructed_object_dimensions[2]
+
+    def intialize_astra_reconstructor_inputs(self, reinitialize_astra: bool):
+        if reinitialize_astra:
+            if self.astra_config is not None:
+                astra.data3d.delete(self.astra_config["ReconstructionDataId"])
+                astra.data3d.delete(self.astra_config["ProjectionDataId"])
+            self.astra_config = None
+            self.object_geometries = None
+            self.scan_geometry_config = None
+            self.vectors = None
+            self.forward_projection_id = None
+
+        if self.scan_geometry_config is None:
+            # self.scan_geometry_config, self.vectors, self.object_geometries = (
+            #     self.intialize_astra_reconstructor_inputs()
+            # )
+
             self.scan_geometry_config, self.vectors = reconstruct.get_astra_reconstructor_geometry(
                 size=self.projections.size,
                 angles=self.projections.angles,
@@ -44,9 +58,41 @@ class Laminogram:
                 lamino_angle=self.experiment_options.laminography_angle,
                 tilt_angle=self.options.geometry.tilt_angle,
                 skew_angle=self.options.geometry.skew_angle,
-                # tilt_angle=self.experiment_options.tilt_angle,
-                # skew_angle=self.experiment_options.skew_angle,
             )
+            self.object_geometries = reconstruct.get_object_geometries(
+                self.scan_geometry_config, self.vectors
+            )
+
+        # return scan_geometry_config, vectors, object_geometries
+
+    @timer()
+    def generate_laminogram(
+        self,
+        filter_inputs: bool = False,
+        pinned_filtered_sinogram: Optional[np.ndarray] = None,
+        reinitialize_astra: bool = True,
+    ):
+        # Copy the settings used at the time of the reconstruction
+        self.options = copy.deepcopy(self.projections.options.reconstruct)
+        self.experiment_options = copy.deepcopy(self.projections.options.experiment)
+
+        astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
+
+        # if reinitialize_astra:
+        #     if self.astra_config is not None:
+        #         astra.data3d.delete(self.astra_config["ReconstructionDataId"])
+        #         astra.data3d.delete(self.astra_config["ProjectionDataId"])
+        #     self.astra_config = None
+        #     self.object_geometries = None
+        #     self.scan_geometry_config = None
+        #     self.vectors = None
+
+        # if self.scan_geometry_config is None:
+        #     self.scan_geometry_config, self.vectors, self.object_geometries = (
+        #         self.intialize_astra_reconstructor_inputs()
+        #     )
+        self.intialize_astra_reconstructor_inputs(reinitialize_astra)
+
         if filter_inputs:
             sinogram = reconstruct.filter_sinogram(
                 sinogram=self.projections.data,
@@ -56,29 +102,36 @@ class Laminogram:
             )
         else:
             sinogram = self.projections.data
-        # # Temporary fix for keep_on_gpu case. The fix I need to do is 
-        # # to filter_sinogram and/or gpu wrapper to have an option to insert
-        # # a cupy array and get a numpy array at output
-        # if type(sinogram) is cp.ndarray:
-        #     sinogram.get(out=pinned_filtered_sinogram)
-        #     sinogram = pinned_filtered_sinogram
-        self.astra_config, self.geometries = (
-            reconstruct.create_or_update_astra_reconstructor_config(
-                sinogram=sinogram,
-                scan_geometry_config=self.scan_geometry_config,
-                vectors=self.vectors,
-                astra_config=self.astra_config,
+
+        if self.astra_config is None:
+            self.astra_config = reconstruct.create_astra_reconstructor_config(
+                sinogram,
+                self.object_geometries,
             )
-        )
+        else:
+            self.astra_config = reconstruct.update_astra_reconstructor_config(
+                sinogram,
+                self.object_geometries,
+                self.astra_config,
+            )
+
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
 
-    def get_forward_projection(self, pinned_forward_projection: Optional[np.ndarray] = None):
+    def get_forward_projection(
+        self,
+        pinned_forward_projection: Optional[np.ndarray] = None,
+        forward_projection_id: Optional[int] = None,
+    ):
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
-        forward_projections = reconstruct.get_forward_projection(
-            reconstruction=self.data,
-            geometries=self.geometries,
+
+        forward_projections, self.forward_projection_id = reconstruct.get_forward_projection(
+            object_geometries=self.object_geometries,
             pinned_forward_projection=pinned_forward_projection,
+            volume_id=self.astra_config["ReconstructionDataId"],
+            forward_projection_id=forward_projection_id,
+            return_id=True,
         )
+
         # Create a projections object in case I want to use any of the
         # projections object methods
         forward_projection_options = copy.deepcopy(self.projections.options)
@@ -90,7 +143,25 @@ class Laminogram:
             center_of_rotation=self.projections.center_of_rotation,
             skip_pre_processing=True,
         )
-        # astra.clear()
+
+    def generate_projection_masks_from_circulo(
+        self, forward_project_gpu_indices: Optional[tuple] = None
+    ) -> np.ndarray:
+        if forward_project_gpu_indices is None:
+            astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
+        else:
+            astra.set_gpu_index(forward_project_gpu_indices)
+
+        reconstruction_mask = self.get_circular_window()
+        reconstruction_mask = np.repeat(reconstruction_mask[None], self.n_layers, axis=0)
+
+        _, _, object_geometries = self.intialize_astra_reconstructor_inputs()
+        masks = reconstruct.get_forward_projection(
+            reconstruction=reconstruction_mask,
+            object_geometries=object_geometries,
+        )
+
+        return masks
 
     @timer()
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):
