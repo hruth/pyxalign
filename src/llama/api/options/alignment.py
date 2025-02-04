@@ -40,12 +40,22 @@ class ProjectionMatchingPlotOptions:
 
     projections: PlotDataOptions = field(default_factory=PlotDataOptions)
 
+@dataclasses.dataclass
+class ReconstructionMaskOptions:
+    enabled: bool = True
+
 
 @dataclasses.dataclass
 class ProjectionMatchingOptions(AlignmentOptions):
     iterations: int = 300
 
     high_pass_filter: float = 0.005
+
+    tukey_shape_parameter: float = 0.2
+
+    reconstruction_mask: ReconstructionMaskOptions = field(
+        default_factory=ReconstructionMaskOptions
+    )
 
     step_relax: float = 0.1
 

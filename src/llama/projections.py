@@ -123,11 +123,15 @@ class Projections:
 
     def crop_projections(self, options: CropOptions):
         if options.enabled:
+            pre_crop_dims = np.array(self.data.shape[1:])
             self.data = Cropper(options).run(self.data)
             if self.masks is not None:
                 self.masks = Cropper(options).run(self.masks)
             self.transform_tracker.update_crop(options)
-            # To do: insert code for updating center of rotation
+            # To do: update this to work properly when the 
+            # center is shifted too!
+            new_dims = np.array(self.data.shape[1:])
+            self.center_of_rotation = self.center_of_rotation - (pre_crop_dims - new_dims) / 2
 
     def downsample_projections(
         self,
@@ -343,6 +347,7 @@ class Projections:
         self,
         options: PlotDataOptions = None,
         title_string: Optional[str] = None,
+        plot_sum: bool = False,
         show_plot: bool = True,
     ):
         if options is None:
@@ -357,26 +362,22 @@ class Projections:
         if options.index is None:
             options.index = 0
 
+        if plot_sum:
+            projection_data = self.data.sum(0, keepdims=True)
+        else:
+            projection_data = self.data
+
         full_title = f"Projection {options.index}"
         if title_string is not None:
             full_title = title_string + "\n" + full_title
         plt.title(full_title)
 
         plotters.plot_slice_of_3D_array(
-            self.data,
+            projection_data,
             options,
             self.pixel_size,
             show_plot=show_plot,
         )
-        # plotters.plot_slice_of_3D_array(
-        #     self.data,
-        #     widths=options.image.widths,
-        #     center_offsets=options.image.center_offsets,
-        #     idx=options.index,
-        #     cmap=options.image.cmap,
-        #     process_func=process_func,
-        #     show_plot=show_plot,
-        # )
 
 
 class ComplexProjections(Projections):
@@ -478,6 +479,8 @@ class ShiftManager:
         device_options: Optional[DeviceOptions] = None,
         pinned_results: Optional[np.ndarray] = None,
     ):
+        if device_options is None:
+            device_options = DeviceOptions()
         if self.is_shift_nonzero():
             shift_options = ShiftOptions(
                 enabled=True,

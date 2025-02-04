@@ -131,7 +131,8 @@ class ProjectionMatchingAligner(Aligner):
         self.aligned_projections.get_3D_reconstruction(
             filter_inputs=True, pinned_filtered_sinogram=self.pinned_filtered_sinogram
         )
-        self.aligned_projections.laminogram.apply_circular_window(circulo)
+        if self.options.reconstruction_mask.enabled:
+            self.aligned_projections.laminogram.apply_circular_window(circulo)
         self.regularize_reconstruction()
         if self.iteration == self.options.iterations:
             return
@@ -392,9 +393,14 @@ class ProjectionMatchingAligner(Aligner):
     @timer()
     def initialize_windows(self) -> tuple[ArrayType, ArrayType]:
         # Generate window for removing edge issues
-        tukey_window = ip.get_tukey_window(self.aligned_projections.size, A=0.2, xp=self.xp)
+        tukey_window = ip.get_tukey_window(
+            self.aligned_projections.size, A=self.options.tukey_shape_parameter, xp=self.xp
+        )
         # Generate circular mask for reconstruction
-        circulo = self.aligned_projections.laminogram.get_circular_window()
+        if self.options.reconstruction_mask.enabled:
+            circulo = self.aligned_projections.laminogram.get_circular_window()
+        else:
+            circulo = None
 
         if self.memory_config == MemoryConfig.MIXED:
             tukey_window = gutils.pin_memory(tukey_window)
