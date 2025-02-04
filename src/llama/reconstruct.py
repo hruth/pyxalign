@@ -11,6 +11,7 @@ from llama.gpu_wrapper import device_handling_wrapper
 from llama.timing.timer_utils import timer, InlineTimer
 from astra.creators import astra_dict
 
+
 @timer()
 def get_astra_reconstructor_geometry(
     size: tuple[int, int],
@@ -291,58 +292,45 @@ def get_forward_projection(
     reconstruction: Optional[np.ndarray] = None,
     object_geometries: Optional[dict] = None,
     pinned_forward_projection: Optional[np.ndarray] = None,
-    # clear_astra_object: bool = True,
     volume_id: Optional[int] = None,
     forward_projection_id: Optional[int] = None,
     return_id: bool = False,
-) -> Union[tuple[np.ndarray, int], np.ndarray]:  # -> np.ndarray:
-    error_message = """
-    The correct combination of inputs was not provided. You must pass
-    in one of the following combinations of inputs:
-        - volume_id and forward_projection_id
-        - reconstruction and forward_projection_id
-        - reconstruction and object_geometries
-        - volume_id and object_geometries
-    """
-    
-    
+) -> Union[tuple[np.ndarray, int], np.ndarray]:
     inline_timer = InlineTimer("create sino3d object")
     inline_timer.start()
-    # if volume_id is not None:
-        # data = volume_id
-    # else:
-        # data = reconstruction
-
-    if volume_id is None:
-        volume_id = reconstruction
-    
-    if forward_projection_id is None:
+    if (forward_projection_id is not None) and (volume_id is not None):
+        algString = "FP3D_CUDA"
+        cfg = astra_dict(algString)
+        cfg["ProjectionDataId"] = forward_projection_id
+        cfg["VolumeDataId"] = volume_id
+        alg_id = astra.algorithm.create(cfg)
+        astra.algorithm.run(alg_id)
+        astra.algorithm.delete(alg_id)
+    elif (volume_id is not None) or (reconstruction is not None):
+        if volume_id is not None:
+            data = volume_id
+        else:
+            data = reconstruction
         forward_projection_id = astra.create_sino3d_gpu(
-            volume_id,
+            data,
             object_geometries["proj_geom"],
             object_geometries["vol_geom"],
             returnData=False,
         )
-
-    if forward_projection_id is not None:
-        algString = 'FP3D_CUDA'
-        cfg = astra_dict(algString)
-        cfg['ProjectionDataId'] = forward_projection_id
-        cfg['VolumeDataId'] = volume_id
-        alg_id = astra.algorithm.create(cfg)
-        astra.algorithm.run(alg_id)
-        astra.algorithm.delete(alg_id)
+    else:
+        raise ValueError("Improper inputs provided")
 
     inline_timer.end()
 
     # if you are having issues with segmentation faults, it may be due to the
     # use of get_shared. Using get_shared is slightly faster.
     if pinned_forward_projection is None:
-        pinned_forward_projection = astra.data3d.get_shared(forward_projection_id).transpose([1, 0, 2])
+        # pinned_forward_projection = astra.data3d.get_shared(forward_projection_id).transpose([1, 0, 2])
+        pinned_forward_projection = astra.data3d.get(forward_projection_id).transpose([1, 0, 2])
     else:
-        pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_id).transpose([1, 0, 2])
-    # if clear_astra_object:
-        # astra.data3d.delete(volume_id)
+        pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_id).transpose(
+            [1, 0, 2]
+        )
 
     if return_id:
         return pinned_forward_projection, forward_projection_id

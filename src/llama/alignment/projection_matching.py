@@ -84,14 +84,8 @@ class ProjectionMatchingAligner(Aligner):
             self.initial_shift = initial_shift
 
         # Run the PMA algorithm
-        try:
-            self.calculate_alignment_shift()
-        except Exception as ex:
-            print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
-            traceback.print_exc()
-        finally:
-            astra.clear()
-            
+        self.calculate_alignment_shift()
+
         if self.memory_config == MemoryConfig.GPU_ONLY:
             self.move_arrays_back_to_cpu()
 

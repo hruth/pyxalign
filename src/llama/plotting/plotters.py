@@ -116,6 +116,6 @@ def add_scalebar(pixel_size: Number, image_width: int, scalebar_fractional_width
         color="sandybrown",
         frameon=False,
         # size_vertical=2,
-        fontproperties=fm.FontProperties(size=10),#, weight="bold"),
+        fontproperties=fm.FontProperties(size=10, weight="bold"),
     )
     plt.gca().add_artist(scalebar)
