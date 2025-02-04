@@ -2,6 +2,7 @@ from typing import Optional
 import numpy as np
 import cupy as cp
 import copy
+from collections import defaultdict
 
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
@@ -136,9 +137,9 @@ class ProjectionMatchingAligner(Aligner):
             return
         # Get forward projection
         self.aligned_projections.laminogram.get_forward_projection(self.pinned_forward_projection)
-        self.plot_update()
         # Find optimal shift
         self.get_shift_update()
+        self.plot_update()
 
     @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
@@ -182,6 +183,10 @@ class ProjectionMatchingAligner(Aligner):
             self.pinned_error = None
             self.pinned_unfiltered_error = None
 
+        shape = (self.options.iterations, *(self.pinned_error.shape))
+        self.all_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
+        self.all_unfiltered_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
+
     @timer()
     def get_shift_update(self):
         wrapped_func = device_handling_wrapper(
@@ -223,6 +228,12 @@ class ProjectionMatchingAligner(Aligner):
         self.post_process_shift()
 
         self.total_shift += self.shift_update
+        if self.memory_config == MemoryConfig.GPU_ONLY:
+            self.all_errors[self.iteration] = self.pinned_error.get()
+            self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error.get()
+        else:
+            self.all_errors[self.iteration] = self.pinned_error
+            self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error
 
     @timer()
     def post_process_shift(self):
@@ -430,12 +441,15 @@ class ProjectionMatchingAligner(Aligner):
             clear_output(wait=True)
             fig = plt.figure(layout="compressed", figsize=(10, 10))
 
-            gs = fig.add_gridspec(3, 2, height_ratios = [1, 1, 2])
+            gs = fig.add_gridspec(5, 2, height_ratios = [1, 1, 2, 1, 1])
             total_shift_axis = fig.add_subplot(gs[0, 0])
             new_shift_axis = fig.add_subplot(gs[1, 0])
             rec_axis = fig.add_subplot(gs[0:2, 1])
             proj_axis = fig.add_subplot(gs[2, 0])
             forward_proj_axis = fig.add_subplot(gs[2, 1])
+            error_axis = fig.add_subplot(gs[3:5, 0])
+            error_vs_iter_axis = fig.add_subplot(gs[3, 1])
+            unfiltered_error_vs_iter_axis = fig.add_subplot(gs[4, 1])
 
             plt.suptitle(f"Projection-matching alignment\nIteration {self.iteration}")
 
@@ -489,6 +503,36 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.laminogram.forward_projections.plot_data(
                 self.options.plot.projections, title_string="Forward Projection", show_plot=False
             )
+
+            plt.sca(error_axis)
+            plt.title("Error")
+            plt.plot(angles, self.all_errors[self.iteration, sort_idx], label="Filtered")
+            plt.plot(
+                angles,
+                self.all_unfiltered_errors[self.iteration, sort_idx],
+                label="Unfiltered",
+            )
+            plt.grid()
+            plt.xlabel("Angle (deg)")
+            plt.ylabel("Error")
+            plt.legend()
+
+            plt.sca(error_vs_iter_axis)
+            plt.title("Error vs Iteration")
+            plt.plot(self.all_errors[: self.iteration].mean(axis=1), label="Filtered")
+            plt.grid()
+            plt.xlabel("Iteration")
+            plt.ylabel("Mean Error")
+            plt.legend()
+
+
+            plt.sca(unfiltered_error_vs_iter_axis)
+            plt.title("Error vs Iteration")
+            plt.plot(self.all_unfiltered_errors[: self.iteration].mean(axis=1), label="Unfiltered")
+            plt.grid()
+            plt.xlabel("Iteration")
+            plt.ylabel("Mean Error")
+            plt.legend()
 
             # fig.tight_layout()
             plt.show()

@@ -354,6 +354,9 @@ class Projections:
             print("process_func not provided, defaulting to plotting angle of complex projections")
             options.process_func = np.angle
 
+        if options.index is None:
+            options.index = 0
+
         full_title = f"Projection {options.index}"
         if title_string is not None:
             full_title = title_string + "\n" + full_title
