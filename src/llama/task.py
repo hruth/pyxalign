@@ -45,7 +45,7 @@ class LaminographyAlignmentTask:
         print("Cross-correlation shift stored in shift_manager")
 
     def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray]=None):
-        if self.pma_object is not None:
+        if self.pma_object is not None and hasattr(self.pma_object, "aligned_projections"):
             # Clear old astra objects
             self.pma_object.aligned_projections.laminogram.clear_astra_objects()
 

@@ -140,7 +140,7 @@ class Laminogram:
     def generate_projection_masks_from_circulo(
         self,
         forward_project_gpu_indices: Optional[tuple] = None,
-        radial_smooth: int = 5,
+        radial_smooth: int = 0,
         rad_apod: int = 0,
     ) -> np.ndarray:
         if forward_project_gpu_indices is None:
@@ -152,14 +152,15 @@ class Laminogram:
         reconstruction_mask = np.repeat(reconstruction_mask[None], self.n_layers, axis=0)
 
         _, _, object_geometries = self.intialize_astra_reconstructor_inputs()
-        masks, sino_id = reconstruct.get_forward_projection(
+        mask, sino_id = reconstruct.get_forward_projection(
             reconstruction=reconstruction_mask,
             object_geometries=object_geometries,
             return_id=True,
         )
+        mask = mask[0]/mask[0].max()
         astra.data3d.delete(sino_id)
 
-        return masks
+        return mask
 
     def clear_astra_objects(self):
         astra_objects = []

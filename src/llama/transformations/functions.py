@@ -42,9 +42,9 @@ def image_crop(
     )
     if (
         horizontal_index_start < 0
-        or horizontal_index_end >= image_dims[1]
+        or horizontal_index_end > image_dims[1]
         or vertical_index_start < 0
-        or vertical_index_end >= image_dims[0]
+        or vertical_index_end > image_dims[0]
     ):
         raise ValueError("Invalid values entered for cropping.")
 

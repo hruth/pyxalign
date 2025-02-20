@@ -44,6 +44,19 @@ class ProjectionMatchingPlotOptions:
 class ReconstructionMaskOptions:
     enabled: bool = True
 
+    rad_apod: int = 0
+
+    radial_smooth: int = 5
+
+
+@dataclasses.dataclass
+class SecondaryMaskOptions:
+    enabled: bool = False
+
+    rad_apod: int = 100
+
+    radial_smooth: int = 5
+
 
 @dataclasses.dataclass
 class ProjectionMatchingOptions(AlignmentOptions):
@@ -56,6 +69,8 @@ class ProjectionMatchingOptions(AlignmentOptions):
     reconstruction_mask: ReconstructionMaskOptions = field(
         default_factory=ReconstructionMaskOptions
     )
+
+    secondary_mask: SecondaryMaskOptions = field(default_factory=SecondaryMaskOptions)
 
     step_relax: float = 0.1
 

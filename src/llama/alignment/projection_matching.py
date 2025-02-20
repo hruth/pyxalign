@@ -72,10 +72,12 @@ class ProjectionMatchingAligner(Aligner):
             self.scale = self.options.downsample.scale
         else:
             self.scale = 1
-        # Make sure the reference doesn't go back to the original arrays
-        if self.aligned_projections.data is self.projections.data:
+
+        # When cropping and not downsampling, you need to make a new copy
+        # of the array. I don't fully understand why this is needed, but 
+        # this will break if you don't have it here.
+        if self.options.crop.enabled and (self.scale == 1):
             self.aligned_projections.data = self.aligned_projections.data * 1
-        if self.aligned_projections.masks is self.projections.masks:
             self.aligned_projections.masks = self.aligned_projections.masks * 1
 
         if initial_shift is None:
@@ -97,6 +99,7 @@ class ProjectionMatchingAligner(Aligner):
     @gutils.memory_releasing_error_handler
     @timer()
     def calculate_alignment_shift(self) -> ArrayType:
+        # tukey_window, circulo = self.initialize_windows()
         unshifted_masks, unshifted_projections = self.initialize_arrays()
         self.initialize_attributes()
         self.initialize_shifters()
@@ -204,7 +207,7 @@ class ProjectionMatchingAligner(Aligner):
             func=self.calculate_shift_update,
             options=self.options.device,
             chunkable_inputs_for_gpu_idx=[0, 1, 2],
-            common_inputs_for_gpu_idx=[4],
+            common_inputs_for_gpu_idx=[4, 5],
             pinned_results=(
                 self.shift_update,
                 self.pinned_error,
@@ -234,6 +237,7 @@ class ProjectionMatchingAligner(Aligner):
             forward_projection_input,
             self.options.high_pass_filter,
             self.mass,
+            self.secondary_mask,
         )
         inline_timer.end()
         self.post_process_shift()
@@ -286,8 +290,11 @@ class ProjectionMatchingAligner(Aligner):
         forward_projection_model: ArrayType,
         high_pass_filter: ArrayType,
         mass: float,
+        secondary_mask: ArrayType,
     ) -> tuple[ArrayType, ArrayType, ArrayType]:
         xp = cp.get_array_module(sinogram)
+
+        masks = secondary_mask * masks
 
         projections_residuals = forward_projection_model - sinogram
 
@@ -406,14 +413,30 @@ class ProjectionMatchingAligner(Aligner):
         tukey_window = ip.get_tukey_window(
             self.aligned_projections.size, A=self.options.tukey_shape_parameter, xp=self.xp
         )
+
         # Generate circular mask for reconstruction
         if self.options.reconstruction_mask.enabled:
             circulo = self.aligned_projections.laminogram.get_circular_window()
         else:
             circulo = None
 
+        # Generate secondary masks
+        if self.options.secondary_mask.enabled:
+            self.secondary_mask = (
+                self.aligned_projections.laminogram.generate_projection_masks_from_circulo(
+                    radial_smooth=self.options.secondary_mask.radial_smooth,
+                    rad_apod=self.options.secondary_mask.rad_apod,
+                )
+            )
+        else:
+            self.secondary_mask = np.ones_like(self.aligned_projections.data[0])
+
         if self.memory_config == MemoryConfig.MIXED:
             tukey_window = gutils.pin_memory(tukey_window)
+            self.secondary_mask = gutils.pin_memory(self.secondary_mask)
+        elif self.memory_config == MemoryConfig.GPU_ONLY:
+            self.secondary_mask = cp.array(self.secondary_mask)
+
 
         return tukey_window, circulo
 
