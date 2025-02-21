@@ -1,6 +1,6 @@
 from typing import Optional
 import numpy as np
-from llama.projections import ComplexProjections, PhaseProjections
+from llama.data_structures.projections import ComplexProjections, PhaseProjections
 from llama.alignment.cross_correlation import CrossCorrelationAligner
 from llama.alignment.projection_matching import ProjectionMatchingAligner
 from llama.api.options.task import AlignmentTaskOptions

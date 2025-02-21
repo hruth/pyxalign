@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 from dataclasses import fields, is_dataclass
 
-from llama.projections import ComplexProjections, PhaseProjections
+from llama.data_structures.projections import ComplexProjections, PhaseProjections
 from llama.task import LaminographyAlignmentTask
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api.options.projections import ProjectionOptions

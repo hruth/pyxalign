@@ -4,7 +4,7 @@ import numpy as np
 import cupy as cp
 import pytest
 from llama.gpu_utils import get_available_gpus, is_pinned
-from llama.projections import ComplexProjections
+from llama.data_structures.projections import ComplexProjections
 from llama.api.options.transform import ShiftOptions
 from llama.transformations.classes import Shifter
 from llama.api import enums

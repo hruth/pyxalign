@@ -4,7 +4,7 @@ import numpy as np
 from enum import StrEnum, auto
 from llama.api.options.projections import ProjectionOptions
 
-from llama.projections import ComplexProjections
+from llama.data_structures.projections import ComplexProjections
 from llama.task import LaminographyAlignmentTask
 from llama.io import load
 

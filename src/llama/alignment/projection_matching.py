@@ -9,10 +9,10 @@ from collections import defaultdict
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
 from llama.api.options.transform import ShiftOptions
-from llama.laminogram import Laminogram
+from llama.data_structures.laminogram import Laminogram
 
 # from llama.projections import PhaseProjections
-import llama.projections as projections
+import llama.data_structures.projections as projections
 from llama.timing.timer_utils import InlineTimer, timer, clear_timer_globals
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip

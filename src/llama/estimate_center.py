@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 import llama.alignment.projection_matching as pm
-import llama.projections as proj
+import llama.data_structures.projections as proj
 from llama.api.options.projections import (
     CoordinateSearchOptions,
     EstimateCenterOptions,

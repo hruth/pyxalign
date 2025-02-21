@@ -1,16 +1,13 @@
-import chunk
-from math import e
-from typing import Optional, Union
+import multiprocessing as mp
+from time import time
+from typing import Callable, Optional, Union
 import traceback
 import h5py
 import numpy as np
-import time
 from scipy import stats
-
 from tqdm import tqdm
-
 from llama.transformations.functions import image_crop_pad
-from llama.api.types import c_type
+from llama.io.loaders.enums import LoaderType
 
 border = 60 * "-"
 
@@ -57,7 +54,9 @@ def generate_experiment_description(
     return experiment_string + ")\n"
 
 
-def is_valid_option_provided(use_option: str, options_list: list, allow_multiple_selections: bool) -> Union[tuple, None]:
+def is_valid_option_provided(
+    use_option: str, options_list: list, allow_multiple_selections: bool
+) -> Union[tuple, None]:
     # Use pre-provided option if it was passed in
     if use_option is not None:
         try:
@@ -271,6 +270,37 @@ def convert_projection_dict_to_array(
     print("Converting list to array..Completed")
 
     return projections_array
+
+
+def select_loader_type_from_prompt() -> LoaderType:
+    _, loader_type = generate_input_user_prompt(
+        load_object_type_string="loader type",
+        options_list=list(LoaderType),
+    )
+    return loader_type
+
+
+def parallel_load_all_projections(
+    file_paths: dict,
+    n_processes: int,
+    projection_loading_function: Callable,
+) -> dict[int, np.ndarray]:
+    "Use a process pool to load all of the projections"
+
+    try:
+        print("Loading projections into list...")
+        t_0 = time()
+        with mp.Pool(processes=n_processes) as pool:
+            projections_map = tqdm(
+                pool.imap(projection_loading_function, file_paths.values()), total=len(file_paths)
+            )
+            projections = dict(zip(file_paths.keys(), projections_map))
+        print(f"Loading complete. Duration: {time() - t_0}")
+    except Exception as ex:
+        print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+        print(traceback.format_exc())
+
+    return projections
 
 
 if __name__ == "__main__":

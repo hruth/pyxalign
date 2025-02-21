@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import multiprocessing as mp
+import llama.io.loaders.lamni.utils
 import llama.test_utils as tutils
 
 try:
@@ -26,7 +27,7 @@ def test_lamni_loader(pytestconfig: Config, overwrite_results=False, check_resul
         overwrite_results = pytestconfig.getoption("overwrite_results")
     test_name = "test_lamni_loader"
 
-    options = llama.io.loaders.LamniLoadOptions(
+    options = llama.io.loaders.lamni.utils.LamniLoadOptions(
         selected_experiment_name="unlabeled",
         selected_sequences=[3],
         selected_metadata_list=["512x512_b0_MLc_Niter500_recons"],

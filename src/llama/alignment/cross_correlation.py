@@ -8,7 +8,7 @@ import pandas as pd
 from llama.alignment.base import Aligner
 from llama.gpu_wrapper import device_handling_wrapper
 import llama.image_processing as ip
-from llama.projections import Projections
+from llama.data_structures.projections import Projections
 from llama.api.options.alignment import CrossCorrelationOptions
 from llama.gpu_utils import get_scipy_module, pin_memory, memory_releasing_error_handler
 from llama.api import enums

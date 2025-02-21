@@ -16,6 +16,7 @@ enable_timing = False
 """Enabling timing for these functions will prevent multi-gpu parallelization when they
 are used with `device_handling_wrapper`."""
 
+
 @timer(enable_timing)
 def image_crop(
     images: ArrayType,
@@ -392,3 +393,54 @@ def image_shear_fft(images: ArrayType, theta: float) -> ArrayType:
     )
 
     return images
+
+
+def rotate_positions(positions: np.ndarray, angle: float, center: np.ndarray) -> np.ndarray:
+    """
+    Rotates an array of 2D positions by a given angle in degrees.
+
+    Parameters:
+        positions (np.ndarray): An Nx2 array where each row represents a point [x, y].
+        angle (float): The rotation angle in degrees.
+
+    Returns:
+        np.ndarray: The rotated Nx2 array of positions.
+    """
+    # Define the 2D rotation matrix
+    angle = angle * np.pi / 180
+    rotation_matrix = np.array(
+        [
+            [np.cos(angle), -np.sin(angle)],
+            [np.sin(angle), np.cos(angle)],
+        ]
+    )
+    # Rotate each position by performing a dot product with the rotation matrix.
+    # If positions are row vectors, we need to multiply on the right by the transpose.
+    rotated_positions = (positions - center).dot(rotation_matrix.T) + center
+    return rotated_positions
+
+
+def shear_positions(positions: np.ndarray, angle: float, center: np.ndarray, axis: int=1) -> np.ndarray:
+    """
+    Apply a shear transformation to a 2D vector of positions using a shear angle.
+
+    Parameters:
+        positions (np.ndarray): Array of shape (N, 2) where each row is a position [x, y].
+        angle (float): The shear angle in degrees.
+        axis (int): The axis along which to apply the shear.
+
+    Returns:
+        np.ndarray: Array of sheared positions.
+    """
+    shear_factor = np.tan(np.pi * (angle / 2) / 180)
+
+    if axis == 0:
+        shear_matrix = np.array([[1, shear_factor], [0, 1]])
+    elif axis == 1:
+        shear_matrix = np.array([[1, 0], [shear_factor, 1]])
+    else:
+        raise ValueError("Invalid axis. Choose 'x' for horizontal or 'y' for vertical shear.")
+    centered_positions = positions - center
+    sheared_positions = centered_positions @ shear_matrix.T
+    sheared_positions = sheared_positions + center
+    return sheared_positions

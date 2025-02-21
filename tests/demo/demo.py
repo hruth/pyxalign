@@ -3,7 +3,7 @@ import h5py
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.task import AlignmentTaskOptions
 from llama.task import LaminographyAlignmentTask
-from llama.projections import ComplexProjections, PhaseProjections
+from llama.data_structures.projections import ComplexProjections, PhaseProjections
 
 import matplotlib.pyplot as plt
 

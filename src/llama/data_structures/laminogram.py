@@ -8,7 +8,7 @@ from llama.api.options.plotting import PlotDataOptions
 import llama.image_processing as ip
 from llama import reconstruct
 from llama.plotting.plotters import plot_slice_of_3D_array
-import llama.projections as projections
+import llama.data_structures.projections as projections
 from llama.timing.timer_utils import timer
 import matplotlib.pyplot as plt
 

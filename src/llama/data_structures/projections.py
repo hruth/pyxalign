@@ -1,10 +1,7 @@
-from numbers import Complex
 from typing import List, Optional
 import numpy as np
-import cupyx
 import copy
 import matplotlib.pyplot as plt
-from llama.api.options import transform
 from llama.api.options.plotting import PlotDataOptions
 from llama.estimate_center import (
     estimate_center_of_rotation,
@@ -16,7 +13,11 @@ from llama.api import enums
 from llama.api.options.alignment import AlignmentOptions
 from llama.api.options.device import DeviceOptions
 
-from llama.api.options.projections import CoordinateSearchOptions, EstimateCenterOptions, ProjectionOptions, ProjectionTransformOptions
+from llama.api.options.projections import (
+    EstimateCenterOptions,
+    ProjectionOptions,
+    ProjectionTransformOptions,
+)
 from llama.api.options.transform import (
     CropOptions,
     RotationOptions,
@@ -27,15 +28,20 @@ from llama.api.options.transform import (
 )
 import llama.gpu_utils as gpu_utils
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.laminogram import Laminogram
+from llama.data_structures.laminogram import Laminogram
 from llama.mask import estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
 from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
-from llama.transformations.functions import image_shift_fft, will_rotation_flip_aspect_ratio
+from llama.transformations.functions import (
+    image_shift_fft,
+    will_rotation_flip_aspect_ratio,
+    rotate_positions,
+)
 from llama.transformations.helpers import is_array_real
 from llama.unwrap import unwrap_phase
+from llama.data_structures.positions import ProbePositions
 from llama.api.types import ArrayType, r_type
 
 
@@ -69,12 +75,15 @@ class Projections:
     @timer()
     def __init__(
         self,
+        *,
         projections: np.ndarray,
         angles: np.ndarray,
         options: ProjectionOptions,
-        masks: Optional[np.ndarray] = None,
-        shift_manager: Optional["ShiftManager"] = None,
+        probe_positions: Optional[list[np.ndarray]] = None,
         center_of_rotation: Optional[np.ndarray] = None,
+        masks: Optional[np.ndarray] = None,
+        probe: Optional[np.ndarray] = None,
+        shift_manager: Optional["ShiftManager"] = None,
         skip_pre_processing: bool = False,
         transform_tracker: Optional[TransformTracker] = None,
     ):
@@ -82,24 +91,32 @@ class Projections:
         self.angles = angles
         self.data = projections
         self.masks = masks
-        self.pixel_size = self.options.experiment.pixel_size * 1  # change to property
-        if transform_tracker is None:
-            self.transform_tracker = TransformTracker()
-        else:
-            self.transform_tracker = transform_tracker
+        self.probe = probe
+        if probe_positions is not None:
+            center_pixel = np.array(self.data.shape[1:]) / 2
+            self.probe_positions = ProbePositions(positions=probe_positions, center_pixel=center_pixel)
+        self.pixel_size = self.options.experiment.pixel_size * 1  # might want to change to property
         if center_of_rotation is None:
             self.center_of_rotation = np.array(self.data.shape[1:], dtype=r_type) / 2
         else:
             self.center_of_rotation = np.array(center_of_rotation, dtype=r_type)
-
+        # Initialize tracker for recording all transformations that have
+        # been applied to the projections array
+        if transform_tracker is None:
+            self.transform_tracker = TransformTracker()
+        else:
+            self.transform_tracker = transform_tracker
+        # Apply input processing tasks (i.e. rotation, shear, downsampling, etc)
+        # to projections array
         if not skip_pre_processing:
             self.transform_projections(self.options.input_processing)
-
+        # Initialize manager for storing and applying shifts to the projections
         if shift_manager is not None:
             self.shift_manager = copy.deepcopy(shift_manager)
         else:
             self.shift_manager = ShiftManager(self.n_projections)
-
+        # Run initialization code specific to the projection type (i.e. PhaseProjections
+        # or complex projections)
         self._post_init()
 
     @timer()
@@ -121,6 +138,7 @@ class Projections:
         if options.shear is not None:
             self.shear_projections(options.shear)
 
+    @timer()
     def crop_projections(self, options: CropOptions):
         if options.enabled:
             pre_crop_dims = np.array(self.data.shape[1:])
@@ -128,11 +146,12 @@ class Projections:
             if self.masks is not None:
                 self.masks = Cropper(options).run(self.masks)
             self.transform_tracker.update_crop(options)
-            # To do: update this to work properly when the 
+            # To do: update this to work properly when the
             # center is shifted too!
             new_dims = np.array(self.data.shape[1:])
             self.center_of_rotation = self.center_of_rotation - (pre_crop_dims - new_dims) / 2
 
+    @timer()
     def downsample_projections(
         self,
         options: DownsampleOptions,
@@ -146,11 +165,17 @@ class Projections:
                 mask_options.type = mask_downsample_type
                 mask_options.use_gaussian_filter = mask_downsample_use_gaussian_filter
                 self.masks = Downsampler(mask_options).run(self.masks)
-            self.transform_tracker.update_downsample(options.scale)
             # Update center of rotation
             self.center_of_rotation = self.center_of_rotation / options.scale
             # Update pixel size
             self.pixel_size = self.pixel_size * options.scale
+            # Update probe positions
+            if self.probe_positions is not None:
+                self.probe_positions.rescale_positions(options.scale)
+            # Downsample probe
+            if self.probe is not None:
+                self.probe = self.probe[:: options.scale, :: options.scale]
+            self.transform_tracker.update_downsample(options.scale)
 
     @timer()
     def rotate_projections(self, options: RotationOptions):
@@ -162,6 +187,12 @@ class Projections:
                 Rotator(options).run(self.data, pinned_results=self.data)
                 if self.masks is not None:
                     Rotator(options).run(self.masks, pinned_results=self.masks)
+                # Update probe positions
+                if self.probe_positions is not None:
+                    self.probe_positions.rotate_positions(
+                        angle=options.angle,
+                        center_pixel=np.array(self.data.shape[1:]) / 2,
+                    )
             else:
                 # If projections are already pinned, create a new pinned array
                 # at the new aspect ratio
@@ -197,8 +228,17 @@ class Projections:
             if self.masks is not None:
                 # Will probably be wrong without fixes
                 self.masks = Shearer(options).run(self.masks)
+            if self.probe_positions is not None:
+                self.probe_positions.shear_positions(
+                    angle=options.angle,
+                    center_pixel=np.array(self.data.shape[1:]) / 2,
+                )
             self.transform_tracker.update_shear(options.angle)
             # To do: insert code for updating center of rotation
+
+    @timer()
+    def create_mask_from_probe_positions(self):
+        pass
 
     def drop_projections(self, remove_idx: list[int]):
         "Permanently remove specific projections from object"
@@ -228,7 +268,7 @@ class Projections:
             0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
         )
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
-        n_pix[:2] = (np.ceil(n_pix[:2] / 32) * 32)
+        n_pix[:2] = np.ceil(n_pix[:2] / 32) * 32
         n_pix = n_pix.astype(int)
         # n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
         return n_pix
@@ -268,7 +308,9 @@ class Projections:
         "Plot the shifted projections using the shift that was passed in."
         plotters.make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
 
-    def plot_sum_of_projections(self, process_function: callable = lambda x: x, show_cor: bool = False):
+    def plot_sum_of_projections(
+        self, process_function: callable = lambda x: x, show_cor: bool = False
+    ):
         plt.imshow(process_function(self.data).sum(0))
         if show_cor:
             plt.plot(
@@ -280,7 +322,6 @@ class Projections:
                 markeredgecolor="black",
             )
         plt.show()
-
 
     def get_masks(self, enable_plotting: bool = False):
         mask_options = self.options.mask
@@ -337,7 +378,7 @@ class Projections:
             image = process_func(self.data[proj_idx])
 
         plt.imshow(image, cmap="bone")
-        plt.plot(center_of_rotation[1], center_of_rotation[0], '.m', label="Center of Rotation")
+        plt.plot(center_of_rotation[1], center_of_rotation[0], ".m", label="Center of Rotation")
         plt.title(f"Center of Rotation\n(x={center_of_rotation[1]}, y={center_of_rotation[0]})")
         plt.legend()
         if show_plot:
@@ -418,7 +459,7 @@ class PhaseProjections(Projections):
         proj_idx: int = 0,
         plot_projection_sum: bool = False,
     ):
-        # Plots the coordinate search points 
+        # Plots the coordinate search points
         estimate_center_options = self.return_auto_centered_search_options()
         horizontal_coordinate_array, _ = format_coordinate_options(
             estimate_center_options.horizontal_coordinate
@@ -459,7 +500,7 @@ class ShiftManager:
         self,
         shift: np.ndarray,
         function_type: enums.ShiftType,
-        alignment_options: Optional[AlignmentOptions]=None,
+        alignment_options: Optional[AlignmentOptions] = None,
     ):
         self.staged_shift = shift
         self.staged_function_type = function_type

@@ -3,7 +3,7 @@ import time
 import numpy as np
 import cupy as cp
 from llama.gpu_utils import is_pinned
-from llama.projections import ComplexProjections
+from llama.data_structures.projections import ComplexProjections
 from llama.api.options.transform import ShiftOptions
 from llama.transformations.classes import Shifter
 from llama.api import enums

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from llama.projections import PhaseProjections
+from llama.data_structures.projections import PhaseProjections
 from llama.task import LaminographyAlignmentTask
 from llama.api import enums
 from llama.io import save, load

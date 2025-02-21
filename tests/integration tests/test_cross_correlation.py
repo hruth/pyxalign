@@ -5,7 +5,7 @@ import numpy as np
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.task import AlignmentTaskOptions
 from llama.task import LaminographyAlignmentTask
-from llama.projections import ComplexProjections
+from llama.data_structures.projections import ComplexProjections
 from llama.api import enums
 
 import llama.test_utils as tutils

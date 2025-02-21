@@ -3,7 +3,7 @@ from llama.api.types import ArrayType
 import numpy as np
 import cupy as cp
 from llama.api.options.alignment import AlignmentOptions
-import llama.projections as projections
+import llama.data_structures.projections as projections
 
 
 class Aligner(ABC):

@@ -4,7 +4,7 @@ import numpy as np
 import dataclasses
 from enum import StrEnum
 
-from llama.projections import Projections, ShiftManager
+from llama.data_structures.projections import Projections, ShiftManager
 from llama.task import LaminographyAlignmentTask
 from llama.api.options.task import AlignmentTaskOptions
 

@@ -7,7 +7,7 @@ from llama.api.options.device import DeviceOptions, GPUOptions
 
 from llama.api.options.projections import ProjectionOptions
 from llama.gpu_utils import is_pinned
-from llama.projections import ComplexProjections
+from llama.data_structures.projections import ComplexProjections
 from llama.api.options.transform import DownsampleOptions, ShiftOptions
 from llama.transformations.classes import Downsampler, Shifter
 from llama.api import enums

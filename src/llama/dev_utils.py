@@ -5,7 +5,7 @@ import inspect
 from typing import List
 from llama.api.options.task import AlignmentTaskOptions
 
-from llama.projections import ComplexProjections, PhaseProjections, Projections
+from llama.data_structures.projections import ComplexProjections, PhaseProjections, Projections
 from llama.api.options.projections import ProjectionOptions
 from llama.task import LaminographyAlignmentTask
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     import llama
     import llama.api.options as opts
     from llama.api import enums
-    from llama.projections import PhaseProjections  # this one has to be called after the reload
+    from llama.data_structures.projections import PhaseProjections  # this one has to be called after the reload
     from llama.task import LaminographyAlignmentTask  # this one has to be called after the reload
     from llama.transformations.functions import image_shift_fft
     import numpy as np
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     import llama
     import llama.api.options as opts
     from llama.api import enums
-    from llama.projections import PhaseProjections  # this one has to be called after the reload
+    from llama.data_structures.projections import PhaseProjections  # this one has to be called after the reload
     from llama.task import LaminographyAlignmentTask  # this one has to be called after the reload
     from llama.transformations.functions import (
         image_shift_fft,
