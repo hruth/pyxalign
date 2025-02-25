@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from IPython.display import display
 from ipywidgets import interact
 import cupy as cp
+from llama.api.maps import get_process_func_by_enum
 from llama.api.options.plotting import PlotDataOptions
 
 from llama.api.types import ArrayType
@@ -67,13 +68,13 @@ def plot_slice_of_3D_array(
     pixel_size: Optional[Number] = None,
     show_plot: bool = True,
 ):
-    if options.process_func is None:
-        options.process_func = lambda x: x
+    process_func = get_process_func_by_enum(options.process_func)
+
     if options.index is None:
         index = 0
     else:
         index = options.index
-    image = options.process_func(images[index])
+    image = process_func(images[index])
 
     if options.widths is None:
         widths = np.array(image.shape)

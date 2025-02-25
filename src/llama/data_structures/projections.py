@@ -82,8 +82,9 @@ class Projections:
         center_of_rotation: Optional[np.ndarray] = None,
         masks: Optional[np.ndarray] = None,
         probe: Optional[np.ndarray] = None,
-        shift_manager: Optional["ShiftManager"] = None,
         skip_pre_processing: bool = False,
+        add_center_offset_to_positions: bool = True,
+        shift_manager: Optional["ShiftManager"] = None,
         transform_tracker: Optional[TransformTracker] = None,
     ):
         self.options = options
@@ -92,7 +93,10 @@ class Projections:
         self.masks = masks
         self.probe = probe
         if probe_positions is not None:
-            center_pixel = np.array(self.data.shape[1:]) / 2
+            if add_center_offset_to_positions:
+                center_pixel = np.array(self.data.shape[1:]) / 2
+            else:
+                center_pixel = np.array([0, 0])
             self.probe_positions = ProbePositions(
                 positions=probe_positions, center_pixel=center_pixel
             )
@@ -428,7 +432,6 @@ class Projections:
 
         if isinstance(self, ComplexProjections) and options.process_func is None:
             print("process_func not provided, defaulting to plotting angle of complex projections")
-            options.process_func = np.angle
 
         if options.index is None:
             options.index = 0

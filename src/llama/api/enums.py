@@ -48,3 +48,7 @@ class InputFileStructureType(StrEnum):
 class Direction(StrEnum):
     HORIZONTAL = auto()
     VERTICAL = auto()
+
+class ProcessFunc(StrEnum):
+    ANGLE = auto()
+    ABS = auto()

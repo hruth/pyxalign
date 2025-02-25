@@ -2,6 +2,7 @@ import dataclasses
 from dataclasses import field
 from numbers import Number
 from typing import Optional
+from llama.api import enums
 
 
 @dataclasses.dataclass
@@ -28,6 +29,7 @@ class PlotDataOptions:
 
     scalebar: ScalebarOptions = field(default_factory=ScalebarOptions)
 
-    process_func: callable = lambda x: x
+    # process_func: callable = lambda x: x
+    process_func: Optional[enums.ProcessFunc] = None
 
     index: Optional[int] = None

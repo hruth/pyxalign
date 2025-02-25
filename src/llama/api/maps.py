@@ -9,6 +9,7 @@ from llama.api.enums import (
     UpsampleType,
     DeviceType,
     MemoryConfig,
+    ProcessFunc,
 )
 import llama.transformations.functions
 import llama.gpu_utils as gutils
@@ -57,6 +58,14 @@ def get_rotation_func_by_enum(key: RotationType) -> RotationProtocol:
 def get_shear_func_by_enum(key: RotationType) -> RotationProtocol:
     return {
         RotationType.FFT: llama.transformations.functions.image_shear_fft,
+    }[key]
+
+
+def get_process_func_by_enum(key: Union[None, ProcessFunc]) -> Callable:
+    return {
+        ProcessFunc.ANGLE: np.angle,
+        ProcessFunc.ABS: np.abs,
+        None: lambda x: x,
     }[key]
 
 

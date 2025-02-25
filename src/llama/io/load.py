@@ -1,8 +1,9 @@
+from numbers import Complex
 import h5py
 import numpy as np
 from dataclasses import fields, is_dataclass
 
-from llama.data_structures.projections import ComplexProjections, PhaseProjections
+from llama.data_structures.projections import ComplexProjections, PhaseProjections, Projections
 from llama.task import LaminographyAlignmentTask
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api.options.projections import ProjectionOptions
@@ -14,44 +15,16 @@ T = TypeVar("T")
 
 def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
     print("Loading task from", file_path, "...")
-    def get_masks(group, h5_obj):
-        if "masks" in h5_obj[group].keys():
-            return h5_obj[group]["masks"][:]
-        else:
-            return None
+
     with h5py.File(file_path, "r") as h5_obj:
-        group = "complex_projections"
-        if group in h5_obj.keys() and group not in exclude:
-            complex_projections = ComplexProjections(
-                projections=h5_obj[group + "/data"][:],
-                angles=h5_obj[group + "/angles"][:],
-                options=load_options(h5_obj[group], ProjectionOptions),
-                masks=get_masks(group, h5_obj),
-                center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
-                shift_manager=None,  # needs to be updated later
-                skip_pre_processing=True,
-            )
-        else:
-            complex_projections = None
+        # Load projections
+        loaded_projections = load_projections(h5_obj, exclude)
 
-        group = "phase_projections"
-        if group in h5_obj.keys() and group not in exclude:
-            phase_projections = PhaseProjections(
-                projections=h5_obj[group + "/data"][:],
-                angles=h5_obj[group + "/angles"][:],
-                options=load_options(h5_obj[group]["options"], ProjectionOptions),
-                masks=get_masks(group, h5_obj),
-                center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
-                shift_manager=None,  # needs to be updated later
-                skip_pre_processing=True,
-            )
-        else:
-            phase_projections = None
-
+        # Insert projections into task along with saved task options
         task = LaminographyAlignmentTask(
             options=load_options(h5_obj["options"], AlignmentTaskOptions),
-            complex_projections=complex_projections,
-            phase_projections=phase_projections,
+            complex_projections=loaded_projections["complex_projections"],
+            phase_projections=loaded_projections["phase_projections"],
         )
 
         print("Loading complete")
@@ -59,8 +32,50 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
     return task
 
 
+def load_projections(
+    h5_obj: Union[h5py.Group, h5py.File], exclude: list[str] = []
+) -> dict[str, Union[Projections, None]]:
+    projections_map = {
+        "complex_projections": ComplexProjections,
+        "phase_projections": PhaseProjections,
+    }
+    loaded_projections = {"complex_projections": None, "phase_projections": None}
+    for group, projection_class in projections_map.items():
+        if group in h5_obj.keys() and group not in exclude:
+            loaded_projections[group] = projection_class(
+                projections=h5_obj[group + "/data"][:],
+                angles=h5_obj[group + "/angles"][:],
+                options=load_options(h5_obj[group], ProjectionOptions),
+                center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
+                masks=load_masks(h5_obj[group]),
+                probe_positions=load_positions(h5_obj[group]),
+                skip_pre_processing=True,
+                add_center_offset_to_positions=False,
+            )
+    return loaded_projections
+
+
 def load_options(h5_obj, options_class: Type[T]) -> T:
     return dict_to_dataclass(cls=options_class, data=h5_to_dict(h5_obj))
+
+
+def load_positions(h5_obj: h5py.Group):
+    if "positions" in h5_obj.keys():
+        positions_dataset = h5_obj["positions"]
+        n_scans = len(positions_dataset)
+        positions = list(range(n_scans))
+        for i in range(n_scans):
+            positions[i] = positions_dataset[str(i)][()]
+        return positions
+    else:
+        return None
+
+
+def load_masks(h5_obj: h5py.Group):
+    if "masks" in h5_obj.keys():
+        return h5_obj["masks"][:]
+    else:
+        return None
 
 
 def h5_to_dict(h5_obj: Union[h5py.Group, h5py.File]):
