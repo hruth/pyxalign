@@ -19,15 +19,14 @@ from llama.api.options.plotting import PlotDataOptions
 from llama.api.types import ArrayType
 
 
-def make_image_slider_plot(images: ArrayType):
-    # Create the play button and slider (slider will not be displayed)
+def return_image_slider_plot_base(images: np.ndarray) -> widgets.Play:
+    # Create the play button and slider
     play = widgets.Play(
         value=0,
         min=0,
         max=len(images) - 1,
         interval=500,
         description="Play",
-        disabled=False,
     )
 
     slider = widgets.IntSlider(
@@ -35,7 +34,7 @@ def make_image_slider_plot(images: ArrayType):
         min=0,
         max=len(images) - 1,
         description="index",
-        visible=False,  # Hide the slider
+        visible=False,  # The slider will be shown via the interact link
     )
 
     # Link the play button and slider
@@ -46,10 +45,14 @@ def make_image_slider_plot(images: ArrayType):
         plt.imshow(images[idx])
         plt.show()
 
-    # Use interact with the slider (without displaying the slider)
+    # Use interact with the slider
     interact(update_plot, idx=slider)
 
-    # Display only the play button
+    return play
+
+
+def make_image_slider_plot(images: np.ndarray):
+    play = return_image_slider_plot_base(images)
     display(play)
 
 

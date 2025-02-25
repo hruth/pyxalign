@@ -29,16 +29,13 @@ from llama.api.options.transform import (
 import llama.gpu_utils as gpu_utils
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.data_structures.laminogram import Laminogram
-from llama.mask import estimate_reliability_region_mask, blur_masks
+
+from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
 
 import llama.plotting.plotters as plotters
 from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
-from llama.transformations.functions import (
-    image_shift_fft,
-    will_rotation_flip_aspect_ratio,
-    rotate_positions,
-)
+from llama.transformations.functions import image_shift_fft, will_rotation_flip_aspect_ratio
 from llama.transformations.helpers import is_array_real
 from llama.unwrap import unwrap_phase
 from llama.data_structures.positions import ProbePositions
@@ -72,6 +69,8 @@ class TransformTracker:
 
 
 class Projections:
+    mask_builder: IlluminationMapMaskBuilder = None
+
     @timer()
     def __init__(
         self,
@@ -94,7 +93,9 @@ class Projections:
         self.probe = probe
         if probe_positions is not None:
             center_pixel = np.array(self.data.shape[1:]) / 2
-            self.probe_positions = ProbePositions(positions=probe_positions, center_pixel=center_pixel)
+            self.probe_positions = ProbePositions(
+                positions=probe_positions, center_pixel=center_pixel
+            )
         self.pixel_size = self.options.experiment.pixel_size * 1  # might want to change to property
         if center_of_rotation is None:
             self.center_of_rotation = np.array(self.data.shape[1:], dtype=r_type) / 2
@@ -237,8 +238,37 @@ class Projections:
             # To do: insert code for updating center of rotation
 
     @timer()
-    def create_mask_from_probe_positions(self):
-        pass
+    def setup_masks_from_probe_positions(self):
+        if self.probe is None or self.probe_positions is None:
+            raise Exception(
+                "The Projections object must have probe_positions and "
+                + "probe attribute to run create_mask_from_probe_positions!"
+            )
+        self.mask_builder = IlluminationMapMaskBuilder()
+        self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data)
+        self.mask_builder.set_mask_threshold_interactively(self.data)
+
+    @timer()
+    def get_masks_from_probe_positions(
+        self, threshold: Optional[float] = None, delete_mask_builder: bool = True
+    ):
+        """
+        Do one of the following:
+        1) Run `setup_masks_from_probe_positions` first
+        2) Provide the threshold input, above which to set the illumination map to 1
+        """
+        if self.mask_builder is None and threshold is None:
+            raise Exception
+        if self.mask_builder is None:
+            self.mask_builder = IlluminationMapMaskBuilder()
+            self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data)
+            self.mask_builder.clip_masks(threshold)
+        else:
+            self.mask_builder.clip_masks()
+        self.masks = self.mask_builder.masks
+
+        if delete_mask_builder:
+            self.mask_builder = None
 
     def drop_projections(self, remove_idx: list[int]):
         "Permanently remove specific projections from object"

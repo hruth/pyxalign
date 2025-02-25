@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from llama import gpu_utils
 from llama.api.options.device import DeviceOptions
 from llama.gpu_wrapper import device_handling_wrapper
+from llama.interactions.mask import illum_map_threshold_plotter
 from llama.transformations.helpers import is_array_real
 from IPython.display import clear_output, display
 
@@ -233,3 +234,70 @@ def blur_masks(masks: np.ndarray, kernel_sigma: int, use_gpu: bool = False):
         else:
             blurred_masks[i] = scipy.ndimage.gaussian_filter(masks[i], kernel_sigma)
     return blurred_masks
+
+
+def get_illumination_map(empty_array: np.ndarray, probe: np.ndarray, positions: np.ndarray):
+    """
+    Get illumination map from probe and probe positions
+
+    Parameters:
+        large_array (np.ndarray): The large 2D array where patches will be added.
+        patch (np.ndarray): The smaller 2D patch to be added.
+        positions (np.ndarray): A 2D array of shape (N, 2) containing x and y positions.
+
+    Returns:
+        np.ndarray: The updated large array with patches added.
+    """
+    patch_h, patch_w = probe.shape
+    large_h, large_w = empty_array.shape
+
+    # Compute the half size of the patch to center it
+    half_patch_h = patch_h // 2
+    half_patch_w = patch_w // 2
+
+    for x, y in positions:
+        x, y = int(x), int(y)
+        # Compute start and end indices, ensuring they remain within bounds
+        x_start = max(x - half_patch_h, 0)
+        x_end = min(x + half_patch_h + (patch_h % 2), large_h)
+        y_start = max(y - half_patch_w, 0)
+        y_end = min(y + half_patch_w + (patch_w % 2), large_w)
+
+        # Compute corresponding valid region of the patch
+        patch_x_start = max(half_patch_h - x, 0)
+        patch_x_end = patch_x_start + (x_end - x_start)
+        patch_y_start = max(half_patch_w - y, 0)
+        patch_y_end = patch_y_start + (y_end - y_start)
+
+        # Add the patch to the large array
+        empty_array[x_start:x_end, y_start:y_end] += probe[
+            patch_x_start:patch_x_end, patch_y_start:patch_y_end
+        ]
+
+    return empty_array
+
+
+class IlluminationMapMaskBuilder:
+    """
+    Class for building mask from the illumination map.
+    """
+
+    def get_mask_base(self, probe: np.ndarray, positions: np.ndarray, projections: np.ndarray):
+        self.masks = np.zeros_like(projections, dtype=r_type)
+        # The base for building the mask is the illumination map
+        for i in range(len(positions)):
+            get_illumination_map(self.masks[i], probe, positions[i])
+
+    def set_mask_threshold_interactively(self, projections: np.ndarray):
+        # Use interactivity to decide mask threshold
+        self.threshold_selector = illum_map_threshold_plotter(
+            self.masks, projections, init_thresh=0.01
+        )
+
+    def clip_masks(self, thresh: Optional[float] = None):
+        if thresh is None:
+            if not self.threshold_selector.is_final_value:
+                raise Exception
+            thresh = self.threshold_selector.threshold
+        self.masks[self.masks > thresh] = 1
+        self.masks[self.masks < thresh] = 0
