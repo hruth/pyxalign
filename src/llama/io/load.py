@@ -1,16 +1,23 @@
-from numbers import Complex
 import h5py
-import numpy as np
 from dataclasses import fields, is_dataclass
+import enum
 
-from llama.data_structures.projections import ComplexProjections, PhaseProjections, Projections
+from llama.data_structures.projections import (
+    ComplexProjections,
+    PhaseProjections,
+    Projections,
+    ShiftManager,
+    TransformTracker,
+)
 from llama.task import LaminographyAlignmentTask
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api.options.projections import ProjectionOptions
+from llama.api.enums import SpecialValuePlaceholder
+from llama.api.types import c_type, r_type
 
 from typing import Type, TypeVar, Union
 
-T = TypeVar("T")
+OptionsClass = TypeVar("OptionsClass")
 
 
 def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
@@ -42,40 +49,57 @@ def load_projections(
     loaded_projections = {"complex_projections": None, "phase_projections": None}
     for group, projection_class in projections_map.items():
         if group in h5_obj.keys() and group not in exclude:
+            transform_tracker = TransformTracker(
+                rotation=h5_obj[group]["rotation"][()],
+                shear=h5_obj[group]["shear"][()],
+                downsample=h5_obj[group]["downsample"][()],
+            )
+
+            shift_manager = ShiftManager(n_projections=len(h5_obj[group]["angles"][()]))
+            shift_manager.past_shifts = load_list_of_arrays(h5_obj[group], "applied_shifts")
+
             loaded_projections[group] = projection_class(
-                projections=h5_obj[group + "/data"][:],
-                angles=h5_obj[group + "/angles"][:],
-                options=load_options(h5_obj[group], ProjectionOptions),
-                center_of_rotation=h5_obj[group + "/center_of_rotation"][:],
-                masks=load_masks(h5_obj[group]),
-                probe_positions=load_positions(h5_obj[group]),
+                projections=h5_obj[group]["data"][()],
+                angles=h5_obj[group]["angles"][()],
+                options=load_options(h5_obj[group]["options"], ProjectionOptions),
+                center_of_rotation=h5_obj[group]["center_of_rotation"][()],
+                masks=load_array(h5_obj[group], "masks"),
+                probe=load_array(h5_obj[group], "probe"),
+                probe_positions=load_list_of_arrays(h5_obj[group], "positions"),
+                transform_tracker=transform_tracker,
+                shift_manager=shift_manager,
                 skip_pre_processing=True,
                 add_center_offset_to_positions=False,
             )
     return loaded_projections
 
 
-def load_options(h5_obj, options_class: Type[T]) -> T:
-    return dict_to_dataclass(cls=options_class, data=h5_to_dict(h5_obj))
+def load_array(h5_obj: h5py.Group, name: str):
+    if name in h5_obj.keys():
+        value = h5_obj[name][()]
+        if is_null_type(value):
+            return handle_null_type(value)
+        else:
+            return value
 
 
-def load_positions(h5_obj: h5py.Group):
-    if "positions" in h5_obj.keys():
-        positions_dataset = h5_obj["positions"]
-        n_scans = len(positions_dataset)
-        positions = list(range(n_scans))
-        for i in range(n_scans):
-            positions[i] = positions_dataset[str(i)][()]
-        return positions
-    else:
-        return None
+def load_list_of_arrays(h5_obj: h5py.Group, name: str):
+    if name in h5_obj.keys():
+        if isinstance(h5_obj[name], h5py.Dataset):
+            value = h5_obj[name][()]
+            if is_null_type(value):
+                # pass
+                return handle_null_type(value)
+        else:
+            n_arrays = len(h5_obj[name])
+            list_of_arrays = list(range(n_arrays))
+            for i in range(n_arrays):
+                list_of_arrays[i] = h5_obj[name][str(i)][()]
+            return list_of_arrays
 
 
-def load_masks(h5_obj: h5py.Group):
-    if "masks" in h5_obj.keys():
-        return h5_obj["masks"][:]
-    else:
-        return None
+def load_options(h5_obj: h5py.Group, options_class: Type[OptionsClass]) -> OptionsClass:
+    return dict_to_dataclass(options_class=options_class, data=h5_to_dict(h5_obj))
 
 
 def h5_to_dict(h5_obj: Union[h5py.Group, h5py.File]):
@@ -99,7 +123,10 @@ def h5_to_dict(h5_obj: Union[h5py.Group, h5py.File]):
             # Convert datasets to their value
             result[key] = item[()]  # Use [()] to retrieve the data
             if isinstance(result[key], bytes):
-                result[key] = result[key].decode()
+                if is_null_type(result[key]):
+                    result[key] = handle_null_type(result[key])
+                else:
+                    result[key] = result[key].decode()
 
     # Add attributes
     for attr in h5_obj.attrs:
@@ -108,25 +135,67 @@ def h5_to_dict(h5_obj: Union[h5py.Group, h5py.File]):
     return result
 
 
-def dict_to_dataclass(cls: Type[T], data: dict) -> T:
+def is_null_type(value):
+    if isinstance(value, bytes):
+        value = value.decode()
+        return value.lower() in SpecialValuePlaceholder.__members__.values()
+    else:
+        return False
+
+
+def handle_null_type(value):
+    value = value.decode()
+    if value == SpecialValuePlaceholder.NONE:
+        return None
+    elif value == SpecialValuePlaceholder.EMPTY_LIST:
+        return []
+
+
+def dict_to_dataclass(
+    options_class: Type[OptionsClass], data: dict, options_path_string: str = ""
+) -> OptionsClass:
     """
-    Recursively converts a dictionary into a dataclass instance.
+    Recursively converts a dictionary into an options dataclass instance.
+
+    In the options dataclasses, there typically are one or more attributes that are
+    other options classes. If the names of these attributes are changed (don't confuse
+    this with the class name) then this function will not loaded those values in,
+    because the options are saved in a dataset named after the attribute.
+
+    If the attributes names are ever changed and you still need this to load those
+    attributes, you can make a function that maps the all of the past attribute names
+    to the current attribute name and update this function to use that.
     """
-    if not is_dataclass(cls):
-        raise ValueError(f"{cls} must be a dataclass")
+    if not is_dataclass(options_class):
+        raise ValueError(f"{options_class} must be a dataclass")
+    arrow_symbol = " \u2192 "
+    if options_path_string == "":
+        options_path_string = options_class.__qualname__ + arrow_symbol
 
     field_values = {}
-    for field in fields(cls):
+    for field in fields(options_class):
         field_name = field.name
         field_type = field.type
         if field_name not in data:
+            print("WARNING: expected value not found")
+            print(
+                f"'{field_name}' not found in saved options, using default values for '{field_name}'."
+            )
+            print(options_path_string + field_name + "\n")
             continue
         value = data[field_name]
 
         # Check if the field is a dataclass
         if is_dataclass(field_type):
-            field_values[field_name] = dict_to_dataclass(field_type, value)
+            field_values[field_name] = dict_to_dataclass(
+                field_type, value, options_path_string + field_name + "."
+            )
         else:
+            if isinstance(value, str):
+                # Convert to str enum if necessary
+                expected_type = options_class.__annotations__[field_name]
+                if isinstance(expected_type, enum.EnumType):
+                    value = expected_type[value.upper()]
             field_values[field_name] = value
 
-    return cls(**field_values)
+    return options_class(**field_values)

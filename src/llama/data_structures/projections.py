@@ -77,6 +77,7 @@ class Projections:
         *,
         projections: np.ndarray,
         angles: np.ndarray,
+        scan_numbers: np.ndarray,
         options: ProjectionOptions,
         probe_positions: Optional[list[np.ndarray]] = None,
         center_of_rotation: Optional[np.ndarray] = None,
@@ -89,6 +90,7 @@ class Projections:
     ):
         self.options = options
         self.angles = angles
+        self.scan_numbers = scan_numbers
         self.data = projections
         self.masks = masks
         self.probe = probe
@@ -100,7 +102,6 @@ class Projections:
             self.probe_positions = ProbePositions(
                 positions=probe_positions, center_pixel=center_pixel
             )
-        self.pixel_size = self.options.experiment.pixel_size * 1  # might want to change to property
         if center_of_rotation is None:
             self.center_of_rotation = np.array(self.data.shape[1:], dtype=r_type) / 2
         else:
@@ -111,6 +112,7 @@ class Projections:
             self.transform_tracker = TransformTracker()
         else:
             self.transform_tracker = transform_tracker
+        # self.pixel_size = self.options.experiment.pixel_size * self.transform_tracker.downsample
         # Apply input processing tasks (i.e. rotation, shear, downsampling, etc)
         # to projections array
         if not skip_pre_processing:
@@ -123,6 +125,10 @@ class Projections:
         # Run initialization code specific to the projection type (i.e. PhaseProjections
         # or complex projections)
         self._post_init()
+
+    @property
+    def pixel_size(self):
+        return self.options.experiment.pixel_size * self.transform_tracker.downsample
 
     @timer()
     def transform_projections(
@@ -519,10 +525,6 @@ class PhaseProjections(Projections):
 
 
 class ShiftManager:
-    # Might be better to attach this to the projections object
-    # instead of the task object.
-    # It might be useful to generalize this for tracking
-    # any type of transformation.
     def __init__(self, n_projections: int):
         self.staged_shift = np.zeros((n_projections, 2))
         self.past_shifts: List[np.ndarray] = []

@@ -4,6 +4,7 @@ import numpy as np
 import dataclasses
 from enum import StrEnum
 from numbers import Number
+from llama.api.enums import SpecialValuePlaceholder
 from llama.data_structures.projections import Projections, ShiftManager
 from llama.task import LaminographyAlignmentTask
 
@@ -18,7 +19,7 @@ def save_task(task: LaminographyAlignmentTask, file_path: str, exclude: list[str
                 and attr not in exclude
             ):
                 save_projections(getattr(task, attr), file_path, attr, h5_obj)
-        save_options(task.options, h5_obj.create_group("options"))
+        save_generic_data_structure_to_h5(task.options, h5_obj.create_group("options"))
 
 
 def save_projections(projections: Projections, file_path: str, group_name: str, h5_obj: h5py.File):
@@ -29,65 +30,73 @@ def save_projections(projections: Projections, file_path: str, group_name: str, 
     save_attr_dict = {
         "data": projections.data,
         "angles": projections.angles,
+        "scan_numbers": projections.scan_numbers,
         "masks": projections.masks,
         "center_of_rotation": projections.center_of_rotation,
         "positions": positions,
+        "probe": projections.probe,
         "pixel_size": projections.pixel_size,
+        "rotation": projections.transform_tracker.rotation,
+        "shear": projections.transform_tracker.shear,
+        "downsample": projections.transform_tracker.downsample,
+        "applied_shifts": projections.shift_manager.past_shifts,
     }
     h5_group = h5_obj.create_group(group_name)
     # Save all elements from save_attr_dict to the .h5 file
     save_generic_data_structure_to_h5(save_attr_dict, h5_group)
     # Save projection options
-    save_options(projections.options, h5_group.create_group("options"))
+    save_generic_data_structure_to_h5(projections.options, h5_group.create_group("options"))
     print(f"Array saved to {file_path}")
-
-
-def save_options(obj, h5_obj: Union[h5py.Group, h5py.File]):
-    for field_name, value in obj.__dict__.items():
-        if dataclasses.is_dataclass(value):
-            # Recursively handle dataclasses
-            save_options(value, h5_obj.create_group(field_name))
-        elif isinstance(value, StrEnum):
-            # Handle enums
-            h5_obj.create_dataset(field_name, data=value._value_)
-        elif value is not None:
-            h5_obj.create_dataset(field_name, data=value)
-        else:
-            pass
 
 
 def save_generic_data_structure_to_h5(d: dict, h5_obj: Union[h5py.Group, h5py.File]):
     "Create h5 datasets for all items in the passed in dict"
     # This will need to be updated any time you are adding variables whose type
     # doesn't correspond to any of the if/else statements
+    if not isinstance(d, dict):
+        d = d.__dict__
     for value_name, value in d.items():
-        if value is None:
-            return
-        elif dataclasses.is_dataclass(value):
+        if dataclasses.is_dataclass(value):
             # Recursively handle dataclasses
             save_generic_data_structure_to_h5(value, h5_obj.create_group(value_name))
-        elif check_if_standard_dataset(value):
+
+        elif isinstance(value, list) and len(value) == 0:
+            # Empty lists
+            h5_obj.create_dataset(value_name, data=SpecialValuePlaceholder.EMPTY_LIST._value_)
+
+        elif value is None:
+            # None types
+            h5_obj.create_dataset(value_name, data=SpecialValuePlaceholder.NONE._value_)
+
+        elif (
+            isinstance(value, Number)
+            or (len(value) > 0 and isinstance(value[0], Number))
+            or isinstance(value, np.ndarray)
+        ):
+            # Individual numbers, lists of numbers, and arrays
             h5_obj.create_dataset(value_name, data=value)
-        elif check_if_list_of_numpy_arrays(value):
+        elif isinstance(value, str):
+            save_string_to_h5(h5_obj, value, value_name)
+
+        elif isinstance(value, list) and (len(value) > 0 and isinstance(value[0], str)):
+            # List of string enums
+            sub_group = h5_obj.create_group(value_name)
+            for i, list_entry in enumerate(value):
+                save_string_to_h5(sub_group, list_entry[i], str(i))
+
+        elif isinstance(value, list) and (len(value) > 0 and isinstance(value[0], np.ndarray)):
+            # List of numpy arrays
             sub_group = h5_obj.create_group(value_name)
             for i, list_entry in enumerate(value):
                 sub_group.create_dataset(str(i), data=list_entry)
+
         else:
-            raise TypeError(
-                f"{value_name} has unaccounted for type {type(value)}!\n"
-                + "Update this function in order to properly save it."
-            )
+            print(f"WARNING: {value_name} not saved")
+            print(value_name + "\n")
 
 
-def check_if_standard_dataset(value):
-    return isinstance(value, Union[np.ndarray, Number]) or (
-        isinstance(value, list) and isinstance(value[0], Number)
-    )
-
-
-def check_if_list_of_numpy_arrays(value):
-    return isinstance(value, list) and isinstance(value[0], np.ndarray)
-
-
-def save_shift_manager(shift_manager: ShiftManager):
-    pass
+def save_string_to_h5(h5_obj: Union[h5py.Group, h5py.File], string: str, value_name: str):
+    if isinstance(string, StrEnum):
+        h5_obj.create_dataset(value_name, data=string._value_)
+    else:
+        h5_obj.create_dataset(value_name, data=string)
