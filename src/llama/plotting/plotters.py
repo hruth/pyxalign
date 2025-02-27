@@ -20,13 +20,13 @@ from llama.api.options.plotting import PlotDataOptions
 from llama.api.types import ArrayType
 
 
-def return_image_slider_plot_base(images: np.ndarray) -> widgets.Play:
+def return_image_slider_plot_base(images: np.ndarray, interval: int, clim=None) -> widgets.Play:
     # Create the play button and slider
     play = widgets.Play(
         value=0,
         min=0,
         max=len(images) - 1,
-        interval=500,
+        interval=interval,
         description="Play",
     )
 
@@ -44,6 +44,7 @@ def return_image_slider_plot_base(images: np.ndarray) -> widgets.Play:
     # Function to update the plot
     def update_plot(idx):
         plt.imshow(images[idx])
+        plt.clim(clim)
         plt.show()
 
     # Use interact with the slider
@@ -52,8 +53,8 @@ def return_image_slider_plot_base(images: np.ndarray) -> widgets.Play:
     return play
 
 
-def make_image_slider_plot(images: np.ndarray):
-    play = return_image_slider_plot_base(images)
+def make_image_slider_plot(images: np.ndarray, interval: int = 500, clim=None):
+    play = return_image_slider_plot_base(images, interval, clim)
     display(play)
 
 

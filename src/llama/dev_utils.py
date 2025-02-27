@@ -32,13 +32,18 @@ def refresh_projections(stale_projections: Projections) -> Projections:
             new_projections: Projections = projection_class(
                 projections=stale_projections.data,
                 angles=stale_projections.angles,
+                scan_numbers=stale_projections.scan_numbers,
                 options=refresh_options(stale_projections.options, ProjectionOptions),
                 masks=stale_projections.masks,
-                shift_manager=stale_projections.shift_manager,
+                probe=stale_projections.probe,
+                probe_positions=stale_projections.probe_positions.data,
+                shift_manager=stale_projections.shift_manager, # not refreshed
+                transform_tracker=stale_projections.transform_tracker, # not refreshed
                 center_of_rotation=stale_projections.center_of_rotation,
                 skip_pre_processing=True,
+                add_center_offset_to_positions=False,
             )
-            new_projections.pixel_size = stale_projections.pixel_size
+            # new_projections.pixel_size = stale_projections.pixel_size
     return new_projections
 
 

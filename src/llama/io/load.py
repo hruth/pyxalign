@@ -61,6 +61,7 @@ def load_projections(
             loaded_projections[group] = projection_class(
                 projections=h5_obj[group]["data"][()],
                 angles=h5_obj[group]["angles"][()],
+                scan_numbers=h5_obj[group]["scan_numbers"][()],
                 options=load_options(h5_obj[group]["options"], ProjectionOptions),
                 center_of_rotation=h5_obj[group]["center_of_rotation"][()],
                 masks=load_array(h5_obj[group], "masks"),

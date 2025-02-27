@@ -64,6 +64,7 @@ class ProjectionMatchingAligner(Aligner):
         self.aligned_projections = projections.PhaseProjections(
             projections=self.projections.data,
             angles=self.projections.angles,
+            scan_numbers=self.projections.scan_numbers,
             options=projection_options,
             masks=self.projections.masks,
             center_of_rotation=self.projections.center_of_rotation,
@@ -477,7 +478,7 @@ class ProjectionMatchingAligner(Aligner):
 
             pixel_size = self.aligned_projections.pixel_size
 
-            clear_output(wait=True)
+            # clear_output(wait=True)
             fig = plt.figure(layout="compressed", figsize=(10, 10))
 
             gs = fig.add_gridspec(5, 2, height_ratios = [1, 1, 2, 1, 1])

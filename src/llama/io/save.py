@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Sequence, Union
 import h5py
 import numpy as np
 import dataclasses
@@ -38,7 +38,7 @@ def save_projections(projections: Projections, file_path: str, group_name: str, 
         "pixel_size": projections.pixel_size,
         "rotation": projections.transform_tracker.rotation,
         "shear": projections.transform_tracker.shear,
-        "downsample": projections.transform_tracker.downsample,
+        "downsample": projections.transform_tracker.scale,
         "applied_shifts": projections.shift_manager.past_shifts,
     }
     h5_group = h5_obj.create_group(group_name)
@@ -68,14 +68,23 @@ def save_generic_data_structure_to_h5(d: dict, h5_obj: Union[h5py.Group, h5py.Fi
             # None types
             h5_obj.create_dataset(value_name, data=SpecialValuePlaceholder.NONE._value_)
 
-        elif (
-            isinstance(value, Number)
-            or (len(value) > 0 and isinstance(value[0], Number))
-            or isinstance(value, np.ndarray)
-        ):
-            # Individual numbers, lists of numbers, and arrays
+        elif isinstance(value, Union[bool, np.bool_]):
             h5_obj.create_dataset(value_name, data=value)
+
+        elif isinstance(value, np.ndarray):
+            # Arrays
+            h5_obj.create_dataset(value_name, data=value, dtype=value.dtype)
+
+        elif isinstance(value, Number):
+            # Individual numbers
+            h5_obj.create_dataset(value_name, data=value, dtype=type(value))
+
+        elif isinstance(value, Sequence) and isinstance(value[0], Number):
+            # Sequence (i.e. list, tuple) of numbers
+            h5_obj.create_dataset(value_name, data=value, dtype=type(value[0]))
+
         elif isinstance(value, str):
+            # Strings and string enums
             save_string_to_h5(h5_obj, value, value_name)
 
         elif isinstance(value, list) and (len(value) > 0 and isinstance(value[0], str)):
@@ -88,11 +97,10 @@ def save_generic_data_structure_to_h5(d: dict, h5_obj: Union[h5py.Group, h5py.Fi
             # List of numpy arrays
             sub_group = h5_obj.create_group(value_name)
             for i, list_entry in enumerate(value):
-                sub_group.create_dataset(str(i), data=list_entry)
+                sub_group.create_dataset(str(i), data=list_entry, dtype=list_entry.dtype)
 
         else:
             print(f"WARNING: {value_name} not saved")
-            print(value_name + "\n")
 
 
 def save_string_to_h5(h5_obj: Union[h5py.Group, h5py.File], string: str, value_name: str):

@@ -133,6 +133,7 @@ class Laminogram:
             projections=forward_projections,
             options=forward_projection_options,
             angles=self.projections.angles,
+            scan_numbers=self.projections.scan_numbers,
             center_of_rotation=self.projections.center_of_rotation,
             skip_pre_processing=True,
         )

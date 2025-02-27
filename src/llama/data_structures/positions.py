@@ -20,6 +20,11 @@ class ProbePositions:
         for i, positions in enumerate(self.data):
             self.data[i] = positions / scale
 
+    def shift_positions(self, shift: np.ndarray):
+        for i in range(len(self.data)):
+            self.data[i][:, 0] += shift[i, 1]
+            self.data[i][:, 1] += shift[i, 0]
+
     def plot_positions(self, index: int, color: str = "m", linestyle: str = "-"):
         positions = self.data[index]
         plt.plot(positions[:, 1], positions[:, 0], color=color, linestyle=linestyle)

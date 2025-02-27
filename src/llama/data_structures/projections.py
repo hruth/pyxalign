@@ -53,7 +53,7 @@ class TransformTracker:
         self.rotation = rotation
         self.shear = shear
         self.crop = crop
-        self.downsample = downsample
+        self.scale = downsample
 
     def update_rotation(self, angle: r_type):
         self.rotation += angle
@@ -64,8 +64,8 @@ class TransformTracker:
     def update_crop(self, crop_options: CropOptions):
         pass
 
-    def update_downsample(self, downsample: int):
-        self.downsample *= downsample
+    def update_downsample(self, scale: int):
+        self.scale *= scale
 
 
 class Projections:
@@ -102,6 +102,8 @@ class Projections:
             self.probe_positions = ProbePositions(
                 positions=probe_positions, center_pixel=center_pixel
             )
+        else:
+            self.probe_positions = None
         if center_of_rotation is None:
             self.center_of_rotation = np.array(self.data.shape[1:], dtype=r_type) / 2
         else:
@@ -128,7 +130,7 @@ class Projections:
 
     @property
     def pixel_size(self):
-        return self.options.experiment.pixel_size * self.transform_tracker.downsample
+        return self.options.experiment.pixel_size * self.transform_tracker.scale
 
     @timer()
     def transform_projections(
@@ -178,8 +180,8 @@ class Projections:
                 self.masks = Downsampler(mask_options).run(self.masks)
             # Update center of rotation
             self.center_of_rotation = self.center_of_rotation / options.scale
-            # Update pixel size
-            self.pixel_size = self.pixel_size * options.scale
+            # # Update pixel size
+            # self.pixel_size = self.pixel_size * options.scale
             # Update probe positions
             if self.probe_positions is not None:
                 self.probe_positions.rescale_positions(options.scale)
@@ -292,9 +294,12 @@ class Projections:
             return arr
 
         self.data = return_modified_array(self.data)
-        if hasattr(self, "masks"):
+        if self.masks is not None:
             self.masks = return_modified_array(self.masks)
+        if self.probe_positions is not None:
+            self.probe_positions.data = [self.probe_positions.data[i] for i in keep_idx]
         self.angles = self.angles[keep_idx]
+        self.scan_numbers = self.scan_numbers[keep_idx]
 
     @property
     def n_projections(self) -> int:
@@ -335,6 +340,8 @@ class Projections:
     def apply_staged_shift(self, device_options: Optional[DeviceOptions] = None):
         if device_options is None:
             device_options = DeviceOptions()
+        if self.probe_positions is not None:
+            self.probe_positions.shift_positions(self.shift_manager.staged_shift)
         self.shift_manager.apply_staged_shift(
             images=self.data,
             device_options=device_options,
@@ -395,6 +402,7 @@ class Projections:
             masks = self.masks
         return blur_masks(masks, kernel_sigma, use_gpu)
 
+
     def show_center_of_rotation(
         self,
         plot_sum_of_projections: bool = True,
@@ -436,8 +444,9 @@ class Projections:
         else:
             options = copy.deepcopy(options)
 
-        if isinstance(self, ComplexProjections) and options.process_func is None:
+        if np.issubdtype(self.data.dtype, np.complexfloating) and options.process_func is None:
             print("process_func not provided, defaulting to plotting angle of complex projections")
+            options.process_func = enums.ProcessFunc.ANGLE
 
         if options.index is None:
             options.index = 0
