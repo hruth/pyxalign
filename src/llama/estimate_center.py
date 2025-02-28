@@ -110,7 +110,6 @@ def estimate_center_of_rotation(
                     np.array([vertical_coordinates[i], horizontal_coordinates[j]], dtype=r_type)
                     / scale
                 )
-                print(downsampled_projections.center_of_rotation)
                 pma_object = pm.ProjectionMatchingAligner(
                     downsampled_projections, options.projection_matching, print_updates=False
                 )

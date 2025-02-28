@@ -1,12 +1,16 @@
+from typing import Union
 import cupy as cp
 import numpy as np
 import scipy
+import cupyx
 from llama.api.options.options import PhaseUnwrapOptions
 from llama.api.types import r_type, c_type, ArrayType
 from llama.gpu_utils import memory_releasing_error_handler, get_scipy_module
+from llama.timing.timer_utils import timer, InlineTimer
 
 
 @memory_releasing_error_handler
+@timer()
 def unwrap_phase(
     images: ArrayType,
     weights: ArrayType,
@@ -18,6 +22,8 @@ def unwrap_phase(
     weights[weights < 0] = 0
     weights = weights / weights.max()
 
+    bool_weights = weights.astype(bool)
+
     phase_block = 0
     for i in range(options.iterations):
         if i == 0:
@@ -25,14 +31,79 @@ def unwrap_phase(
         else:
             images_resid = images * xp.exp(-1j * phase_block)
         phase_block = phase_block + weights * phase_unwrap_2D(images_resid, weights)
-        if empty_region != []:
-            raise NotImplementedError
-            phase_block = remove_sinogram_ramp(phase_block, empty_region, options.poly_fit_order)
+        # if empty_region != []:
+        # raise NotImplementedError
+        # phase_block = remove_sinogram_ramp(phase_block, empty_region, options.poly_fit_order)
+        # Remove phase ramp
+        for j in range(len(phase_block)):
+            phase_block[j] = remove_phase_ramp(phase_block[j], bool_weights[j])
     return phase_block
 
 
-def remove_sinogram_ramp():
-    pass
+@timer()
+def remove_phase_ramp(phase: ArrayType, mask: np.ndarray):
+    """
+    Removes the phase ramp from a 2D phase array, using only the masked region for estimation.
+
+    Parameters:
+        phase (np.ndarray): A 2D numpy array representing the phase (in radians).
+        mask (np.ndarray): A 2D boolean numpy array (same shape as `phase`), where True indicates
+                           the region to use for phase ramp estimation.
+
+    Returns:
+        np.ndarray: The phase-corrected 2D numpy array.
+    """
+    if phase.shape != mask.shape:
+        raise ValueError("Phase and mask arrays must have the same shape.")
+
+    xp = cp.get_array_module(phase)
+
+    inline_timer = InlineTimer("meshgrid")
+    inline_timer.start()
+    ny, nx = phase.shape
+    x, y = xp.meshgrid(xp.arange(nx), xp.arange(ny))
+    inline_timer.end()
+
+    inline_timer = InlineTimer("extract masked data")
+    inline_timer.start()
+    # Extract only masked data
+    x_masked = x[mask]
+    y_masked = y[mask]
+    phase_masked = phase[mask]
+    inline_timer.end()
+
+    inline_timer = InlineTimer("get design matrix")
+    inline_timer.start()
+    # Construct the design matrix A for Ax = b (where A contains x, y, and constant terms)
+    A = xp.column_stack((x_masked, y_masked, xp.ones_like(x_masked)))
+    b = phase_masked
+    inline_timer.end()
+
+    inline_timer = InlineTimer("lsq fit")
+    inline_timer.start()
+    # Solve the least-squares problem using the normal equation: x = (A^T A)^(-1) A^T b
+    inv_timer = InlineTimer("inverse")
+    inv_timer.start()
+    AtA_inv = cp.array(np.linalg.inv(A.get().T @ A.get()))  # (A^T A)^(-1)
+    inv_timer.end()
+    atb_timer = InlineTimer("atb")
+    atb_timer.start()
+    Atb = A.T @ b  # A^T b
+    atb_timer.end()
+    solve_timer = InlineTimer("solve")
+    solve_timer.start()
+    params_opt = AtA_inv @ Atb  # Solve for [a, b, c]
+    solve_timer.end()
+    inline_timer.end()
+
+    inline_timer = InlineTimer("compute ramp over full grid")
+    inline_timer.start()
+    # Compute the phase ramp over the full grid
+    phase_ramp = params_opt[0] * x + params_opt[1] * y + params_opt[2]
+    inline_timer.end()
+
+    # Remove the phase ramp
+    return phase - phase_ramp
 
 
 def phase_unwrap_2D(images: ArrayType, weights: ArrayType, padding: int = 64):
@@ -59,8 +130,8 @@ def phase_unwrap_2D(images: ArrayType, weights: ArrayType, padding: int = 64):
 def get_phase_gradient(images: ArrayType):
     xp = cp.get_array_module(images)
     dX, dY = get_image_grad(images)
-    dX = xp.imag(xp.conj(images)*dX)
-    dY = xp.imag(xp.conj(images)*dY)
+    dX = xp.imag(xp.conj(images) * dX)
+    dY = xp.imag(xp.conj(images) * dY)
 
     return dX, dY
 
@@ -70,7 +141,7 @@ def get_image_grad(images: ArrayType):
     scipy_module: scipy = get_scipy_module(images)
 
     n_z, n_y, n_x = images.shape
- 
+
     X = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_x / 2), np.ceil(n_x / 2), dtype=c_type))
     X *= 2j * xp.pi / n_x
     dX = scipy_module.fft.fft(images, axis=2) * X
@@ -104,4 +175,3 @@ def get_images_int_2D(dX: ArrayType, dY: ArrayType):
     integral = scipy_module.fft.ifft2(integral, axes=(1, 2))
 
     return integral
-

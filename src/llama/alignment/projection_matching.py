@@ -470,7 +470,7 @@ class ProjectionMatchingAligner(Aligner):
             self.iteration % self.options.plot.update.stride == 0
         ):
             sort_idx = np.argsort(self.aligned_projections.angles)
-            angles = self.aligned_projections.angles[sort_idx]
+            sorted_angles = self.aligned_projections.angles[sort_idx]
             total_shift = self.total_shift[sort_idx]
             initial_shift = self.initial_shift[sort_idx]
             if self.options.keep_on_gpu:
@@ -499,10 +499,10 @@ class ProjectionMatchingAligner(Aligner):
             plt.xlabel("Angle (deg)")
             initial_shift_colors = ((0.75, 0.75, 1), (1, 0.75, 0.75))
             for i in range(2):
-                plt.plot(angles, initial_shift[:, i] / self.scale, color=initial_shift_colors[i])
-            plt.plot(angles, total_shift)
+                plt.plot(sorted_angles, initial_shift[:, i] / self.scale, color=initial_shift_colors[i])
+            plt.plot(sorted_angles, total_shift)
             plt.grid()
-            plt.xlim([angles[0], angles[-1]])
+            plt.xlim([sorted_angles[0], sorted_angles[-1]])
             ylim = plt.ylim()
 
             twin_ax = plt.gca().twinx()
@@ -518,9 +518,9 @@ class ProjectionMatchingAligner(Aligner):
             plt.title("total_shift - initial_shift")
             plt.ylabel("Shift (px)")
             plt.xlabel("Angle (deg)")
-            plt.plot(angles, total_shift - initial_shift / self.scale)
+            plt.plot(sorted_angles, total_shift - initial_shift / self.scale)
             plt.grid()
-            plt.xlim([angles[0], angles[-1]])
+            plt.xlim([sorted_angles[0], sorted_angles[-1]])
 
             ylim = plt.ylim()
             twin_ax = plt.gca().twinx()
@@ -546,12 +546,12 @@ class ProjectionMatchingAligner(Aligner):
 
             plt.sca(error_axis)
             plt.title("Error")
-            plt.plot(angles, self.all_errors[self.iteration, sort_idx], label="Filtered")
             plt.plot(
-                angles,
+                sorted_angles,
                 self.all_unfiltered_errors[self.iteration, sort_idx],
                 label="Unfiltered",
             )
+            plt.plot(sorted_angles, self.all_errors[self.iteration, sort_idx], label="Filtered")
             plt.grid()
             plt.xlabel("Angle (deg)")
             plt.ylabel("Error")

@@ -1,5 +1,7 @@
+from abc import ABC
 from numbers import Number
-from typing import Optional
+from tkinter import SE
+from typing import Optional, Sequence, Any
 from ipywidgets import interact
 import ipywidgets as widgets
 
@@ -11,29 +13,107 @@ import numpy as np
 import ipywidgets as widgets
 import numpy as np
 import matplotlib.pyplot as plt
-from IPython.display import display
+from IPython.display import display, clear_output
 from ipywidgets import interact
 import cupy as cp
 from llama.api.maps import get_process_func_by_enum
 from llama.api.options.plotting import PlotDataOptions
+from matplotlib.image import AxesImage
 
 from llama.api.types import ArrayType
 
 
-def return_image_slider_plot_base(images: np.ndarray, interval: int, clim=None) -> widgets.Play:
+class PlotObject(ABC):
+    array: np.ndarray
+
+    def __init__(
+        self,
+        array: np.ndarray,
+        title: Optional[str] = None,
+        sort_idx=None,
+        subplot_idx=None,
+    ):
+        self.array = array
+        self.title = title
+        self.sort_idx = sort_idx
+        self.subplot_idx = subplot_idx
+
+    def plot_callback(self):
+        raise NotImplementedError
+
+
+class ImagePlotObject(PlotObject):
+    axes_object: AxesImage = None
+    clim: Sequence
+
+    def __init__(
+        self,
+        array: np.ndarray,
+        title: Optional[str] = None,
+        sort_idx=None,
+        clim=None,
+    ):
+        super().__init__(array, title, sort_idx)
+        self.clim = clim
+
+    def plot_callback(self, idx) -> callable:
+        plt.title(f"{self.title} {idx}")
+        if self.sort_idx is not None:
+            idx = int(self.sort_idx[idx])
+        if self.axes_object is None:
+            self.axes_object = plt.imshow(self.array[idx])
+        else:
+            self.axes_object.set_data(self.array[idx])
+        plt.clim(self.clim)
+
+
+class LinePlotObject(PlotObject):
+    line = None
+
+    def plot_callback(self, idx) -> callable:
+        plt.title(f"{self.title} {idx}")
+        if self.sort_idx is not None:
+            idx = int(self.sort_idx[idx])
+        if self.line is None:
+            self.line = plt.plot(self.array[idx])[0]
+            self.set_ylim()
+            plt.grid(linestyle=":")
+            plt.xlim(0, self.array.shape[1])
+        else:
+            self.line.set_ydata(self.array[idx])
+    
+    def set_ylim(self):
+        # plt.ylim([np.quantile(self.array, 0.02), np.quantile(self.array, 0.98)])
+        plt.ylim([np.min(self.array), np.max(self.array)])
+
+
+def make_image_slider_plot(
+    plot_objects: Sequence[PlotObject],
+    subplot_dims: Optional[Sequence] = None,
+    interval: int = 500,
+):
+    if isinstance(plot_objects, PlotObject):
+        plot_objects = [plot_objects]
+
+    if subplot_dims is None:
+        n_rows = 1
+        n_cols = len(plot_objects)
+    else:
+        n_rows, n_cols = subplot_dims
+        
+    n_frames = len(plot_objects[0].array)
     # Create the play button and slider
     play = widgets.Play(
         value=0,
         min=0,
-        max=len(images) - 1,
+        max=n_frames - 1,
         interval=interval,
         description="Play",
     )
-
     slider = widgets.IntSlider(
         value=0,
         min=0,
-        max=len(images) - 1,
+        max=n_frames - 1,
         description="index",
         visible=False,  # The slider will be shown via the interact link
     )
@@ -41,21 +121,38 @@ def return_image_slider_plot_base(images: np.ndarray, interval: int, clim=None) 
     # Link the play button and slider
     widgets.jslink((play, "value"), (slider, "value"))
 
-    # Function to update the plot
+    fig, ax = plt.subplots(n_rows, n_cols, layout="compressed")
+
     def update_plot(idx):
-        plt.imshow(images[idx])
-        plt.clim(clim)
+        # for plotting_function in plotting_functions_list:
+        # for i, plot_object in enumerate(plot_objects):
+        for i in range(n_rows*n_cols):
+            if n_rows > 1 and n_cols > 1:
+                plot_idx = np.unravel_index(i, (n_rows, n_cols))
+            else:
+                plot_idx = i
+
+            if len(plot_objects) > i:
+                plot_object = plot_objects[i]
+            else:
+                ax[plot_idx].axis("off")
+                continue
+
+            if plot_object.subplot_idx is None:
+                plt.sca(ax[plot_idx])
+            else:
+                # Use pre-set subplot location
+                ax[plot_idx].axis("off")
+                plt.subplot(*plot_object.subplot_idx)
+                # plt.sca(ax[plot_object.subplot_idx])
+            plot_object.plot_callback(idx)
+        plt.tight_layout()
         plt.show()
 
-    # Use interact with the slider
     interact(update_plot, idx=slider)
 
-    return play
-
-
-def make_image_slider_plot(images: np.ndarray, interval: int = 500, clim=None):
-    play = return_image_slider_plot_base(images, interval, clim)
     display(play)
+    
 
 
 def plot_sum_of_images(images: ArrayType):
