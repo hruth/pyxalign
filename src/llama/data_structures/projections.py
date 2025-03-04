@@ -36,7 +36,7 @@ from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_m
 import llama.plotting.plotters as plotters
 from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
-from llama.transformations.functions import image_shift_fft, will_rotation_flip_aspect_ratio
+from llama.transformations.functions import image_shift_fft, rotate_positions, shear_positions, will_rotation_flip_aspect_ratio
 from llama.transformations.helpers import is_array_real
 from llama.unwrap import unwrap_phase
 from llama.data_structures.positions import ProbePositions
@@ -185,8 +185,6 @@ class Projections:
                 self.masks = Downsampler(mask_options).run(self.masks)
             # Update center of rotation
             self.center_of_rotation = self.center_of_rotation / options.scale
-            # # Update pixel size
-            # self.pixel_size = self.pixel_size * options.scale
             # Update probe positions
             if self.probe_positions is not None:
                 self.probe_positions.rescale_positions(options.scale)
@@ -196,10 +194,11 @@ class Projections:
             self.transform_tracker.update_downsample(options.scale)
 
     @timer()
-    def rotate_projections(self, options: RotationOptions):
+    def rotate_projections(self, options: RotationOptions, apply_to_center_of_rotation: bool = True):
         # Note: the fourier rotation that is used for masks will likely
         # be an issue. A new method needs to be implemented.
         if options.enabled:
+            center_pixel = np.array(self.data.shape[1:]) / 2
             data_aspect_ratio_changes = will_rotation_flip_aspect_ratio(options.angle)
             if not data_aspect_ratio_changes:
                 Rotator(options).run(self.data, pinned_results=self.data)
@@ -209,7 +208,12 @@ class Projections:
                 if self.probe_positions is not None:
                     self.probe_positions.rotate_positions(
                         angle=options.angle,
-                        center_pixel=np.array(self.data.shape[1:]) / 2,
+                        center_pixel=center_pixel,
+                    )
+                if apply_to_center_of_rotation:
+                    # Update center of rotation
+                    self.center_of_rotation = rotate_positions(
+                        self.center_of_rotation, options.angle, center_pixel
                     )
             else:
                 # If projections are already pinned, create a new pinned array
@@ -236,23 +240,45 @@ class Projections:
                         self.masks = Rotator(options).run(self.masks, pinned_results=pinned_array)
                     else:
                         self.masks = Rotator(options).run(self.masks)
+
+                new_center_pixel = np.array(self.data.shape[1:]) / 2
+                # Update probe positions
+                if self.probe_positions is not None:
+                    self.probe_positions.rotate_positions(
+                        angle=options.angle,
+                        center_pixel=center_pixel,
+                        new_center_pixel=new_center_pixel,
+                    )
+                if apply_to_center_of_rotation:
+                    # Update center of rotation
+                    self.center_of_rotation = rotate_positions(
+                        self.center_of_rotation,
+                        options.angle,
+                        center_pixel,
+                        new_center=new_center_pixel,
+                    )
             self.transform_tracker.update_rotation(options.angle)
             # To do: insert code for updating center of rotation
 
     @timer()
-    def shear_projections(self, options: ShearOptions):
+    def shear_projections(self, options: ShearOptions, apply_to_center_of_rotation: bool = True):
         if options.enabled:
             Shearer(options).run(self.data, pinned_results=self.data)
             if self.masks is not None:
                 # Will probably be wrong without fixes
                 self.masks = Shearer(options).run(self.masks)
+
+            center_pixel = np.array(self.data.shape[1:]) / 2
             if self.probe_positions is not None:
                 self.probe_positions.shear_positions(
                     angle=options.angle,
-                    center_pixel=np.array(self.data.shape[1:]) / 2,
+                    center_pixel=center_pixel,
+                )
+            if apply_to_center_of_rotation:
+                self.center_of_rotation = shear_positions(
+                    self.center_of_rotation, options.angle, center_pixel, axis=1
                 )
             self.transform_tracker.update_shear(options.angle)
-            # To do: insert code for updating center of rotation
 
     @timer()
     def setup_masks_from_probe_positions(self):

@@ -41,6 +41,49 @@ class LamniLoaderVersion1(LamniLoader):
         h5.close()
         return projection
 
+    def load_probe(self):
+        # I assume all probes are similar, and I just load the first scan's probe
+        probe = load_probe_from_h5_file(self.selected_projection_file_paths[self.scan_numbers[0]])
+        if len(probe.shape) == 2:
+            self.probe = np.abs(probe) ** 2
+        else:
+            raise ValueError(
+                f"Probe has {len(probe.shape)} dims; expected 2 dims."
+                + "Fix the load_probe method."
+            )
+
+    def load_positions(self):
+        self.probe_positions = {}
+        for scan_number in self.scan_numbers:
+            self.probe_positions[scan_number] = load_positions_from_h5_file(
+                self.selected_projection_file_paths[scan_number]
+            )
+            # Remove probe array offset
+            self.probe_positions[scan_number] += np.array(self.probe.shape) / 2
+            # Offset by center pixel
+            center_pixel = np.array(self.projections[scan_number].shape) / 2
+            self.probe_positions[scan_number] -= center_pixel
+
+    def load_projection_params(self):
+        self.pixel_size = load_params_from_h5_file(
+            self.selected_projection_file_paths[self.scan_numbers[0]]
+        )
+
+def load_params_from_h5_file(file_path):
+    with h5py.File(file_path) as F:
+        pixel_size = F["reconstruction"]["p"]["dx_spec"][()][0][0]
+    return pixel_size
+
+def load_probe_from_h5_file(file_path: str):
+    with h5py.File(file_path) as F:
+        probe = F["reconstruction"]["probes"][()]
+    return probe
+
+
+def load_positions_from_h5_file(file_path: str):
+    with h5py.File(file_path) as F:
+        positions = F["reconstruction"]["p"]["positions_0"][()].transpose()
+    return positions
 
 def generate_projection_relative_path(
     scan_number: int, n_digits: int, n_scans_per_folder: int
@@ -70,5 +113,3 @@ def generate_projection_group_sub_folder(
 
     # Construct the pattern
     return f"S{start}-{end}"
-
-

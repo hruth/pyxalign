@@ -319,12 +319,12 @@ def will_rotation_flip_aspect_ratio(theta: float) -> bool:
     return not is_even
 
 
-def rotateStackMod90(img, theta) -> ArrayType:
+def rotate_stack_mod_90(img, theta) -> ArrayType:
     xp = cp.get_array_module(img)
 
-    numRotations = round(theta / 90)
-    img = xp.rot90(img, numRotations, axes=(1, 2))
-    theta = theta - 90 * numRotations
+    n_rotations = round(theta / 90)
+    img = xp.rot90(img, n_rotations, axes=(1, 2))
+    theta = theta - 90 * n_rotations
 
     return img
 
@@ -339,8 +339,7 @@ def image_rotate_fft(
     scipy_module = get_scipy_module(images)
 
     if not preserve_aspect_ratio:
-        # imageStack = lam.utils.rotateStackMod90(imageStack, tiltAngle)
-        images = rotateStackMod90(images, theta)
+        images = rotate_stack_mod_90(images, theta)
         n_rotations = round(theta / 90)
         theta = theta - 90 * n_rotations
 
@@ -395,7 +394,12 @@ def image_shear_fft(images: ArrayType, theta: float) -> ArrayType:
     return images
 
 
-def rotate_positions(positions: np.ndarray, angle: float, center: np.ndarray) -> np.ndarray:
+def rotate_positions(
+    positions: np.ndarray,
+    angle: float,
+    center: np.ndarray,
+    new_center: Optional[np.ndarray] = None,
+) -> np.ndarray:
     """
     Rotates an array of 2D positions by a given angle in degrees.
 
@@ -406,6 +410,8 @@ def rotate_positions(positions: np.ndarray, angle: float, center: np.ndarray) ->
     Returns:
         np.ndarray: The rotated Nx2 array of positions.
     """
+    if new_center is None:
+        new_center = center
     # Define the 2D rotation matrix
     angle = angle * np.pi / 180
     rotation_matrix = np.array(
@@ -416,7 +422,7 @@ def rotate_positions(positions: np.ndarray, angle: float, center: np.ndarray) ->
     )
     # Rotate each position by performing a dot product with the rotation matrix.
     # If positions are row vectors, we need to multiply on the right by the transpose.
-    rotated_positions = (positions - center).dot(rotation_matrix.T) + center
+    rotated_positions = (positions - center).dot(rotation_matrix.T) + new_center
     return rotated_positions
 
 

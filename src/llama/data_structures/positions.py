@@ -1,16 +1,23 @@
+from typing import Optional
 import numpy as np
 
 import matplotlib.pyplot as plt
-from llama.transformations.functions import rotate_positions, shear_positions
+from llama.transformations.functions import (
+    rotate_positions,
+    shear_positions,
+    will_rotation_flip_aspect_ratio,
+)
 
 
 class ProbePositions:
     def __init__(self, positions: list[np.ndarray], center_pixel: np.ndarray):
         self.data = [position + center_pixel for position in positions]
 
-    def rotate_positions(self, angle: float, center_pixel: np.ndarray):
+    def rotate_positions(
+        self, angle: float, center_pixel: np.ndarray, new_center_pixel: Optional[np.ndarray] = None
+    ):
         for i, positions in enumerate(self.data):
-            self.data[i] = rotate_positions(positions, angle, center_pixel)
+            self.data[i] = rotate_positions(positions, angle, center_pixel, new_center_pixel)
 
     def shear_positions(self, angle: float, center_pixel: np.ndarray):
         for i, positions in enumerate(self.data):

@@ -214,6 +214,12 @@ class LamniLoader(ABC):
     def load_probe(self):
         pass
 
+    def load_probe(self):
+        pass
+
+    def load_projection_params(self):
+        pass
+
 
 def generate_single_projection_sub_folder(scan_number: int, n_digits) -> str:
     "Generate name of subfolder corresponding to a single projection"

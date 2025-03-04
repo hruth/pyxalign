@@ -158,11 +158,11 @@ def load_experiment(
     # Load projections
     selected_experiment.load_projections(n_processes)
 
-    # Load probe positions
-    selected_experiment.load_positions()
-
     # Load probe
     selected_experiment.load_probe()
+
+    # Load probe positions
+    selected_experiment.load_positions()
 
     # Load the rest of the available parameters
     selected_experiment.load_projection_params()
