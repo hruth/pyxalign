@@ -1,3 +1,4 @@
+from functools import partial
 import re
 import traceback
 from typing import Optional
@@ -367,7 +368,7 @@ class ProjectionMatchingAligner(Aligner):
             self.xp = cp
             self.scipy_module = gutils.get_scipy_module(cp.array(1))
         elif self.memory_config == MemoryConfig.MIXED:
-            initializer_function = gutils.pin_memory
+            initializer_function = partial(gutils.pin_memory, force_repin=True)
             self.xp = np
             self.scipy_module = gutils.get_scipy_module(cp.array(1))
         elif self.memory_config == MemoryConfig.CPU_ONLY:
