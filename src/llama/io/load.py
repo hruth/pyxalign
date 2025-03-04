@@ -57,6 +57,7 @@ def load_projections(
 
             shift_manager = ShiftManager(n_projections=len(h5_obj[group]["angles"][()]))
             shift_manager.past_shifts = load_list_of_arrays(h5_obj[group], "applied_shifts")
+            shift_manager.staged_shift = h5_obj[group]["staged_shift"][()]
 
             loaded_projections[group] = projection_class(
                 projections=h5_obj[group]["data"][()],

@@ -478,7 +478,7 @@ class ProjectionMatchingAligner(Aligner):
 
             pixel_size = self.aligned_projections.pixel_size
 
-            # clear_output(wait=True)
+            clear_output(wait=True)
             fig = plt.figure(layout="compressed", figsize=(10, 10))
 
             gs = fig.add_gridspec(5, 2, height_ratios = [1, 1, 2, 1, 1])

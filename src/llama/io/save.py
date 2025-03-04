@@ -40,6 +40,7 @@ def save_projections(projections: Projections, file_path: str, group_name: str, 
         "shear": projections.transform_tracker.shear,
         "downsample": projections.transform_tracker.scale,
         "applied_shifts": projections.shift_manager.past_shifts,
+        "staged_shift": projections.shift_manager.staged_shift, 
     }
     h5_group = h5_obj.create_group(group_name)
     # Save all elements from save_attr_dict to the .h5 file

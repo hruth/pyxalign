@@ -1,3 +1,4 @@
+from importlib.resources.readers import remove_duplicates
 from typing import List, Optional
 import numpy as np
 import copy
@@ -70,6 +71,7 @@ class TransformTracker:
 
 class Projections:
     mask_builder: IlluminationMapMaskBuilder = None
+    dropped_scan_numbers: list = []
 
     @timer()
     def __init__(
@@ -90,10 +92,13 @@ class Projections:
     ):
         self.options = options
         self.angles = angles
-        self.scan_numbers = scan_numbers
         self.data = projections
         self.masks = masks
         self.probe = probe
+        if scan_numbers is not None:
+            self.scan_numbers = scan_numbers
+        else:
+            self.scan_numbers = np.arange(0, len(projections), dtype=int)
         if probe_positions is not None:
             if add_center_offset_to_positions:
                 center_pixel = np.array(self.data.shape[1:]) / 2
@@ -225,7 +230,7 @@ class Projections:
                 if self.masks is not None:
                     if gpu_utils.is_pinned(self.masks):
                         pinned_array = gpu_utils.create_empty_pinned_array(
-                            shape=(self.n_projections, *self.size[::-1]),
+                            shape=(self.n_projections, *self.size),
                             dtype=self.masks.dtype,
                         )
                         self.masks = Rotator(options).run(self.masks, pinned_results=pinned_array)
@@ -285,6 +290,8 @@ class Projections:
     def drop_projections(self, remove_idx: list[int]):
         "Permanently remove specific projections from object"
         keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
+
+        self.dropped_scan_numbers += self.scan_numbers[remove_idx]
 
         def return_modified_array(arr):
             if gpu_utils.is_pinned(self.data):
@@ -401,7 +408,6 @@ class Projections:
         if masks is None:
             masks = self.masks
         return blur_masks(masks, kernel_sigma, use_gpu)
-
 
     def show_center_of_rotation(
         self,
@@ -592,3 +598,29 @@ class ShiftManager:
             return True
         else:
             return False
+
+
+def get_kwargs_for_copying_to_new_projections_object(
+    projections: Projections, include_projections_copy: bool = True
+) -> dict:
+    if projections.probe_positions is not None:
+        positions = projections.probe_positions.data
+    else:
+        positions = None
+    kwargs = {
+        "angles": projections.angles * 1,
+        "options": copy.deepcopy(projections.options),
+        "masks": copy.deepcopy(projections.masks),
+        "scan_numbers": copy.deepcopy(projections.scan_numbers),
+        "probe_positions": positions,
+        "probe": copy.deepcopy(projections.probe),
+        "transform_tracker": copy.deepcopy(projections.transform_tracker),
+        "shift_manager": copy.deepcopy(projections.shift_manager),
+        "center_of_rotation": projections.center_of_rotation * 1,
+        "skip_pre_processing": True,
+        "add_center_offset_to_positions": False,
+    }
+    if include_projections_copy:
+        kwargs["projections"] = projections.data * 1
+
+    return kwargs
