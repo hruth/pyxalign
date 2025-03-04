@@ -1,7 +1,6 @@
 from abc import ABC
 from numbers import Number
-from tkinter import SE
-from typing import Optional, Sequence, Any
+from typing import Optional, Sequence
 from ipywidgets import interact
 import ipywidgets as widgets
 
@@ -10,11 +9,7 @@ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.font_manager as fm
 import numpy as np
 
-import ipywidgets as widgets
-import numpy as np
-import matplotlib.pyplot as plt
 from IPython.display import display, clear_output
-from ipywidgets import interact
 import cupy as cp
 from llama.api.maps import get_process_func_by_enum
 from llama.api.options.plotting import PlotDataOptions
@@ -22,6 +17,8 @@ from matplotlib.image import AxesImage
 
 from llama.api.types import ArrayType
 
+# import matplotlib
+# matplotlib.use("module://ipympl.backend_nbagg")
 
 class PlotObject(ABC):
     array: np.ndarray
@@ -51,6 +48,8 @@ class ImagePlotObject(PlotObject):
         array: np.ndarray,
         title: Optional[str] = None,
         sort_idx=None,
+        subplot_idx=None,
+        *,
         clim=None,
     ):
         super().__init__(array, title, sort_idx)
@@ -68,19 +67,40 @@ class ImagePlotObject(PlotObject):
 
 
 class LinePlotObject(PlotObject):
-    line = None
+    lines = None
+
+    def __init__(
+        self,
+        array: np.ndarray,
+        title: Optional[str] = None,
+        sort_idx=None,
+        subplot_idx=None,
+        *,
+        label=None,
+        ylim=None,
+    ):
+        super().__init__(array, title, sort_idx)
+        if len(self.array.shape) == 2:
+            self.array = self.array[:, :, None]
+        self.subplot_idx = subplot_idx
+        self.ylim = ylim
+        self.label = label
 
     def plot_callback(self, idx) -> callable:
         plt.title(f"{self.title} {idx}")
         if self.sort_idx is not None:
             idx = int(self.sort_idx[idx])
-        if self.line is None:
-            self.line = plt.plot(self.array[idx])[0]
+        if self.lines is None:
+            self.lines = plt.plot(self.array[idx], label=self.label)
             self.set_ylim()
             plt.grid(linestyle=":")
             plt.xlim(0, self.array.shape[1])
+            if self.ylim is not None:
+                plt.ylim(self.ylim)
+            plt.legend()
         else:
-            self.line.set_ydata(self.array[idx])
+            for i, line in enumerate(self.lines):
+                line.set_ydata(self.array[idx, :, i])
     
     def set_ylim(self):
         # plt.ylim([np.quantile(self.array, 0.02), np.quantile(self.array, 0.98)])
@@ -121,11 +141,9 @@ def make_image_slider_plot(
     # Link the play button and slider
     widgets.jslink((play, "value"), (slider, "value"))
 
-    fig, ax = plt.subplots(n_rows, n_cols, layout="compressed")
-
+    fig, ax = plt.subplots(n_rows, n_cols)#, layout="compressed")
+    plt.tight_layout()
     def update_plot(idx):
-        # for plotting_function in plotting_functions_list:
-        # for i, plot_object in enumerate(plot_objects):
         for i in range(n_rows*n_cols):
             if n_rows > 1 and n_cols > 1:
                 plot_idx = np.unravel_index(i, (n_rows, n_cols))
@@ -144,15 +162,13 @@ def make_image_slider_plot(
                 # Use pre-set subplot location
                 ax[plot_idx].axis("off")
                 plt.subplot(*plot_object.subplot_idx)
-                # plt.sca(ax[plot_object.subplot_idx])
             plot_object.plot_callback(idx)
-        plt.tight_layout()
-        plt.show()
+        # fig.canvas.draw_idle()
+        # plt.show()
 
     interact(update_plot, idx=slider)
 
     display(play)
-    
 
 
 def plot_sum_of_images(images: ArrayType):
