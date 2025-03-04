@@ -195,10 +195,18 @@ class Cropper(Transformation):
     def run(self, images: ArrayType) -> ArrayType:
         """Calls the image cropping function"""
         if self.enabled:
-            return image_crop(
+            if self.options.horizontal_range == 0:
+                horizontal_range = images.shape[2]
+            else:
+                horizontal_range = self.options.horizontal_range
+            if self.options.vertical_range == 0:
+                vertical_range = images.shape[1]
+            else:
+                vertical_range = self.options.vertical_range
+            return 1 * image_crop(
                 images,
-                self.options.horizontal_range,
-                self.options.vertical_range,
+                horizontal_range,
+                vertical_range,
                 self.options.horizontal_offset,
                 self.options.vertical_offset,
             )

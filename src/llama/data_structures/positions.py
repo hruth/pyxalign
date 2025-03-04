@@ -2,11 +2,7 @@ from typing import Optional
 import numpy as np
 
 import matplotlib.pyplot as plt
-from llama.transformations.functions import (
-    rotate_positions,
-    shear_positions,
-    will_rotation_flip_aspect_ratio,
-)
+from llama.transformations.functions import rotate_positions, shear_positions
 
 
 class ProbePositions:

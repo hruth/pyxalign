@@ -42,6 +42,7 @@ from llama.unwrap import unwrap_phase
 from llama.data_structures.positions import ProbePositions
 from llama.api.types import ArrayType, r_type
 
+divisor = 32
 
 class TransformTracker:
     def __init__(
@@ -167,7 +168,15 @@ class Projections:
             # To do: update this to work properly when the
             # center is shifted too!
             new_dims = np.array(self.data.shape[1:])
-            self.center_of_rotation = self.center_of_rotation - (pre_crop_dims - new_dims) / 2
+            shift = (new_dims - pre_crop_dims) / 2 - np.array(
+                [options.vertical_offset, options.horizontal_offset]
+            )
+            self.center_of_rotation = self.center_of_rotation + shift
+            # Shift position accordingly
+            if self.probe_positions is not None:
+                self.probe_positions.shift_positions(
+                    shift=shift[::-1][None].repeat(self.n_projections, axis=0)
+                )
 
     @timer()
     def downsample_projections(
@@ -346,9 +355,8 @@ class Projections:
             0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
         )
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
-        n_pix[:2] = np.ceil(n_pix[:2] / 32) * 32
+        n_pix[:2] = np.ceil(n_pix[:2] / divisor) * divisor
         n_pix = n_pix.astype(int)
-        # n_pix = (np.ceil(n_pix / 32) * 32).astype(int)
         return n_pix
 
     @property
@@ -358,14 +366,6 @@ class Projections:
     def _post_init(self):
         "For running children specific code after instantiation"
         pass
-
-    # def update_center_of_rotation(self):
-    #     if self.options.downsample.enabled:
-    #         self.center_of_rotation = self.center_of_rotation / self.options.downsample.scale
-    #     if self.options.crop.enabled:
-    #         # to do: add CoR update for when cropping is not symmetric. Will affect
-    #         # how to handle downsampling CoR as well.
-    #         pass
 
     def pin_projections(self):
         self.data = gpu_utils.pin_memory(self.data)

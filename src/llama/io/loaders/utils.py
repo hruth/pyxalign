@@ -8,7 +8,7 @@ from scipy import stats
 from tqdm import tqdm
 from llama.transformations.functions import image_crop_pad
 from llama.io.loaders.enums import LoaderType
-
+from llama.data_structures.projections import divisor
 border = 60 * "-"
 
 
@@ -204,7 +204,7 @@ def convert_projection_dict_to_array(
     repair_orientation: bool = False,
     pad_mode: str = "constant",
     pad_with_mode: bool = False,
-    divisible_by: int = 32,
+    # divisible_by: int = 32,
     chunk_length: int = 250,
     delete_projection_dict: bool = False,
 ) -> np.ndarray:
@@ -237,8 +237,8 @@ def convert_projection_dict_to_array(
         new_shape = np.array(new_shape)
 
     # Force new shape to be compatible with downsampling functions with
-    # downsampling up to divisible_by
-    new_shape = (np.ceil(new_shape / (divisible_by * 2)) * (divisible_by * 2)).astype(int)
+    # downsampling up to divisor
+    new_shape = (np.ceil(new_shape / (divisor * 2)) * (divisor * 2)).astype(int)
 
     # Fix projections dimensions through cropping and padding
     print("Fixing projections dimensions...")
