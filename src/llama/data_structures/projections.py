@@ -276,6 +276,8 @@ class Projections:
             if self.masks is not None:
                 # Will probably be wrong without fixes
                 self.masks = Shearer(options).run(self.masks)
+                self.masks[self.masks > 0.5] = 1
+                self.masks[self.masks < 0.5] = 0
 
             center_pixel = np.array(self.data.shape[1:]) / 2
             if self.probe_positions is not None:

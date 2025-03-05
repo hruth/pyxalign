@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import numpy as np
-from llama.api.enums import DownsampleType, UpsampleType
+from llama.api.enums import DownsampleType, UpsampleType, DeviceType
 
 import llama.api.maps as maps
 from llama.api.options.transform import (
@@ -145,6 +145,8 @@ class Rotator(Transformation):
     ) -> ArrayType:
         """Calls one of the image rotation functions"""
         if self.enabled:
+            if self.options.device.device_type is DeviceType.CPU:
+                raise NotImplementedError("This function is not supported on CPU.")
             self.function = device_handling_wrapper(
                 func=maps.get_rotation_func_by_enum(self.options.type),
                 options=self.options.device,
