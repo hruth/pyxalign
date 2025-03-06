@@ -45,9 +45,11 @@ class MemoryConfig(StrEnum):
 class InputFileStructureType(StrEnum):
     LAMNI = auto()
 
+
 class Direction(StrEnum):
     HORIZONTAL = auto()
     VERTICAL = auto()
+
 
 class ProcessFunc(StrEnum):
     ANGLE = auto()
@@ -57,3 +59,9 @@ class ProcessFunc(StrEnum):
 class SpecialValuePlaceholder(StrEnum):
     NONE = auto()
     EMPTY_LIST = auto()
+
+
+class RoundType(StrEnum):
+    CEIL = auto()
+    FLOOR = auto()
+    NEAREST = auto()

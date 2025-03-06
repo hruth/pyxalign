@@ -8,7 +8,8 @@ from scipy import stats
 from tqdm import tqdm
 from llama.transformations.functions import image_crop_pad
 from llama.io.loaders.enums import LoaderType
-from llama.data_structures.projections import divisor
+from llama.api.constants import divisor
+
 border = 60 * "-"
 
 

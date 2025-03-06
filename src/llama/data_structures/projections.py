@@ -3,6 +3,7 @@ from typing import List, Optional
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
+from llama.api.constants import divisor
 from llama.api.options.plotting import PlotDataOptions
 from llama.estimate_center import (
     estimate_center_of_rotation,
@@ -36,13 +37,19 @@ from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_m
 import llama.plotting.plotters as plotters
 from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
-from llama.transformations.functions import image_shift_fft, rotate_positions, shear_positions, will_rotation_flip_aspect_ratio
+from llama.transformations.functions import (
+    image_shift_fft,
+    rotate_positions,
+    shear_positions,
+    will_rotation_flip_aspect_ratio,
+)
 from llama.transformations.helpers import is_array_real
 from llama.unwrap import unwrap_phase
 from llama.data_structures.positions import ProbePositions
 from llama.api.types import ArrayType, r_type
+from llama.transformations.helpers import round_to_divisor
+from llama.api.constants import divisor
 
-divisor = 32
 
 class TransformTracker:
     def __init__(
@@ -203,7 +210,9 @@ class Projections:
             self.transform_tracker.update_downsample(options.scale)
 
     @timer()
-    def rotate_projections(self, options: RotationOptions, apply_to_center_of_rotation: bool = True):
+    def rotate_projections(
+        self, options: RotationOptions, apply_to_center_of_rotation: bool = True
+    ):
         # Note: the fourier rotation that is used for masks will likely
         # be an issue. A new method needs to be implemented.
         if options.enabled:
@@ -291,6 +300,15 @@ class Projections:
                 )
             self.transform_tracker.update_shear(options.angle)
 
+    def center_projections(self):
+        # Shift projections so that center of rotation is in center of image
+        shift = np.round(np.array(self.size) / 2 - self.center_of_rotation)
+        self.center_of_rotation = self.center_of_rotation + shift
+        shift = shift[::-1][None].repeat(self.n_projections, 0)
+        self.data = Shifter(ShiftOptions(type=enums.ShiftType.CIRC, enabled=True)).run(
+            self.data, shift
+        )
+
     @timer()
     def setup_masks_from_probe_positions(self):
         if self.probe is None or self.probe_positions is None:
@@ -357,8 +375,7 @@ class Projections:
             0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
         )
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
-        n_pix[:2] = np.ceil(n_pix[:2] / divisor) * divisor
-        n_pix = n_pix.astype(int)
+        n_pix = round_to_divisor(n_pix, enums.RoundType.CEIL, divisor)
         return n_pix
 
     @property

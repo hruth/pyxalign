@@ -18,8 +18,6 @@ from matplotlib.image import AxesImage
 import copy
 from llama.api.types import ArrayType
 
-# import matplotlib
-# matplotlib.use("module://ipympl.backend_nbagg")
 
 class PlotObject(ABC):
     array: np.ndarray
@@ -27,7 +25,7 @@ class PlotObject(ABC):
     def __init__(
         self,
         array: np.ndarray,
-        title: Optional[str] = None,
+        title: str = "slice",
         sort_idx=None,
         subplot_idx=None,
     ):
@@ -42,39 +40,15 @@ class PlotObject(ABC):
 
 class ImagePlotObject(PlotObject):
     axes_object: AxesImage = None
-    # clim: Sequence
-
-    # def __init__(
-    #     self,
-    #     array: np.ndarray,
-    #     title: Optional[str] = None,
-    #     sort_idx=None,
-    #     subplot_idx=None,
-    #     *,
-    #     clim=None,
-    #     cmap="bone",
-    # ):
-    #     super().__init__(array, title, sort_idx)
-    #     self.clim = clim
-
-    # def plot_callback(self, idx) -> callable:
-    #     plt.title(f"{self.title} {idx}")
-    #     if self.sort_idx is not None:
-    #         idx = int(self.sort_idx[idx])
-    #     if self.axes_object is None:
-    #         self.axes_object = plt.imshow(self.array[idx], cmap="bone")
-    #     else:
-    #         self.axes_object.set_data(self.array[idx])
-    #     plt.clim(self.clim)
 
     def __init__(
         self,
         array: np.ndarray,
-        title: Optional[str] = None,
+        title: str = "slice",
         sort_idx=None,
         subplot_idx=None,
         *,
-        options: Optional[PlotDataOptions]=None,
+        options: Optional[PlotDataOptions] = None,
     ):
         super().__init__(array, title, sort_idx, subplot_idx)
         if options is None:
@@ -83,18 +57,9 @@ class ImagePlotObject(PlotObject):
             self.options = copy.deepcopy(options)
 
     def plot_callback(self, idx) -> callable:
-        # plt.title(f"{self.title} {idx}")
-        # if self.sort_idx is not None:
-        #     idx = int(self.sort_idx[idx])
-        # if self.axes_object is None:
-        #     self.axes_object = plt.imshow(self.array[idx], cmap=self.options.cmap)
-        # else:
-        #     self.axes_object.set_data(self.array[idx])
-        # plt.clim(self.options.clim)
-
         plt.title(f"{self.title} {idx}")
         self.options.index = idx
-        self.axes_object=plot_slice_of_3D_array(
+        self.axes_object = plot_slice_of_3D_array(
             images=self.array,
             options=self.options,
             show_plot=False,
@@ -108,7 +73,7 @@ class LinePlotObject(PlotObject):
     def __init__(
         self,
         array: np.ndarray,
-        title: Optional[str] = None,
+        title: str = "index",
         sort_idx=None,
         subplot_idx=None,
         *,
@@ -136,9 +101,8 @@ class LinePlotObject(PlotObject):
         else:
             for i, line in enumerate(self.lines):
                 line.set_ydata(self.array[idx, :, i])
-    
+
     def set_ylim(self):
-        # plt.ylim([np.quantile(self.array, 0.02), np.quantile(self.array, 0.98)])
         plt.ylim([np.min(self.array), np.max(self.array)])
 
 
@@ -157,7 +121,7 @@ def make_image_slider_plot(
         n_cols = len(plot_objects)
     else:
         n_rows, n_cols = subplot_dims
-        
+
     n_frames = len(plot_objects[0].array)
     # Create the play button and slider
     play = widgets.Play(
@@ -182,6 +146,7 @@ def make_image_slider_plot(
     if n_rows == 1 and n_cols == 1:
         ax = [ax]
     plt.tight_layout()
+
     def update_plot(idx):
         for i in range(n_rows * n_cols):
             if n_rows > 1 and n_cols > 1:
@@ -203,7 +168,7 @@ def make_image_slider_plot(
                 plt.subplot(*plot_object.subplot_idx)
             plot_object.plot_callback(idx)
         # fig.canvas.draw_idle()
-        if matplotlib_backend == 'module://ipympl.backend_nbagg':
+        if matplotlib_backend == "module://ipympl.backend_nbagg":
             pass
         else:
             plt.show()
@@ -223,7 +188,7 @@ def plot_slice_of_3D_array(
     options: PlotDataOptions,
     pixel_size: Optional[Number] = None,
     show_plot: bool = True,
-    axis_image: Optional[AxesImage] = None
+    axis_image: Optional[AxesImage] = None,
 ):
     process_func = get_process_func_by_enum(options.process_func)
 
@@ -251,9 +216,9 @@ def plot_slice_of_3D_array(
     image = image[y_idx[0] : y_idx[1], x_idx[0] : x_idx[1]]
 
     if axis_image is not None:
-        axis_image=axis_image.set_data(image)
+        axis_image = axis_image.set_data(image)
     else:
-        axis_image=plt.imshow(image, cmap=options.cmap)
+        axis_image = plt.imshow(image, cmap=options.cmap)
 
     if options.scalebar.enabled and pixel_size is not None:
         add_scalebar(pixel_size, image.shape[1], options.scalebar.fractional_width)

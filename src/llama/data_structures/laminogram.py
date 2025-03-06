@@ -1,9 +1,14 @@
-from typing import Optional
+from typing import Optional, Sequence
+from matplotlib import pyplot as plt
 import numpy as np
 import cupy as cp
 import astra
 import copy
+from llama.api.constants import divisor
+from llama.api.options.device import DeviceOptions
 from llama.api.options.plotting import PlotDataOptions
+from llama.api.options.transform import RotationOptions
+from llama.gpu_utils import get_scipy_module, pin_memory
 
 import llama.image_processing as ip
 from llama import reconstruct
@@ -13,6 +18,8 @@ from llama.timing.timer_utils import timer
 import matplotlib.pyplot as plt
 
 from llama.api.types import ArrayType, r_type
+from llama.transformations.classes import Rotator
+from llama.transformations.functions import image_rotate_fft
 
 
 class Laminogram:
@@ -21,6 +28,7 @@ class Laminogram:
     scan_geometry_config: dict = None
     vectors: np.ndarray = None
     forward_projection_id: int = None
+    optimal_rotation_angles: Sequence[float] = [0, 0, 0]
 
     def __init__(
         self,
@@ -158,7 +166,7 @@ class Laminogram:
             object_geometries=object_geometries,
             return_id=True,
         )
-        mask = mask[0]/mask[0].max()
+        mask = mask[0] / mask[0].max()
         astra.data3d.delete(sino_id)
 
         return mask
@@ -215,3 +223,189 @@ class Laminogram:
             self.projections.pixel_size,
             show_plot=show_plot,
         )
+
+    def get_optimal_rotation_of_reconstruction(
+        self,
+        use_gpu: bool = True,
+        slice_index: Optional[int] = None,
+        pad_mult: int = 4,
+    ):
+        self.optimal_rotation_angles = get_tomogram_rotation_angles(
+            self.data, use_gpu, slice_index, pad_mult
+        )
+        print(
+            "Optimal rotation values:\n"
+            + f"\tx: {self.optimal_rotation_angles[0]}\n"
+            + f"\ty: {self.optimal_rotation_angles[1]}\n"
+            + f"\tz: {self.optimal_rotation_angles[2]}"
+        )
+
+    def rotate_reconstruction(self, device_options: Optional[DeviceOptions] = None) -> np.ndarray:
+        if device_options is None:
+            device_options = DeviceOptions()
+
+        rotation_options = RotationOptions(device=device_options, enabled=True)
+        rotator = Rotator(rotation_options)
+
+        rotated_reconstruction = pin_memory(self.data)
+
+        ax = [1, 0, 2]
+        rotator.options.angle = self.optimal_rotation_angles[0]
+        rotated_reconstruction = rotator.run(self.data.transpose(ax)).transpose(ax)
+
+        ax = [2, 1, 0]
+        rotator.options.angle = -self.optimal_rotation_angles[1]
+        rotated_reconstruction = rotator.run(rotated_reconstruction.transpose(ax)).transpose(ax)
+
+        rotator.options.angle = self.optimal_rotation_angles[2]
+        rotated_reconstruction = rotator.run(rotated_reconstruction)
+
+        print(
+            "Rotated reconstruction by:\n"
+            + f"\tx: {self.optimal_rotation_angles[0]}\n"
+            + f"\ty: {self.optimal_rotation_angles[1]}\n"
+            + f"\tz: {self.optimal_rotation_angles[2]}"
+        )
+        self.optimal_rotation_angles = [0, 0, 0]
+        self.data = rotated_reconstruction
+
+
+def get_tomogram_rotation_angles(
+    reconstruction: np.ndarray,
+    use_gpu: bool = True,
+    slice_index: Optional[int] = None,
+    pad_mult: int = 4,
+):
+    if use_gpu:
+        xp = cp
+    else:
+        xp = np
+    if slice_index is None:
+        slice_index = int(reconstruction.shape[1] / 2)
+    rotation_angle = np.zeros(3, dtype=r_type)
+
+    for i in range(3):
+        if i == 2:
+            reconstruction_slice = reconstruction.mean(axis=0)
+            max_search_angle = 22.5
+        else:
+            reconstruction_slice = reconstruction.take(indices=slice_index, axis=i + 1)
+            # Assume the sample is properly centered and calculate
+            # the max search angle
+            h, w = reconstruction_slice.shape
+            max_search_angle = np.arctan(2 * h / w) * 180 / np.pi
+            pad_mult = np.ceil(reconstruction_slice.shape[0] / divisor)
+            pad_by = int(pad_mult * divisor)
+            reconstruction_slice = np.pad(reconstruction_slice, ((pad_by, pad_by), (0, 0)))
+        rotation_angle[i] = get_optimized_sparseness_angle(
+            xp.array(reconstruction_slice),
+            angle_search_bounds=[-max_search_angle, max_search_angle],
+        )
+
+    return rotation_angle
+
+
+def get_optimized_sparseness_angle(
+    image_slice: ArrayType, angle_search_bounds: Sequence, n_iter: int = 500
+):
+    """
+    Find the rotation of the object that maximizes sparsity
+    """
+    xp = cp.get_array_module(image_slice)
+    scipy_module = get_scipy_module(image_slice)
+
+    def get_hoyer_sparsity(image: ArrayType):
+        # image = image[:]
+        sqrt_n = xp.sqrt(len(image))
+        l1_norm = xp.linalg.norm(image, ord=1)
+        l2_norm = xp.linalg.norm(image, ord=2)
+        sparsity = (sqrt_n - l1_norm / l2_norm) / (sqrt_n - 1)
+
+        return sparsity
+
+    # generate circular mask for image
+    n_pix = np.shape(image_slice)
+    [X, Y] = xp.meshgrid(
+        xp.arange(-np.ceil(n_pix[1] / 2), np.floor(n_pix[1] / 2), dtype=r_type),
+        xp.arange(-np.ceil(n_pix[0] / 2), np.floor(n_pix[0] / 2), dtype=r_type),
+    )
+    elliptical_mask = X**2 / (n_pix[1] / 2) ** 2 + Y**2 / (n_pix[0] / 2) ** 2 < 1 / 2
+
+    @timer()
+    def get_image_sparsity_score(image: ArrayType, angle: float):
+        image = image * elliptical_mask
+        image = image - scipy_module.ndimage.gaussian_filter(image, sigma=5)
+        image = image_rotate_fft(image[None], angle)[0]
+        # Remove edges
+        image = image[
+            np.ceil(image.shape[0] * 0.1) : np.floor(image.shape[0] * 0.9),
+            np.ceil(image.shape[1] * 0.1) : np.floor(image.shape[1] * 0.9),
+        ]
+        image = xp.abs(scipy_module.fft.fftshift(scipy_module.fft.fft2(image)))
+        score = xp.array(
+            [
+                get_hoyer_sparsity(image.mean(axis=0)),
+                get_hoyer_sparsity(image.mean(axis=1)),
+            ]
+        )
+        score = -xp.mean(score)
+        # score = -score
+        if xp is cp:
+            return score.get()
+        else:
+            return score
+
+    test_image = image_slice
+    # test_image = xp.abs(image_slice)
+    # test_image = test_image - xp.median(test_image)
+    # test_image[test_image < 0] = 0
+
+    def get_score_vs_angle(image, angles: np.ndarray):
+        score = []
+        for i in range(len(angles)):
+            score += [get_image_sparsity_score(image, angles[i])]
+        return np.array(score, dtype=r_type)
+
+    angles = np.linspace(angle_search_bounds[0], angle_search_bounds[-1], n_iter)
+    next_range = np.array([-1, 1])
+
+    # Do grid search of the sparsity score and plot results
+    # fig, ax = plt.subplots(2, 2, layout="compressed")
+    fig = plt.figure(layout="compressed")
+    gs = fig.add_gridspec(2, 2, height_ratios=[1, 2])
+    sparsity_axis = fig.add_subplot(gs[0, 0:2])
+    orig_slice_axis = fig.add_subplot(gs[1, 0])
+    rotated_slice_axis = fig.add_subplot(gs[1, 1])
+
+    # Find and plot the sparsity score
+    plt.sca(sparsity_axis)
+    plt.title("Hoyer Sparsity Score")
+    plt.xlabel("angle (deg)")
+    plt.grid(linestyle=":")
+    plt.autoscale(enable=True, axis="x", tight=True)
+    for i in range(3):
+        score = get_score_vs_angle(test_image, angles)
+        plt.plot(angles, score)
+        angles = angles[np.argmin(score)] + np.arange(
+            next_range[0], next_range[1], next_range[1] / 10
+        )
+        next_range = next_range / 10
+    angle = angles[np.argmin(score)]
+
+    # Plot the image slice
+    plt.title("Original slice")
+    plt.sca(orig_slice_axis)
+    if isinstance(image_slice, cp.ndarray):
+        plt.imshow(image_slice.get(), cmap="bone")
+    else:
+        plt.imshow(image_slice, cmap="bone")
+    # Plot the rotated image slice
+    plt.title("Rotated slice")
+    plt.sca(rotated_slice_axis)
+    rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
+    if isinstance(rotated_image_slice, cp.ndarray):
+        rotated_image_slice = rotated_image_slice.get()
+    plt.imshow(rotated_image_slice, cmap="bone")
+    plt.show()
+
+    return angle

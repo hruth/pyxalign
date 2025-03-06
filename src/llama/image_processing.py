@@ -149,7 +149,9 @@ def get_filtered_image_gradient(images: ArrayType, axis: int, high_pass_filter: 
 
 
 @preserve_complexity_or_realness()
-def apply_1D_high_pass_filter(images: ArrayType, axis: int, sigma: float, apply_FFT=True) -> ArrayType:
+def apply_1D_high_pass_filter(
+    images: ArrayType, axis: int, sigma: float, apply_FFT=True
+) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
 
@@ -168,7 +170,6 @@ def apply_1D_high_pass_filter(images: ArrayType, axis: int, sigma: float, apply_
         pass
     else:
         spectral_filter = scipy_module.fft.fftshift(xp.exp(1 / (-(x**2) / sigma**2)))
-
 
     shape = [1, 1, 1]
     shape[axis] = n_pix[axis]
