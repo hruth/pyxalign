@@ -1,12 +1,16 @@
 import numpy as np
 import os
-from scipy.io import loadmat
+from scipy.io import loadmat, whosmat
 from llama.io.loaders.lamni.base_loader import LamniLoader
 from llama.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
+from llama.timing.timer_utils import timer, InlineTimer
 
 
 class LamniLoaderVersion2(LamniLoader):
     analysis_folders: dict[int, list[str]] = {}
+
+    def _post_init(self):
+        self.angles = -self.angles
 
     def get_projections_folders_and_file_names(self):
         """
@@ -29,13 +33,49 @@ class LamniLoaderVersion2(LamniLoader):
     def record_projection_path_and_files(self, folder: str, scan_number: int):
         if os.path.exists(folder) and os.listdir(folder) != []:
             self.projection_folders[scan_number] = folder
-            self.analysis_folders[scan_number] = os.listdir(folder)
+            # self.analysis_folders[scan_number] = os.listdir(folder)
+            self.analysis_folders[scan_number] = []
+            self.get_nested_analysis_folders(folder, scan_number)
             self.available_projection_files[scan_number] = []
             for analysis_sub_folder in self.analysis_folders[scan_number]:
                 file_names = os.listdir(os.path.join(folder, analysis_sub_folder))
                 self.available_projection_files[scan_number] += [
-                    os.path.join(analysis_sub_folder, file) for file in file_names
+                    os.path.join(analysis_sub_folder, file)
+                    for file in file_names
+                    if self.check_if_projection_file(
+                        os.path.join(folder, analysis_sub_folder, file)
+                    )
                 ]
+
+    def get_nested_analysis_folders(self, folder: str, scan_number: int, rel_path: str = ""):
+        """
+        Get the relative paths of all folders in the scan directory that
+        contain projection files by recursing through nested folders.
+        """
+        # Include this folder if it has a projection file
+        folder_contains_projection_file = np.any(
+            [self.check_if_projection_file(os.path.join(folder, x)) for x in os.listdir(folder)]
+        )
+        if folder_contains_projection_file:
+            # relative_path = re.sub(self.projection_folders[scan_number], "", folder)
+            relative_path = os.path.relpath(folder, self.projection_folders[scan_number])
+            self.analysis_folders[scan_number] += [relative_path]
+
+        # Look through nested folders
+        for folder_entry in os.listdir(folder):
+            full_path = os.path.join(folder, folder_entry)
+            if os.path.isfile(full_path):
+                continue
+            else:
+                self.get_nested_analysis_folders(full_path, scan_number)
+
+    @staticmethod
+    @timer()
+    def check_if_projection_file(file_path: str) -> bool:
+        if not file_path.lower().endswith(".mat"):
+            return False
+        else:
+            return True
 
     @staticmethod
     def load_single_projection(file_path: str) -> np.ndarray:
@@ -53,8 +93,14 @@ class LamniLoaderVersion2(LamniLoader):
     def load_probe(self):
         # I assume all probes are similar, and I just load the first scan's probe
         probe = load_probe_from_mat_file(self.selected_projection_file_paths[self.scan_numbers[0]])
-        # Use only the first opr mode (axis 2) and sum over incoherent modes (axis 3)
-        self.probe = (np.abs(probe[:, :, :, 0]) ** 2).sum(2).transpose()
+        # different files have different formats for the probe -- try to automatically format
+        # the probe file. 
+        if probe.ndim == 2 and probe.shape[1] == 1:
+            probe = np.array([mode[0] for mode in probe])
+            self.probe = (np.abs(probe) ** 2).sum(0)
+        elif probe.ndim == 4:
+            # Use only the first opr mode (axis 3) and sum over incoherent modes (axis 2)
+            self.probe = (np.abs(probe[:, :, :, 0]) ** 2).sum(2).transpose()
 
     def load_projection_params(self):
         self.pixel_size = load_params_from_mat_file(

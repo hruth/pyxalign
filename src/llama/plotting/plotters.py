@@ -3,6 +3,7 @@ from numbers import Number
 from typing import Optional, Sequence
 from ipywidgets import interact
 import ipywidgets as widgets
+import matplotlib
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
@@ -14,7 +15,7 @@ import cupy as cp
 from llama.api.maps import get_process_func_by_enum
 from llama.api.options.plotting import PlotDataOptions
 from matplotlib.image import AxesImage
-
+import copy
 from llama.api.types import ArrayType
 
 # import matplotlib
@@ -41,7 +42,30 @@ class PlotObject(ABC):
 
 class ImagePlotObject(PlotObject):
     axes_object: AxesImage = None
-    clim: Sequence
+    # clim: Sequence
+
+    # def __init__(
+    #     self,
+    #     array: np.ndarray,
+    #     title: Optional[str] = None,
+    #     sort_idx=None,
+    #     subplot_idx=None,
+    #     *,
+    #     clim=None,
+    #     cmap="bone",
+    # ):
+    #     super().__init__(array, title, sort_idx)
+    #     self.clim = clim
+
+    # def plot_callback(self, idx) -> callable:
+    #     plt.title(f"{self.title} {idx}")
+    #     if self.sort_idx is not None:
+    #         idx = int(self.sort_idx[idx])
+    #     if self.axes_object is None:
+    #         self.axes_object = plt.imshow(self.array[idx], cmap="bone")
+    #     else:
+    #         self.axes_object.set_data(self.array[idx])
+    #     plt.clim(self.clim)
 
     def __init__(
         self,
@@ -50,20 +74,32 @@ class ImagePlotObject(PlotObject):
         sort_idx=None,
         subplot_idx=None,
         *,
-        clim=None,
+        options: Optional[PlotDataOptions]=None,
     ):
-        super().__init__(array, title, sort_idx)
-        self.clim = clim
+        super().__init__(array, title, sort_idx, subplot_idx)
+        if options is None:
+            self.options = PlotDataOptions()
+        else:
+            self.options = copy.deepcopy(options)
 
     def plot_callback(self, idx) -> callable:
+        # plt.title(f"{self.title} {idx}")
+        # if self.sort_idx is not None:
+        #     idx = int(self.sort_idx[idx])
+        # if self.axes_object is None:
+        #     self.axes_object = plt.imshow(self.array[idx], cmap=self.options.cmap)
+        # else:
+        #     self.axes_object.set_data(self.array[idx])
+        # plt.clim(self.options.clim)
+
         plt.title(f"{self.title} {idx}")
-        if self.sort_idx is not None:
-            idx = int(self.sort_idx[idx])
-        if self.axes_object is None:
-            self.axes_object = plt.imshow(self.array[idx])
-        else:
-            self.axes_object.set_data(self.array[idx])
-        plt.clim(self.clim)
+        self.options.index = idx
+        self.axes_object=plot_slice_of_3D_array(
+            images=self.array,
+            options=self.options,
+            show_plot=False,
+            axis_image=self.axes_object,
+        )
 
 
 class LinePlotObject(PlotObject):
@@ -79,10 +115,9 @@ class LinePlotObject(PlotObject):
         label=None,
         ylim=None,
     ):
-        super().__init__(array, title, sort_idx)
+        super().__init__(array, title, sort_idx, subplot_idx)
         if len(self.array.shape) == 2:
             self.array = self.array[:, :, None]
-        self.subplot_idx = subplot_idx
         self.ylim = ylim
         self.label = label
 
@@ -115,6 +150,8 @@ def make_image_slider_plot(
     if isinstance(plot_objects, PlotObject):
         plot_objects = [plot_objects]
 
+    matplotlib_backend = matplotlib.get_backend()
+
     if subplot_dims is None:
         n_rows = 1
         n_cols = len(plot_objects)
@@ -141,10 +178,12 @@ def make_image_slider_plot(
     # Link the play button and slider
     widgets.jslink((play, "value"), (slider, "value"))
 
-    fig, ax = plt.subplots(n_rows, n_cols)#, layout="compressed")
+    fig, ax = plt.subplots(n_rows, n_cols)
+    if n_rows == 1 and n_cols == 1:
+        ax = [ax]
     plt.tight_layout()
     def update_plot(idx):
-        for i in range(n_rows*n_cols):
+        for i in range(n_rows * n_cols):
             if n_rows > 1 and n_cols > 1:
                 plot_idx = np.unravel_index(i, (n_rows, n_cols))
             else:
@@ -164,7 +203,10 @@ def make_image_slider_plot(
                 plt.subplot(*plot_object.subplot_idx)
             plot_object.plot_callback(idx)
         # fig.canvas.draw_idle()
-        # plt.show()
+        if matplotlib_backend == 'module://ipympl.backend_nbagg':
+            pass
+        else:
+            plt.show()
 
     interact(update_plot, idx=slider)
 
@@ -181,6 +223,7 @@ def plot_slice_of_3D_array(
     options: PlotDataOptions,
     pixel_size: Optional[Number] = None,
     show_plot: bool = True,
+    axis_image: Optional[AxesImage] = None
 ):
     process_func = get_process_func_by_enum(options.process_func)
 
@@ -207,13 +250,20 @@ def plot_slice_of_3D_array(
 
     image = image[y_idx[0] : y_idx[1], x_idx[0] : x_idx[1]]
 
-    plt.imshow(image, cmap=options.cmap)
+    if axis_image is not None:
+        axis_image=axis_image.set_data(image)
+    else:
+        axis_image=plt.imshow(image, cmap=options.cmap)
 
-    if options.scalebar.enabled:
+    if options.scalebar.enabled and pixel_size is not None:
         add_scalebar(pixel_size, image.shape[1], options.scalebar.fractional_width)
+
+    plt.clim(options.clim)
 
     if show_plot:
         plt.show()
+
+    return axis_image
 
 
 def add_scalebar(pixel_size: Number, image_width: int, scalebar_fractional_width: float = 0.15):

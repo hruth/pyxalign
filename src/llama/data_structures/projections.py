@@ -369,8 +369,10 @@ class Projections:
         "For running children specific code after instantiation"
         pass
 
-    def pin_projections(self):
+    def pin_arrays(self):
         self.data = gpu_utils.pin_memory(self.data)
+        if self.masks is not None:
+            self.masks = gpu_utils.pin_memory(self.masks)
 
     def apply_staged_shift(self, device_options: Optional[DeviceOptions] = None):
         if device_options is None:
@@ -502,6 +504,34 @@ class Projections:
             show_plot=show_plot,
         )
 
+    def plot_staged_shift(self, title: str = ""):
+        fig, ax = plt.subplots(2, layout="compressed")
+        fig.suptitle(title, fontsize=17)
+        sort_idx = np.argsort(self.angles)
+        plt.sca(ax[0])
+        plt.plot(
+            self.angles[sort_idx],
+            self.shift_manager.staged_shift[sort_idx],
+        )
+        plt.legend(["horizontal", "vertical"], framealpha=0.5)
+        plt.autoscale(enable=True, axis="x", tight=True)
+        plt.grid(linestyle=":")
+        plt.title("shift vs scan Number")
+        plt.xlabel("scan number")
+        plt.ylabel("shift (px)")
+        plt.sca(ax[1])
+
+        plt.plot(
+            self.scan_numbers,
+            self.shift_manager.staged_shift,
+        )
+        plt.grid(linestyle=":")
+        plt.autoscale(enable=True, axis="x", tight=True)
+        plt.title("shift vs scan Number")
+        plt.xlabel("scan number")
+        plt.ylabel("shift (px)")
+        plt.show()
+
 
 class ComplexProjections(Projections):
     def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
@@ -563,7 +593,6 @@ class PhaseProjections(Projections):
             modified_options.horizontal_coordinate.center_estimate = self.center_of_rotation[1]
         if self.options.estimate_center.vertical_coordinate.center_estimate is None:
             modified_options.vertical_coordinate.center_estimate = self.center_of_rotation[0]
-
         return modified_options
 
 

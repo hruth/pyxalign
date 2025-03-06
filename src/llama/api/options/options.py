@@ -59,6 +59,8 @@ class PhaseUnwrapOptions:
 
     poly_fit_order: int = 1
 
+    lsq_fit_ramp_removal: bool = False
+
 
 @dataclasses.dataclass
 class RegularizationOptions:

@@ -155,8 +155,8 @@ def load_experiment(
     input_settings_string = input_settings_string[:-1]
     print(input_settings_string, flush=True)
 
-    # Load projections
-    selected_experiment.load_projections(n_processes)
+    # # Load projections
+    # selected_experiment.load_projections(n_processes)
 
     # Load probe
     selected_experiment.load_probe()
@@ -166,6 +166,9 @@ def load_experiment(
 
     # Load the rest of the available parameters
     selected_experiment.load_projection_params()
+
+    # Load projections
+    selected_experiment.load_projections(n_processes)
 
 
     return selected_experiment

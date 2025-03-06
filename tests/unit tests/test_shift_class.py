@@ -186,7 +186,7 @@ def test_fft_shift_class_gpu_chunked_pinned(pytestconfig, overwrite_results=Fals
     if repeat_array:
         tutils.repeat_array(complex_projections, n_reps)
         print(complex_projections.data.shape)
-    complex_projections.pin_projections()
+    complex_projections.pin_arrays()
     assert is_pinned(complex_projections.data)
     t0 = time.time()
     shifted_projections = shift_projections(
@@ -215,7 +215,7 @@ def test_fft_shift_class_gpu_chunked_multigpu(
     if repeat_array:
         tutils.repeat_array(complex_projections, n_reps)
         print(complex_projections.data.shape)
-    complex_projections.pin_projections()
+    complex_projections.pin_arrays()
     assert is_pinned(complex_projections.data)
     t0 = time.time()
     shifted_projections = shift_projections(

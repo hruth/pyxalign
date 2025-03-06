@@ -13,7 +13,7 @@ from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
 from llama.timing.timer_utils import clear_timer_globals
-
+import matplotlib.pyplot as plt
 
 class LaminographyAlignmentTask:
     pma_object: ProjectionMatchingAligner = None
@@ -48,7 +48,9 @@ class LaminographyAlignmentTask:
             function_type=enums.ShiftType.CIRC,
             alignment_options=self.options.cross_correlation,
         )
+        self.complex_projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
+
 
     def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray]=None):
         if self.pma_object is not None and hasattr(self.pma_object, "aligned_projections"):

@@ -72,6 +72,12 @@ class LamniLoader(ABC):
         self.sequences = sequences
         self.parent_projections_folder = parent_projections_folder
 
+        self._post_init()
+
+    def _post_init(self):
+        "For implementing child-specific initialization code"
+        pass
+
     @property
     def n_scans(self):
         return len(self.scan_numbers)

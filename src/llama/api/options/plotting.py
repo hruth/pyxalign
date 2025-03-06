@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import field
 from numbers import Number
-from typing import Optional
+from typing import Optional, Sequence
 from llama.api import enums
 
 
@@ -33,3 +33,5 @@ class PlotDataOptions:
     process_func: Optional[enums.ProcessFunc] = None
 
     index: Optional[int] = None
+
+    clim: Optional[Sequence] = None

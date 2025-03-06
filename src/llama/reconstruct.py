@@ -167,7 +167,7 @@ def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarr
 
     # Run the reconstruction algorithm
     astra.algorithm.run(alg_id)
-    # astra.algorithm.clear()
+    # astra.algorithm.clear() # !!
 
     # Retrieve the reconstruction
     # rec = astra.data3d.get_shared(astra_config['ReconstructionDataId'])
