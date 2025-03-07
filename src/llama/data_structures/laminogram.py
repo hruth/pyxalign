@@ -6,7 +6,7 @@ import astra
 import copy
 from llama.api.constants import divisor
 from llama.api.options.device import DeviceOptions
-from llama.api.options.plotting import PlotDataOptions
+from llama.api.options.plotting import ImagePlotOptions
 from llama.api.options.transform import RotationOptions
 from llama.gpu_utils import get_scipy_module, pin_memory
 
@@ -205,17 +205,17 @@ class Laminogram:
 
     def plot_data(
         self,
-        options: Optional[PlotDataOptions] = None,
+        options: Optional[ImagePlotOptions] = None,
         show_plot: bool = True,
     ):
         if options is None:
-            options = PlotDataOptions()
+            options = ImagePlotOptions()
         else:
             options = copy.deepcopy(options)
 
         if options.index is None:
             options.index = int(self.data.shape[0] / 2)
-
+    
         plt.title(f"Reconstruction Slice {options.index}")
         plot_slice_of_3D_array(
             self.data,

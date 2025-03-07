@@ -4,7 +4,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from llama.api.constants import divisor
-from llama.api.options.plotting import PlotDataOptions
+from llama.api.options.plotting import ImagePlotOptions
 from llama.estimate_center import (
     estimate_center_of_rotation,
     CenterOfRotationEstimateResults,
@@ -487,13 +487,13 @@ class Projections:
 
     def plot_data(
         self,
-        options: PlotDataOptions = None,
+        options: ImagePlotOptions = None,
         title_string: Optional[str] = None,
         plot_sum: bool = False,
         show_plot: bool = True,
     ):
         if options is None:
-            options = PlotDataOptions()
+            options = ImagePlotOptions()
         else:
             options = copy.deepcopy(options)
 

@@ -11,6 +11,7 @@ class UpdatePlotOptions:
 
     stride: int = 1
 
+
 @dataclasses.dataclass
 class ScalebarOptions:
     enabled: bool = True
@@ -20,7 +21,7 @@ class ScalebarOptions:
 
 
 @dataclasses.dataclass
-class PlotDataOptions:
+class ImagePlotOptions:
     cmap: Optional[str] = "bone"
 
     widths: Optional[tuple[Number, Number]] = None
@@ -35,3 +36,37 @@ class PlotDataOptions:
     index: Optional[int] = None
 
     clim: Optional[Sequence] = None
+
+    colorbar: bool = False
+
+
+@dataclasses.dataclass
+class LinePlotOptions:
+    ylabel: Optional[str] = None
+
+    ylim: Optional[Sequence[int]] = None
+
+
+@dataclasses.dataclass
+class SliderPlotOptions:
+    title: Optional[str] = None
+
+    indexed_titles: Optional[list[str]] = None
+
+    sort_idx: Optional[Sequence[int]] = None
+
+    subplot_idx: Optional[Sequence[int]] = None
+
+
+@dataclasses.dataclass
+class ImageSliderPlotOptions:
+    slider: SliderPlotOptions = field(default_factory=SliderPlotOptions)
+
+    image: ImagePlotOptions = field(default_factory=ImagePlotOptions)
+
+
+@dataclasses.dataclass
+class LineSliderPlotOptions:
+    slider: SliderPlotOptions = field(default_factory=SliderPlotOptions)
+
+    image: LinePlotOptions = field(default_factory=ImagePlotOptions)

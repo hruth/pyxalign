@@ -5,7 +5,7 @@ from typing import Optional
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions
 from llama.api.options.options import RegularizationOptions
-from llama.api.options.plotting import UpdatePlotOptions, PlotDataOptions
+from llama.api.options.plotting import UpdatePlotOptions, ImagePlotOptions
 from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.transform import CropOptions, DownsampleOptions
 
@@ -36,9 +36,9 @@ class CrossCorrelationOptions(AlignmentOptions):
 class ProjectionMatchingPlotOptions:
     update: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)
 
-    reconstruction: PlotDataOptions = field(default_factory=PlotDataOptions)
+    reconstruction: ImagePlotOptions = field(default_factory=ImagePlotOptions)
 
-    projections: PlotDataOptions = field(default_factory=PlotDataOptions)
+    projections: ImagePlotOptions = field(default_factory=ImagePlotOptions)
 
 @dataclasses.dataclass
 class ReconstructionMaskOptions:

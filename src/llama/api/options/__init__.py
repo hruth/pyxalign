@@ -30,4 +30,11 @@ from .options import (
     PhaseUnwrapOptions,
     RegularizationOptions,
 )
-from .plotting import UpdatePlotOptions, PlotDataOptions, ScalebarOptions
+from .plotting import (
+    UpdatePlotOptions,
+    ImagePlotOptions,
+    ScalebarOptions,
+    SliderPlotOptions,
+    ImageSliderPlotOptions,
+    LinePlotOptions,
+)

@@ -1,6 +1,6 @@
 from abc import ABC
 from numbers import Number
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 from ipywidgets import interact
 import ipywidgets as widgets
 import matplotlib
@@ -13,7 +13,11 @@ import numpy as np
 from IPython.display import display, clear_output
 import cupy as cp
 from llama.api.maps import get_process_func_by_enum
-from llama.api.options.plotting import PlotDataOptions
+from llama.api.options.plotting import (
+    ImagePlotOptions,
+    ImageSliderPlotOptions,
+    LineSliderPlotOptions,
+)
 from matplotlib.image import AxesImage
 import copy
 from llama.api.types import ArrayType
@@ -25,43 +29,34 @@ class PlotObject(ABC):
     def __init__(
         self,
         array: np.ndarray,
-        title: str = "slice",
-        sort_idx=None,
-        subplot_idx=None,
+        options: Union[ImageSliderPlotOptions, LineSliderPlotOptions],
     ):
         self.array = array
-        self.title = title
-        self.sort_idx = sort_idx
-        self.subplot_idx = subplot_idx
+        self.options = copy.deepcopy(options)
 
     def plot_callback(self):
         raise NotImplementedError
+
+    def create_title_string(self, idx: int) -> str:
+        if self.options.slider.title is None:
+            self.options.slider.title = ""
+        if self.options.slider.indexed_titles is None:
+            indexed_title = str(idx)
+        else:
+            indexed_title = self.options.slider.indexed_titles[idx]
+        return f"{self.options.slider.title} {indexed_title}"
 
 
 class ImagePlotObject(PlotObject):
     axes_object: AxesImage = None
 
-    def __init__(
-        self,
-        array: np.ndarray,
-        title: str = "slice",
-        sort_idx=None,
-        subplot_idx=None,
-        *,
-        options: Optional[PlotDataOptions] = None,
-    ):
-        super().__init__(array, title, sort_idx, subplot_idx)
-        if options is None:
-            self.options = PlotDataOptions()
-        else:
-            self.options = copy.deepcopy(options)
-
     def plot_callback(self, idx) -> callable:
-        plt.title(f"{self.title} {idx}")
-        self.options.index = idx
+        # plt.title(f"{self.options.slider.title} {idx}")
+        self.options.image.index = idx
+        plt.title(self.create_title_string(idx))
         self.axes_object = plot_slice_of_3D_array(
             images=self.array,
-            options=self.options,
+            options=self.options.image,
             show_plot=False,
             axis_image=self.axes_object,
         )
@@ -74,6 +69,7 @@ class LinePlotObject(PlotObject):
         self,
         array: np.ndarray,
         title: str = "index",
+        title_index: Optional[list[str]] = None,
         sort_idx=None,
         subplot_idx=None,
         *,
@@ -160,12 +156,12 @@ def make_image_slider_plot(
                 ax[plot_idx].axis("off")
                 continue
 
-            if plot_object.subplot_idx is None:
+            if plot_object.options.slider.subplot_idx is None:
                 plt.sca(ax[plot_idx])
             else:
                 # Use pre-set subplot location
                 ax[plot_idx].axis("off")
-                plt.subplot(*plot_object.subplot_idx)
+                plt.subplot(*plot_object.options.slider.subplot_idx)
             plot_object.plot_callback(idx)
         # fig.canvas.draw_idle()
         if matplotlib_backend == "module://ipympl.backend_nbagg":
@@ -185,7 +181,7 @@ def plot_sum_of_images(images: ArrayType):
 
 def plot_slice_of_3D_array(
     images: ArrayType,
-    options: PlotDataOptions,
+    options: ImagePlotOptions,
     pixel_size: Optional[Number] = None,
     show_plot: bool = True,
     axis_image: Optional[AxesImage] = None,
@@ -216,9 +212,13 @@ def plot_slice_of_3D_array(
     image = image[y_idx[0] : y_idx[1], x_idx[0] : x_idx[1]]
 
     if axis_image is not None:
-        axis_image = axis_image.set_data(image)
+        axis_image.set_data(image)
+        axis_image.set_clim(image.min(), image.max())
     else:
         axis_image = plt.imshow(image, cmap=options.cmap)
+        if options.colorbar:
+            # plt.colorbar()
+            plt.colorbar(shrink=0.3)
 
     if options.scalebar.enabled and pixel_size is not None:
         add_scalebar(pixel_size, image.shape[1], options.scalebar.fractional_width)
