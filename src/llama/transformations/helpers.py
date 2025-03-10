@@ -7,7 +7,6 @@ from llama.api.enums import RoundType
 from llama.api.types import ArrayType
 # Should move all this into a different folder at some point
 
-
 def preserve_complexity_or_realness():
     def inner_func(func):
         @wraps(func)

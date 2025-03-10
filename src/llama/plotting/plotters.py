@@ -51,7 +51,6 @@ class ImagePlotObject(PlotObject):
     axes_object: AxesImage = None
 
     def plot_callback(self, idx) -> callable:
-        # plt.title(f"{self.options.slider.title} {idx}")
         self.options.image.index = idx
         plt.title(self.create_title_string(idx))
         self.axes_object = plot_slice_of_3D_array(
@@ -213,6 +212,9 @@ def plot_slice_of_3D_array(
 
     if axis_image is not None:
         axis_image.set_data(image)
+        axis_image.set_extent([0, image.shape[1], image.shape[0], 0])  # Adjust for variable shape
+        plt.gca().relim()
+        plt.gca().autoscale_view()
         axis_image.set_clim(image.min(), image.max())
     else:
         axis_image = plt.imshow(image, cmap=options.cmap)
