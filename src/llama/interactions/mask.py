@@ -17,8 +17,11 @@ class ThresholdSelector:
         self.threshold = thresh
         fig, ax = plt.subplots(1, 3, layout="compressed")
         clipped_masks = self.masks[idx] * 1
-        clipped_masks[clipped_masks > thresh] = 1
-        clipped_masks[clipped_masks < thresh] = 0
+        clip_idx = clipped_masks > thresh
+        clipped_masks[:] = 0
+        clipped_masks[clip_idx] = 1
+        # clipped_masks[clipped_masks > thresh] = 1
+        # clipped_masks[clipped_masks < thresh] = 0
         plt.sca(ax[0])
         plt.imshow(clipped_masks)
         plt.title("Mask")

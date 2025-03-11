@@ -346,7 +346,7 @@ class Projections:
         "Permanently remove specific projections from object"
         keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
 
-        self.dropped_scan_numbers += self.scan_numbers[remove_idx]
+        self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
 
         def return_modified_array(arr):
             if gpu_utils.is_pinned(self.data):

@@ -14,6 +14,7 @@ from .alignment import (
     CrossCorrelationOptions,
     ProjectionMatchingOptions,
     ProjectionMatchingPlotOptions,
+    SecondaryMaskOptions,
 )
 from .projections import (
     CoordinateSearchOptions,
