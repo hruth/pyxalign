@@ -103,7 +103,6 @@ class Laminogram:
 
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
-
     def get_forward_projection(
         self,
         pinned_forward_projection: Optional[np.ndarray] = None,

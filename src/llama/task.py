@@ -61,7 +61,9 @@ class LaminographyAlignmentTask:
         self.pma_object = ProjectionMatchingAligner(
             self.phase_projections, self.options.projection_matching
         )
+        # Run the projection matching alignment algorithm
         shift = self.pma_object.run(initial_shift=initial_shift)
+        # Store the result in the ShiftManager object
         self.phase_projections.shift_manager.stage_shift(
             shift=shift,
             function_type=enums.ShiftType.FFT,

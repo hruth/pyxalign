@@ -96,6 +96,9 @@ class ProjectionMatchingAligner(Aligner):
         # Re-scale the shift
         shift = self.total_shift * self.scale
 
+        # Clear astra objects
+        self.aligned_projections.laminogram.clear_astra_objects()
+
         return shift
 
     @gutils.memory_releasing_error_handler
