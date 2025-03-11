@@ -33,22 +33,29 @@ class LaminographyAlignmentTask:
         self.complex_projections = complex_projections
         self.phase_projections = phase_projections
 
-    def get_cross_correlation_shift(self):
+    def get_cross_correlation_shift(
+        self,
+        projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
+    ):
         clear_timer_globals()
         # Only for complex projections for now
         # Does this really need to be saved as an attribute?
+        if projection_type is enums.ProjectionType.COMPLEX:
+            projections = self.complex_projections
+        else:
+            projections = self.phase_projections
         self.cross_correlation_aligner = CrossCorrelationAligner(
-            self.complex_projections, self.options.cross_correlation
+            projections, self.options.cross_correlation
         )
         # Placeholder for actual illum_sum
-        self.illum_sum = np.ones_like(self.complex_projections.data[0], dtype=r_type)
+        self.illum_sum = np.ones_like(projections.data[0], dtype=r_type)
         shift = self.cross_correlation_aligner.run(self.illum_sum)
-        self.complex_projections.shift_manager.stage_shift(
+        projections.shift_manager.stage_shift(
             shift=shift,
             function_type=enums.ShiftType.CIRC,
             alignment_options=self.options.cross_correlation,
         )
-        self.complex_projections.plot_staged_shift("Cross-correlation Shift")
+        projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
 
 

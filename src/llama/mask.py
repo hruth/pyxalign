@@ -299,5 +299,7 @@ class IlluminationMapMaskBuilder:
             if not self.threshold_selector.is_final_value:
                 raise Exception
             thresh = self.threshold_selector.threshold
-        self.masks[self.masks > thresh] = 1
-        self.masks[self.masks < thresh] = 0
+
+        clip_idx = self.masks > thresh
+        self.masks[:] = 0
+        self.masks[clip_idx] = 1

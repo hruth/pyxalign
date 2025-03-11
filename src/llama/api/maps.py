@@ -68,7 +68,6 @@ def get_process_func_by_enum(key: Union[None, ProcessFunc]) -> Callable:
         None: lambda x: x,
     }[key]
 
-
 # Functions with enum outputs
 def get_memory_config_enum(keep_on_gpu: bool, device_type: DeviceType):
     if keep_on_gpu:

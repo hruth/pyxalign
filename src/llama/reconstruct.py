@@ -177,7 +177,7 @@ def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarr
     astra.algorithm.run(alg_id)
     inline_timer = InlineTimer("Clear astra algorithm ID")
     inline_timer.start()
-    astra.algorithm.clear() # !!
+    astra.algorithm.clear()
     inline_timer.end()
 
     # Retrieve the reconstruction

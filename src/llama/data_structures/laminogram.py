@@ -103,6 +103,8 @@ class Laminogram:
 
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
+    
+    @timer()
     def get_forward_projection(
         self,
         pinned_forward_projection: Optional[np.ndarray] = None,
@@ -194,7 +196,8 @@ class Laminogram:
         else:
             self.data[:] = self.data * circulo
 
-    def get_circular_window(self, radial_smooth: int = 5, rad_apod: int = 0):
+    def get_circular_window(self, radial_smooth: int, rad_apod: int):
+        # was 5 and 0
         # Generate circular mask for reconstruction
         return ip.apply_3D_apodization(
             image=np.zeros(self.projections.reconstructed_object_dimensions),

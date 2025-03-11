@@ -305,9 +305,10 @@ class Projections:
         shift = np.round(np.array(self.size) / 2 - self.center_of_rotation)
         self.center_of_rotation = self.center_of_rotation + shift
         shift = shift[::-1][None].repeat(self.n_projections, 0)
-        self.data = Shifter(ShiftOptions(type=enums.ShiftType.CIRC, enabled=True)).run(
-            self.data, shift
-        )
+        shifter_function = Shifter(ShiftOptions(type=enums.ShiftType.CIRC, enabled=True))
+        self.data = shifter_function.run(self.data, shift)
+        if self.masks is not None:
+            self.masks = shifter_function.run(self.masks, shift)
 
     @timer()
     def setup_masks_from_probe_positions(self):
@@ -350,6 +351,7 @@ class Projections:
 
         def return_modified_array(arr):
             if gpu_utils.is_pinned(self.data):
+                # Repin data if it was already pinned
                 arr = gpu_utils.pin_memory(arr[keep_idx])
             else:
                 arr = arr[keep_idx]
@@ -398,6 +400,7 @@ class Projections:
             self.probe_positions.shift_positions(self.shift_manager.staged_shift)
         self.shift_manager.apply_staged_shift(
             images=self.data,
+            masks=self.masks,
             device_options=device_options,
             pinned_results=self.data,
         )
@@ -643,6 +646,7 @@ class ShiftManager:
     def apply_staged_shift(
         self,
         images: np.ndarray,
+        masks: Optional[np.ndarray] = None,
         device_options: Optional[DeviceOptions] = None,
         pinned_results: Optional[np.ndarray] = None,
     ):
@@ -657,8 +661,15 @@ class ShiftManager:
             images[:] = Shifter(shift_options).run(
                 images=images,
                 shift=self.staged_shift,
-                pinned_results=pinned_results,
+                pinned_results=images,
+                # pinned_results=pinned_results,
             )
+            if masks is not None:
+                masks[:] = Shifter(shift_options).run(
+                    images=masks,
+                    shift=self.staged_shift,
+                    pinned_results=masks,
+                )
             self.unstage_shift()
         else:
             print("There is no shift to apply!")

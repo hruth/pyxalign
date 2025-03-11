@@ -146,6 +146,11 @@ class ProjectionMatchingAligner(Aligner):
         )
         if self.options.reconstruction_mask.enabled:
             self.aligned_projections.laminogram.apply_circular_window(circulo)
+            # Store data for the forward projection
+            astra.data3d.store(
+                self.aligned_projections.laminogram.astra_config["ReconstructionDataId"],
+                self.aligned_projections.laminogram.data,
+            )
         self.regularize_reconstruction()
         if self.iteration == self.options.iterations:
             return
@@ -309,7 +314,7 @@ class ProjectionMatchingAligner(Aligner):
         projections_residuals = ip.apply_1D_high_pass_filter(
             projections_residuals, 2, high_pass_filter
         )
-        # projections_residuals = ip.apply_1D_high_pass_filter(
+        # projections_residuals = ip.apply_1D_high_pass_filter(4
         #     projections_residuals, 2, high_pass_filter
         # )
 
@@ -421,7 +426,10 @@ class ProjectionMatchingAligner(Aligner):
 
         # Generate circular mask for reconstruction
         if self.options.reconstruction_mask.enabled:
-            circulo = self.aligned_projections.laminogram.get_circular_window()
+            circulo = self.aligned_projections.laminogram.get_circular_window(
+                radial_smooth=self.options.reconstruction_mask.radial_smooth / self.scale,
+                rad_apod=self.options.reconstruction_mask.rad_apod / self.scale,
+            )
         else:
             circulo = None
 
@@ -429,8 +437,8 @@ class ProjectionMatchingAligner(Aligner):
         if self.options.secondary_mask.enabled:
             self.secondary_mask = (
                 self.aligned_projections.laminogram.generate_projection_masks_from_circulo(
-                    radial_smooth=self.options.secondary_mask.radial_smooth,
-                    rad_apod=self.options.secondary_mask.rad_apod,
+                    radial_smooth=self.options.secondary_mask.radial_smooth / self.scale,
+                    rad_apod=self.options.secondary_mask.rad_apod / self.scale,
                 )
             )
         else:

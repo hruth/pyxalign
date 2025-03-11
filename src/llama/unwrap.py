@@ -35,9 +35,9 @@ def unwrap_phase(
         # raise NotImplementedError
         # phase_block = remove_sinogram_ramp(phase_block, empty_region, options.poly_fit_order)
         # Remove phase ramp
-        if options.lsq_fit_ramp_removal:
-            for j in range(len(phase_block)):
-                phase_block[j] = remove_phase_ramp(phase_block[j], bool_weights[j])
+    if options.lsq_fit_ramp_removal:
+        for j in range(len(phase_block)):
+            phase_block[j] = remove_phase_ramp(phase_block[j], bool_weights[j])
     return phase_block
 
 
