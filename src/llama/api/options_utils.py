@@ -1,13 +1,14 @@
 from dataclasses import is_dataclass
 import llama.api.options as opts
-import llama.gpu_utils as gutils
 
 
 def set_all_device_options(options, device_options: "opts.DeviceOptions"):
     "Set all device options in the input `options` dataclass to the valeus in `device_options`"
 
     for k, v in options.__dict__.items():
-        if isinstance(v, opts.DeviceOptions):
+        # I am not using isinstance here because it does not always work as expectd when
+        # using the reload_module_recursively and refresh_task function.
+        if is_dataclass(v) and v.__class__.__qualname__ == opts.DeviceOptions.__qualname__:
             options.__dict__[k] = device_options
         elif is_dataclass(v):
             set_all_device_options(v, device_options)
