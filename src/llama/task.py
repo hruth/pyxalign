@@ -36,6 +36,7 @@ class LaminographyAlignmentTask:
     def get_cross_correlation_shift(
         self,
         projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
+        illum_sum: np.ndarray = None,
     ):
         clear_timer_globals()
         # Only for complex projections for now
@@ -48,7 +49,10 @@ class LaminographyAlignmentTask:
             projections, self.options.cross_correlation
         )
         # Placeholder for actual illum_sum
-        self.illum_sum = np.ones_like(projections.data[0], dtype=r_type)
+        if illum_sum is None:
+            self.illum_sum = np.ones_like(projections.data[0], dtype=r_type)
+        else:
+            self.illum_sum = illum_sum
         shift = self.cross_correlation_aligner.run(self.illum_sum)
         projections.shift_manager.stage_shift(
             shift=shift,

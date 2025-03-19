@@ -40,6 +40,7 @@ class ProjectionMatchingPlotOptions:
 
     projections: PlotDataOptions = field(default_factory=PlotDataOptions)
 
+
 @dataclasses.dataclass
 class ReconstructionMaskOptions:
     enabled: bool = True

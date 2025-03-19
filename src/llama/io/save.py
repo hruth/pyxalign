@@ -109,3 +109,9 @@ def save_string_to_h5(h5_obj: Union[h5py.Group, h5py.File], string: str, value_n
         h5_obj.create_dataset(value_name, data=string._value_)
     else:
         h5_obj.create_dataset(value_name, data=string)
+
+
+def save_options_to_h5_file(file_path: str, options):
+    F = h5py.File(file_path, "w")
+    save_generic_data_structure_to_h5(options, F)
+    F.close()

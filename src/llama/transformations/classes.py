@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import numpy as np
-from llama.api.enums import DownsampleType, UpsampleType, DeviceType
+from llama.api.enums import DownsampleType, UpsampleType, DeviceType, ShiftType
 
 import llama.api.maps as maps
 from llama.api.options.transform import (
@@ -116,7 +116,7 @@ class Shifter(Transformation):
     
     @timer()
     def run(
-        self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None
+        self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None, is_binary_mask: bool = False,
     ) -> ArrayType:
         """Calls one of the image shifting functions"""
         if self.enabled:
@@ -126,7 +126,16 @@ class Shifter(Transformation):
                 chunkable_inputs_for_gpu_idx=[0, 1],
                 pinned_results=pinned_results,
             )
-            return self.function(images, shift)
+
+            images = self.function(images, shift)
+
+            if is_binary_mask and self.options.type == ShiftType.FFT:
+                idx = images > 0.5
+                images[:] = 0
+                images[idx] = 1
+
+            return images
+            # return self.function(images, shift)
         else:
             return images
 

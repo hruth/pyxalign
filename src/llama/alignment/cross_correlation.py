@@ -4,6 +4,8 @@ import scipy
 import statsmodels.robust
 from scipy.signal import savgol_filter
 import pandas as pd
+from tqdm import tqdm
+from llama import gpu_utils
 
 from llama.alignment.base import Aligner
 from llama.gpu_wrapper import device_handling_wrapper
@@ -27,18 +29,20 @@ class CrossCorrelationAligner(Aligner):
     def run(self, illum_sum: np.ndarray) -> np.ndarray:
         projections = Cropper(self.options.crop).run(self.projections.data)
         illum_sum = Cropper(self.options.crop).run(illum_sum)
+        projections = pin_memory(projections)
+        illum_sum = pin_memory(illum_sum)
         shift = self.calculate_alignment_shift(
             projections=projections,
             angles=self.projections.angles,
-            illum_sum=illum_sum,
+            weights=illum_sum,
         )
         return shift
 
     @timer()
     def calculate_alignment_shift(
-        self, projections: np.ndarray, angles: np.ndarray, illum_sum: np.ndarray
+        self, projections: np.ndarray, angles: np.ndarray, weights: np.ndarray
     ) -> np.ndarray:
-        weights = illum_sum / (illum_sum + 0.1 * np.max(illum_sum))
+        weights[:] = weights / (weights + 0.1 * np.max(weights))
 
         variation_shape = (
             projections.shape / np.array([1, self.options.binning, self.options.binning])
@@ -54,9 +58,9 @@ class CrossCorrelationAligner(Aligner):
         variation = get_variation_wrapped(projections, weights, self.options.binning)
 
         # Ensure the array is on a single device for the rest of the calculations
-        if self.options.device.device_type is enums.DeviceType.CPU:
+        if self.options.device.device_type == enums.DeviceType.CPU:
             variation = np.array(variation)
-        elif self.options.device.device_type is enums.DeviceType.GPU:
+        elif self.options.device.device_type == enums.DeviceType.GPU:
             variation = cp.array(variation)
         xp = cp.get_array_module(variation)
 
@@ -65,8 +69,8 @@ class CrossCorrelationAligner(Aligner):
         n_angles = len(angles)
         shift_total = np.zeros((n_angles, 2), dtype=r_type)
 
-        for i in range(self.options.iterations):
-            print("Iteration", str(i))
+        for i in tqdm(range(self.options.iterations)):
+            # print("Iteration", str(i))
             inline_timer = InlineTimer(name="filter variation")
             inline_timer.start()
             variation_fft = ip.filtered_fft(
@@ -84,22 +88,22 @@ class CrossCorrelationAligner(Aligner):
                 shift_relative = shift_relative.get()
             shift_relative = np.roll(shift_relative, 1, 0)
             shift_relative = self.clamp_shift(shift_relative, 3)
-            # RESUME HERE -- move this to a subtract_smooth function
-            # Subtract the underlying slow variation
             cumulative_shift = np.cumsum(shift_relative, axis=0)
             cumulative_shift = cumulative_shift - np.mean(cumulative_shift, axis=0)
-            for i in range(2):
-                df = pd.DataFrame(dict(x=cumulative_shift[:, i]))
-                smoothed_shift = (
-                    df[["x"]]
-                    .apply(
-                        savgol_filter,
-                        window_length=self.options.filter_position,
-                        polyorder=2,
-                    )
-                    .to_numpy()[:, 0]
-                )
-                cumulative_shift[:, i] = cumulative_shift[:, i] - smoothed_shift
+            # Add a linear correction to the shift, in order to
+            # remove the discontinuity between the first and last
+            # frame
+            offset = ip.get_cross_correlation_shift(
+                image=variation_fft[idx_sort[:1]],
+                image_ref=variation_fft[idx_sort[-1]],
+            )[0]
+            if self.options.device.device_type == enums.DeviceType.GPU:
+                offset = offset.get()
+            m1 = offset / n_angles
+            m2 = (cumulative_shift[0] - cumulative_shift[-1]) / n_angles
+            x = np.arange(0, n_angles)[:, None]
+            y =  m1 * x + m2 * x
+            cumulative_shift = cumulative_shift + y - y.mean(0)
 
             shift_total = shift_total + cumulative_shift[idx_sort_inverse, :]
             shift_total = self.clamp_shift(shift_total, 6)

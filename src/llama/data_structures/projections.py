@@ -309,6 +309,8 @@ class Projections:
         self.data = shifter_function.run(self.data, shift)
         if self.masks is not None:
             self.masks = shifter_function.run(self.masks, shift)
+        if self.probe_positions is not None:
+            self.probe_positions.shift_positions(shift)
 
     @timer()
     def setup_masks_from_probe_positions(self):
@@ -665,6 +667,11 @@ class ShiftManager:
                 # pinned_results=pinned_results,
             )
             if masks is not None:
+                if shift_options.type == enums.ShiftType.FFT:
+                    # We want to avoid doing FFT shift with binary masks
+                    # Use linear interpolation instead
+                    shift_options = copy.deepcopy(shift_options)
+                    shift_options.type = enums.ShiftType.LINEAR
                 masks[:] = Shifter(shift_options).run(
                     images=masks,
                     shift=self.staged_shift,

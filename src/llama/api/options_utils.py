@@ -13,3 +13,16 @@ def set_all_device_options(options, device_options: "opts.DeviceOptions"):
             set_all_device_options(v, device_options)
         else:
             pass
+
+
+def print_options(options, prepend="- "):
+    for k, v in options.__dict__.items():
+        if is_any_dataclass_instance(v):
+            print(f"{prepend}{k} options")
+            print_options(v, "     " + prepend)
+        else:
+            print(f"{prepend}{k}: {v}")
+
+
+def is_any_dataclass_instance(obj):
+    return is_dataclass(obj) and not isinstance(obj, type)

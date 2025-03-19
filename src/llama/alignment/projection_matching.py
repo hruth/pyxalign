@@ -2,6 +2,7 @@ from functools import partial
 import re
 import traceback
 from typing import Optional
+import matplotlib
 import numpy as np
 import cupy as cp
 import copy
@@ -176,6 +177,7 @@ class ProjectionMatchingAligner(Aligner):
             images=unshifted_masks,
             shift=self.total_shift,
             pinned_results=self.aligned_projections.masks,
+            is_binary_mask=True,
         )
 
     @timer()
@@ -210,6 +212,7 @@ class ProjectionMatchingAligner(Aligner):
         shape = (self.options.iterations, *(self.pinned_error.shape))
         self.all_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
         self.all_unfiltered_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
+        self.all_max_shift_step_size = np.array([], dtype=r_type)
 
     @timer()
     def get_shift_update(self):
@@ -303,7 +306,6 @@ class ProjectionMatchingAligner(Aligner):
         secondary_mask: ArrayType,
     ) -> tuple[ArrayType, ArrayType, ArrayType]:
         xp = cp.get_array_module(sinogram)
-
         masks = secondary_mask * masks
 
         projections_residuals = forward_projection_model - sinogram
@@ -314,7 +316,7 @@ class ProjectionMatchingAligner(Aligner):
         projections_residuals = ip.apply_1D_high_pass_filter(
             projections_residuals, 2, high_pass_filter
         )
-        # projections_residuals = ip.apply_1D_high_pass_filter(4
+        # projections_residuals = ip.apply_1D_high_pass_filter(
         #     projections_residuals, 2, high_pass_filter
         # )
 
@@ -341,6 +343,7 @@ class ProjectionMatchingAligner(Aligner):
         shift = xp.array([x_shift, y_shift]).transpose().astype(r_type)
 
         return shift, error, unfiltered_error
+
 
     @timer()
     def apply_window_to_masks(self, tukey_window: ArrayType):
@@ -468,6 +471,7 @@ class ProjectionMatchingAligner(Aligner):
         max_shift_step_size = xp.max(
             xp.quantile(xp.abs(self.shift_update * self.scale), 0.995, axis=0)
         )
+        self.all_max_shift_step_size = np.append(self.all_max_shift_step_size, max_shift_step_size)
         if self.print_updates:
             print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
         if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
@@ -481,6 +485,7 @@ class ProjectionMatchingAligner(Aligner):
         if self.options.plot.update.enabled and (
             self.iteration % self.options.plot.update.stride == 0
         ):
+            matplotlib.use("module://matplotlib_inline.backend_inline")
             sort_idx = np.argsort(self.aligned_projections.angles)
             sorted_angles = self.aligned_projections.angles[sort_idx]
             total_shift = self.total_shift[sort_idx]
@@ -579,11 +584,13 @@ class ProjectionMatchingAligner(Aligner):
 
 
             plt.sca(unfiltered_error_vs_iter_axis)
-            plt.title("Error vs Iteration")
-            plt.plot(self.all_unfiltered_errors[: self.iteration].mean(axis=1), label="Unfiltered")
+            # plt.title("Error vs Iteration")
+            # plt.plot(self.all_unfiltered_errors[: self.iteration].mean(axis=1), label="Unfiltered")
+            plt.title("Max step size update")
+            plt.plot(self.all_max_shift_step_size, label="update")
             plt.grid()
             plt.xlabel("Iteration")
-            plt.ylabel("Mean Error")
+            plt.ylabel("Update size")
             plt.legend()
 
             # fig.tight_layout()
