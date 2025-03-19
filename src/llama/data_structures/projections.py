@@ -379,8 +379,7 @@ class Projections:
             0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
         )
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
-        n_pix = round_to_divisor(n_pix, enums.RoundType.CEIL, divisor)
-        return n_pix
+        return np.ceil(n_pix).astype(int)
 
     @property
     def size(self):
@@ -526,7 +525,7 @@ class Projections:
             show_plot=show_plot,
         )
 
-    def plot_staged_shift(self, title: str = ""):
+    def plot_staged_shift(self, title: str = "", plot_kwargs: dict = {}):
         fig, ax = plt.subplots(2, layout="compressed")
         fig.suptitle(title, fontsize=17)
         sort_idx = np.argsort(self.angles)
@@ -534,22 +533,24 @@ class Projections:
         plt.plot(
             self.angles[sort_idx],
             self.shift_manager.staged_shift[sort_idx],
+            **plot_kwargs,
         )
         plt.legend(["horizontal", "vertical"], framealpha=0.5)
         plt.autoscale(enable=True, axis="x", tight=True)
         plt.grid(linestyle=":")
-        plt.title("shift vs scan Number")
-        plt.xlabel("scan number")
+        plt.title("Shift vs Angle")
+        plt.xlabel("angle (deg)")
         plt.ylabel("shift (px)")
         plt.sca(ax[1])
 
         plt.plot(
             self.scan_numbers,
             self.shift_manager.staged_shift,
+            **plot_kwargs,
         )
         plt.grid(linestyle=":")
         plt.autoscale(enable=True, axis="x", tight=True)
-        plt.title("shift vs scan Number")
+        plt.title("shift vs Scan Number")
         plt.xlabel("scan number")
         plt.ylabel("shift (px)")
         plt.show()
