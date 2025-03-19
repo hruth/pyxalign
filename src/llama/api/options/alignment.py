@@ -95,6 +95,8 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     mask_shift_type: enums.ShiftType = enums.ShiftType.CIRC
 
+    filter_directions: tuple[int] = (2,)
+
     plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
 
     # update_plot: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)

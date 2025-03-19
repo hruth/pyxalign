@@ -52,14 +52,15 @@ class ProjectionMatchingAligner(Aligner):
     @gutils.memory_releasing_error_handler
     @timer()
     def run(self, initial_shift: Optional[np.ndarray] = None) -> np.ndarray:
+        if self.options.keep_on_gpu:
+            cp.cuda.Device(self.options.device.gpu.gpu_indices[0]).use()
         # Create the projections object
         projection_options = copy.deepcopy(self.projections.options)
         projection_options.experiment.pixel_size = self.projections.pixel_size
-        # projection_options.input_processing.crop = self.options.crop
-        # projection_options.input_processing.downsample = self.options.downsample
         projection_options.input_processing = ProjectionTransformOptions(
             downsample=self.options.downsample,
             crop=self.options.crop,
+            mask_downsample_use_gaussian_filter=self.options.downsample.use_gaussian_filter,
         )
 
         projection_options.reconstruct = self.options.reconstruct
@@ -77,7 +78,7 @@ class ProjectionMatchingAligner(Aligner):
             self.scale = 1
 
         # When cropping and not downsampling, you need to make a new copy
-        # of the array. I don't fully understand why this is needed, but 
+        # of the array. I don't fully understand why this is needed, but
         # this will break if you don't have it here.
         if self.options.crop.enabled and (self.scale == 1):
             self.aligned_projections.data = self.aligned_projections.data * 1
@@ -251,6 +252,7 @@ class ProjectionMatchingAligner(Aligner):
             self.options.high_pass_filter,
             self.mass,
             self.secondary_mask,
+            self.options.filter_directions,
         )
         inline_timer.end()
         self.post_process_shift()
@@ -260,8 +262,8 @@ class ProjectionMatchingAligner(Aligner):
             self.all_errors[self.iteration] = self.pinned_error.get()
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error.get()
         else:
-            self.all_errors[self.iteration] = self.pinned_error
-            self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error
+            self.all_errors[self.iteration] = self.pinned_error * 1
+            self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error * 1
 
     @timer()
     def post_process_shift(self):
@@ -304,6 +306,7 @@ class ProjectionMatchingAligner(Aligner):
         high_pass_filter: ArrayType,
         mass: float,
         secondary_mask: ArrayType,
+        filter_directions: tuple[int] = (2,),
     ) -> tuple[ArrayType, ArrayType, ArrayType]:
         xp = cp.get_array_module(sinogram)
         masks = secondary_mask * masks
@@ -313,12 +316,10 @@ class ProjectionMatchingAligner(Aligner):
         # calculate error using unfiltered residual
         unfiltered_error = get_pm_error(projections_residuals, masks, mass)
 
-        projections_residuals = ip.apply_1D_high_pass_filter(
-            projections_residuals, 2, high_pass_filter
-        )
-        # projections_residuals = ip.apply_1D_high_pass_filter(
-        #     projections_residuals, 2, high_pass_filter
-        # )
+        for axis in filter_directions:
+            projections_residuals = ip.apply_1D_high_pass_filter(
+                projections_residuals, axis, high_pass_filter
+            )
 
         # calculate error using filtered residual
         error = get_pm_error(projections_residuals, masks, mass)
@@ -343,7 +344,6 @@ class ProjectionMatchingAligner(Aligner):
         shift = xp.array([x_shift, y_shift]).transpose().astype(r_type)
 
         return shift, error, unfiltered_error
-
 
     @timer()
     def apply_window_to_masks(self, tukey_window: ArrayType):
@@ -453,7 +453,6 @@ class ProjectionMatchingAligner(Aligner):
         elif self.memory_config == MemoryConfig.GPU_ONLY:
             self.secondary_mask = cp.array(self.secondary_mask)
 
-
         return tukey_window, circulo
 
     @timer()
@@ -471,7 +470,10 @@ class ProjectionMatchingAligner(Aligner):
         max_shift_step_size = xp.max(
             xp.quantile(xp.abs(self.shift_update * self.scale), 0.995, axis=0)
         )
+        if self.memory_config == MemoryConfig.GPU_ONLY:
+            max_shift_step_size = max_shift_step_size.get()
         self.all_max_shift_step_size = np.append(self.all_max_shift_step_size, max_shift_step_size)
+
         if self.print_updates:
             print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
         if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
@@ -498,7 +500,7 @@ class ProjectionMatchingAligner(Aligner):
             clear_output(wait=True)
             fig = plt.figure(layout="compressed", figsize=(10, 10))
 
-            gs = fig.add_gridspec(5, 2, height_ratios = [1, 1, 2, 1, 1])
+            gs = fig.add_gridspec(5, 2, height_ratios=[1, 1, 2, 1, 1])
             total_shift_axis = fig.add_subplot(gs[0, 0])
             new_shift_axis = fig.add_subplot(gs[1, 0])
             rec_axis = fig.add_subplot(gs[0:2, 1])
@@ -516,7 +518,9 @@ class ProjectionMatchingAligner(Aligner):
             plt.xlabel("Angle (deg)")
             initial_shift_colors = ((0.75, 0.75, 1), (1, 0.75, 0.75))
             for i in range(2):
-                plt.plot(sorted_angles, initial_shift[:, i] / self.scale, color=initial_shift_colors[i])
+                plt.plot(
+                    sorted_angles, initial_shift[:, i] / self.scale, color=initial_shift_colors[i]
+                )
             plt.plot(sorted_angles, total_shift)
             plt.grid()
             plt.xlim([sorted_angles[0], sorted_angles[-1]])
@@ -563,12 +567,14 @@ class ProjectionMatchingAligner(Aligner):
 
             plt.sca(error_axis)
             plt.title("Error")
+            # plt.plot(
+            #     sorted_angles,
+            #     self.all_unfiltered_errors[self.iteration, sort_idx],
+            #     label="Unfiltered",
+            # )
             plt.plot(
-                sorted_angles,
-                self.all_unfiltered_errors[self.iteration, sort_idx],
-                label="Unfiltered",
+                sorted_angles, self.all_errors[self.iteration, sort_idx], ".", label="Filtered"
             )
-            plt.plot(sorted_angles, self.all_errors[self.iteration, sort_idx], label="Filtered")
             plt.grid()
             plt.xlabel("Angle (deg)")
             plt.ylabel("Error")
@@ -581,7 +587,6 @@ class ProjectionMatchingAligner(Aligner):
             plt.xlabel("Iteration")
             plt.ylabel("Mean Error")
             plt.legend()
-
 
             plt.sca(unfiltered_error_vs_iter_axis)
             # plt.title("Error vs Iteration")
