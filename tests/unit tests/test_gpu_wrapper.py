@@ -8,7 +8,7 @@ from llama.api.options.projections import ProjectionOptions
 from llama.api.options.task import AlignmentTaskOptions
 from llama.gpu_utils import get_available_gpus, is_pinned, pin_memory
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.task import LaminographyAlignmentTask
+from llama.data_structures.task import LaminographyAlignmentTask
 from llama.data_structures.projections import ComplexProjections
 from llama.api import enums
 

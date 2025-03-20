@@ -9,7 +9,7 @@ from llama.api.options.device import DeviceOptions, GPUOptions
 from llama.api.options.projections import ProjectionOptions
 from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.task import AlignmentTaskOptions
-from llama.task import LaminographyAlignmentTask
+from llama.data_structures.task import LaminographyAlignmentTask
 from llama.data_structures.projections import ComplexProjections
 from llama.api import enums
 

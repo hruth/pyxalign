@@ -9,7 +9,7 @@ from llama.data_structures.projections import (
     ShiftManager,
     TransformTracker,
 )
-from llama.task import LaminographyAlignmentTask
+from llama.data_structures.task import LaminographyAlignmentTask
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api.options.projections import ProjectionOptions
 from llama.api.enums import SpecialValuePlaceholder

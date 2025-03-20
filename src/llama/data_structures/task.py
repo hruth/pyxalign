@@ -1,10 +1,8 @@
-import copy
 from typing import Optional
 import numpy as np
 from llama.data_structures.projections import (
     ComplexProjections,
     PhaseProjections,
-    Projections,
     get_kwargs_for_copying_to_new_projections_object,
 )
 from llama.alignment.cross_correlation import CrossCorrelationAligner
@@ -13,7 +11,6 @@ from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
 from llama.timing.timer_utils import clear_timer_globals
-import matplotlib.pyplot as plt
 
 class LaminographyAlignmentTask:
     pma_object: ProjectionMatchingAligner = None

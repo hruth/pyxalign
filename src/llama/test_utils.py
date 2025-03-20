@@ -5,7 +5,7 @@ from enum import StrEnum, auto
 from llama.api.options.projections import ProjectionOptions
 
 from llama.data_structures.projections import ComplexProjections
-from llama.task import LaminographyAlignmentTask
+from llama.data_structures.task import LaminographyAlignmentTask
 from llama.io import load
 
 
