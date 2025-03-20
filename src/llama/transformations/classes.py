@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 import numpy as np
-from llama.api.enums import DownsampleType, UpsampleType, DeviceType, ShiftType
+from llama.api.enums import DownsampleType, DeviceType, ShiftType
 
 import llama.api.maps as maps
 from llama.api.options.transform import (
@@ -18,7 +18,6 @@ from llama.api.types import ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.transformations.functions import image_crop
 from llama.timing.timer_utils import timer
-# from llama.api import enums
 
 
 class Transformation(ABC):
@@ -113,10 +112,14 @@ class Shifter(Transformation):
     ):
         super().__init__(options)
         self.options: ShiftOptions = options
-    
+
     @timer()
     def run(
-        self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None, is_binary_mask: bool = False,
+        self,
+        images: ArrayType,
+        shift: np.ndarray,
+        pinned_results: Optional[np.ndarray] = None,
+        is_binary_mask: bool = False,
     ) -> ArrayType:
         """Calls one of the image shifting functions"""
         if self.enabled:
@@ -127,6 +130,9 @@ class Shifter(Transformation):
                 pinned_results=pinned_results,
             )
 
+            if self.options.type == ShiftType.LINEAR:
+                images = images * 1
+
             images = self.function(images, shift)
 
             if is_binary_mask and self.options.type == ShiftType.FFT:
@@ -135,7 +141,6 @@ class Shifter(Transformation):
                 images[idx] = 1
 
             return images
-            # return self.function(images, shift)
         else:
             return images
 
@@ -149,9 +154,7 @@ class Rotator(Transformation):
         self.options: RotationOptions = options
 
     @timer()
-    def run(
-        self, images: ArrayType, pinned_results: Optional[np.ndarray] = None
-    ) -> ArrayType:
+    def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image rotation functions"""
         if self.enabled:
             if self.options.device.device_type is DeviceType.CPU:
@@ -177,9 +180,7 @@ class Shearer(Transformation):
         self.options: ShearOptions = options
 
     @timer()
-    def run(
-        self, images: ArrayType, pinned_results: Optional[np.ndarray] = None
-    ) -> ArrayType:
+    def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image shearing functions"""
         if self.enabled:
             self.function = device_handling_wrapper(
