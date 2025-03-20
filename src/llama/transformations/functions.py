@@ -1,14 +1,11 @@
+from types import ModuleType
 from typing import Optional
 import numpy as np
 import cupy as cp
 import scipy
-
-# import functools.partial as partial
-import functools
 from llama.timing.timer_utils import timer
-from llama.gpu_utils import get_fft_backend, get_scipy_module
+from llama.gpu_utils import get_scipy_module
 from llama.transformations.helpers import preserve_complexity_or_realness
-from llama.timing.timer_utils import timer
 
 from llama.api.types import ArrayType, r_type, c_type
 
@@ -179,7 +176,8 @@ def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
     # May not always be necessary
     images = images * 1
 
-    gaussian_filter = scipy_module.ndimage.gaussian_filter
+    # gaussian_filter = scipy_module.ndimage.gaussian_filter
+    gaussian_filter = gaussian_filter_conv_n
     for i in range(len(images)):
         # in place replacement is required here for matching the old
         # version, but it might be more correct to make it not in-place
@@ -189,6 +187,27 @@ def apply_gaussian_filter(images: ArrayType, scale: int) -> ArrayType:
     images = images / gaussian_filter(xp.ones(images.shape[1:], dtype=r_type), scale)
 
     return images
+
+
+def get_kernel(filter_size: int, xp: ModuleType):
+    grid = (
+        xp.arange(-np.ceil(2 * filter_size), np.ceil(2 * filter_size) + 0.01, dtype=r_type)
+        / filter_size
+    )
+    kernel = xp.exp(-(grid**2))
+    kernel = kernel / kernel.sum()
+    return kernel
+
+
+def gaussian_filter_conv_n(image: ArrayType, filter_size: int):
+    xp = cp.get_array_module(image)
+    scipy_module: scipy = get_scipy_module(image)
+
+    kernel = get_kernel(filter_size, xp)
+    image = scipy_module.signal.convolve2d(image, kernel[None], mode="same")
+    image = scipy_module.signal.convolve2d(image, kernel[:, None], mode="same")
+
+    return image
 
 
 @timer(enable_timing)
@@ -426,7 +445,9 @@ def rotate_positions(
     return rotated_positions
 
 
-def shear_positions(positions: np.ndarray, angle: float, center: np.ndarray, axis: int=1) -> np.ndarray:
+def shear_positions(
+    positions: np.ndarray, angle: float, center: np.ndarray, axis: int = 1
+) -> np.ndarray:
     """
     Apply a shear transformation to a 2D vector of positions using a shear angle.
 
