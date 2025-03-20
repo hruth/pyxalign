@@ -12,6 +12,7 @@ from llama.gpu_utils import get_scipy_module, pin_memory
 
 import llama.image_processing as ip
 from llama import reconstruct
+from llama.io.save import save_array_as_tiff
 from llama.plotting.plotters import plot_slice_of_3D_array
 import llama.data_structures.projections as projections
 from llama.timing.timer_utils import timer
@@ -273,6 +274,17 @@ class Laminogram:
         )
         self.optimal_rotation_angles = [0, 0, 0]
         self.data = rotated_reconstruction
+
+    def save_as_tiff(
+        self,
+        file_path: str,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
+        data: Optional[np.ndarray] = None,
+    ):
+        if data is None:
+            data = self.data
+        save_array_as_tiff(data, file_path, min, max)
 
 
 def get_tomogram_rotation_angles(
