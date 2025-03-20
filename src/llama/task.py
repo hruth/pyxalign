@@ -88,20 +88,6 @@ class LaminographyAlignmentTask:
 
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
         unwrapped_projections = self.complex_projections.unwrap_phase(pinned_results)
-        # self.phase_projections = PhaseProjections(
-        #     projections=unwrapped_projections,
-        #     angles=self.complex_projections.angles * 1,
-        #     options=self.complex_projections.options,
-        #     masks=self.complex_projections.masks, # need to copy if not deleting complex projections
-        #     scan_numbers=self.complex_projections.scan_numbers * 1,
-        #     probe_positions=self.complex_projections.probe_positions.data * 1,
-        #     probe = copy.deepcopy(self.complex_projections.probe),
-        #     transform_tracker=self.complex_projections.transform_tracker,
-        #     shift_manager=copy.deepcopy(self.complex_projections.shift_manager),
-        #     center_of_rotation=copy.deepcopy(self.complex_projections.center_of_rotation),
-        #     skip_pre_processing=True,
-        #     add_center_offset_to_positions=False,
-        # )
         kwargs = get_kwargs_for_copying_to_new_projections_object(
             self.complex_projections, include_projections_copy=False
         )
