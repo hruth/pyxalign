@@ -1,8 +1,10 @@
 from typing import Optional
 import numpy as np
+import h5py
 from llama.data_structures.projections import (
     ComplexProjections,
     PhaseProjections,
+    Projections,
     get_kwargs_for_copying_to_new_projections_object,
 )
 from llama.alignment.cross_correlation import CrossCorrelationAligner
@@ -10,7 +12,9 @@ from llama.alignment.projection_matching import ProjectionMatchingAligner
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
+from llama.io.save import save_generic_data_structure_to_h5
 from llama.timing.timer_utils import clear_timer_globals
+
 
 class LaminographyAlignmentTask:
     pma_object: ProjectionMatchingAligner = None
@@ -26,7 +30,7 @@ class LaminographyAlignmentTask:
             raise Exception(
                 "Projections must be included when creating an instance of LaminographyAlignmentTask"
             )
-        
+
         self.complex_projections = complex_projections
         self.phase_projections = phase_projections
 
@@ -59,8 +63,7 @@ class LaminographyAlignmentTask:
         projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
 
-
-    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray]=None):
+    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray] = None):
         if self.pma_object is not None and hasattr(self.pma_object, "aligned_projections"):
             # Clear old astra objects
             self.pma_object.aligned_projections.laminogram.clear_astra_objects()
@@ -90,3 +93,16 @@ class LaminographyAlignmentTask:
         )
         self.phase_projections = PhaseProjections(projections=unwrapped_projections, **kwargs)
 
+    def save_task(self, file_path: str, exclude: list[str] = []):
+        save_attr_strings = ["complex_projections", "phase_projections"]
+        with h5py.File(file_path, "w") as h5_obj:
+            for attr in save_attr_strings:
+                if (
+                    attr in self.__dict__.keys()
+                    and getattr(self, attr) is not None
+                    and attr not in exclude
+                ):
+                    # save_projections(getattr(self, attr), file_path, attr, h5_obj)
+                    projection: Projections = getattr(self, attr)
+                    projection.save_projections_object(h5_obj=h5_obj.create_group(attr))
+            save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))

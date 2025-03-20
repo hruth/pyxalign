@@ -1,7 +1,7 @@
-from importlib.resources.readers import remove_duplicates
-from typing import List, Optional
+from typing import List, Optional, Union
 import numpy as np
 import copy
+import h5py
 import matplotlib.pyplot as plt
 from llama.api.constants import divisor
 from llama.api.options.plotting import PlotDataOptions
@@ -31,6 +31,7 @@ from llama.api.options.transform import (
 import llama.gpu_utils as gpu_utils
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.data_structures.laminogram import Laminogram
+from llama.io.save import save_generic_data_structure_to_h5
 
 from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
 
@@ -554,6 +555,47 @@ class Projections:
         plt.xlabel("scan number")
         plt.ylabel("shift (px)")
         plt.show()
+
+    def save_projections_object(
+        self,
+        file_path: Optional[str] = None,
+        h5_obj: Optional[Union[h5py.Group, h5py.File]] = None,
+    ):
+        if file_path is None and h5_obj is None:
+            raise ValueError("Error: you must pass in either file_path or h5_obj.")
+        elif file_path is not None and h5_obj is not None:
+            raise ValueError("Error: you must pass in only file_path OR h5_obj, not both.")
+        elif file_path is not None:
+            h5_obj = h5py.File(file_path, "w")
+
+        # Specify the data to save
+        if self.probe_positions is not None:
+            positions = self.probe_positions.data
+        else:
+            positions = None
+        save_attr_dict = {
+            "data": self.data,
+            "angles": self.angles,
+            "scan_numbers": self.scan_numbers,
+            "masks": self.masks,
+            "center_of_rotation": self.center_of_rotation,
+            "positions": positions,
+            "probe": self.probe,
+            "pixel_size": self.pixel_size,
+            "rotation": self.transform_tracker.rotation,
+            "shear": self.transform_tracker.shear,
+            "downsample": self.transform_tracker.scale,
+            "applied_shifts": self.shift_manager.past_shifts,
+            "staged_shift": self.shift_manager.staged_shift,
+        }
+        # Save all elements from save_attr_dict to the .h5 file
+        save_generic_data_structure_to_h5(save_attr_dict, h5_obj)
+        # Save projection options
+        save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
+
+        if isinstance(h5_obj, h5py.File):
+            h5_obj.close()
+        print(f"Array saved to {h5_obj.filename}")
 
 
 class ComplexProjections(Projections):
