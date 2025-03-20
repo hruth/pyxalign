@@ -405,7 +405,6 @@ def get_optimized_sparseness_angle(
     else:
         plt.imshow(image_slice, cmap="bone")
     # Plot the rotated image slice
-    plt.title("Rotated slice")
     plt.sca(rotated_slice_axis)
     rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
     if isinstance(rotated_image_slice, cp.ndarray):
