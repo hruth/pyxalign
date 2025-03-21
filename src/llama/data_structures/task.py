@@ -106,3 +106,4 @@ class LaminographyAlignmentTask:
                     projection: Projections = getattr(self, attr)
                     projection.save_projections_object(h5_obj=h5_obj.create_group(attr))
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
+            print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")

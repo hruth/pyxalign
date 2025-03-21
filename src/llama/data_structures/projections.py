@@ -79,9 +79,6 @@ class TransformTracker:
 
 
 class Projections:
-    mask_builder: IlluminationMapMaskBuilder = None
-    dropped_scan_numbers: list = []
-
     @timer()
     def __init__(
         self,
@@ -98,11 +95,14 @@ class Projections:
         add_center_offset_to_positions: bool = True,
         shift_manager: Optional["ShiftManager"] = None,
         transform_tracker: Optional[TransformTracker] = None,
+        pin_arrays: bool = True,
     ):
         self.options = options
         self.angles = angles
         self.data = projections
         self.masks = masks
+        if pin_arrays:
+            self.pin_arrays()
         self.probe = probe
         if scan_numbers is not None:
             self.scan_numbers = scan_numbers
@@ -138,6 +138,10 @@ class Projections:
             self.shift_manager = copy.deepcopy(shift_manager)
         else:
             self.shift_manager = ShiftManager(self.n_projections)
+
+        # Initialize other quantities
+        self.mask_builder: IlluminationMapMaskBuilder = None
+        self.dropped_scan_numbers = []
         # Run initialization code specific to the projection type (i.e. PhaseProjections
         # or complex projections)
         self._post_init()
@@ -595,7 +599,7 @@ class Projections:
 
         if isinstance(h5_obj, h5py.File):
             h5_obj.close()
-        print(f"Array saved to {h5_obj.filename}")
+        print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
 
 
 class ComplexProjections(Projections):
