@@ -102,8 +102,7 @@ def get_user_input(
                     # Get a list of the selected options
                     selection = [options_list[idx] for idx in selection_idx]
                     selection_string = [
-                        f"{idx + 1}. {x}"
-                        for idx, x in zip(selection_idx, selection)
+                        f"{idx + 1}. {x}" for idx, x in zip(selection_idx, selection)
                     ]
                     selection_string = "  " + "\n  ".join(selection_string)
                     selection_string = f"Selected options:\n{selection_string}"
@@ -159,7 +158,7 @@ def generate_input_user_prompt(
         select_all_string = "select all"
         options_list = [select_all_string] + options_list
         options_info_list = [""] + options_info_list
-        
+
     for index, option_string in enumerate(options_list):
         if option_string == select_all_string:
             prompt += generate_experiment_description(option_string, index)
@@ -184,7 +183,6 @@ def generate_input_user_prompt(
             selection = options_list
             selection_idx = list(range(0, len(options_list)))
     return selection_idx, selection
-
 
 
 def parse_space_delimited_integers(input_string: str):
@@ -239,12 +237,11 @@ def convert_projection_dict_to_array(
         pad_mode = "constant"
 
     # Reorient the projections -- only needed for specific data
-    # sets where projections are 90 degrees off from where they
+    # sets where some projections are 90 degrees off from where they
     # should be
     if repair_orientation:
         print("Rotating and flipping some projections...")
         target_aspect_ratio = projections[0].shape[1] / projections[0].shape[0]
-        # for i in tqdm(range(len(projections))):
         for k, projection in tqdm(projections.items()):
             aspect_ratio = projection.shape[1] / projection.shape[0]
             # Can try to change this aspect ratio if having issues later.
@@ -264,36 +261,24 @@ def convert_projection_dict_to_array(
     # Force new shape to be compatible with downsampling functions with
     # downsampling up to divisor
     new_shape = (np.ceil(new_shape / (divisor * 2)) * (divisor * 2)).astype(int)
+    print(f"Projection array shape: {new_shape}")
+
+    # Initialize the projections array
+    k = list(projections.keys())[0]
+    projections_array = np.zeros(shape=(len(projections), *new_shape), dtype=projections[k].dtype)
 
     # Fix projections dimensions through cropping and padding
     print("Fixing projections dimensions...")
-    for k, projection in tqdm(projections.items()):
+    # for projection in tqdm(projections.values()):
+    for i, projection in tqdm(enumerate(projections.values()), total=len(projections)):
         if pad_with_mode:
             pad_value = stats.mode(np.abs(projection), axis=None).mode
         else:
             pad_value = None
-        projections[k] = image_crop_pad(
+        projections_array[i] = image_crop_pad(
             projection, new_shape[0], new_shape[1], pad_mode, constant_values=pad_value
         )
     print("Fixing projections dimensions...Completed")
-
-    # Convert to array in chunks to avoid memory issues in larger arrays
-    print("Converting list to array...")
-    n_iterations = int(np.ceil(len(projections) / chunk_length))
-    all_keys = list(projections.keys())
-    for i in tqdm(range(n_iterations)):
-        keys = all_keys[i * chunk_length : (i + 1) * chunk_length]
-        if i == 0:
-            projections_array = np.stack([projections[key] for key in keys])
-        else:
-            projections_array = np.append(
-                projections_array, np.stack([projections[key] for key in keys]), axis=0
-            )
-        if delete_projection_dict:
-            for k in keys:
-                del projections[k]
-    print("Converting list to array..Completed")
-
     return projections_array
 
 

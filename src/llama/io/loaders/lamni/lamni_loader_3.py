@@ -15,6 +15,7 @@ class LamniLoaderVersion3(LamniLoader):
     def _post_init(self):
         self.angles = -self.angles
 
+    @timer()
     def get_projections_folders_and_file_names(self):
         """
         Generate the folder path for all projections and get a list of
@@ -38,6 +39,7 @@ class LamniLoaderVersion3(LamniLoader):
             flush=True,
         )
 
+    @timer()
     def record_projection_path_and_files(self, folder: str, scan_number: int):
         # Get all projection folders
         if os.path.exists(folder) and os.listdir(folder) != []:
@@ -62,16 +64,25 @@ class LamniLoaderVersion3(LamniLoader):
     @staticmethod
     def check_if_projection_file(file_path: str) -> bool:
         _, file_name = os.path.split(file_path)
-        if file_name.lower().startswith("recon"):# and file_name.endswith("Niter3000.h5"):
+        if file_name.lower().startswith("recon"):  # and file_name.endswith("Niter3000.h5"):
             return True
         else:
             return False
 
-    def get_nested_analysis_folders(self, folder: str, scan_number: int, rel_path: str = "", max_levels: int = 2, current_level: int = 0):
+    def get_nested_analysis_folders(
+        self,
+        folder: str,
+        scan_number: int,
+        rel_path: str = "",
+        max_levels: int = 1,
+        current_level: int = 0,
+    ):
         """
         Get the relative paths of all folders in the scan directory that
         contain projection files by recursing through nested folders.
         """
+        if current_level > max_levels:
+            return
         # Include this folder if it has a projection file
         folder_contains_projection_file = np.any(
             [self.check_if_projection_file(os.path.join(folder, x)) for x in os.listdir(folder)]
@@ -87,7 +98,9 @@ class LamniLoaderVersion3(LamniLoader):
             if os.path.isfile(full_path):
                 continue
             else:
-                self.get_nested_analysis_folders(full_path, scan_number, max_levels=max_levels, current_level=current_level)
+                self.get_nested_analysis_folders(
+                    full_path, scan_number, max_levels=max_levels, current_level=current_level + 1
+                )
 
     @staticmethod
     def load_single_projection(file_path: str) -> np.ndarray:
@@ -97,6 +110,7 @@ class LamniLoaderVersion3(LamniLoader):
         h5.close()
         return projection
 
+    @timer()
     def load_probe(self):
         # I assume all probes are similar, and I just load the first scan's probe
         probe = load_probe_from_h5_file(self.selected_projection_file_paths[self.scan_numbers[0]])
@@ -109,6 +123,7 @@ class LamniLoaderVersion3(LamniLoader):
                 + "Fix the load_probe method."
             )
 
+    @timer()
     def load_positions(self):
         self.probe_positions = {}
         for scan_number in self.scan_numbers:
@@ -116,24 +131,28 @@ class LamniLoaderVersion3(LamniLoader):
                 self.selected_projection_file_paths[scan_number]
             )
 
+    @timer()
     def load_projection_params(self):
         self.pixel_size = load_params_from_h5_file(
             self.selected_projection_file_paths[self.scan_numbers[0]]
         )
 
 
+@timer()
 def load_params_from_h5_file(file_path):
     with h5py.File(file_path) as F:
         pixel_size = F["obj_pixel_size_m"][()]
     return pixel_size
 
 
+@timer()
 def load_probe_from_h5_file(file_path: str):
     with h5py.File(file_path) as F:
         probe = F["probe"][()]
     return probe
 
 
+@timer()
 def load_positions_from_h5_file(file_path: str):
     with h5py.File(file_path) as F:
         positions = F["positions_px"][()]

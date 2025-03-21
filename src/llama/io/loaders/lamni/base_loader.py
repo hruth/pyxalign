@@ -83,6 +83,7 @@ class LamniLoader(ABC):
     def n_scans(self):
         return len(self.scan_numbers)
 
+    @timer()
     def remove_sequences(self, sequences_to_keep: list[int]):
         keep_index = [sequence in sequences_to_keep for sequence in self.sequences]
         # Remove unwanted sequences from arrays and lists
@@ -121,6 +122,7 @@ class LamniLoader(ABC):
                 [metadata_string in string for string in file_list]
             )
 
+    @timer()
     def filter_file_list(self, only_include_files_with: list[str], exclude_files_with: list[str]):
         if only_include_files_with is None:
            only_include_files_with = []
@@ -195,6 +197,7 @@ class LamniLoader(ABC):
             self.selected_projection_file_paths, n_processes, self.load_single_projection
         )
 
+    @timer()
     def find_matching_metadata(
         self, selected_metadata_list: list[str], projection_files: list[str]
     ) -> str:
@@ -210,11 +213,13 @@ class LamniLoader(ABC):
                     + " means there is a bug in the code that needs to be fixed."
                 )
 
+    @timer()
     def load_projection_and_metadata(self, file_path: str, scan_number: int):
         self.ptycho_params[scan_number] = load_h5_group(file_path, "/reconstruction/p")
         with h5py.File(file_path) as File:
             self.projections[scan_number] = File["/reconstruction/object"][:]
 
+    @timer()
     def select_metadata_type(self, exclude: Optional[list[str]] = None) -> list[str]:
         if exclude is not None:
             remaining_metadata_options = {

@@ -31,12 +31,16 @@ class LamniLoaderVersion2(LamniLoader):
             flush=True,
         )
 
+    @timer()
     def record_projection_path_and_files(self, folder: str, scan_number: int):
         if os.path.exists(folder) and os.listdir(folder) != []:
             self.projection_folders[scan_number] = folder
             # self.analysis_folders[scan_number] = os.listdir(folder)
             self.analysis_folders[scan_number] = []
+            inline_timer = InlineTimer("get_nested_analysis_folders")
+            inline_timer.start()
             self.get_nested_analysis_folders(folder, scan_number)
+            inline_timer.end()
             self.available_projection_files[scan_number] = []
             for analysis_sub_folder in self.analysis_folders[scan_number]:
                 file_names = os.listdir(os.path.join(folder, analysis_sub_folder))

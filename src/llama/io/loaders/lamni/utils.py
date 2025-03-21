@@ -79,6 +79,7 @@ def select_experiment_and_sequences(
     return subsets[selected_experiment_name]
 
 
+@timer()
 def extract_experiment_data(
     dat_file_path: str,
     scan_start: Optional[int] = None,
