@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from scipy.io import loadmat, whosmat
+from scipy.io import loadmat
 from llama.io.loaders.lamni.base_loader import LamniLoader
 from llama.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
 from llama.timing.timer_utils import timer, InlineTimer
@@ -12,6 +12,7 @@ class LamniLoaderVersion2(LamniLoader):
     def _post_init(self):
         self.angles = -self.angles
 
+    @timer()
     def get_projections_folders_and_file_names(self):
         """
         Generate the folder path for all projections and get a list of

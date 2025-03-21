@@ -6,6 +6,7 @@ import re
 from llama.api.types import c_type
 from llama.io.loaders.lamni.base_loader import LamniLoader
 from llama.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
+from llama.timing.timer_utils import InlineTimer, timer
 
 
 class LamniLoaderVersion3(LamniLoader):
@@ -38,11 +39,15 @@ class LamniLoaderVersion3(LamniLoader):
         )
 
     def record_projection_path_and_files(self, folder: str, scan_number: int):
+        # Get all projection folders
         if os.path.exists(folder) and os.listdir(folder) != []:
             self.projection_folders[scan_number] = folder
             # self.analysis_folders[scan_number] = os.listdir(folder)
             self.analysis_folders[scan_number] = []
+            inline_timer = InlineTimer("get_nested_analysis_folders")
+            inline_timer.start()
             self.get_nested_analysis_folders(folder, scan_number)
+            inline_timer.end()
             self.available_projection_files[scan_number] = []
             for analysis_sub_folder in self.analysis_folders[scan_number]:
                 file_names = os.listdir(os.path.join(folder, analysis_sub_folder))
@@ -57,12 +62,12 @@ class LamniLoaderVersion3(LamniLoader):
     @staticmethod
     def check_if_projection_file(file_path: str) -> bool:
         _, file_name = os.path.split(file_path)
-        if file_name.lower().startswith("recon") and file_name.endswith("Niter3000.h5"):
+        if file_name.lower().startswith("recon"):# and file_name.endswith("Niter3000.h5"):
             return True
         else:
             return False
 
-    def get_nested_analysis_folders(self, folder: str, scan_number: int, rel_path: str = ""):
+    def get_nested_analysis_folders(self, folder: str, scan_number: int, rel_path: str = "", max_levels: int = 2, current_level: int = 0):
         """
         Get the relative paths of all folders in the scan directory that
         contain projection files by recursing through nested folders.
@@ -82,7 +87,7 @@ class LamniLoaderVersion3(LamniLoader):
             if os.path.isfile(full_path):
                 continue
             else:
-                self.get_nested_analysis_folders(full_path, scan_number)
+                self.get_nested_analysis_folders(full_path, scan_number, max_levels=max_levels, current_level=current_level)
 
     @staticmethod
     def load_single_projection(file_path: str) -> np.ndarray:

@@ -5,7 +5,7 @@ from llama.io.loaders.enums import LoaderType
 from llama.io.loaders.lamni.options import LamniLoadOptions
 from llama.io.loaders.maps import get_loader_class_by_enum, LoaderInstanceType
 from llama.io.loaders.utils import generate_input_user_prompt
-
+from llama.timing.timer_utils import InlineTimer, timer
 
 
 def get_experiment_subsets(
@@ -30,6 +30,7 @@ def get_experiment_subsets(
     return subsets
 
 
+@timer()
 def select_experiment_and_sequences(
     parent_projections_folder: str,
     scan_numbers: np.ndarray,
@@ -113,6 +114,7 @@ def extract_experiment_data(
     return (scan_numbers, angles, experiment_names, sequence_number)
 
 
+@timer()
 def load_experiment(
     dat_file_path: str,
     parent_projections_folder: str,
@@ -139,14 +141,16 @@ def load_experiment(
         use_sequence=options.selected_sequences,
     )
     selected_experiment.get_projections_folders_and_file_names()
-    selected_experiment.extract_metadata_from_all_titles()
+    selected_experiment.extract_metadata_from_all_titles(
+        options.only_include_files_with, options.exclude_files_with
+    )
     selected_experiment.select_projections(options.selected_metadata_list)
     # Print data selection settings
     print("Use these settings to bypass user-selection on next load:")
     input_settings_string = (
         f'  selected_experiment_name="{selected_experiment.experiment_name}",\n'
         + f"  selected_sequences={list(np.unique(selected_experiment.sequences))},\n"
-        + f"  selected_metadata_list={selected_experiment.selected_metadata_list},\n"
+        + f"  selected_metadata_list={insert_new_line_between_list(selected_experiment.selected_metadata_list)},\n"
     )
     if options.scan_start is not None:
         input_settings_string += f"  scan_start={options.scan_start},\n"
@@ -154,9 +158,6 @@ def load_experiment(
         input_settings_string += f"  scan_end={options.scan_end},\n"
     input_settings_string = input_settings_string[:-1]
     print(input_settings_string, flush=True)
-
-    # # Load projections
-    # selected_experiment.load_projections(n_processes)
 
     # Load probe
     selected_experiment.load_probe()
@@ -170,9 +171,8 @@ def load_experiment(
     # Load projections
     selected_experiment.load_projections(n_processes)
 
-
     return selected_experiment
 
 
-
-
+def insert_new_line_between_list(list_of_strings: list[str]):
+    return "[\n " + ",\n ".join(f'"{item}"' for item in list_of_strings) + "\n]"

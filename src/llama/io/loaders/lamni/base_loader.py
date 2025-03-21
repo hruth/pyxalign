@@ -11,6 +11,7 @@ from llama.io.loaders.utils import (
     load_h5_group,
     parallel_load_all_projections,
 )
+from llama.timing.timer_utils import InlineTimer, timer
 
 
 class LamniLoader(ABC):
@@ -103,9 +104,16 @@ class LamniLoader(ABC):
         self.projections = return_dict_subset(self.projections, sequences_to_keep)
         self.ptycho_params = return_dict_subset(self.ptycho_params, sequences_to_keep)
 
-    def extract_metadata_from_all_titles(self):
+    @timer()
+    def extract_metadata_from_all_titles(
+        self,
+        only_include_files_with: Optional[list[str]] = None,
+        exclude_files_with: Optional[list[str]] = None,
+    ):
         file_list = np.concatenate(list(self.available_projection_files.values())).ravel()
         self.unique_metadata = list(set([filter_string(file_string) for file_string in file_list]))
+        # Remove data that doesn't fit specified conditions
+        self.unique_metadata = self.filter_file_list(only_include_files_with, exclude_files_with)
         # Count occurences for that metadata string
         self.metadata_count = {}
         for metadata_string in self.unique_metadata:
@@ -113,6 +121,20 @@ class LamniLoader(ABC):
                 [metadata_string in string for string in file_list]
             )
 
+    def filter_file_list(self, only_include_files_with: list[str], exclude_files_with: list[str]):
+        if only_include_files_with is None:
+           only_include_files_with = []
+        if exclude_files_with is None:
+             exclude_files_with = []
+        filtered_list = []
+        for file_string in self.unique_metadata:
+            in_include = np.all([x in file_string for x in only_include_files_with])
+            not_in_exclude = np.all([x not in file_string for x in exclude_files_with])
+            if in_include and not_in_exclude:
+                filtered_list += [file_string]
+        return filtered_list
+
+    @timer()
     def select_projections(
         self,
         selected_metadata_list: Optional[None],
@@ -122,7 +144,7 @@ class LamniLoader(ABC):
         Select which projections to load.
         """
         if selected_metadata_list is None:
-            self.selected_metadata_list = [self.select_metadata_type()]
+            self.selected_metadata_list = self.select_metadata_type()
         else:
             self.selected_metadata_list = selected_metadata_list
         for scan_number in self.projection_folders.keys():
@@ -149,9 +171,7 @@ class LamniLoader(ABC):
                     select_new_metadata = get_boolean_user_input(prompt)
                     if select_new_metadata:
                         # Select a new metadata type to load
-                        self.selected_metadata_list += [
-                            self.select_metadata_type(exclude=self.selected_metadata_list)
-                        ]
+                        self.selected_metadata_list += self.select_metadata_type(exclude=self.selected_metadata_list)
                     else:
                         print(f"No projections loaded for {scan_number}", flush=True)
                         prompt = "Remember this choice for remaining projections?"
@@ -168,6 +188,7 @@ class LamniLoader(ABC):
         self.angles = self.angles[selected_projections_idx]
         self.scan_numbers = self.scan_numbers[selected_projections_idx]
 
+    @timer()
     def load_projections(self, n_processes: int):
         # Load projections
         self.projections = parallel_load_all_projections(
@@ -194,7 +215,7 @@ class LamniLoader(ABC):
         with h5py.File(file_path) as File:
             self.projections[scan_number] = File["/reconstruction/object"][:]
 
-    def select_metadata_type(self, exclude: Optional[list[str]] = None) -> str:
+    def select_metadata_type(self, exclude: Optional[list[str]] = None) -> list[str]:
         if exclude is not None:
             remaining_metadata_options = {
                 k: self.metadata_count[k] for k in self.metadata_count.keys() if k not in exclude
@@ -202,11 +223,14 @@ class LamniLoader(ABC):
         else:
             remaining_metadata_options = self.metadata_count
 
+        n_scans_per_option = [count for count in remaining_metadata_options.values()]
         _, selected_metadata = generate_input_user_prompt(
             load_object_type_string="projection metadata type",
             options_list=remaining_metadata_options.keys(),
-            options_info_list=[count for count in remaining_metadata_options.values()],
+            options_info_list=n_scans_per_option,
             options_info_type_string="scans",
+            allow_multiple_selections=True,
+            select_all_info = np.sum(n_scans_per_option),
         )
         return selected_metadata
 
@@ -215,9 +239,6 @@ class LamniLoader(ABC):
         raise NotImplementedError
 
     def load_positions(self):
-        pass
-
-    def load_probe(self):
         pass
 
     def load_probe(self):

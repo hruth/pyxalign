@@ -5,6 +5,7 @@ import h5py
 from llama.api.types import c_type
 from llama.io.loaders.lamni.base_loader import LamniLoader
 from llama.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
+from llama.timing.timer_utils import InlineTimer, timer
 
 
 class LamniLoaderVersion1(LamniLoader):
