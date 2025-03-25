@@ -86,6 +86,17 @@ class CropOptions(TransformOptions):
 
     enabled: bool = False
 
+    return_view: bool = False
 
-if __name__ == "__main__":
-    shift_options = ShiftOptions()
+
+@dataclasses.dataclass
+class PadOptions(TransformOptions):
+    new_extent_x: int = None
+
+    new_extent_y: int = None
+
+    pad_type: str = "constant"
+
+    pad_value: int = "mode"
+
+    enabled: bool = False

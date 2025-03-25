@@ -3,6 +3,7 @@ from dataclasses import field
 from numbers import Number
 from typing import Optional, Sequence
 from llama.api import enums
+from llama.api.options.transform import CropOptions
 
 
 @dataclasses.dataclass
@@ -23,9 +24,11 @@ class ScalebarOptions:
 class PlotDataOptions:
     cmap: Optional[str] = "bone"
 
-    widths: Optional[tuple[Number, Number]] = None
+    # widths: Optional[tuple[Number, Number]] = None
 
-    center_offsets: tuple[Number, Number] = (0, 0)
+    # center_offsets: tuple[Number, Number] = (0, 0)
+
+    crop: CropOptions = field(default_factory=CropOptions)
 
     scalebar: ScalebarOptions = field(default_factory=ScalebarOptions)
 

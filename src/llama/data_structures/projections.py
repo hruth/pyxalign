@@ -22,6 +22,7 @@ from llama.api.options.projections import (
 )
 from llama.api.options.transform import (
     CropOptions,
+    PadOptions,
     RotationOptions,
     ShearOptions,
     ShiftOptions,
@@ -37,7 +38,15 @@ from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_m
 
 import llama.plotting.plotters as plotters
 from llama.timing.timer_utils import timer, clear_timer_globals
-from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
+from llama.transformations.classes import (
+    Downsampler,
+    Rotator,
+    Shearer,
+    Shifter,
+    Upsampler,
+    Cropper,
+    Padder,
+)
 from llama.transformations.functions import (
     image_shift_fft,
     rotate_positions,
@@ -95,7 +104,7 @@ class Projections:
         add_center_offset_to_positions: bool = True,
         shift_manager: Optional["ShiftManager"] = None,
         transform_tracker: Optional[TransformTracker] = None,
-        pin_arrays: bool = True,
+        pin_arrays: bool = False,
     ):
         self.options = options
         self.angles = angles
@@ -185,6 +194,24 @@ class Projections:
             )
             self.center_of_rotation = self.center_of_rotation + shift
             # Shift position accordingly
+            if self.probe_positions is not None:
+                self.probe_positions.shift_positions(
+                    shift=shift[::-1][None].repeat(self.n_projections, axis=0)
+                )
+
+    @timer()
+    def pad_projections(self, options: PadOptions):
+        if options.enabled:
+            pre_crop_dims = np.array(self.data.shape[1:])
+            self.data = Padder(options).run(self.data)
+            if self.masks is not None:
+                mask_options = copy.deepcopy(options)
+                mask_options.pad_value = 0
+                self.masks = Padder(mask_options).run(self.masks)
+            # Update center of rotation and probe positions
+            new_dims = np.array(self.data.shape[1:])
+            shift = (new_dims - pre_crop_dims) / 2
+            self.center_of_rotation = self.center_of_rotation + shift
             if self.probe_positions is not None:
                 self.probe_positions.shift_positions(
                     shift=shift[::-1][None].repeat(self.n_projections, axis=0)
@@ -400,15 +427,21 @@ class Projections:
             self.masks = gpu_utils.pin_memory(self.masks)
 
     def apply_staged_shift(self, device_options: Optional[DeviceOptions] = None):
-        if device_options is None:
-            device_options = DeviceOptions()
         if self.probe_positions is not None:
             self.probe_positions.shift_positions(self.shift_manager.staged_shift)
         self.shift_manager.apply_staged_shift(
             images=self.data,
             masks=self.masks,
             device_options=device_options,
-            pinned_results=self.data,
+        )
+    
+    def undo_last_shift(self, device_options: Optional[DeviceOptions] = None):
+        if self.probe_positions is not None:
+            self.probe_positions.shift_positions(-self.shift_manager.past_shifts[-1])
+        self.shift_manager.undo_last_shift(
+            images=self.data,
+            masks=self.masks,
+            device_options=device_options,
         )
 
     def plot_projections(self, process_function: callable = lambda x: x):
@@ -591,6 +624,7 @@ class Projections:
             "downsample": self.transform_tracker.scale,
             "applied_shifts": self.shift_manager.past_shifts,
             "staged_shift": self.shift_manager.staged_shift,
+            "dropped_scan_numbers": self.dropped_scan_numbers,
         }
         # Save all elements from save_attr_dict to the .h5 file
         save_generic_data_structure_to_h5(save_attr_dict, h5_obj)
@@ -692,41 +726,68 @@ class ShiftManager:
         self.staged_function_type = None
         self.staged_alignment_options = None
 
+    def shift_arrays(
+        self,
+        shift: np.ndarray,
+        images: np.ndarray,
+        masks: np.ndarray,
+        function_type: enums.ShiftType,
+        device_options: Optional[DeviceOptions] = None,
+    ):
+        if device_options is None:
+            device_options = DeviceOptions()
+
+        shift_options = ShiftOptions(
+            enabled=True,
+            type=function_type,
+            device=device_options,
+        )
+        images[:] = Shifter(shift_options).run(
+            images=images,
+            shift=shift,
+            pinned_results=images,
+        )
+        if masks is not None:
+            if shift_options.type == enums.ShiftType.FFT:
+                # We want to avoid doing FFT shift with binary masks
+                # Use linear interpolation instead
+                shift_options = copy.deepcopy(shift_options)
+                shift_options.type = enums.ShiftType.LINEAR
+            masks[:] = Shifter(shift_options).run(
+                images=masks,
+                shift=shift,
+                pinned_results=masks,
+            )
+
     def apply_staged_shift(
         self,
         images: np.ndarray,
         masks: Optional[np.ndarray] = None,
         device_options: Optional[DeviceOptions] = None,
-        pinned_results: Optional[np.ndarray] = None,
     ):
-        if device_options is None:
-            device_options = DeviceOptions()
         if self.is_shift_nonzero():
-            shift_options = ShiftOptions(
-                enabled=True,
-                type=self.staged_function_type,
-                device=device_options,
-            )
-            images[:] = Shifter(shift_options).run(
-                images=images,
+            self.shift_arrays(
                 shift=self.staged_shift,
-                pinned_results=images,
-                # pinned_results=pinned_results,
-            )
-            if masks is not None:
-                if shift_options.type == enums.ShiftType.FFT:
-                    # We want to avoid doing FFT shift with binary masks
-                    # Use linear interpolation instead
-                    shift_options = copy.deepcopy(shift_options)
-                    shift_options.type = enums.ShiftType.LINEAR
-                masks[:] = Shifter(shift_options).run(
-                    images=masks,
-                    shift=self.staged_shift,
-                    pinned_results=masks,
-                )
+                images=images,
+                masks=masks,
+                function_type=self.staged_function_type,
+                device_options=device_options,
+            )        
             self.unstage_shift()
         else:
             print("There is no shift to apply!")
+
+    def undo_last_shift(self, images: np.ndarray, masks: np.ndarray, device_options: DeviceOptions):
+        self.shift_arrays(
+            shift=-self.past_shifts[-1],
+            images=images,
+            masks=masks,
+            function_type=self.past_shift_functions[-1],
+            device_options=device_options,
+        )
+        self.past_shifts = self.past_shifts[:-1]
+        self.past_shift_functions = self.past_shift_functions[:-1]
+        self.past_shift_options = self.past_shift_options[:-1]
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:

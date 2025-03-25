@@ -1,6 +1,7 @@
 from typing import Optional
 import numpy as np
 import h5py
+from llama import gpu_utils
 from llama.data_structures.projections import (
     ComplexProjections,
     PhaseProjections,
@@ -42,7 +43,7 @@ class LaminographyAlignmentTask:
         clear_timer_globals()
         # Only for complex projections for now
         # Does this really need to be saved as an attribute?
-        if projection_type is enums.ProjectionType.COMPLEX:
+        if projection_type == enums.ProjectionType.COMPLEX:
             projections = self.complex_projections
         else:
             projections = self.phase_projections
@@ -87,6 +88,17 @@ class LaminographyAlignmentTask:
         self.complex_projections.get_masks(enable_plotting)
 
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
+        if (
+            self.phase_projections is not None
+            and gpu_utils.is_pinned(self.phase_projections.data)
+            and pinned_results is not None
+        ):
+            pinned_results = gpu_utils.pin_memory(self.phase_projections.data)
+        elif pinned_results is None:
+            pinned_results = gpu_utils.create_empty_pinned_array(
+                self.complex_projections.data.shape, dtype=r_type
+            )
+
         unwrapped_projections = self.complex_projections.unwrap_phase(pinned_results)
         kwargs = get_kwargs_for_copying_to_new_projections_object(
             self.complex_projections, include_projections_copy=False

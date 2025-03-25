@@ -17,6 +17,7 @@ from llama.api.options.plotting import PlotDataOptions
 from matplotlib.image import AxesImage
 import copy
 from llama.api.types import ArrayType
+from llama.transformations.classes import Cropper
 
 
 class PlotObject(ABC):
@@ -198,22 +199,12 @@ def plot_slice_of_3D_array(
         index = options.index
     image = process_func(images[index])
 
-    if options.widths is None:
-        widths = np.array(image.shape)
-    else:
-        widths = options.widths[::-1] * 1
-
     if cp.get_array_module(images) is cp:
         image = image.get()
 
-    centers = np.array(image.shape) / 2 + options.center_offsets[::-1]
-
-    x_idx = (centers[1] + np.array([-widths[1] / 2, widths[1] / 2])).astype(int)
-    x_idx = np.clip(x_idx, 0, image.shape[1])
-    y_idx = (centers[0] + np.array([-widths[0] / 2, widths[0] / 2])).astype(int)
-    y_idx = np.clip(y_idx, 0, image.shape[0])
-
-    image = image[y_idx[0] : y_idx[1], x_idx[0] : x_idx[1]]
+    crop_options = copy.deepcopy(options.crop)
+    crop_options.return_view = True
+    image = Cropper(options.crop).run(image[None])[0]
 
     if axis_image is not None:
         axis_image = axis_image.set_data(image)

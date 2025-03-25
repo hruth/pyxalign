@@ -8,6 +8,7 @@ from .transform import (
     TransformOptions,
     RotationOptions,
     ShearOptions,
+    PadOptions,
 )
 from .alignment import (
     AlignmentOptions,

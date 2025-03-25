@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 import numpy as np
+from scipy import stats
+from tqdm import tqdm
 from llama.api.enums import DownsampleType, DeviceType, ShiftType
 
 import llama.api.maps as maps
+from llama.api.options.device import DeviceOptions
 from llama.api.options.transform import (
     DownsampleOptions,
+    PadOptions,
     ShiftOptions,
     TransformOptions,
     UpsampleOptions,
@@ -16,7 +20,7 @@ from llama.api.options.transform import (
 
 from llama.api.types import ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.transformations.functions import image_crop
+from llama.transformations.functions import image_crop, image_crop_pad
 from llama.timing.timer_utils import timer
 
 
@@ -215,12 +219,51 @@ class Cropper(Transformation):
                 vertical_range = images.shape[1]
             else:
                 vertical_range = self.options.vertical_range
-            return 1 * image_crop(
+            cropped_images = image_crop(
                 images,
                 horizontal_range,
                 vertical_range,
                 self.options.horizontal_offset,
                 self.options.vertical_offset,
             )
+            if self.options.return_view:
+                return cropped_images
+            else:
+                return cropped_images * 1
+        else:
+            return images
+
+
+class Padder(Transformation):
+    def __init__(
+        self,
+        options: PadOptions,
+    ):
+        super().__init__(options)
+        self.options: PadOptions = options
+
+    @timer()
+    def run(self, images: ArrayType) -> ArrayType:
+        """Calls the image padding function"""
+        if self.enabled:
+            if self.options.new_extent_x is None:
+                new_extent_x = images.shape[2]
+            else:
+                new_extent_x = self.options.new_extent_x
+            if self.options.new_extent_y is None:
+                new_extent_y = images.shape[1]
+            else:
+                new_extent_y = self.options.new_extent_y
+
+            padded_images = np.zeros(
+                (images.shape[0], new_extent_y, new_extent_x), dtype=images.dtype
+            )
+            for i in tqdm(range(len(images))):
+                pad_value = self.options.pad_value
+                padded_images[i] = image_crop_pad(
+                    images[i], new_extent_y, new_extent_x, "constant", pad_value
+                )
+
+            return padded_images
         else:
             return images

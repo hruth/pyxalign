@@ -17,6 +17,7 @@ from llama.api import enums
 from llama.transformations.classes import Cropper
 from llama.api.types import ArrayType, r_type, c_type
 from llama.timing.timer_utils import timer, InlineTimer
+from llama.transformations.functions import gaussian_filter_conv_n
 
 
 class CrossCorrelationAligner(Aligner):
@@ -90,6 +91,9 @@ class CrossCorrelationAligner(Aligner):
             shift_relative = self.clamp_shift(shift_relative, 3)
             cumulative_shift = np.cumsum(shift_relative, axis=0)
             cumulative_shift = cumulative_shift - np.mean(cumulative_shift, axis=0)
+            # Remove smoothed shift
+            if self.options.remove_slow_variation:
+                cumulative_shift = self.subtract_slow_variation(cumulative_shift)
             # Add a linear correction to the shift, in order to
             # remove the discontinuity between the first and last
             # frame
@@ -111,6 +115,21 @@ class CrossCorrelationAligner(Aligner):
         shift_total = np.round(shift_total * self.options.binning)
 
         return shift_total
+    
+    def subtract_slow_variation(self, cumulative_shift: ArrayType):
+        for i in range(2):
+            df = pd.DataFrame(dict(x=cumulative_shift[:, i]))
+            smoothed_shift = (
+                df[["x"]]
+                .apply(
+                    savgol_filter,
+                    window_length=self.options.filter_position,
+                    polyorder=2,
+                )
+                .to_numpy()[:, 0]
+            )
+            cumulative_shift[:, i] = cumulative_shift[:, i] - smoothed_shift
+        return cumulative_shift
 
     def clamp_shift(self, shift: ArrayType, max_std_variation: float):
         shift_max = max_std_variation * statsmodels.robust.mad(shift, axis=0)
@@ -155,9 +174,14 @@ class CrossCorrelationAligner(Aligner):
         for i in range(len(variation_mean)):
             cutoff = variation_mean[i] + variation_std[i]
             variation[i, (variation[i, :, :] > cutoff)] = cutoff  # gives complex warning
-            variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
-                variation[i, :, :], 2 * binning
-            )
+            # variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
+            #     variation[i, :, :], 2 * binning
+            # )
+            variation[i, :, :] = gaussian_filter_conv_n(variation[i, :, :], 2 * binning)
+            # variation = utils.imgaussfilt3_conv(variation, [2*binning,2*binning,0]);
+            # boundary_correction = utils.imgaussfilt3_conv(ones(size(object,1), size(object,2), 'like', object), ...
+                                                        #   [2*binning,2*binning,0]); 
+
         variation = xp.real(variation[:, 0::binning, 0::binning])
 
         return variation

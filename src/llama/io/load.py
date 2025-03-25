@@ -74,6 +74,10 @@ def load_projections(
                 skip_pre_processing=True,
                 add_center_offset_to_positions=False,
             )
+            if "dropped_scan_numbers" in h5_obj[group].keys():
+                loaded_projections[group].dropped_scan_numbers = h5_obj[group][
+                    "dropped_scan_numbers"
+                ][()]
     return loaded_projections
 
 
