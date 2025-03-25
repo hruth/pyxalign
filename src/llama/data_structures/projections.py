@@ -377,14 +377,14 @@ class Projections:
         if delete_mask_builder:
             self.mask_builder = None
 
-    def drop_projections(self, remove_idx: list[int]):
+    def drop_projections(self, remove_idx: list[int], repin_array: bool = False):
         "Permanently remove specific projections from object"
         keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
 
         self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
 
-        def return_modified_array(arr):
-            if gpu_utils.is_pinned(self.data):
+        def return_modified_array(arr, repin_array: bool):
+            if gpu_utils.is_pinned(self.data) and repin_array:
                 # Repin data if it was already pinned
                 arr = gpu_utils.pin_memory(arr[keep_idx])
             else:
