@@ -103,6 +103,7 @@ class Laminogram:
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         cp.cuda.Device(device).use()
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
+        cp.cuda.Device(device).use()
 
     @timer()
     def get_forward_projection(
@@ -132,6 +133,7 @@ class Laminogram:
             forward_projection_id=forward_projection_id,
             return_id=True,
         )
+        cp.cuda.Device(device).use()
 
         if is_new_sino_id_created:
             self.forward_projection_id = forward_projection_id

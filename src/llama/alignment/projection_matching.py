@@ -11,6 +11,7 @@ from collections import defaultdict
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
 from llama.api.options.transform import ShiftOptions
+from llama.api.options_utils import set_all_device_options
 from llama.data_structures.laminogram import Laminogram
 
 # from llama.projections import PhaseProjections
@@ -56,6 +57,8 @@ class ProjectionMatchingAligner(Aligner):
             cp.cuda.Device(self.options.device.gpu.gpu_indices[0]).use()
         # Create the projections object
         projection_options = copy.deepcopy(self.projections.options)
+        if self.options.keep_on_gpu:
+            set_all_device_options(projection_options, copy.deepcopy(self.options.device))
         projection_options.experiment.pixel_size = self.projections.pixel_size
         projection_options.input_processing = ProjectionTransformOptions(
             downsample=self.options.downsample,
