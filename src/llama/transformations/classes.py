@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 import numpy as np
-from llama.api.enums import DownsampleType, UpsampleType, DeviceType
+from scipy import stats
+from tqdm import tqdm
+from llama.api.enums import DownsampleType, DeviceType, ShiftType
 
 import llama.api.maps as maps
+from llama.api.options.device import DeviceOptions
 from llama.api.options.transform import (
     DownsampleOptions,
+    PadOptions,
     ShiftOptions,
     TransformOptions,
     UpsampleOptions,
@@ -16,9 +20,8 @@ from llama.api.options.transform import (
 
 from llama.api.types import ArrayType
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.transformations.functions import image_crop
+from llama.transformations.functions import image_crop, image_crop_pad
 from llama.timing.timer_utils import timer
-# from llama.api import enums
 
 
 class Transformation(ABC):
@@ -113,10 +116,14 @@ class Shifter(Transformation):
     ):
         super().__init__(options)
         self.options: ShiftOptions = options
-    
+
     @timer()
     def run(
-        self, images: ArrayType, shift: np.ndarray, pinned_results: Optional[np.ndarray] = None
+        self,
+        images: ArrayType,
+        shift: np.ndarray,
+        pinned_results: Optional[np.ndarray] = None,
+        is_binary_mask: bool = False,
     ) -> ArrayType:
         """Calls one of the image shifting functions"""
         if self.enabled:
@@ -126,7 +133,18 @@ class Shifter(Transformation):
                 chunkable_inputs_for_gpu_idx=[0, 1],
                 pinned_results=pinned_results,
             )
-            return self.function(images, shift)
+
+            if self.options.type == ShiftType.LINEAR:
+                images = images * 1
+
+            images = self.function(images, shift)
+
+            if is_binary_mask and self.options.type == ShiftType.FFT:
+                idx = images > 0.5
+                images[:] = 0
+                images[idx] = 1
+
+            return images
         else:
             return images
 
@@ -140,9 +158,7 @@ class Rotator(Transformation):
         self.options: RotationOptions = options
 
     @timer()
-    def run(
-        self, images: ArrayType, pinned_results: Optional[np.ndarray] = None
-    ) -> ArrayType:
+    def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image rotation functions"""
         if self.enabled:
             if self.options.device.device_type is DeviceType.CPU:
@@ -168,9 +184,7 @@ class Shearer(Transformation):
         self.options: ShearOptions = options
 
     @timer()
-    def run(
-        self, images: ArrayType, pinned_results: Optional[np.ndarray] = None
-    ) -> ArrayType:
+    def run(self, images: ArrayType, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
         """Calls one of the image shearing functions"""
         if self.enabled:
             self.function = device_handling_wrapper(
@@ -205,12 +219,51 @@ class Cropper(Transformation):
                 vertical_range = images.shape[1]
             else:
                 vertical_range = self.options.vertical_range
-            return 1 * image_crop(
+            cropped_images = image_crop(
                 images,
                 horizontal_range,
                 vertical_range,
                 self.options.horizontal_offset,
                 self.options.vertical_offset,
             )
+            if self.options.return_view:
+                return cropped_images
+            else:
+                return cropped_images * 1
+        else:
+            return images
+
+
+class Padder(Transformation):
+    def __init__(
+        self,
+        options: PadOptions,
+    ):
+        super().__init__(options)
+        self.options: PadOptions = options
+
+    @timer()
+    def run(self, images: ArrayType) -> ArrayType:
+        """Calls the image padding function"""
+        if self.enabled:
+            if self.options.new_extent_x is None:
+                new_extent_x = images.shape[2]
+            else:
+                new_extent_x = self.options.new_extent_x
+            if self.options.new_extent_y is None:
+                new_extent_y = images.shape[1]
+            else:
+                new_extent_y = self.options.new_extent_y
+
+            padded_images = np.zeros(
+                (images.shape[0], new_extent_y, new_extent_x), dtype=images.dtype
+            )
+            for i in tqdm(range(len(images))):
+                pad_value = self.options.pad_value
+                padded_images[i] = image_crop_pad(
+                    images[i], new_extent_y, new_extent_x, "constant", pad_value
+                )
+
+            return padded_images
         else:
             return images

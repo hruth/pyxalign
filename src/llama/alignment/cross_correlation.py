@@ -7,7 +7,6 @@ import pandas as pd
 from tqdm import tqdm
 
 from llama.alignment.base import Aligner
-from llama.api.options.device import DeviceOptions
 from llama.gpu_wrapper import device_handling_wrapper
 import llama.image_processing as ip
 from llama.data_structures.projections import Projections
@@ -17,6 +16,7 @@ from llama.api import enums
 from llama.transformations.classes import Cropper
 from llama.api.types import ArrayType, r_type, c_type
 from llama.timing.timer_utils import timer, InlineTimer
+from llama.transformations.functions import gaussian_filter_conv_n
 
 
 class CrossCorrelationAligner(Aligner):
@@ -29,10 +29,12 @@ class CrossCorrelationAligner(Aligner):
     def run(self, illum_sum: np.ndarray) -> np.ndarray:
         projections = Cropper(self.options.crop).run(self.projections.data)
         illum_sum = Cropper(self.options.crop).run(illum_sum)
+        projections = pin_memory(projections)
+        illum_sum = pin_memory(illum_sum)
         shift = calculate_alignment_shift(
             projections=projections,
             angles=self.projections.angles,
-            illum_sum=illum_sum,
+            weights=illum_sum,
             options=self.options,
         )
         return shift
@@ -41,10 +43,10 @@ class CrossCorrelationAligner(Aligner):
 def calculate_alignment_shift(
     projections: np.ndarray,
     angles: np.ndarray,
-    illum_sum: np.ndarray,
+    weights: np.ndarray,
     options: CrossCorrelationOptions,
 ) -> np.ndarray:
-    weights = illum_sum / (illum_sum + 0.1 * np.max(illum_sum))
+    weights[:] = weights / (weights + 0.1 * np.max(weights))
 
     variation_shape = (
         projections.shape / np.array([1, options.binning, options.binning])
@@ -60,9 +62,9 @@ def calculate_alignment_shift(
     variation = get_variation_wrapped(projections, weights, options.binning)
 
     # Ensure the array is on a single device for the rest of the calculations
-    if options.device.device_type is enums.DeviceType.CPU:
+    if options.device.device_type == enums.DeviceType.CPU:
         variation = np.array(variation)
-    elif options.device.device_type is enums.DeviceType.GPU:
+    elif options.device.device_type == enums.DeviceType.GPU:
         variation = cp.array(variation)
     xp = cp.get_array_module(variation)
 
@@ -72,7 +74,6 @@ def calculate_alignment_shift(
     shift_total = np.zeros((n_angles, 2), dtype=r_type)
 
     for i in tqdm(range(options.iterations)):
-        # print("Iteration", str(i))
         inline_timer = InlineTimer(name="filter variation")
         inline_timer.start()
         variation_fft = ip.filtered_fft(
@@ -90,23 +91,25 @@ def calculate_alignment_shift(
             shift_relative = shift_relative.get()
         shift_relative = np.roll(shift_relative, 1, 0)
         shift_relative = clamp_shift(shift_relative, 3)
-        # RESUME HERE -- move this to a subtract_smooth function
-        # Subtract the underlying slow variation
         cumulative_shift = np.cumsum(shift_relative, axis=0)
         cumulative_shift = cumulative_shift - np.mean(cumulative_shift, axis=0)
-        if options.subtract_smoothed_shift:
-            for i in range(2):
-                df = pd.DataFrame(dict(x=cumulative_shift[:, i]))
-                smoothed_shift = (
-                    df[["x"]]
-                    .apply(
-                        savgol_filter,
-                        window_length=options.filter_position,
-                        polyorder=2,
-                    )
-                    .to_numpy()[:, 0]
-                )
-                cumulative_shift[:, i] = cumulative_shift[:, i] - smoothed_shift
+        # Remove smoothed shift
+        if options.remove_slow_variation:
+            cumulative_shift = subtract_slow_variation(cumulative_shift, options.filter_position)
+        # Add a linear correction to the shift, in order to
+        # remove the discontinuity between the first and last
+        # frame
+        offset = ip.get_cross_correlation_shift(
+            image=variation_fft[idx_sort[:1]],
+            image_ref=variation_fft[idx_sort[-1]],
+        )[0]
+        if options.device.device_type == enums.DeviceType.GPU:
+            offset = offset.get()
+        m1 = offset / n_angles
+        m2 = (cumulative_shift[0] - cumulative_shift[-1]) / n_angles
+        x = np.arange(0, n_angles)[:, None]
+        y =  m1 * x + m2 * x
+        cumulative_shift = cumulative_shift + y - y.mean(0)
 
         shift_total = shift_total + cumulative_shift[idx_sort_inverse, :]
         shift_total = clamp_shift(shift_total, 6)
@@ -114,6 +117,21 @@ def calculate_alignment_shift(
     shift_total = np.round(shift_total * options.binning)
 
     return shift_total
+    
+def subtract_slow_variation(cumulative_shift: ArrayType, filter_position: float):
+    for i in range(2):
+        df = pd.DataFrame(dict(x=cumulative_shift[:, i]))
+        smoothed_shift = (
+            df[["x"]]
+            .apply(
+                savgol_filter,
+                window_length=filter_position,
+                polyorder=2,
+            )
+            .to_numpy()[:, 0]
+        )
+        cumulative_shift[:, i] = cumulative_shift[:, i] - smoothed_shift
+    return cumulative_shift
 
 def clamp_shift(shift: ArrayType, max_std_variation: float):
     shift_max = max_std_variation * statsmodels.robust.mad(shift, axis=0)
@@ -157,9 +175,14 @@ def get_variation(
     for i in range(len(variation_mean)):
         cutoff = variation_mean[i] + variation_std[i]
         variation[i, (variation[i, :, :] > cutoff)] = cutoff  # gives complex warning
-        variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
-            variation[i, :, :], 2 * binning
-        )
+        # variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
+        #     variation[i, :, :], 2 * binning
+        # )
+        variation[i, :, :] = gaussian_filter_conv_n(variation[i, :, :], 2 * binning)
+        # variation = utils.imgaussfilt3_conv(variation, [2*binning,2*binning,0]);
+        # boundary_correction = utils.imgaussfilt3_conv(ones(size(object,1), size(object,2), 'like', object), ...
+                                                    #   [2*binning,2*binning,0]); 
+
     variation = xp.real(variation[:, 0::binning, 0::binning])
 
     return variation

@@ -4,8 +4,9 @@ import numpy as np
 import dataclasses
 from enum import StrEnum
 from numbers import Number
+import tifffile as tiff
 from llama.api.enums import SpecialValuePlaceholder
-from llama.data_structures.projections import Projections, ShiftManager
+from llama.data_structures.projections import Projections
 from llama.data_structures.task import LaminographyAlignmentTask
 
 
@@ -40,7 +41,7 @@ def save_projections(projections: Projections, file_path: str, group_name: str, 
         "shear": projections.transform_tracker.shear,
         "downsample": projections.transform_tracker.scale,
         "applied_shifts": projections.shift_manager.past_shifts,
-        "staged_shift": projections.shift_manager.staged_shift, 
+        "staged_shift": projections.shift_manager.staged_shift,
     }
     h5_group = h5_obj.create_group(group_name)
     # Save all elements from save_attr_dict to the .h5 file
@@ -109,3 +110,24 @@ def save_string_to_h5(h5_obj: Union[h5py.Group, h5py.File], string: str, value_n
         h5_obj.create_dataset(value_name, data=string._value_)
     else:
         h5_obj.create_dataset(value_name, data=string)
+
+
+def save_options_to_h5_file(file_path: str, options):
+    F = h5py.File(file_path, "w")
+    save_generic_data_structure_to_h5(options, F)
+    F.close()
+
+
+def convert_to_uint_16(images: np.ndarray, min: float = None, max: float = None):
+    if min is None:
+        min = images.min()
+    if max is None:
+        max = images.max()
+    delta = max - min
+    images[images < min] = min
+    images[images > max] = max
+    return (65535 * (images - min) / delta).astype(np.uint16)
+
+
+def save_array_as_tiff(images: np.ndarray, file_path: str, min: float = None, max: float = None):
+    tiff.imwrite(file_path, convert_to_uint_16(images, min, max))

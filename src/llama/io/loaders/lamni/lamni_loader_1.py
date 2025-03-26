@@ -5,9 +5,11 @@ import h5py
 from llama.api.types import c_type
 from llama.io.loaders.lamni.base_loader import LamniLoader
 from llama.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
+from llama.timing.timer_utils import InlineTimer, timer
 
 
 class LamniLoaderVersion1(LamniLoader):
+    @timer()
     def get_projections_folders_and_file_names(self):
         """
         Generate the folder path for all projections and get a list of
@@ -28,6 +30,7 @@ class LamniLoaderVersion1(LamniLoader):
             flush=True,
         )
 
+    @timer()
     def record_projection_path_and_files(self, folder: str, scan_number: int):
         if os.path.exists(folder) and os.listdir(folder) != []:
             self.projection_folders[scan_number] = folder
@@ -41,6 +44,7 @@ class LamniLoaderVersion1(LamniLoader):
         h5.close()
         return projection
 
+    @timer()
     def load_probe(self):
         # I assume all probes are similar, and I just load the first scan's probe
         probe = load_probe_from_h5_file(self.selected_projection_file_paths[self.scan_numbers[0]])
@@ -52,6 +56,7 @@ class LamniLoaderVersion1(LamniLoader):
                 + "Fix the load_probe method."
             )
 
+    @timer()
     def load_positions(self):
         self.probe_positions = {}
         for scan_number in self.scan_numbers:
@@ -64,27 +69,35 @@ class LamniLoaderVersion1(LamniLoader):
             center_pixel = np.array(self.projections[scan_number].shape) / 2
             self.probe_positions[scan_number] -= center_pixel
 
+    @timer()
     def load_projection_params(self):
         self.pixel_size = load_params_from_h5_file(
             self.selected_projection_file_paths[self.scan_numbers[0]]
         )
 
+
+@timer()
 def load_params_from_h5_file(file_path):
     with h5py.File(file_path) as F:
         pixel_size = F["reconstruction"]["p"]["dx_spec"][()][0][0]
     return pixel_size
 
+
+@timer()
 def load_probe_from_h5_file(file_path: str):
     with h5py.File(file_path) as F:
         probe = F["reconstruction"]["probes"][()]
     return probe
 
 
+@timer()
 def load_positions_from_h5_file(file_path: str):
     with h5py.File(file_path) as F:
         positions = F["reconstruction"]["p"]["positions_0"][()].transpose()
     return positions
 
+
+@timer()
 def generate_projection_relative_path(
     scan_number: int, n_digits: int, n_scans_per_folder: int
 ) -> str:
@@ -102,6 +115,7 @@ def generate_projection_relative_path(
     )
 
 
+@timer()
 def generate_projection_group_sub_folder(
     scan_number: int, n_scans_per_folder: int, n_digits: int
 ) -> str:

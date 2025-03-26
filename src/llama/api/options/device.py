@@ -7,9 +7,9 @@ from llama.api import enums
 
 @dataclasses.dataclass
 class GPUOptions:
-    chunking_enabled: bool = False
+    chunking_enabled: bool = True
 
-    chunk_length: int = 100
+    chunk_length: int = 20
 
     n_gpus: int = 1
 
@@ -19,6 +19,6 @@ class GPUOptions:
 
 @dataclasses.dataclass
 class DeviceOptions:
-    device_type: enums.DeviceType = enums.DeviceType.CPU
+    device_type: enums.DeviceType = enums.DeviceType.GPU
 
     gpu: GPUOptions = field(default_factory=GPUOptions)

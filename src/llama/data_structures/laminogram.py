@@ -6,12 +6,13 @@ import astra
 import copy
 from llama.api.constants import divisor
 from llama.api.options.device import DeviceOptions
-from llama.api.options.plotting import ImagePlotOptions
+from llama.api.options.plotting import PlotDataOptions
 from llama.api.options.transform import RotationOptions
 from llama.gpu_utils import get_scipy_module, pin_memory
 
 import llama.image_processing as ip
 from llama import reconstruct
+from llama.io.save import save_array_as_tiff
 from llama.plotting.plotters import plot_slice_of_3D_array
 import llama.data_structures.projections as projections
 from llama.timing.timer_utils import timer
@@ -23,26 +24,22 @@ from llama.transformations.functions import image_rotate_fft
 
 
 class Laminogram:
-    astra_config: dict = None
-    object_geometries: dict = None
-    scan_geometry_config: dict = None
-    vectors: np.ndarray = None
-    forward_projection_id: int = None
-    optimal_rotation_angles: Sequence[float] = [0, 0, 0]
-
     def __init__(
         self,
         projections: "projections.PhaseProjections",
     ):
         # Store a reference to the projections
         self.projections = projections
-        # self.options = copy.deepcopy(projections.options.reconstruct)
-        # self.experiment_options = copy.deepcopy(projections.options.experiment)
         self.options = projections.options.reconstruct
         self.experiment_options = projections.options.experiment
-        self.scan_geometry_config, self.vectors, self.object_geometries = (
-            self.intialize_astra_reconstructor_inputs()
-        )
+
+        self.astra_config: dict = None
+        self.object_geometries: dict = None
+        self.scan_geometry_config: dict = None
+        self.vectors: np.ndarray = None
+        self.forward_projection_id: int = None
+        self.is_initialized: bool = False
+        self.optimal_rotation_angles: Sequence[float] = [0, 0, 0]
 
     @property
     def n_layers(self):
@@ -73,11 +70,12 @@ class Laminogram:
         # self.experiment_options = copy.deepcopy(self.projections.options.experiment)
 
         # Re-initialize the inputs and clear outputs
-        if reinitialize_astra:
+        if reinitialize_astra or not self.is_initialized:
             self.clear_astra_objects()
             self.scan_geometry_config, self.vectors, self.object_geometries = (
                 self.intialize_astra_reconstructor_inputs()
             )
+            self.is_initialized = True
 
         if filter_inputs:
             sinogram = reconstruct.filter_sinogram(
@@ -101,9 +99,13 @@ class Laminogram:
                 self.astra_config,
             )
 
+        device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
+        cp.cuda.Device(device).use()
         self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
+        cp.cuda.Device(device).use()
 
+    @timer()
     def get_forward_projection(
         self,
         pinned_forward_projection: Optional[np.ndarray] = None,
@@ -120,7 +122,9 @@ class Laminogram:
         if forward_projection_id is None:
             forward_projection_id = self.forward_projection_id
 
+        device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
+        cp.cuda.Device(device).use()
         forward_projections, forward_projection_id = reconstruct.get_forward_projection(
             reconstruction=self.data,
             object_geometries=self.object_geometries,
@@ -129,6 +133,7 @@ class Laminogram:
             forward_projection_id=forward_projection_id,
             return_id=True,
         )
+        cp.cuda.Device(device).use()
 
         if is_new_sino_id_created:
             self.forward_projection_id = forward_projection_id
@@ -152,10 +157,12 @@ class Laminogram:
         radial_smooth: int = 0,
         rad_apod: int = 0,
     ) -> np.ndarray:
+        device = cp.cuda.Device()
         if forward_project_gpu_indices is None:
             astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
         else:
             astra.set_gpu_index(forward_project_gpu_indices)
+        cp.cuda.Device(device).use()
 
         reconstruction_mask = self.get_circular_window(radial_smooth, rad_apod)
         reconstruction_mask = np.repeat(reconstruction_mask[None], self.n_layers, axis=0)
@@ -195,7 +202,8 @@ class Laminogram:
         else:
             self.data[:] = self.data * circulo
 
-    def get_circular_window(self, radial_smooth: int = 5, rad_apod: int = 0):
+    def get_circular_window(self, radial_smooth: int, rad_apod: int):
+        # was 5 and 0
         # Generate circular mask for reconstruction
         return ip.apply_3D_apodization(
             image=np.zeros(self.projections.reconstructed_object_dimensions),
@@ -205,11 +213,11 @@ class Laminogram:
 
     def plot_data(
         self,
-        options: Optional[ImagePlotOptions] = None,
+        options: Optional[PlotDataOptions] = None,
         show_plot: bool = True,
     ):
         if options is None:
-            options = ImagePlotOptions()
+            options = PlotDataOptions()
         else:
             options = copy.deepcopy(options)
 
@@ -268,6 +276,17 @@ class Laminogram:
         )
         self.optimal_rotation_angles = [0, 0, 0]
         self.data = rotated_reconstruction
+
+    def save_as_tiff(
+        self,
+        file_path: str,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
+        data: Optional[np.ndarray] = None,
+    ):
+        if data is None:
+            data = self.data
+        save_array_as_tiff(data, file_path, min, max)
 
 
 def get_tomogram_rotation_angles(
@@ -400,7 +419,6 @@ def get_optimized_sparseness_angle(
     else:
         plt.imshow(image_slice, cmap="bone")
     # Plot the rotated image slice
-    plt.title("Rotated slice")
     plt.sca(rotated_slice_axis)
     rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
     if isinstance(rotated_image_slice, cp.ndarray):

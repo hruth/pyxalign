@@ -8,12 +8,15 @@ from .transform import (
     TransformOptions,
     RotationOptions,
     ShearOptions,
+    PadOptions,
 )
 from .alignment import (
     AlignmentOptions,
     CrossCorrelationOptions,
     ProjectionMatchingOptions,
     ProjectionMatchingPlotOptions,
+    SecondaryMaskOptions,
+    ReconstructionMaskOptions,
 )
 from .projections import (
     CoordinateSearchOptions,
@@ -32,7 +35,7 @@ from .options import (
 )
 from .plotting import (
     UpdatePlotOptions,
-    ImagePlotOptions,
+    PlotDataOptions,
     ScalebarOptions,
     SliderPlotOptions,
     ImageSliderPlotOptions,

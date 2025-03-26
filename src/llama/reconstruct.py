@@ -168,11 +168,17 @@ def update_astra_reconstructor_sinogram(sinogram: np.ndarray, astra_config: dict
 @timer()
 def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarray, dict, dict]:
     # Create the algorithm object from the configuration structure
+    inline_timer = InlineTimer("create astra algorithm ID")
+    inline_timer.start()
     alg_id = astra.algorithm.create(astra_config)
+    inline_timer.end()
 
     # Run the reconstruction algorithm
     astra.algorithm.run(alg_id)
-    # astra.algorithm.clear() # !!
+    inline_timer = InlineTimer("Clear astra algorithm ID")
+    inline_timer.start()
+    astra.algorithm.clear()
+    inline_timer.end()
 
     # Retrieve the reconstruction
     # rec = astra.data3d.get_shared(astra_config['ReconstructionDataId'])

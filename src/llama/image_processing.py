@@ -140,10 +140,10 @@ def get_filtered_image_gradient(images: ArrayType, axis: int, high_pass_filter: 
         images = scipy_module.fft.ifft(images, axis=2)
     if axis == 1:
         X = 2j * xp.pi * scipy.fft.fftshift(xp.arange(0, Np[1], dtype=r_type) / Np[1] - 0.5)
-        images = scipy_module.fft.fft2(images)
-        images = images * X[:, xp.newaxis]
-        images = apply_1D_high_pass_filter(images, 2, high_pass_filter, False)
-        images = scipy_module.fft.ifft2(images)
+        images = scipy_module.fft.fft(images, axis=1)
+        images = images * X[:, None]
+        images = apply_1D_high_pass_filter(images, 1, high_pass_filter, False)
+        images = scipy_module.fft.ifft(images, axis=1)
 
     return images
 

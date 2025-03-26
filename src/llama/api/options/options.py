@@ -57,7 +57,7 @@ class PhaseUnwrapOptions:
 
     iterations: int = 10
 
-    poly_fit_order: int = 1
+    # poly_fit_order: int = 1
 
     lsq_fit_ramp_removal: bool = False
 
@@ -68,4 +68,4 @@ class RegularizationOptions:
 
     local_TV: bool = False
 
-    local_TV_lambda: float = 3e-4
+    local_TV_lambda: float = 1e-4

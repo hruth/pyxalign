@@ -1,6 +1,7 @@
-import copy
 from typing import Optional
 import numpy as np
+import h5py
+from llama import gpu_utils
 from llama.data_structures.projections import (
     ComplexProjections,
     PhaseProjections,
@@ -12,8 +13,9 @@ from llama.alignment.projection_matching import ProjectionMatchingAligner
 from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
+from llama.io.save import save_generic_data_structure_to_h5
 from llama.timing.timer_utils import clear_timer_globals
-import matplotlib.pyplot as plt
+
 
 class LaminographyAlignmentTask:
     pma_object: ProjectionMatchingAligner = None
@@ -29,30 +31,40 @@ class LaminographyAlignmentTask:
             raise Exception(
                 "Projections must be included when creating an instance of LaminographyAlignmentTask"
             )
-        
+
         self.complex_projections = complex_projections
         self.phase_projections = phase_projections
 
-    def get_cross_correlation_shift(self):
+    def get_cross_correlation_shift(
+        self,
+        projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
+        illum_sum: np.ndarray = None,
+    ):
         clear_timer_globals()
         # Only for complex projections for now
         # Does this really need to be saved as an attribute?
+        if projection_type == enums.ProjectionType.COMPLEX:
+            projections = self.complex_projections
+        else:
+            projections = self.phase_projections
         self.cross_correlation_aligner = CrossCorrelationAligner(
-            self.complex_projections, self.options.cross_correlation
+            projections, self.options.cross_correlation
         )
         # Placeholder for actual illum_sum
-        self.illum_sum = np.ones_like(self.complex_projections.data[0], dtype=r_type)
+        if illum_sum is None:
+            self.illum_sum = np.ones_like(projections.data[0], dtype=r_type)
+        else:
+            self.illum_sum = illum_sum
         shift = self.cross_correlation_aligner.run(self.illum_sum)
-        self.complex_projections.shift_manager.stage_shift(
+        projections.shift_manager.stage_shift(
             shift=shift,
             function_type=enums.ShiftType.CIRC,
             alignment_options=self.options.cross_correlation,
         )
-        self.complex_projections.plot_staged_shift("Cross-correlation Shift")
+        projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
 
-
-    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray]=None):
+    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray] = None):
         if self.pma_object is not None and hasattr(self.pma_object, "aligned_projections"):
             # Clear old astra objects
             self.pma_object.aligned_projections.laminogram.clear_astra_objects()
@@ -61,7 +73,9 @@ class LaminographyAlignmentTask:
         self.pma_object = ProjectionMatchingAligner(
             self.phase_projections, self.options.projection_matching
         )
+        # Run the projection matching alignment algorithm
         shift = self.pma_object.run(initial_shift=initial_shift)
+        # Store the result in the ShiftManager object
         self.phase_projections.shift_manager.stage_shift(
             shift=shift,
             function_type=enums.ShiftType.FFT,
@@ -74,23 +88,34 @@ class LaminographyAlignmentTask:
         self.complex_projections.get_masks(enable_plotting)
 
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
+        if (
+            self.phase_projections is not None
+            and gpu_utils.is_pinned(self.phase_projections.data)
+            and pinned_results is not None
+        ):
+            pinned_results = gpu_utils.pin_memory(self.phase_projections.data)
+        elif pinned_results is None:
+            pinned_results = gpu_utils.create_empty_pinned_array(
+                self.complex_projections.data.shape, dtype=r_type
+            )
+
         unwrapped_projections = self.complex_projections.unwrap_phase(pinned_results)
-        # self.phase_projections = PhaseProjections(
-        #     projections=unwrapped_projections,
-        #     angles=self.complex_projections.angles * 1,
-        #     options=self.complex_projections.options,
-        #     masks=self.complex_projections.masks, # need to copy if not deleting complex projections
-        #     scan_numbers=self.complex_projections.scan_numbers * 1,
-        #     probe_positions=self.complex_projections.probe_positions.data * 1,
-        #     probe = copy.deepcopy(self.complex_projections.probe),
-        #     transform_tracker=self.complex_projections.transform_tracker,
-        #     shift_manager=copy.deepcopy(self.complex_projections.shift_manager),
-        #     center_of_rotation=copy.deepcopy(self.complex_projections.center_of_rotation),
-        #     skip_pre_processing=True,
-        #     add_center_offset_to_positions=False,
-        # )
         kwargs = get_kwargs_for_copying_to_new_projections_object(
             self.complex_projections, include_projections_copy=False
         )
         self.phase_projections = PhaseProjections(projections=unwrapped_projections, **kwargs)
 
+    def save_task(self, file_path: str, exclude: list[str] = []):
+        save_attr_strings = ["complex_projections", "phase_projections"]
+        with h5py.File(file_path, "w") as h5_obj:
+            for attr in save_attr_strings:
+                if (
+                    attr in self.__dict__.keys()
+                    and getattr(self, attr) is not None
+                    and attr not in exclude
+                ):
+                    # save_projections(getattr(self, attr), file_path, attr, h5_obj)
+                    projection: Projections = getattr(self, attr)
+                    projection.save_projections_object(h5_obj=h5_obj.create_group(attr))
+            save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
+            print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")

@@ -53,12 +53,17 @@ def estimate_center_of_rotation(
     # Still need to update this for different croppings
 
     # Override projection matching options
+    options = copy.deepcopy(options)
     options.projection_matching.downsample.enabled = False
     options.projection_matching.crop.enabled = False
     if options.downsample.enabled:
         scale = options.downsample.scale
     else:
         scale = 1
+    options.projection_matching.secondary_mask.rad_apod /= scale
+    options.projection_matching.secondary_mask.radial_smooth /= scale
+    options.projection_matching.reconstruction_mask.rad_apod /= scale
+    options.projection_matching.reconstruction_mask.radial_smooth /= scale
 
     # Create a new projections object
     # downsampled_projections = proj.PhaseProjections(

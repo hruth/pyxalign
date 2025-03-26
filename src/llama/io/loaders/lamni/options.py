@@ -32,6 +32,10 @@ class LamniLoadOptions:
     "Lower bound of scans to include."
     scan_end: Optional[int] = None
     "Upper bound of scans to include."
+    only_include_files_with: Optional[list[str]] = None
+    "Only include files with these strings in the metadata string."
+    exclude_files_with: Optional[list[str]] = None
+    "Exclude files with any of these strings in the metadata string."
 
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):

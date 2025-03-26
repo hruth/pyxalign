@@ -1,4 +1,3 @@
-from ctypes import Array
 from typing import Optional
 import cupy as cp
 import numpy as np
@@ -8,22 +7,20 @@ import cupyx.scipy.ndimage
 import scipy.ndimage
 import skimage
 import scipy.fft
-import time
 from tqdm import tqdm
 from contextlib import nullcontext
-import matplotlib.pyplot as plt
 from llama import gpu_utils
 from llama.api.options.device import DeviceOptions
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.interactions.mask import illum_map_threshold_plotter
 from llama.transformations.helpers import is_array_real
-from IPython.display import clear_output, display
+from IPython.display import display
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from llama.api.options.options import MaskOptions
-from llama.gpu_utils import memory_releasing_error_handler, get_scipy_module
+from llama.gpu_utils import memory_releasing_error_handler
 from llama.timing.timer_utils import timer, InlineTimer
 from llama.api.types import ArrayType, r_type
 
@@ -299,5 +296,7 @@ class IlluminationMapMaskBuilder:
             if not self.threshold_selector.is_final_value:
                 raise Exception
             thresh = self.threshold_selector.threshold
-        self.masks[self.masks > thresh] = 1
-        self.masks[self.masks < thresh] = 0
+
+        clip_idx = self.masks > thresh
+        self.masks[:] = 0
+        self.masks[clip_idx] = 1

@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, Union
 
 from llama.io.loaders.base import StandardData
+from llama.io.loaders.lamni.base_loader import LamniLoader
 from llama.io.loaders.lamni.options import LamniLoadOptions
 from llama.io.loaders.lamni.utils import load_experiment
 
@@ -10,7 +11,8 @@ def load_data_from_lamni_format(
     parent_projections_folder: str,
     n_processes: int = 1,
     options: Optional[LamniLoadOptions] = None,
-) -> StandardData:
+    return_loader_object: bool = False,
+) -> Union[StandardData, tuple[StandardData, LamniLoader]]:
     """
     Function for loading lamni-formatted projection data and returning
     it in the standardized format.
@@ -36,4 +38,7 @@ def load_data_from_lamni_format(
         lamni_loader.pixel_size,
     )
 
-    return standard_data
+    if return_loader_object:
+        return standard_data, lamni_loader
+    else:
+        return standard_data

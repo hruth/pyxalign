@@ -65,3 +65,7 @@ class RoundType(StrEnum):
     CEIL = auto()
     FLOOR = auto()
     NEAREST = auto()
+
+class ProjectionType(StrEnum):
+    COMPLEX = auto()
+    PHASE = auto()

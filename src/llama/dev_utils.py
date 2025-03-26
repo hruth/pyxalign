@@ -43,7 +43,7 @@ def refresh_projections(stale_projections: Projections) -> Projections:
                 skip_pre_processing=True,
                 add_center_offset_to_positions=False,
             )
-            # new_projections.pixel_size = stale_projections.pixel_size
+            new_projections.dropped_scan_numbers = stale_projections.dropped_scan_numbers
     return new_projections
 
 

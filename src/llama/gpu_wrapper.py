@@ -395,6 +395,10 @@ def device_handling_wrapper(
             return result
 
         ### case 2: on gpu, multiple chunks, and potentially multiple GPUs ###
+
+        # Synchronize with null streams before and after execution
+        synchronize_with_null(options)
+
         stream_list = create_streams(options)
 
         inputs = InputArgumentsHandler(
@@ -417,9 +421,19 @@ def device_handling_wrapper(
         iterator = Iterator(inputs, outputs, func, display_progress_bar, stream_list)
         iterator.run(kwargs)
 
+        synchronize_with_null(options)
+
         return outputs.full_results
 
     return wrapped
+
+
+@timer()
+def synchronize_with_null(device_options: DeviceOptions):
+    gpu_list = device_options.gpu.gpu_indices[: device_options.gpu.n_gpus]
+    for gpu in gpu_list:
+        with cp.cuda.Device(gpu):
+            cp.cuda.stream.Stream(null=True).synchronize()
 
 
 @timer()
