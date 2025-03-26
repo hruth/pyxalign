@@ -199,13 +199,14 @@ def get_boolean_user_input(prompt: str) -> bool:
             print("Invalid input. Please enter 'y' or 'n'.", flush=True)
 
 
+# This function should probably be in "api" since
+# since the user expectd to call it
 def convert_projection_dict_to_array(
     projections: dict[int, np.ndarray],
     new_shape: Optional[tuple] = None,
     repair_orientation: bool = False,
     pad_mode: str = "constant",
     pad_with_mode: bool = False,
-    # divisible_by: int = 32,
     chunk_length: int = 250,
     delete_projection_dict: bool = False,
 ) -> np.ndarray:

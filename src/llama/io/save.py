@@ -6,7 +6,7 @@ from enum import StrEnum
 from numbers import Number
 from llama.api.enums import SpecialValuePlaceholder
 from llama.data_structures.projections import Projections, ShiftManager
-from llama.task import LaminographyAlignmentTask
+from llama.data_structures.task import LaminographyAlignmentTask
 
 
 def save_task(task: LaminographyAlignmentTask, file_path: str, exclude: list[str] = []):

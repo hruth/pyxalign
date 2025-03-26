@@ -4,7 +4,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from llama.api.constants import divisor
-from llama.api.options.plotting import ImagePlotOptions
+from llama.api.options.plotting import ImagePlotOptions, ImageSliderPlotOptions
 from llama.estimate_center import (
     estimate_center_of_rotation,
     CenterOfRotationEstimateResults,
@@ -34,7 +34,8 @@ from llama.data_structures.laminogram import Laminogram
 
 from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
 
-import llama.plotting.plotters as plotters
+# import llama.plotting.plotters as plotters
+from llama.plotting.plotters import make_image_slider_plot, plot_slice_of_3D_array, ImagePlotObject
 from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import Downsampler, Rotator, Shearer, Shifter, Upsampler, Cropper
 from llama.transformations.functions import (
@@ -48,7 +49,6 @@ from llama.unwrap import unwrap_phase
 from llama.data_structures.positions import ProbePositions
 from llama.api.types import ArrayType, r_type
 from llama.transformations.helpers import round_to_divisor
-from llama.api.constants import divisor
 
 
 class TransformTracker:
@@ -79,7 +79,7 @@ class TransformTracker:
 
 class Projections:
     mask_builder: IlluminationMapMaskBuilder = None
-    dropped_scan_numbers: list = []
+    dropped_scan_numbers: np.ndarray = np.array([], int)
 
     @timer()
     def __init__(
@@ -346,7 +346,7 @@ class Projections:
         "Permanently remove specific projections from object"
         keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
 
-        self.dropped_scan_numbers += self.scan_numbers[remove_idx]
+        self.dropped_scan_numbers = np.append(self.dropped_scan_numbers, self.scan_numbers[remove_idx])
 
         def return_modified_array(arr):
             if gpu_utils.is_pinned(self.data):
@@ -403,11 +403,11 @@ class Projections:
         )
 
     def plot_projections(self, process_function: callable = lambda x: x):
-        plotters.make_image_slider_plot(process_function(self.data))
+        make_image_slider_plot(process_function(self.data))
 
     def plot_shifted_projections(self, shift: np.ndarray, process_function: callable = lambda x: x):
         "Plot the shifted projections using the shift that was passed in."
-        plotters.make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
+        make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
 
     def plot_sum_of_projections(
         self, process_function: callable = lambda x: x, show_cor: bool = False
@@ -514,7 +514,7 @@ class Projections:
             full_title = title_string + "\n" + full_title
         plt.title(full_title)
 
-        plotters.plot_slice_of_3D_array(
+        plot_slice_of_3D_array(
             projection_data,
             options,
             self.pixel_size,
@@ -548,6 +548,14 @@ class Projections:
         plt.xlabel("scan number")
         plt.ylabel("shift (px)")
         plt.show()
+
+    def get_plot_object(
+        self,
+        plot_options: Optional[ImageSliderPlotOptions] = None,
+    ) -> ImagePlotObject:
+        plot_object = ImagePlotObject(self.data, options=plot_options)
+        return plot_object
+
 
 
 class ComplexProjections(Projections):
@@ -649,11 +657,7 @@ class ShiftManager:
         if device_options is None:
             device_options = DeviceOptions()
         if self.is_shift_nonzero():
-            shift_options = ShiftOptions(
-                enabled=True,
-                type=self.staged_function_type,
-                device=device_options,
-            )
+            shift_options = self.get_staged_shift_options(device_options)
             images[:] = Shifter(shift_options).run(
                 images=images,
                 shift=self.staged_shift,
@@ -662,6 +666,18 @@ class ShiftManager:
             self.unstage_shift()
         else:
             print("There is no shift to apply!")
+
+    def get_staged_shift_options(
+        self,
+        device_options: Optional[DeviceOptions] = None,
+    ) -> ShiftOptions:
+        if device_options is None:
+            device_options = DeviceOptions()
+        return ShiftOptions(
+            enabled=True,
+            type=self.staged_function_type,
+            device=device_options,
+        )
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:

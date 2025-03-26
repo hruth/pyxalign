@@ -51,7 +51,7 @@ class ImagePlotObject(PlotObject):
     axes_object: AxesImage = None
 
     def plot_callback(self, idx) -> callable:
-        self.options.image.index = idx
+        self.options.image.index = idx * 1
         plt.title(self.create_title_string(idx))
         self.axes_object = plot_slice_of_3D_array(
             images=self.array,
@@ -105,6 +105,7 @@ def make_image_slider_plot(
     plot_objects: Sequence[PlotObject],
     subplot_dims: Optional[Sequence] = None,
     interval: int = 500,
+    sort_idx: Optional[Sequence] = None
 ):
     if isinstance(plot_objects, PlotObject):
         plot_objects = [plot_objects]
@@ -161,7 +162,11 @@ def make_image_slider_plot(
                 # Use pre-set subplot location
                 ax[plot_idx].axis("off")
                 plt.subplot(*plot_object.options.slider.subplot_idx)
-            plot_object.plot_callback(idx)
+            if sort_idx is not None:
+                # idx = sort_idx[idx] * 1
+                plot_object.plot_callback(sort_idx[idx])
+            else:
+                plot_object.plot_callback(idx)
         # fig.canvas.draw_idle()
         if matplotlib_backend == "module://ipympl.backend_nbagg":
             pass

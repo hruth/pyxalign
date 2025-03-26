@@ -29,7 +29,7 @@ class CrossCorrelationAligner(Aligner):
     def run(self, illum_sum: np.ndarray) -> np.ndarray:
         projections = Cropper(self.options.crop).run(self.projections.data)
         illum_sum = Cropper(self.options.crop).run(illum_sum)
-        shift = self.calculate_alignment_shift(
+        shift = calculate_alignment_shift(
             projections=projections,
             angles=self.projections.angles,
             illum_sum=illum_sum,

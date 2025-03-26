@@ -7,7 +7,7 @@ from llama.api.options.task import AlignmentTaskOptions
 
 from llama.data_structures.projections import ComplexProjections, PhaseProjections, Projections
 from llama.api.options.projections import ProjectionOptions
-from llama.task import LaminographyAlignmentTask
+from llama.data_structures.task import LaminographyAlignmentTask
 
 
 def refresh_task(stale_task: LaminographyAlignmentTask) -> LaminographyAlignmentTask:
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     import llama.api.options as opts
     from llama.api import enums
     from llama.data_structures.projections import PhaseProjections  # this one has to be called after the reload
-    from llama.task import LaminographyAlignmentTask  # this one has to be called after the reload
+    from llama.data_structures.task import LaminographyAlignmentTask  # this one has to be called after the reload
     from llama.transformations.functions import image_shift_fft
     import numpy as np
 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     import llama.api.options as opts
     from llama.api import enums
     from llama.data_structures.projections import PhaseProjections  # this one has to be called after the reload
-    from llama.task import LaminographyAlignmentTask  # this one has to be called after the reload
+    from llama.data_structures.task import LaminographyAlignmentTask  # this one has to be called after the reload
     from llama.transformations.functions import (
         image_shift_fft,
     )  # this one has to be called after the reload

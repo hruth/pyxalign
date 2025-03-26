@@ -17,25 +17,6 @@ class Aligner(ABC):
     def run(self, *args, **kwargs) -> np.ndarray:
         pass
 
-    # def run(self, *args, **kwargs):
-    #     pre_processed_projections = PreProcess(self.options.pre_processing_options).run(
-    #         self.projections.data
-    #     )
-        # self.staged_shift = self.calculate_alignment_shift(
-        #     pre_processed_projections, self.projections.angles, *args, **kwargs
-        # )
-
-    # # How should arguments be specifed when implementing an abstract method?
-    # # can an abstract method be wrapped? 
     # @abstractmethod
-    # def run(self, options: AlignmentOptions, projections: ArrayType, *args, **kwargs):
+    # def calculate_alignment_shift(self, projections: ArrayType, *args, **kwargs) -> np.ndarray:
     #     pass
-
-    @abstractmethod
-    def calculate_alignment_shift(self, projections: ArrayType, *args, **kwargs) -> np.ndarray:
-        pass
-
-    # def unstage_shift(self):
-    #     if self.past_shifts != np.zeros((self.projections.n_projections, 2)):
-    #         self.past_shifts += [self.staged_shift]
-    #         self.staged_shift = np.zeros((self.projections.n_projections, 2))
