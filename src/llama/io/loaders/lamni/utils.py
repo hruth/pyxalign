@@ -112,7 +112,27 @@ def extract_experiment_data(
     experiment_names = dat_file_contents["experiment_name"].to_list()
     sequence_number = dat_file_contents["sequence"].to_numpy()
 
+    # remove duplicates if they are found
+    if len(np.unique(scan_numbers)) != len(scan_numbers):
+        print(
+            "WARNING: duplicate scan numbers found in experiment file. "
+            + "Only the first duplicate will be kept."
+        )
+        scan_numbers_no_duplicates = []
+        keep_idx = []
+        for i, scan in enumerate(scan_numbers):
+            if scan not in scan_numbers_no_duplicates:
+                scan_numbers_no_duplicates += [scan]
+                keep_idx += [i]
+        scan_numbers = scan_numbers[keep_idx]
+        angles = angles[keep_idx]
+        experiment_names = [experiment_names[i] for i in keep_idx]
+        sequence_number = sequence_number[keep_idx]
+
     return (scan_numbers, angles, experiment_names, sequence_number)
+
+# def remove_duplicates(scan_numbers, angles, experiment_names, sequence_number) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
+
 
 
 @timer()
@@ -163,14 +183,20 @@ def load_experiment(
     # Load probe
     selected_experiment.load_probe()
 
-    # Load probe positions
-    selected_experiment.load_positions()
+    # # Load probe positions
+    # selected_experiment.load_positions()
 
     # Load the rest of the available parameters
     selected_experiment.load_projection_params()
 
     # Load projections
     selected_experiment.load_projections(n_processes)
+
+    # Load probe positions
+    selected_experiment.load_positions()
+
+    # remove scan numbers, angle for items where no
+    # projection was loaded
 
     return selected_experiment
 
