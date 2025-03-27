@@ -96,7 +96,7 @@ class XRFTask:
             options=self.task_options.cross_correlation,
         )
         # Placeholder for actual illum_sum
-        self.illum_sum = np.ones_like(self.projections_dict[self._primary_channel], dtype=r_type)
+        self.illum_sum = np.ones_like(self.projections_dict[self._primary_channel].data, dtype=r_type)
         shift = self.cross_correlation_aligner.run(self.illum_sum)
         # Stage shift for all projections
         for channel, projections in self.projections_dict.items():
