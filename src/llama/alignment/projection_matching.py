@@ -217,6 +217,7 @@ class ProjectionMatchingAligner(Aligner):
         self.all_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
         self.all_unfiltered_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
         self.all_max_shift_step_size = np.array([], dtype=r_type)
+        self.all_shifts = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
 
     @timer()
     def get_shift_update(self):
@@ -264,9 +265,11 @@ class ProjectionMatchingAligner(Aligner):
         if self.memory_config == MemoryConfig.GPU_ONLY:
             self.all_errors[self.iteration] = self.pinned_error.get()
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error.get()
+            self.all_shifts[self.iteration] = self.total_shift.get()
         else:
             self.all_errors[self.iteration] = self.pinned_error * 1
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error * 1
+            self.all_shifts[self.iteration] = self.all_shifts * 1
 
     @timer()
     def post_process_shift(self):
