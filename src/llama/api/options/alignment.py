@@ -29,6 +29,8 @@ class CrossCorrelationOptions(AlignmentOptions):
 
     remove_slow_variation: bool = False
 
+    use_end_corrections: bool = False
+
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
     crop: CropOptions = field(default_factory=CropOptions)
