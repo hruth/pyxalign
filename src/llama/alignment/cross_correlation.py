@@ -94,20 +94,23 @@ class CrossCorrelationAligner(Aligner):
             # Remove smoothed shift
             if self.options.remove_slow_variation:
                 cumulative_shift = self.subtract_slow_variation(cumulative_shift)
-            # Add a linear correction to the shift, in order to
-            # remove the discontinuity between the first and last
-            # frame
-            offset = ip.get_cross_correlation_shift(
-                image=variation_fft[idx_sort[:1]],
-                image_ref=variation_fft[idx_sort[-1]],
-            )[0]
-            if self.options.device.device_type == enums.DeviceType.GPU:
-                offset = offset.get()
-            m1 = offset / n_angles
-            m2 = (cumulative_shift[0] - cumulative_shift[-1]) / n_angles
-            x = np.arange(0, n_angles)[:, None]
-            y =  m1 * x + m2 * x
-            cumulative_shift = cumulative_shift + y - y.mean(0)
+
+            if self.options.use_end_corrections:
+                # Add a linear correction to the shift, in order to
+                # remove the discontinuity between the first and last
+                # frame
+                offset = ip.get_cross_correlation_shift(
+                    image=variation_fft[idx_sort[:1]],
+                    image_ref=variation_fft[idx_sort[-1]],
+                )[0]
+                if self.options.device.device_type == enums.DeviceType.GPU:
+                    offset = offset.get()
+                m1 = offset / n_angles
+                # m2 = (cumulative_shift[0] - cumulative_shift[-1]) / n_angles
+                m2 = (cumulative_shift[:10].mean(0) - cumulative_shift[-10:].mean(0)) / n_angles
+                x = np.arange(0, n_angles)[:, None]
+                y =  m1 * x + m2 * x
+                cumulative_shift = cumulative_shift + y - y.mean(0)
 
             shift_total = shift_total + cumulative_shift[idx_sort_inverse, :]
             shift_total = self.clamp_shift(shift_total, 6)
