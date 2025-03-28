@@ -34,3 +34,4 @@ from .options import (
     RegularizationOptions,
 )
 from .plotting import UpdatePlotOptions, PlotDataOptions, ScalebarOptions
+from .tests import CITestOptions

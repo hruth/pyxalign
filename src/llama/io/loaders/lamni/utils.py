@@ -165,7 +165,9 @@ def load_experiment(
     selected_experiment.extract_metadata_from_all_titles(
         options.only_include_files_with, options.exclude_files_with
     )
-    selected_experiment.select_projections(options.selected_metadata_list)
+    selected_experiment.select_projections(
+        options.selected_metadata_list, options.ask_for_backup_files
+    )
     # Print data selection settings
     print("Use these settings to bypass user-selection on next load:")
     input_settings_string = (

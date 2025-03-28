@@ -139,8 +139,8 @@ class LamniLoader(ABC):
     @timer()
     def select_projections(
         self,
-        selected_metadata_list: Optional[None],
-        ask_for_backup_metadata: bool = True,
+        selected_metadata_list: Optional[list[str]],
+        ask_for_backup_metadata: bool,
     ):
         """
         Select which projections to load.
