@@ -15,3 +15,5 @@ class CITestOptions:
     atol: float = 1e-3
 
     rtol: float = 1e-3
+
+    proj_idx: tuple[int] = (0,)
