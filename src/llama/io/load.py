@@ -75,9 +75,9 @@ def load_projections(
                 add_center_offset_to_positions=False,
             )
             if "dropped_scan_numbers" in h5_obj[group].keys():
-                loaded_projections[group].dropped_scan_numbers = h5_obj[group][
-                    "dropped_scan_numbers"
-                ][()]
+                loaded_projections[group].dropped_scan_numbers = list(
+                    load_array(h5_obj[group], "dropped_scan_numbers")
+                )
     return loaded_projections
 
 
