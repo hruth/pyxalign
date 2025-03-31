@@ -33,11 +33,13 @@ class CITestHelper:
         )
         self.options = options
 
-    def save_or_compare_results(self, result, name: str):
+    def save_or_compare_results(
+        self, result, name: str, atol: Optional[float] = None, rtol: Optional[float] = None
+    ):
         if self.options.update_tester_results:
             self.save_results(result, name)
         else:
-            self.compare_results(result, name)
+            self.compare_results(result, name, atol, rtol)
 
     def save_results(self, result: str, name: str):
         save_arbitrary_result(
@@ -77,6 +79,10 @@ def compare_arbitrary_result(
             compare_arrays(result, F, array_save_string, atol, rtol)
         elif isinstance(result, LaminographyAlignmentTask):
             compare_tasks(result, F, atol, rtol, proj_idx)
+        else:
+            raise ValueError(
+                f"{type(result).__qualname__} is not a supported type for CI comparisons"
+            )
 
 
 def compare_tasks(
@@ -136,6 +142,10 @@ def save_arbitrary_result(result, folder: str, name: str, proj_idx: list[int]):
             save_array(result, F, array_save_string)
         elif isinstance(result, LaminographyAlignmentTask):
             save_task_ci(result, F, proj_idx)
+        else:
+            raise ValueError(
+                f"{type(result).__qualname__} is not a supported type for CI comparisons"
+            )
 
 
 def save_task_ci(
