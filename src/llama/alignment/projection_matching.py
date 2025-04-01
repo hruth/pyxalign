@@ -266,15 +266,15 @@ class ProjectionMatchingAligner(Aligner):
         inline_timer.end()
         self.post_process_shift()
 
-        self.total_shift += self.shift_update
         if self.memory_config == MemoryConfig.GPU_ONLY:
             self.all_errors[self.iteration] = self.pinned_error.get()
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error.get()
-            self.all_shifts[self.iteration] = self.total_shift.get()
+            # self.all_shifts[self.iteration] = self.shift_update.get()
         else:
             self.all_errors[self.iteration] = self.pinned_error * 1
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error * 1
-            self.all_shifts[self.iteration] = self.total_shift * 1
+            # self.all_shifts[self.iteration] = self.shift_update * 1
+        self.total_shift += self.shift_update
 
     @timer()
     def post_process_shift(self):
@@ -285,6 +285,13 @@ class ProjectionMatchingAligner(Aligner):
         idx = xp.abs(self.shift_update) > max_allowed_step
         self.shift_update[idx] = max_allowed_step * xp.sign(self.shift_update[idx])
         self.shift_update *= self.options.step_relax
+
+        # apply momentum
+        if self.memory_config == MemoryConfig.GPU_ONLY:
+            self.all_shifts[self.iteration] = self.shift_update.get()
+        else:
+            self.all_shifts[self.iteration] = self.shift_update * 1
+        self.get_shift_momentum()
 
         # Center the shifts around zero in the vertical direction
         self.shift_update[:, 1] = self.shift_update[:, 1] - xp.median(self.shift_update[:, 1])
@@ -311,75 +318,59 @@ class ProjectionMatchingAligner(Aligner):
 
     @timer()
     def get_shift_momentum(self):
-        if self.options.momentum.enabled:
-            xp = cp.get_array_module(self.all_shifts)
-            memory = self.options.momentum.memory
-            if self.iteration >= memory:
-                max_update = xp.quantile(xp.abs(self.shift_update), 0.995, axis=0)
-                eligible_axes = np.where(max_update * self.scale < 0.5)[0]
-                self.add_momentum_to_shift_update(axes=eligible_axes)
+        if not self.options.momentum.enabled:
+            return
 
-        # if par.momentum_acceleration
-        #     momentum_memory = 2; 
-        #     max_update = quantile(abs(shift_upd(valid_angles,:)), 0.995); 
-        #     if ii > momentum_memory
-        #         [shift_upd, shift_velocity]= add_momentum(shift_upd_all(ii-momentum_memory:ii,:,:), shift_velocity, max_update*par.binning < 0.5 );
-        #         %shift_upd_all(ii,:,:) = reshape(shift_upd, [1,Nangles,2]);
-        #     end
-        # else
-        #     if ii > 1
-        #         verbose(1, 'Correlation between two last updates x:%.3f%% y:%.3f%%', 100*corr(squeeze(shift_upd_all(ii-1,:,1))', squeeze(shift_upd_all(ii,:,1))'), 100*corr(squeeze(shift_upd_all(ii-1,:,2))', squeeze(shift_upd_all(ii,:,2))'))
-        #     end
-        # end
-    
+        xp = cp.get_array_module(self.all_shifts)
+        memory = self.options.momentum.memory
+        if self.iteration >= memory:
+            max_update = xp.quantile(xp.abs(self.shift_update), 0.995, axis=0)
+            eligible_axes = np.where(max_update * self.scale < 0.5)[0]
+            self.add_momentum_to_shift_update(axes=eligible_axes)
+
     @staticmethod
     def fminsearch(C: ArrayType, initial_guess=[0]):
         # Define the objective function
         def objective(x, C):
-            Nmem = len(C)  # Nmem should be the length of C
+            n_mem = len(C)  # Nmem should be the length of C
             # Create the array equivalent to MATLAB's [Nmem:-1:1]
-            arr = np.arange(Nmem, 0, -1)
+            arr = np.arange(n_mem, 0, -1)
             # Ensure that the array length matches the number of elements in C
             return np.linalg.norm(C - np.exp(-x * arr))
-        
-        result = minimize(objective, initial_guess, args=(C,), method='Nelder-Mead')
+
+        result = minimize(objective, initial_guess, args=(C,), method="Nelder-Mead")
         return result
 
-
-    def add_momentum_to_shift_update(self, shift_memory: ArrayType, velocity_map: ArrayType, axes):
+    def add_momentum_to_shift_update(self, axes: list[int]):
         xp = cp.get_array_module(self.all_shifts)
-        idx_memory = range(self.iteration - self.options.momentum.memory, self.iteration)
-        shift = self.all_shifts[idx_memory][-1]
-        n_mem = self.options.momentum.memory - 1
+        idx_memory = range(self.iteration - self.options.momentum.memory, self.iteration + 1)
+        shift = self.shift_update
+        n_mem = self.options.momentum.memory
 
         for ax in axes:
-            if np.all(shift[:, ax] == 0):
+            if np.all(self.shift_update[:, ax] == 0):
                 continue
             pearson_corr_coeffs = xp.zeros(n_mem, dtype=r_type)
             for i in range(n_mem):
                 pearson_corr_coeffs[i] = xp.corrcoef(
                     shift[:, ax], self.all_shifts[idx_memory[i], :, ax]
                 )[0, 1]
-            
+            if self.memory_config == MemoryConfig.GPU_ONLY:
+                pearson_corr_coeffs = pearson_corr_coeffs.get()
+
             # estimate friction
-            decay = self.fminsearch(pearson_corr_coeffs.get(), [0])
+            decay = self.fminsearch(pearson_corr_coeffs, [0]).x[0]
             friction = np.max([0, self.options.momentum.alpha * decay])
             friction = np.min([1, friction])
             # update velocity map
             self.velocity_map[:, i] = (1 - friction) * self.velocity_map[:, i] + shift[:, i]
             # update shift estimates
-            gain = self.options.momentum
+            gain = self.options.momentum.gain
             shift[:, i] = (1 - gain) * shift[:, i] + gain * self.velocity_map[:, i]
 
-        # numerator = np.linalg.norm(shift[:, acc_axes])
-        # denominator = np.linalg.norm(np.squeeze(shifts_memory[-1, :, acc_axes]))
-        # acc = numerator / denominator
-
-        # print(f"Momentum acceleration {acc:4.2f}x    friction {friction:4.2f}")
-
-
-        # acc = math.norm2(shift(:,acc_axes)) ./ math.norm2(squeeze(shifts_memory(end,:,acc_axes))); 
-        # utils.verbose(0,'Momentum acceleration %4.2fx    friction %4.2f', acc, friction )
+        # reinforce the reference, in case you make edits later and accidentally
+        # remove the reference
+        self.shift_update = shift
 
     @staticmethod
     def calculate_shift_update(
