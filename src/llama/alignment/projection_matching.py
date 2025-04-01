@@ -7,6 +7,7 @@ import numpy as np
 import cupy as cp
 import copy
 from collections import defaultdict
+from scipy.optimize import minimize
 
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
@@ -221,6 +222,7 @@ class ProjectionMatchingAligner(Aligner):
             shape=(self.options.iterations, *(self.shift_update.shape)),
             dtype=self.shift_update.dtype,
         )
+        self.velocity_map = np.zeros_like(self.shift_update)
 
     @timer()
     def get_shift_update(self):
@@ -306,6 +308,78 @@ class ProjectionMatchingAligner(Aligner):
         self.shift_update[:, 0] = (
             self.shift_update[:, 0] - xp.matmul(orthbase.transpose(), coefs)[:, 0]
         )
+
+    @timer()
+    def get_shift_momentum(self):
+        if self.options.momentum.enabled:
+            xp = cp.get_array_module(self.all_shifts)
+            memory = self.options.momentum.memory
+            if self.iteration >= memory:
+                max_update = xp.quantile(xp.abs(self.shift_update), 0.995, axis=0)
+                eligible_axes = np.where(max_update * self.scale < 0.5)[0]
+                self.add_momentum_to_shift_update(axes=eligible_axes)
+
+        # if par.momentum_acceleration
+        #     momentum_memory = 2; 
+        #     max_update = quantile(abs(shift_upd(valid_angles,:)), 0.995); 
+        #     if ii > momentum_memory
+        #         [shift_upd, shift_velocity]= add_momentum(shift_upd_all(ii-momentum_memory:ii,:,:), shift_velocity, max_update*par.binning < 0.5 );
+        #         %shift_upd_all(ii,:,:) = reshape(shift_upd, [1,Nangles,2]);
+        #     end
+        # else
+        #     if ii > 1
+        #         verbose(1, 'Correlation between two last updates x:%.3f%% y:%.3f%%', 100*corr(squeeze(shift_upd_all(ii-1,:,1))', squeeze(shift_upd_all(ii,:,1))'), 100*corr(squeeze(shift_upd_all(ii-1,:,2))', squeeze(shift_upd_all(ii,:,2))'))
+        #     end
+        # end
+    
+    @staticmethod
+    def fminsearch(C: ArrayType, initial_guess=[0]):
+        # Define the objective function
+        def objective(x, C):
+            Nmem = len(C)  # Nmem should be the length of C
+            # Create the array equivalent to MATLAB's [Nmem:-1:1]
+            arr = np.arange(Nmem, 0, -1)
+            # Ensure that the array length matches the number of elements in C
+            return np.linalg.norm(C - np.exp(-x * arr))
+        
+        result = minimize(objective, initial_guess, args=(C,), method='Nelder-Mead')
+        return result
+
+
+    def add_momentum_to_shift_update(self, shift_memory: ArrayType, velocity_map: ArrayType, axes):
+        xp = cp.get_array_module(self.all_shifts)
+        idx_memory = range(self.iteration - self.options.momentum.memory, self.iteration)
+        shift = self.all_shifts[idx_memory][-1]
+        n_mem = self.options.momentum.memory - 1
+
+        for ax in axes:
+            if np.all(shift[:, ax] == 0):
+                continue
+            pearson_corr_coeffs = xp.zeros(n_mem, dtype=r_type)
+            for i in range(n_mem):
+                pearson_corr_coeffs[i] = xp.corrcoef(
+                    shift[:, ax], self.all_shifts[idx_memory[i], :, ax]
+                )[0, 1]
+            
+            # estimate friction
+            decay = self.fminsearch(pearson_corr_coeffs.get(), [0])
+            friction = np.max([0, self.options.momentum.alpha * decay])
+            friction = np.min([1, friction])
+            # update velocity map
+            self.velocity_map[:, i] = (1 - friction) * self.velocity_map[:, i] + shift[:, i]
+            # update shift estimates
+            gain = self.options.momentum
+            shift[:, i] = (1 - gain) * shift[:, i] + gain * self.velocity_map[:, i]
+
+        # numerator = np.linalg.norm(shift[:, acc_axes])
+        # denominator = np.linalg.norm(np.squeeze(shifts_memory[-1, :, acc_axes]))
+        # acc = numerator / denominator
+
+        # print(f"Momentum acceleration {acc:4.2f}x    friction {friction:4.2f}")
+
+
+        # acc = math.norm2(shift(:,acc_axes)) ./ math.norm2(squeeze(shifts_memory(end,:,acc_axes))); 
+        # utils.verbose(0,'Momentum acceleration %4.2fx    friction %4.2f', acc, friction )
 
     @staticmethod
     def calculate_shift_update(
