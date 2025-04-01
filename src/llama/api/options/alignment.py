@@ -64,6 +64,16 @@ class SecondaryMaskOptions:
 
 
 @dataclasses.dataclass
+class StepMomentum:
+    enabled: bool = False
+
+    memory: int = 2
+
+    alpha: float = 2
+    
+    gain: float = 0.5
+
+@dataclasses.dataclass
 class ProjectionMatchingOptions(AlignmentOptions):
     iterations: int = 300
 
@@ -100,6 +110,8 @@ class ProjectionMatchingOptions(AlignmentOptions):
     mask_shift_type: enums.ShiftType = enums.ShiftType.CIRC
 
     filter_directions: tuple[int] = (2,)
+
+    momentum: StepMomentum = field(default_factory=StepMomentum)
 
     plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
 
