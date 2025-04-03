@@ -88,3 +88,4 @@ def convert_to_uint_16(images: np.ndarray, min: float = None, max: float = None)
 
 def save_array_as_tiff(images: np.ndarray, file_path: str, min: float = None, max: float = None):
     tiff.imwrite(file_path, convert_to_uint_16(images, min, max))
+    print(f"File saved to: {file_path}")
