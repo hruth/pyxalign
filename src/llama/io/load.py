@@ -75,9 +75,10 @@ def load_projections(
                 add_center_offset_to_positions=False,
             )
             if "dropped_scan_numbers" in h5_obj[group].keys():
-                loaded_projections[group].dropped_scan_numbers = h5_obj[group][
-                    "dropped_scan_numbers"
-                ][()]
+                dropped_scan_numbers = h5_obj[group]["dropped_scan_numbers"][()]
+                if is_null_type(dropped_scan_numbers):
+                    dropped_scan_numbers = handle_null_type(dropped_scan_numbers)
+                loaded_projections[group].dropped_scan_numbers = dropped_scan_numbers
     return loaded_projections
 
 
