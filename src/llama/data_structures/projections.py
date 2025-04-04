@@ -391,9 +391,9 @@ class Projections:
                 arr = arr[keep_idx]
             return arr
 
-        self.data = return_modified_array(self.data)
+        self.data = return_modified_array(self.data, repin_array)
         if self.masks is not None:
-            self.masks = return_modified_array(self.masks)
+            self.masks = return_modified_array(self.masks, repin_array)
         if self.probe_positions is not None:
             self.probe_positions.data = [self.probe_positions.data[i] for i in keep_idx]
         self.angles = self.angles[keep_idx]
@@ -713,6 +713,8 @@ class ShiftManager:
         self.past_shifts: List[np.ndarray] = []
         self.past_shift_functions: List[enums.ShiftType] = []
         self.past_shift_options: List[AlignmentOptions] = []
+        self.staged_function_type = None
+        self.staged_alignment_options = None
 
     def stage_shift(
         self,

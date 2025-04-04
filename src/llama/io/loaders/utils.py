@@ -136,6 +136,7 @@ def generate_input_user_prompt(
     use_option: Optional[str] = None,
     select_all_info: Optional[str] = None,
 ) -> tuple[int, str]:
+    select_all_string = "select all"
     if select_all_info is None:
         select_all_info = ""
 
@@ -155,7 +156,6 @@ def generate_input_user_prompt(
         prompt = f"Select the {load_object_type_string} to load:\n"
 
     if allow_multiple_selections:
-        select_all_string = "select all"
         options_list = [select_all_string] + options_list
         options_info_list = [""] + options_info_list
 
@@ -229,8 +229,8 @@ def convert_projection_dict_to_array(
     repair_orientation: bool = False,
     pad_mode: str = "constant",
     pad_with_mode: bool = False,
-    chunk_length: int = 250,
     delete_projection_dict: bool = False,
+
 ) -> np.ndarray:
     # Note: this always does some in-place replacement of the
     # passed in dict. I will fix this in a later version.

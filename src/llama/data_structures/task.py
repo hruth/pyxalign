@@ -18,8 +18,6 @@ from llama.timing.timer_utils import clear_timer_globals
 
 
 class LaminographyAlignmentTask:
-    pma_object: ProjectionMatchingAligner = None
-
     def __init__(
         self,
         options: AlignmentTaskOptions,
@@ -34,6 +32,7 @@ class LaminographyAlignmentTask:
 
         self.complex_projections = complex_projections
         self.phase_projections = phase_projections
+        self.pma_object: ProjectionMatchingAligner = None
 
     def get_cross_correlation_shift(
         self,
