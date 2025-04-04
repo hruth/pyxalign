@@ -89,14 +89,17 @@ class XRFTask:
         for channel, projections in self.projections_dict.items():
             projections.pin_arrays()
 
-    def get_cross_correlation_shift(self):
+    def get_cross_correlation_shift(self, illum_sum: np.ndarray = None):
         clear_timer_globals()
         self.cross_correlation_aligner = CrossCorrelationAligner(
             projections=self.projections_dict[self._primary_channel],
             options=self.task_options.cross_correlation,
         )
         # Placeholder for actual illum_sum
-        self.illum_sum = np.ones_like(self.projections_dict[self._primary_channel].data, dtype=r_type)
+        if illum_sum is None:
+            self.illum_sum = np.ones_like(self.projections_dict[self._primary_channel].data[0], dtype=r_type)
+        else:
+            self.illum_sum = illum_sum
         shift = self.cross_correlation_aligner.run(self.illum_sum)
         # Stage shift for all projections
         for channel, projections in self.projections_dict.items():
