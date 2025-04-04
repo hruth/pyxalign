@@ -73,6 +73,8 @@ class ProjectionOptions:
 
     input_processing: ProjectionTransformOptions = field(default_factory=ProjectionTransformOptions)
 
+    is_tomo: bool = False
+
     # crop: CropOptions = field(default_factory=CropOptions)
 
     # downsample: DownsampleOptions = field(default_factory=DownsampleOptions)

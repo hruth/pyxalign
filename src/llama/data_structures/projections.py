@@ -381,7 +381,7 @@ class Projections:
         "Permanently remove specific projections from object"
         keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
 
-        self.dropped_scan_numbers = np.append(self.dropped_scan_numbers, self.scan_numbers[remove_idx].tolist())
+        self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
 
         def return_modified_array(arr, repin_array: bool):
             if gpu_utils.is_pinned(self.data) and repin_array:
@@ -405,11 +405,20 @@ class Projections:
 
     @property
     def reconstructed_object_dimensions(self) -> np.ndarray:
-        laminography_angle = self.options.experiment.laminography_angle
         sample_thickness = self.options.experiment.sample_thickness
-        n_lateral_pixels = np.ceil(
-            0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
-        )
+        if self.options.experiment.sample_width_type == enums.VolumeWidthType.AUTO:
+            if not self.options.is_tomo:
+                laminography_angle = self.options.experiment.laminography_angle
+                n_lateral_pixels = np.ceil(
+                    0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
+                )
+            else:
+                n_lateral_pixels = np.max([self.data.shape[2], self.data.shape[1]])
+                n_pix = np.array(
+                    [n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size]
+                )
+        elif self.options.experiment.sample_width_type == enums.VolumeWidthType.MANUAL:
+            n_lateral_pixels = self.options.experiment.sample_width / self.pixel_size
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
         return np.ceil(n_pix).astype(int)
 

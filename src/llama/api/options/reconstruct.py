@@ -1,6 +1,7 @@
 import dataclasses
 from typing import Sequence
 from dataclasses import field
+from llama.api.enums import VolumeWidthType
 from llama.api.options.device import DeviceOptions
 from llama.api.options.options import ExperimentOptions
 

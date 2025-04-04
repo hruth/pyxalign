@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import field
 from numbers import Number
-from typing import Optional
+from typing import Optional, Union
 
 from matplotlib.pyplot import viridis
 from llama.api.options.device import DeviceOptions
@@ -18,9 +18,16 @@ class ExperimentOptions:
 
     # skew_angle: float = 0
 
-    sample_thickness: float = 7e-6
-
     pixel_size: float = 1.0
+
+    sample_thickness: float = 7e-6
+    "Thickness of the volume in meters"
+
+    sample_width_type: enums.VolumeWidthType = enums.VolumeWidthType.AUTO
+    "Determines if sample width is calculated manually or automatically"
+
+    sample_width: Optional[float] = None
+    "Width of the volume in meters, only used if sample_width_type is set to manual"
 
 
 @dataclasses.dataclass

@@ -69,3 +69,7 @@ class RoundType(StrEnum):
 class ProjectionType(StrEnum):
     COMPLEX = auto()
     PHASE = auto()
+
+class VolumeWidthType(StrEnum):
+    AUTO = auto()
+    MANUAL = auto()

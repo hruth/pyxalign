@@ -18,7 +18,7 @@ def convert_xrf_projection_dicts_to_arrays(
     repair_orientation: bool = False,
     pad_mode: str = "constant",
     pad_with_mode: bool = False,
-    chunk_length: int = 250,
+    # chunk_length: int = 250,
     delete_projection_dict: bool = False,
 ) -> dict[str, np.ndarray]:
     # Prepare the input for the XRFObject class
@@ -31,7 +31,7 @@ def convert_xrf_projection_dicts_to_arrays(
             repair_orientation=repair_orientation,
             pad_mode=pad_mode,
             pad_with_mode=pad_with_mode,
-            chunk_length=chunk_length,
+            # chunk_length=chunk_length,
             delete_projection_dict=delete_projection_dict,
         )
 
