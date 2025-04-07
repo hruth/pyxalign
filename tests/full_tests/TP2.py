@@ -3,7 +3,6 @@ import argparse
 import multiprocessing as mp
 import cupy as cp
 
-# import numpy as np
 import matplotlib.pyplot as plt
 import llama
 from llama import options as opts
@@ -132,7 +131,7 @@ def run_full_test_TP2(projection_matching_only: bool = False, update_tester_resu
         # Check/save results after initial input processing
         ci_test_helper.save_or_compare_results(task, "input_processed_task")
 
-        ### Cross-correlation alignmnet ###
+        ### Cross-correlation alignment ###
         width = 448
         task.options.cross_correlation = opts.CrossCorrelationOptions(
             iterations=10,
@@ -223,7 +222,7 @@ def run_full_test_TP2(projection_matching_only: bool = False, update_tester_resu
         center_estimate = task.phase_projections.estimate_center_of_rotation()
         task.phase_projections.center_of_rotation = center_estimate.optimal_center_of_rotation
 
-        # Check/save the estiamted center of rotation value
+        # Check/save the estimated center of rotation value
         ci_test_helper.save_or_compare_results(
             task.phase_projections.center_of_rotation, "estimated_center_of_rotation"
         )
