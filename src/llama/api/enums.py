@@ -69,3 +69,9 @@ class RoundType(StrEnum):
 class ProjectionType(StrEnum):
     COMPLEX = auto()
     PHASE = auto()
+
+
+class TestStartPoints(StrEnum):
+    BEGINNING = auto()
+    INITIAL_TASK = auto()
+    PRE_PMA = auto()

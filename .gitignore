@@ -9,3 +9,4 @@ untracked_tests/*
 .loglogin
 *tests/demo/*
 *src/paths/*
+**hidden/
