@@ -34,8 +34,8 @@ class XRFTask:
         self.projection_options = projection_options
         self.task_options = task_options
         self._primary_channel = primary_channel
-
         self.create_xrf_projections_object(xrf_array_dict, angles, scan_numbers)
+        self._center_of_rotation = self.projections_dict[self._primary_channel].center_of_rotation
 
     def create_xrf_projections_object(
         self,
@@ -85,6 +85,24 @@ class XRFTask:
             for channel in self.channels:
                 print(f"{channel}")
 
+    @property
+    def center_of_rotation(self):
+        return self._center_of_rotation
+
+    @center_of_rotation.setter
+    def center_of_rotation(self, center_of_rotation: np.ndarray):
+        self._center_of_rotation = center_of_rotation
+        for channel, projections in self.projections_dict.items():
+            projections.center_of_rotation = self._center_of_rotation * 1
+
+    def apply_staged_shift_to_all_channels(self, device_options: Optional[DeviceOptions] = None):
+        for channel, projections in self.projections_dict.items():
+            projections.apply_staged_shift(device_options)
+
+    def drop_projections_from_all_channels(self, remove_idx: list[int]):
+        for channel, projections in self.projections_dict.items():
+            projections.drop_projections(remove_idx=remove_idx)
+
     def pin_all_arrays(self):
         for channel, projections in self.projections_dict.items():
             projections.pin_arrays()
@@ -97,7 +115,9 @@ class XRFTask:
         )
         # Placeholder for actual illum_sum
         if illum_sum is None:
-            self.illum_sum = np.ones_like(self.projections_dict[self._primary_channel].data[0], dtype=r_type)
+            self.illum_sum = np.ones_like(
+                self.projections_dict[self._primary_channel].data[0], dtype=r_type
+            )
         else:
             self.illum_sum = illum_sum
         shift = self.cross_correlation_aligner.run(self.illum_sum)
@@ -110,14 +130,6 @@ class XRFTask:
             )
         projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
-
-    def apply_staged_shift_to_all_channels(self, device_options: Optional[DeviceOptions] = None):
-        for channel, projections in self.projections_dict.items():
-            projections.apply_staged_shift(device_options)
-
-    def drop_projections_from_all_channels(self, remove_idx: list[int]):
-        for channel, projections in self.projections_dict.items():
-            projections.drop_projections(remove_idx=remove_idx)
 
     def plot_xrf_channels(
         self,

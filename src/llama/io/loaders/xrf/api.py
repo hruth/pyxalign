@@ -2,14 +2,15 @@ import os
 from typing import Optional
 import numpy as np
 from llama.io.loaders.base import StandardData
+from llama.io.loaders.xrf.options import XRFLoadOptions
 from llama.io.loaders.xrf.utils import load_xrf_experiment
 from llama.io.loaders.utils import convert_projection_dict_to_array
 
 
-def load_data_from_xrf_format(folder: str) -> dict[str, StandardData]:
+def load_data_from_xrf_format(folder: str, options: XRFLoadOptions) -> tuple[dict[str, StandardData], dict]:
     file_names = os.listdir(folder)  # Temporary
-    xrf_standard_data_dict = load_xrf_experiment(folder, file_names)
-    return xrf_standard_data_dict
+    xrf_standard_data_dict, extra_PVs = load_xrf_experiment(folder, file_names, options)
+    return xrf_standard_data_dict, extra_PVs
 
 
 def convert_xrf_projection_dicts_to_arrays(

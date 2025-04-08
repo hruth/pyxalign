@@ -640,9 +640,9 @@ class Projections:
         # Save projection options
         save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
 
+        print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
         if isinstance(h5_obj, h5py.File):
             h5_obj.close()
-        print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
 
     def get_plot_object(
         self,
