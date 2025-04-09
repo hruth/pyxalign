@@ -2,6 +2,7 @@ from typing import Optional, List, Dict, Union
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
+
 # from llama.timing.timer_utils import ADVANCED_TIME_DICT, ELAPSED_TIME_DICT
 import llama.timing.timer_utils as timer_utils
 
@@ -17,6 +18,7 @@ def plot_elapsed_time_bar_plot(
     advanced_time_dict: Optional[dict] = None,
     elapsed_time_dict: Optional[dict] = None,
     sort: bool = False,
+    show_plot: bool = True,
 ):
     """
     Plots a simple bar chart of elapsed times for timed functions.
@@ -66,7 +68,10 @@ def plot_elapsed_time_bar_plot(
         figsize=figsize,
         sort=sort,
         top_n=top_n,
+        show_plot=show_plot,
     )
+
+    return elapsed_time_dict
 
 
 def plot_elapsed_time_bar_plot_advanced(
@@ -82,6 +87,7 @@ def plot_elapsed_time_bar_plot_advanced(
     exclude_below_time_fraction: float = 1e-2,
     sort: bool = False,
     print_results: bool = True,
+    show_plot: bool = True,
 ):
     """
     Plots a detailed breakdown of execution times for a specific function.
@@ -127,15 +133,14 @@ def plot_elapsed_time_bar_plot_advanced(
     if result_dict is None:
         raise ValueError(f"Key '{function_name}' not found in the nested dictionary.")
 
-    result_dict = return_dict_subset_copy(result_dict, include, exclude)
+    total_execution_time = result_dict["time"].sum()
+    # result_dict = return_dict_subset_copy(result_dict, include, exclude)
 
     # Prepare data for plotting
     short_labels = []
     full_call_stack_labels = []
     times = []
     colors = []
-
-    total_execution_time = result_dict["time"].sum()
 
     def collect_data(d, prefix="", function_name="", level=0):
         if max_levels is not None and level > max_levels:
@@ -183,6 +188,7 @@ def plot_elapsed_time_bar_plot_advanced(
         label_fontsize=label_fontsize,
         sort=sort,
         top_n=top_n,
+        show_plot=show_plot,
     )
 
     if print_results:
@@ -216,6 +222,7 @@ def generate_time_barplot(
     label_fontsize: Optional[int] = None,
     sort: bool = False,
     top_n: Optional[int] = None,
+    show_plot: bool = True,
 ):
     """
     Generates a horizontal bar plot for elapsed times.
@@ -275,7 +282,8 @@ def generate_time_barplot(
     plt.ylabel("Function")
     plt.title(title)
     # plt.tight_layout()
-    plt.show()
+    if show_plot:
+        plt.show()
 
 
 def plot_elapsed_time_vs_call_number(

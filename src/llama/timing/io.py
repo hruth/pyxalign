@@ -50,19 +50,30 @@ def save_timing_data_to_unique_file_path(
     unique_file_name = "timing_results_" + str(timestamp) + ".h5"
     file_path = os.path.join(timing_results_folder, unique_file_name)
 
-    with h5py.File(file_path, "w") as F:
+    save_timing_data(file_path, elapsed_time_dict, advanced_time_dict)
+
+    with h5py.File(file_path, "a") as F:
         F.attrs["name"] = name
-        F.attrs["host"] = socket.gethostname().split(".")[0]
-        F.attrs["commit"] = get_current_commit_hash()
-        F.attrs["branch"] = get_current_branch_name()
         F.attrs["date"] = date_string
         F.attrs["time"] = time_string
-        insert_timing_dict_into_h5_object(
-            elapsed_time_dict, F.create_group("elapsed_time_dict")
-        )
-        insert_timing_dict_into_h5_object(
-            advanced_time_dict, F.create_group("advanced_time_dict")
-        )
+
+
+def save_timing_data(
+    file_path: str,
+    elapsed_time_dict: Optional[dict] = None,
+    advanced_time_dict: Optional[dict] = None,
+):
+    with h5py.File(file_path, "w") as F:
+        F.attrs["host"] = socket.gethostname().split(".")[0]
+        try:
+            F.attrs["commit"] = get_current_commit_hash()
+            F.attrs["branch"] = get_current_branch_name()
+        except Exception:
+            pass
+        finally:
+            pass
+        insert_timing_dict_into_h5_object(elapsed_time_dict, F.create_group("elapsed_time_dict"))
+        insert_timing_dict_into_h5_object(advanced_time_dict, F.create_group("advanced_time_dict"))
 
 
 def read_timing_data_file(file_path: str) -> dict:
