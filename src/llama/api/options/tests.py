@@ -17,3 +17,5 @@ class CITestOptions:
     rtol: float = 1e-3
 
     proj_idx: tuple[int] = (0,)
+
+    save_temp_files: bool = False

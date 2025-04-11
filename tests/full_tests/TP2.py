@@ -17,7 +17,11 @@ from llama.api.options_utils import set_all_device_options
 import llama.io.loaders
 
 
-def run_full_test_TP2(projection_matching_only: bool = False, update_tester_results: bool = False):
+def run_full_test_TP2(
+    projection_matching_only: bool = False,
+    update_tester_results: bool = False,
+    save_temp_files: bool = False,
+):
     plt.ion()
 
     # Setup the test
@@ -25,6 +29,7 @@ def run_full_test_TP2(projection_matching_only: bool = False, update_tester_resu
         test_data_name="TP2",
         update_tester_results=update_tester_results,
         proj_idx=list(range(0, 199, 45)),
+        save_temp_files=save_temp_files
     )
     ci_test_helper = CITestHelper(options=ci_options)
     # define a downscaling value for when volumes are saved to prevent
@@ -338,7 +343,11 @@ if __name__ == "__main__":
         "--update-results", action="store_true"
     )  # flag for specifying you want test results updated
 
+    parser.add_argument("--save-temp-results", action="store_true")
+
     args = parser.parse_args()
     run_full_test_TP2(
-        projection_matching_only=args.pma_only, update_tester_results=args.update_results
+        projection_matching_only=args.pma_only,
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
     )
