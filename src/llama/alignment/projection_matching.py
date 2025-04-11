@@ -7,6 +7,7 @@ import numpy as np
 import cupy as cp
 import copy
 from collections import defaultdict
+from scipy.optimize import minimize
 
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
@@ -221,6 +222,7 @@ class ProjectionMatchingAligner(Aligner):
             shape=(self.options.iterations, *(self.shift_update.shape)),
             dtype=self.shift_update.dtype,
         )
+        self.velocity_map = np.zeros_like(self.shift_update)
 
     @timer()
     def get_shift_update(self):
@@ -264,15 +266,15 @@ class ProjectionMatchingAligner(Aligner):
         inline_timer.end()
         self.post_process_shift()
 
-        self.total_shift += self.shift_update
         if self.memory_config == MemoryConfig.GPU_ONLY:
             self.all_errors[self.iteration] = self.pinned_error.get()
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error.get()
-            self.all_shifts[self.iteration] = self.total_shift.get()
+            # self.all_shifts[self.iteration] = self.shift_update.get()
         else:
             self.all_errors[self.iteration] = self.pinned_error * 1
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error * 1
-            self.all_shifts[self.iteration] = self.total_shift * 1
+            # self.all_shifts[self.iteration] = self.shift_update * 1
+        self.total_shift += self.shift_update
 
     @timer()
     def post_process_shift(self):
@@ -283,6 +285,13 @@ class ProjectionMatchingAligner(Aligner):
         idx = xp.abs(self.shift_update) > max_allowed_step
         self.shift_update[idx] = max_allowed_step * xp.sign(self.shift_update[idx])
         self.shift_update *= self.options.step_relax
+
+        # apply momentum
+        if self.memory_config == MemoryConfig.GPU_ONLY:
+            self.all_shifts[self.iteration] = self.shift_update.get()
+        else:
+            self.all_shifts[self.iteration] = self.shift_update * 1
+        self.get_shift_momentum()
 
         # Center the shifts around zero in the vertical direction
         self.shift_update[:, 1] = self.shift_update[:, 1] - xp.median(self.shift_update[:, 1])
@@ -306,6 +315,62 @@ class ProjectionMatchingAligner(Aligner):
         self.shift_update[:, 0] = (
             self.shift_update[:, 0] - xp.matmul(orthbase.transpose(), coefs)[:, 0]
         )
+
+    @timer()
+    def get_shift_momentum(self):
+        if not self.options.momentum.enabled:
+            return
+
+        xp = cp.get_array_module(self.all_shifts)
+        memory = self.options.momentum.memory
+        if self.iteration >= memory:
+            max_update = xp.quantile(xp.abs(self.shift_update), 0.995, axis=0)
+            eligible_axes = np.where(max_update * self.scale < 0.5)[0]
+            self.add_momentum_to_shift_update(axes=eligible_axes)
+
+    @staticmethod
+    def fminsearch(C: ArrayType, initial_guess=[0]):
+        # Define the objective function
+        def objective(x, C):
+            n_mem = len(C)  # Nmem should be the length of C
+            # Create the array equivalent to MATLAB's [Nmem:-1:1]
+            arr = np.arange(n_mem, 0, -1)
+            # Ensure that the array length matches the number of elements in C
+            return np.linalg.norm(C - np.exp(-x * arr))
+
+        result = minimize(objective, initial_guess, args=(C,), method="Nelder-Mead")
+        return result
+
+    def add_momentum_to_shift_update(self, axes: list[int]):
+        xp = cp.get_array_module(self.all_shifts)
+        idx_memory = range(self.iteration - self.options.momentum.memory, self.iteration + 1)
+        shift = self.shift_update
+        n_mem = self.options.momentum.memory
+
+        for ax in axes:
+            if np.all(self.shift_update[:, ax] == 0):
+                continue
+            pearson_corr_coeffs = xp.zeros(n_mem, dtype=r_type)
+            for i in range(n_mem):
+                pearson_corr_coeffs[i] = xp.corrcoef(
+                    shift[:, ax], self.all_shifts[idx_memory[i], :, ax]
+                )[0, 1]
+            if self.memory_config == MemoryConfig.GPU_ONLY:
+                pearson_corr_coeffs = pearson_corr_coeffs.get()
+
+            # estimate friction
+            decay = self.fminsearch(pearson_corr_coeffs, [0]).x[0]
+            friction = np.max([0, self.options.momentum.alpha * decay])
+            friction = np.min([1, friction])
+            # update velocity map
+            self.velocity_map[:, i] = (1 - friction) * self.velocity_map[:, i] + shift[:, i]
+            # update shift estimates
+            gain = self.options.momentum.gain
+            shift[:, i] = (1 - gain) * shift[:, i] + gain * self.velocity_map[:, i]
+
+        # reinforce the reference, in case you make edits later and accidentally
+        # remove the reference
+        self.shift_update = shift
 
     @staticmethod
     def calculate_shift_update(

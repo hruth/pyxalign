@@ -41,3 +41,4 @@ from .plotting import (
     ImageSliderPlotOptions,
     LinePlotOptions,
 )
+from .tests import CITestOptions

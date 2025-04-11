@@ -78,7 +78,7 @@ def load_projections(
                 dropped_scan_numbers = h5_obj[group]["dropped_scan_numbers"][()]
                 if is_null_type(dropped_scan_numbers):
                     dropped_scan_numbers = handle_null_type(dropped_scan_numbers)
-                loaded_projections[group].dropped_scan_numbers = dropped_scan_numbers
+                loaded_projections[group].dropped_scan_numbers = list(dropped_scan_numbers)
     return loaded_projections
 
 
