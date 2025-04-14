@@ -3,20 +3,22 @@ name = "llama"
 version = "0.1.0"
 description = "Package for alignment and reconstruction of laminography data."
 dependencies = [
-        "ffmpeg-python",
-        "h5py",
-        "matplotlib",
-        "numpy",
-        "pandas",
-        "psutil",
-        "pympler",
-        "scipy",
-        "scikit-image",
-        "statsmodels",
-        "vtk",
-        "opencv-python"
+    "astra-toolbox",
+    "h5py",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-image",
+    "statsmodels",
+    "tqdm",
+    "ipywidgets",
+    "plotly",
 ]
 requires-python = ">=3.0"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
 
 [tool.setuptools_scm]
 
