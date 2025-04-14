@@ -60,7 +60,7 @@ class DownsampleOptions(TransformOptions):
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    use_gaussian_filter: bool = False
+    use_gaussian_filter: bool = True
 
 
 @dataclasses.dataclass

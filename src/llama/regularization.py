@@ -1,7 +1,8 @@
 import numpy as np
 import cupy as cp
-
+from llama.api.types import r_type
 from llama.gpu_utils import memory_releasing_error_handler
+from llama.timing.timer_utils import timer
 
 timerOn = False
 
@@ -49,6 +50,7 @@ def grad(M):
     return f
 
 @memory_releasing_error_handler
+@timer()
 def chambolleLocalTV3D(x, alpha, Niter):
     if alpha == 0:
         return x
@@ -58,7 +60,7 @@ def chambolleLocalTV3D(x, alpha, Niter):
     x0 = x
     tau = 1 / 4
     (L, M, N) = x.shape
-    xi = xp.zeros((3, L, M, N), dtype=np.float32)
+    xi = xp.zeros((3, L, M, N), dtype=r_type)
 
     for i in range(Niter):
         # Chambolle step

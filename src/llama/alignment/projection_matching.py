@@ -17,6 +17,7 @@ from llama.data_structures.laminogram import Laminogram
 
 # from llama.projections import PhaseProjections
 import llama.data_structures.projections as projections
+from llama.regularization import chambolleLocalTV3D
 from llama.timing.timer_utils import InlineTimer, timer, clear_timer_globals
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip
@@ -439,7 +440,16 @@ class ProjectionMatchingAligner(Aligner):
     @timer()
     def regularize_reconstruction(self):
         if self.options.regularization.enabled:
-            pass
+            self.aligned_projections.laminogram.data[:] = chambolleLocalTV3D(
+                self.aligned_projections.laminogram.data,
+                self.options.regularization.local_TV_lambda,
+                self.options.regularization.iterations,
+            )
+            # Store the updated reconstruction
+            astra.data3d.store(
+                self.aligned_projections.laminogram.astra_config["ReconstructionDataId"],
+                self.aligned_projections.laminogram.data,
+            )
 
     @timer()
     def initialize_arrays(self):
