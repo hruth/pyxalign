@@ -28,18 +28,32 @@ class CITestHelper:
         )
         if not os.path.exists(self.parent_folder):
             raise FileNotFoundError(f"The folder {self.parent_folder} does not exist")
-        self.inputs_folder, self.ci_results_folder, self.extra_results_folder = generate_ci_paths(
-            self.parent_folder
-        )
+        (
+            self.inputs_folder,
+            self.ci_results_folder,
+            self.extra_results_folder,
+            self.ci_temp_results_folder,
+        ) = generate_ci_paths(self.parent_folder)
         self.options = options
 
     def save_or_compare_results(
         self, result, name: str, atol: Optional[float] = None, rtol: Optional[float] = None
     ):
+        if self.options.save_temp_files:
+            self.save_temp_results(result, name)
+
         if self.options.update_tester_results:
             self.save_results(result, name)
         else:
             self.compare_results(result, name, atol, rtol)
+
+    def save_temp_results(self, result: str, name: str):
+        save_arbitrary_result(
+            result,
+            self.ci_temp_results_folder,
+            name,
+            proj_idx=self.options.proj_idx,
+        )
 
     def save_results(self, result: str, name: str):
         save_arbitrary_result(
@@ -187,9 +201,10 @@ def generate_ci_paths(ci_folder: str):
     inputs_folder = os.path.join(ci_folder, "inputs")
     ci_results_folder = os.path.join(ci_folder, "ci_results")
     extra_results_folder = os.path.join(ci_folder, "extra_results")
+    ci_temp_results_folder = os.path.join(ci_folder, "ci_temp_results")
 
-    for folder in [inputs_folder, ci_results_folder, extra_results_folder]:
+    for folder in [inputs_folder, ci_results_folder, extra_results_folder, ci_temp_results_folder]:
         if not os.path.exists(folder):
             os.mkdir(folder)
 
-    return inputs_folder, ci_results_folder, extra_results_folder
+    return inputs_folder, ci_results_folder, extra_results_folder, ci_temp_results_folder
