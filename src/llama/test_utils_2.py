@@ -19,22 +19,47 @@ projection_arrays_to_compare = [
     # "masks"
 ]
 array_save_string = "array"
+primary_ci_test_folder_string = "PYXALIGN_CI_TEST_DATA_DIR"
+secondary_ci_test_folder_string = "PYXALIGN_CI_TEST_DATA_DIR_2"
 
 
 class CITestHelper:
     def __init__(self, options: CITestOptions):
-        self.parent_folder = os.path.join(
-            os.environ["PYXALIGN_CI_TEST_DATA_DIR"], options.test_data_name
-        )
-        if not os.path.exists(self.parent_folder):
-            raise FileNotFoundError(f"The folder {self.parent_folder} does not exist")
-        (
+        self.options = options
+        self.find_ci_test_folder()
+        self.generate_ci_paths()
+
+    def find_ci_test_folder(self) -> str:
+        for folder_string in [primary_ci_test_folder_string, secondary_ci_test_folder_string]:
+            ci_folder = os.path.join(
+                os.environ[folder_string],
+                self.options.test_data_name,
+            )
+            if os.path.exists(ci_folder) and os.path.exists(os.path.join(ci_folder, "inputs")):
+                self.parent_folder = os.path.join(ci_folder)
+                return
+
+        raise FileNotFoundError(f"The folder {self.parent_folder} does not exist")
+
+    def generate_ci_paths(self):
+        self.inputs_folder = os.path.join(self.parent_folder, "inputs")
+        self.ci_results_folder = os.path.join(self.parent_folder, "ci_results")
+        self.extra_results_folder = os.path.join(self.parent_folder, "extra_results")
+        temp_results_folder = os.path.join(self.parent_folder, "temp_results")
+        self.ci_temp_results_folder = os.path.join(temp_results_folder, "ci_results")
+        self.extra_temp_results_folder = os.path.join(temp_results_folder, "extra_results")
+
+        for folder in [
             self.inputs_folder,
             self.ci_results_folder,
             self.extra_results_folder,
+            temp_results_folder,
             self.ci_temp_results_folder,
-        ) = generate_ci_paths(self.parent_folder)
-        self.options = options
+            self.extra_temp_results_folder,
+        ]:
+            if not os.path.exists(folder):
+                os.mkdir(folder)
+
 
     def save_or_compare_results(
         self, result, name: str, atol: Optional[float] = None, rtol: Optional[float] = None
@@ -195,16 +220,3 @@ def save_array(array: np.ndarray, h5_obj: Union[h5py.File, h5py.Group], dataset_
 def get_rel_path_string(h5_obj: h5py.Group):
     rel_path = Path(h5_obj.file.filename).name + h5_obj.name
     return rel_path
-
-
-def generate_ci_paths(ci_folder: str):
-    inputs_folder = os.path.join(ci_folder, "inputs")
-    ci_results_folder = os.path.join(ci_folder, "ci_results")
-    extra_results_folder = os.path.join(ci_folder, "extra_results")
-    ci_temp_results_folder = os.path.join(ci_folder, "ci_temp_results")
-
-    for folder in [inputs_folder, ci_results_folder, extra_results_folder, ci_temp_results_folder]:
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-
-    return inputs_folder, ci_results_folder, extra_results_folder, ci_temp_results_folder

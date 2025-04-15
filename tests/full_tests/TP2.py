@@ -253,6 +253,8 @@ def run_full_test_TP2(
         # save the task before starting projection matching alignment
         if ci_test_helper.options.update_tester_results:
             task.save_task(os.path.join(ci_test_helper.extra_results_folder, "pre_pma_task.h5"))
+        if ci_test_helper.options.save_temp_files:
+            task.save_task(os.path.join(ci_test_helper.extra_temp_results_folder, "pre_pma_task.h5"))
     else:
         task = load_task(os.path.join(ci_test_helper.extra_results_folder, "pre_pma_task.h5"))
 
@@ -287,11 +289,14 @@ def run_full_test_TP2(
         ci_test_helper.save_or_compare_results(pma_shifts[scale], f"pma_shift_{scale}x")
 
     # Shift the projections by the projection-matching alignment shift
-    task.phase_projections.apply_staged_shift()
+    print(multi_gpu_device_options)
+    task.phase_projections.apply_staged_shift(multi_gpu_device_options)
 
     # Save the fully aligned task
     if ci_test_helper.options.update_tester_results:
         task.save_task(os.path.join(ci_test_helper.extra_results_folder, "pma_aligned_task.h5"))
+    if ci_test_helper.options.save_temp_files:
+        task.save_task(os.path.join(ci_test_helper.extra_temp_results_folder, "pma_aligned_task.h5"))
 
     # Check/save the fully aligned task for ci testing (note: this only saves a few parts of
     # the task, as opposed to task.save_task which saves the entire task so you can reload
