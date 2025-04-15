@@ -12,9 +12,6 @@ from llama.timing.timer_utils import InlineTimer, timer
 class LamniLoaderVersion3(LamniLoader):
     analysis_folders: dict[int, list[str]] = {}
 
-    def _post_init(self):
-        self.angles = -self.angles
-
     @timer()
     def get_projections_folders_and_file_names(self):
         """

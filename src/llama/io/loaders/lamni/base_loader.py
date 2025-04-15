@@ -72,6 +72,7 @@ class LamniLoader(ABC):
         self.experiment_name = experiment_name
         self.sequences = sequences
         self.parent_projections_folder = parent_projections_folder
+        self.angles = -self.angles
 
         self._post_init()
 
