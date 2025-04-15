@@ -73,3 +73,9 @@ class ProjectionType(StrEnum):
 class VolumeWidthType(StrEnum):
     AUTO = auto()
     MANUAL = auto()
+
+
+class TestStartPoints(StrEnum):
+    BEGINNING = auto()
+    INITIAL_TASK = auto()
+    PRE_PMA = auto()

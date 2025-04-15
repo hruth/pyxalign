@@ -73,6 +73,6 @@ class PhaseUnwrapOptions:
 class RegularizationOptions:
     enabled: bool = False
 
-    local_TV: bool = False
-
     local_TV_lambda: float = 1e-4
+
+    iterations: int = 10

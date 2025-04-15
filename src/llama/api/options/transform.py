@@ -60,7 +60,7 @@ class DownsampleOptions(TransformOptions):
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    use_gaussian_filter: bool = False
+    use_gaussian_filter: bool = True
 
 
 @dataclasses.dataclass
@@ -97,6 +97,6 @@ class PadOptions(TransformOptions):
 
     pad_type: str = "constant"
 
-    pad_value: int = "mode"
+    pad_value: int = 0#"mode"
 
     enabled: bool = False

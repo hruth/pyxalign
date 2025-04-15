@@ -3,7 +3,6 @@ name = "llama"
 version = "0.1.0"
 description = "Package for alignment and reconstruction of laminography data."
 dependencies = [
-    "astra-toolbox",
     "h5py",
     "matplotlib",
     "numpy",
