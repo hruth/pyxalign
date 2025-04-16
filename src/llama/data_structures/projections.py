@@ -398,6 +398,10 @@ class Projections:
             self.probe_positions.data = [self.probe_positions.data[i] for i in keep_idx]
         self.angles = self.angles[keep_idx]
         self.scan_numbers = self.scan_numbers[keep_idx]
+        # Update the past shifts and staged shift
+        self.shift_manager.staged_shift = self.shift_manager.staged_shift[remove_idx]
+        for i, shift in enumerate(self.shift_manager.past_shifts):
+            self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][remove_idx]
 
     @property
     def n_projections(self) -> int:
