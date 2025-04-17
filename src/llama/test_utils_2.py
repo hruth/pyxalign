@@ -1,13 +1,17 @@
+import traceback
 from typing import Optional, Union
 import h5py
 import os
 import numpy as np
 from pathlib import Path
+import subprocess
 
 from llama.data_structures.projections import Projections
 from llama.data_structures.task import LaminographyAlignmentTask
+from llama.style.text import text_colors
 from llama.test_utils import ResultType, print_comparison_stats
 from llama.api.options.tests import CITestOptions
+from llama.timing.io import get_timestamp_for_timing_files
 
 projection_arrays_to_compare = [
     "data",
@@ -28,6 +32,9 @@ class CITestHelper:
         self.options = options
         self.find_ci_test_folder()
         self.generate_ci_paths()
+        self.store_run_metadata()
+        self.test_result_dict = {}  # holds results of passes and fails when options.stop_on_error is false
+
 
     def find_ci_test_folder(self) -> str:
         for folder_string in [primary_ci_test_folder_string, secondary_ci_test_folder_string]:
@@ -60,7 +67,6 @@ class CITestHelper:
             if not os.path.exists(folder):
                 os.mkdir(folder)
 
-
     def save_or_compare_results(
         self, result, name: str, atol: Optional[float] = None, rtol: Optional[float] = None
     ):
@@ -70,7 +76,21 @@ class CITestHelper:
         if self.options.update_tester_results:
             self.save_results(result, name)
         else:
-            self.compare_results(result, name, atol, rtol)
+            try:
+                self.compare_results(result, name, atol, rtol)
+                # the next line will only execute if an error is not
+                # raised by compare_results
+                test_passed = True
+            except (AssertionError, ValueError, TypeError) as ex:
+                if self.options.stop_on_error:
+                    raise
+                else:
+                    print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+                    traceback.print_exc()
+                    print("Continuing execution despite failed test")
+                    test_passed = False
+            finally:
+                self.test_result_dict[name] = test_passed
 
     def save_temp_results(self, result: str, name: str):
         save_arbitrary_result(
@@ -102,6 +122,21 @@ class CITestHelper:
         compare_arbitrary_result(
             result, self.ci_results_folder, name, atol, rtol, self.options.proj_idx
         )
+
+    def finish_test(self):
+        if not self.options.update_tester_results:
+            print("SUMMARY OF TESTS:")
+            for i, (test_name, is_passed) in enumerate(self.test_result_dict.items()):
+                if is_passed:
+                    pass_fail_string = f"{text_colors.OKGREEN}PASSED{text_colors.ENDC}"
+                else:
+                    pass_fail_string = f"{text_colors.FAIL}FAILED{text_colors.ENDC}"
+                print(f"{i+1}. {self.test_result_dict[test_name]}: {pass_fail_string}")
+            n_passed = sum([v for v in self.test_result_dict.values()])
+            print(f"{text_colors.HEADER}{n_passed}/{len(self.test_result_dict)}{text_colors.ENDC}")
+
+    def store_run_metadata(self):
+        self.timestamp, date_string, time_string = get_timestamp_for_timing_files()
 
 
 def compare_arbitrary_result(
