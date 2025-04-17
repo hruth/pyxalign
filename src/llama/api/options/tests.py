@@ -19,3 +19,5 @@ class CITestOptions:
     proj_idx: tuple[int] = (0,)
 
     save_temp_files: bool = False
+
+    stop_on_error: bool = False
