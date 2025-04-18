@@ -1,3 +1,4 @@
+import argparse
 import traceback
 from typing import Optional, Union
 import h5py
@@ -8,10 +9,12 @@ import subprocess
 
 from llama.data_structures.projections import Projections
 from llama.data_structures.task import LaminographyAlignmentTask
+from llama.io.save import save_array_as_tiff
 from llama.style.text import text_colors
-from llama.test_utils import ResultType, print_comparison_stats
+from llama.test_utils import ResultType, load_task, print_comparison_stats
 from llama.api.options.tests import CITestOptions
 from llama.timing.io import get_timestamp_for_timing_files
+from llama.api.enums import TestStartPoints
 
 projection_arrays_to_compare = [
     "data",
@@ -137,6 +140,36 @@ class CITestHelper:
 
     def store_run_metadata(self):
         self.timestamp, date_string, time_string = get_timestamp_for_timing_files()
+
+    def save_checkpoint_task(self, task: LaminographyAlignmentTask, file_name: str):
+        if self.options.update_tester_results:
+            task.save_task(os.path.join(self.extra_results_folder, file_name))
+        if self.options.save_temp_files:
+            task.save_task(os.path.join(self.extra_temp_results_folder, file_name))
+
+    def load_checkpoint_task(self, file_name: str) -> LaminographyAlignmentTask:
+        return load_task(os.path.join(self.extra_results_folder, file_name))
+
+    def save_tiff(
+        self, array: np.ndarray, name: str, min: Optional[float] = None, max: Optional[float] = None
+    ):
+        if self.options.update_tester_results:
+            save_array_as_tiff(array, os.path.join(self.extra_results_folder, name), min, max)
+        if self.options.save_temp_files:
+            save_array_as_tiff(array, os.path.join(self.extra_temp_results_folder, name), min, max)
+
+class CITestArgumentParser:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser()
+        # indicates start point of code
+        self.parser.add_argument(
+            "--start-point", type=str, default=TestStartPoints.BEGINNING
+        )
+        # flag for specifying you want test results updated
+        self.parser.add_argument(
+            "--update-results", action="store_true"
+        )
+        self.parser.add_argument("--save-temp-results", action="store_true")
 
 
 def compare_arbitrary_result(

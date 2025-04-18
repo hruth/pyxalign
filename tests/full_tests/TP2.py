@@ -1,5 +1,4 @@
 import os
-import argparse
 import multiprocessing as mp
 import cupy as cp
 
@@ -8,18 +7,17 @@ import llama
 from llama import options as opts
 from llama.api import enums
 from llama.api.types import r_type
-from llama.io.load import load_task
 from llama.io.loaders.enums import LoaderType
 from llama import gpu_utils
-from llama.test_utils_2 import CITestHelper
+from llama.test_utils_2 import CITestHelper, CITestArgumentParser
 from llama.api.options_utils import set_all_device_options
 import llama.io.loaders
 
 
 def run_full_test_TP2(
-    projection_matching_only: bool = False,
     update_tester_results: bool = False,
     save_temp_files: bool = False,
+    test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
 ):
     plt.ion()
 
@@ -28,7 +26,7 @@ def run_full_test_TP2(
         test_data_name="TP2",
         update_tester_results=update_tester_results,
         proj_idx=list(range(0, 199, 45)),
-        save_temp_files=save_temp_files
+        save_temp_files=save_temp_files,
     )
     ci_test_helper = CITestHelper(options=ci_options)
     # define a downscaling value for when volumes are saved to prevent
@@ -38,7 +36,6 @@ def run_full_test_TP2(
     # Setup default gpu options
     n_gpus = cp.cuda.runtime.getDeviceCount()
     gpu_list = list(range(0, n_gpus))
-    single_gpu_device_options = opts.DeviceOptions()
     multi_gpu_device_options = opts.DeviceOptions(
         gpu=opts.GPUOptions(
             n_gpus=n_gpus,
@@ -47,8 +44,9 @@ def run_full_test_TP2(
         )
     )
 
-    if not projection_matching_only:
-        ### Load ptycho input data###
+    checkpoint_list = [enums.TestStartPoints.BEGINNING]
+    if test_start_point in checkpoint_list:
+        ### Load ptycho input data ###
 
         # Set experiment details
         lamino_angle = 61.3758  # laminography measurement angle
@@ -136,6 +134,14 @@ def run_full_test_TP2(
         # Check/save results after initial input processing
         ci_test_helper.save_or_compare_results(task, "input_processed_task")
 
+        # save the task
+        ci_test_helper.save_checkpoint_task(task, file_name="initial_task.h5")
+    elif test_start_point == enums.TestStartPoints.INITIAL_TASK:
+        # load task if initial_task is the selected test start point
+        task = ci_test_helper.load_checkpoint_task(file_name="initial_task.h5")
+
+    checkpoint_list += [enums.TestStartPoints.INITIAL_TASK]
+    if test_start_point in checkpoint_list:
         ### Cross-correlation alignment ###
         width = 448
         task.options.cross_correlation = opts.CrossCorrelationOptions(
@@ -250,108 +256,101 @@ def run_full_test_TP2(
         )
 
         # save the task before starting projection matching alignment
-        if ci_test_helper.options.update_tester_results:
-            task.save_task(os.path.join(ci_test_helper.extra_results_folder, "pre_pma_task.h5"))
-        if ci_test_helper.options.save_temp_files:
-            task.save_task(os.path.join(ci_test_helper.extra_temp_results_folder, "pre_pma_task.h5"))
+        ci_test_helper.save_checkpoint_task(task, file_name="pre_pma_task.h5")
     else:
-        task = load_task(os.path.join(ci_test_helper.extra_results_folder, "pre_pma_task.h5"))
+        task = ci_test_helper.load_checkpoint_task(file_name="pre_pma_task.h5")
 
-    ### Projection-matching alignment ####
-    # Define projection matching options
-    pma_options = task.options.projection_matching
-    pma_options.downsample = opts.DownsampleOptions(
-        enabled=True, scale=32, use_gaussian_filter=True
-    )
-    pma_options.iterations = 300
-    pma_options.high_pass_filter = 0.005
-    pma_options.min_step_size = 0.01
-    pma_options.step_relax = 0.1
-    pma_options.reconstruct.astra.back_project_gpu_indices = gpu_list
-    pma_options.reconstruct.astra.forward_project_gpu_indices = gpu_list
-    pma_options.mask_shift_type = enums.ShiftType.FFT
-    pma_options.keep_on_gpu = False
-    set_all_device_options(pma_options, multi_gpu_device_options)
+    checkpoint_list += [enums.TestStartPoints.PRE_PMA]
+    if test_start_point in checkpoint_list:
+        ### Projection-matching alignment ####
+        # Define projection matching options
+        pma_options = task.options.projection_matching
+        pma_options.downsample = opts.DownsampleOptions(
+            enabled=True, scale=32, use_gaussian_filter=True
+        )
+        pma_options.iterations = 300
+        pma_options.high_pass_filter = 0.005
+        pma_options.min_step_size = 0.01
+        pma_options.step_relax = 0.1
+        pma_options.reconstruct.astra.back_project_gpu_indices = gpu_list
+        pma_options.reconstruct.astra.forward_project_gpu_indices = gpu_list
+        pma_options.mask_shift_type = enums.ShiftType.FFT
+        pma_options.keep_on_gpu = False
+        set_all_device_options(pma_options, multi_gpu_device_options)
 
-    # Run projection-matching alignment at successively higher resolutions
-    scales = [32, 16, 8, 4, 2, 1]
-    pma_shifts = {}
-    for i, scale in enumerate(scales):
-        pma_options.downsample.scale = scale
-        if i == 0:
-            task.get_projection_matching_shift()
-        else:
-            task.get_projection_matching_shift(initial_shift=pma_shifts[scales[i - 1]])
-        pma_shifts[scale] = task.phase_projections.shift_manager.staged_shift * 1
+        # Run projection-matching alignment at successively higher resolutions
+        scales = [32, 16, 8, 4, 2, 1]
+        pma_shifts = {}
+        for i, scale in enumerate(scales):
+            pma_options.downsample.scale = scale
+            if i == 0:
+                task.get_projection_matching_shift()
+            else:
+                task.get_projection_matching_shift(initial_shift=pma_shifts[scales[i - 1]])
+            pma_shifts[scale] = task.phase_projections.shift_manager.staged_shift * 1
 
-        # Check/save the resulting alignment shifts at each resolution
-        ci_test_helper.save_or_compare_results(pma_shifts[scale], f"pma_shift_{scale}x")
+            # Check/save the resulting alignment shifts at each resolution
+            ci_test_helper.save_or_compare_results(pma_shifts[scale], f"pma_shift_{scale}x")
 
-    # Shift the projections by the projection-matching alignment shift
-    print(multi_gpu_device_options)
-    task.phase_projections.apply_staged_shift(multi_gpu_device_options)
+        # Shift the projections by the projection-matching alignment shift
+        print(multi_gpu_device_options)
+        task.phase_projections.apply_staged_shift(multi_gpu_device_options)
 
-    # Save the fully aligned task
-    if ci_test_helper.options.update_tester_results:
-        task.save_task(os.path.join(ci_test_helper.extra_results_folder, "pma_aligned_task.h5"))
-    if ci_test_helper.options.save_temp_files:
-        task.save_task(os.path.join(ci_test_helper.extra_temp_results_folder, "pma_aligned_task.h5"))
+        # Save the fully aligned task
+        ci_test_helper.save_checkpoint_task(task, file_name="pma_aligned_task.h5")
 
-    # Check/save the fully aligned task for ci testing (note: this only saves a few parts of
-    # the task, as opposed to task.save_task which saves the entire task so you can reload
-    # it later)
-    ci_test_helper.save_or_compare_results(task, "pma_aligned_task")
+        # Check/save the fully aligned task for ci testing (note: this only saves a few parts of
+        # the task, as opposed to task.save_task which saves the entire task so you can reload
+        # it later)
+        ci_test_helper.save_or_compare_results(task, "pma_aligned_task")
 
-    ### Generate aligned volumes ###
-    pinned_data = gpu_utils.create_empty_pinned_array(
-        task.phase_projections.data.shape, dtype=r_type
-    )
-    task.phase_projections.laminogram.generate_laminogram(True, pinned_data)
-    del pinned_data
-    ci_test_helper.save_or_compare_results(
-        task.phase_projections.laminogram.data[::s, ::s, ::s], "pma_aligned_volume"
-    )
-    # Estimate optimal angles to rotate the volume by
-    task.phase_projections.laminogram.get_optimal_rotation_of_reconstruction()
-    ci_test_helper.save_or_compare_results(
-        task.phase_projections.laminogram.optimal_rotation_angles,
-        "tomogram_rotation_angles",
-        atol=0.05,
-        rtol=0.05,
-    )
+        ### Generate aligned volumes ###
+        pinned_data = gpu_utils.create_empty_pinned_array(
+            task.phase_projections.data.shape, dtype=r_type
+        )
+        task.phase_projections.laminogram.generate_laminogram(True, pinned_data)
+        del pinned_data        
+        ci_test_helper.save_or_compare_results(
+            task.phase_projections.laminogram.data[::s, ::s, ::s], "pma_aligned_volume"
+        )
+        ci_test_helper.save_tiff(
+            task.phase_projections.laminogram.data,
+            "pma_aligned_volume.tiff",
+        )
 
-    # Rotate the volume
-    task.phase_projections.laminogram.rotate_reconstruction()
+        # Estimate optimal angles to rotate the volume by
+        task.phase_projections.laminogram.get_optimal_rotation_of_reconstruction()
+        ci_test_helper.save_or_compare_results(
+            task.phase_projections.laminogram.optimal_rotation_angles,
+            "tomogram_rotation_angles",
+            atol=0.05,
+            rtol=0.05,
+        )
 
-    # save a tiff stack of the rotated reconstruction
-    if ci_test_helper.options.update_tester_results:
-        task.phase_projections.laminogram.save_as_tiff(
-            os.path.join(ci_test_helper.extra_results_folder, "pma_aligned_rotated_volume.tiff"),
+        # Rotate the volume
+        task.phase_projections.laminogram.rotate_reconstruction()
+
+        # save a tiff stack of the rotated reconstruction
+        ci_test_helper.save_tiff(
+            task.phase_projections.laminogram.data,
+            "pma_aligned_rotated_volume.tiff",
             min=-0.022,
             max=0.025,
         )
+        # Check/save the aligned and rotated volume
+        ci_test_helper.save_or_compare_results(
+            task.phase_projections.laminogram.data[::s, ::s, ::s],
+            "pma_aligned_rotated_volume",
+        )
 
-    # Check/save the aligned and rotated volume
-    ci_test_helper.save_or_compare_results(
-        task.phase_projections.laminogram.data[::s, ::s, ::s],
-        "pma_aligned_rotated_volume",
-    )
+        ci_test_helper.finish_test()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--pma-only", action="store_true"
-    )  # flag for specifying that you only want to test pma alignment
-    parser.add_argument(
-        "--update-results", action="store_true"
-    )  # flag for specifying you want test results updated
-
-    parser.add_argument("--save-temp-results", action="store_true")
-
-    args = parser.parse_args()
+    ci_parser = CITestArgumentParser()
+    args = ci_parser.parser.parse_args()
     run_full_test_TP2(
-        projection_matching_only=args.pma_only,
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
+        test_start_point=args.start_point,
     )
