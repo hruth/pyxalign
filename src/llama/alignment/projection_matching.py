@@ -18,6 +18,7 @@ from llama.data_structures.laminogram import Laminogram
 # from llama.projections import PhaseProjections
 import llama.data_structures.projections as projections
 from llama.regularization import chambolleLocalTV3D
+from llama.style.text import text_colors
 from llama.timing.timer_utils import InlineTimer, timer, clear_timer_globals
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip
@@ -28,6 +29,7 @@ import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
 from llama.timing.timer_utils import timer
+from llama.style.text import text_colors
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -122,7 +124,11 @@ class ProjectionMatchingAligner(Aligner):
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
             max_shift_step_size = self.get_step_size_update()
             if self.print_updates:
-                loop_prog_bar.set_description(f"Max step size update: {max_shift_step_size:.4f} px")
+                prog_bar_update_string = (
+                    f"{text_colors.HEADER}Max step size update: {max_shift_step_size:.4f} px "
+                    + f"{self.momentum_update_string}{text_colors.ENDC}"
+                )
+                loop_prog_bar.set_description(prog_bar_update_string)
             is_step_size_below_threshold = self.check_stopping_condition(max_shift_step_size)
             if is_step_size_below_threshold:
                 break
@@ -218,6 +224,9 @@ class ProjectionMatchingAligner(Aligner):
             dtype=self.shift_update.dtype,
         )
         self.velocity_map = np.zeros_like(self.shift_update)
+        self.all_momentum_acceleration = np.zeros((0, 2), dtype=r_type)
+        self.all_friction = np.zeros([], dtype=r_type)
+        self.momentum_update_string = ""
 
     @timer()
     def get_shift_update(self):
@@ -321,6 +330,8 @@ class ProjectionMatchingAligner(Aligner):
         if self.iteration >= memory:
             max_update = xp.quantile(xp.abs(self.shift_update), 0.995, axis=0)
             eligible_axes = np.where(max_update * self.scale < 0.5)[0]
+            if self.memory_config == MemoryConfig.GPU_ONLY:
+                eligible_axes = eligible_axes.get()
             self.add_momentum_to_shift_update(axes=eligible_axes)
 
     @staticmethod
@@ -342,6 +353,9 @@ class ProjectionMatchingAligner(Aligner):
         shift = self.shift_update
         n_mem = self.options.momentum.memory
 
+        if len(axes) == 0:
+            return
+
         for ax in axes:
             if np.all(self.shift_update[:, ax] == 0):
                 continue
@@ -350,22 +364,37 @@ class ProjectionMatchingAligner(Aligner):
                 pearson_corr_coeffs[i] = xp.corrcoef(
                     shift[:, ax], self.all_shifts[idx_memory[i], :, ax]
                 )[0, 1]
-            if self.memory_config == MemoryConfig.GPU_ONLY:
-                pearson_corr_coeffs = pearson_corr_coeffs.get()
 
             # estimate friction
             decay = self.fminsearch(pearson_corr_coeffs, [0]).x[0]
             friction = np.max([0, self.options.momentum.alpha * decay])
             friction = np.min([1, friction])
             # update velocity map
-            self.velocity_map[:, i] = (1 - friction) * self.velocity_map[:, i] + shift[:, i]
+            self.velocity_map[:, ax] = (1 - friction) * self.velocity_map[:, ax] + shift[:, ax]
             # update shift estimates
             gain = self.options.momentum.gain
-            shift[:, i] = (1 - gain) * shift[:, i] + gain * self.velocity_map[:, i]
+            shift[:, ax] = (1 - gain) * shift[:, ax] + gain * self.velocity_map[:, ax]
 
         # reinforce the reference, in case you make edits later and accidentally
         # remove the reference
         self.shift_update = shift
+
+        # Save quantities to print to user
+        if self.memory_config == MemoryConfig.GPU_ONLY:
+            shift = shift.get()
+        momentum_acceleration = np.linalg.norm(shift, ord=2, axis=0) / np.linalg.norm(
+            self.all_shifts[idx_memory[-1]], ord=2, axis=0
+        )
+        for i in range(2):
+            self.all_momentum_acceleration = np.append(
+                self.all_momentum_acceleration, momentum_acceleration[None], axis=0
+            )
+        self.all_friction = np.append(self.all_friction, friction)
+
+        self.momentum_update_string = (
+            f"{text_colors.OKCYAN}Momentum acceleration: {np.array2string(momentum_acceleration, precision=2, floatmode='fixed')} "
+            + f"{text_colors.OKGREEN}Friction: {friction:.2f}{text_colors.ENDC}"
+        )
 
     @staticmethod
     def calculate_shift_update(
@@ -554,9 +583,6 @@ class ProjectionMatchingAligner(Aligner):
         return max_shift_step_size
 
     def check_stopping_condition(self, max_shift_step_size: float) -> bool:
-        # if self.print_updates:
-            # self.max_shift_step_size = max_shift_step_size
-            # print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
         if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
             print("Minimum step size reached, stopping loop...")
             return True
