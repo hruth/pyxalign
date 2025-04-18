@@ -48,9 +48,6 @@ class ProjectionMatchingAligner(Aligner):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
         self.print_updates = print_updates
-        # self.plotter = ProjectionMatchingPlotter(self.options.plot)
-        # clear_timer_globals()
-        # self.options.reconstruct.filter.device = self.options.device
 
     @gutils.memory_releasing_error_handler
     @timer()
@@ -111,21 +108,22 @@ class ProjectionMatchingAligner(Aligner):
     @gutils.memory_releasing_error_handler
     @timer()
     def calculate_alignment_shift(self) -> ArrayType:
-        # tukey_window, circulo = self.initialize_windows()
         unshifted_masks, unshifted_projections = self.initialize_arrays()
         self.initialize_attributes()
         self.initialize_shifters()
         tukey_window, circulo = self.initialize_windows()
 
-        # for self.iteration in range(self.options.iterations):
+        print(f"Starting projection-matching alignment downsampling = {self.scale}...")
         if self.print_updates:
-            loop_over = tqdm(range(self.options.iterations), desc="projection matching loop")
+            loop_prog_bar = tqdm(range(self.options.iterations), desc="projection matching loop")
         else:
-            loop_over = range(self.options.iterations)
-        for self.iteration in loop_over:
-            # print("Iteration: ", str(self.iteration) + "/" + str(self.options.iterations))
+            loop_prog_bar = range(self.options.iterations)
+        for self.iteration in loop_prog_bar:
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
-            is_step_size_below_threshold = self.check_step_size_update()
+            max_shift_step_size = self.get_step_size_update()
+            if self.print_updates:
+                loop_prog_bar.set_description(f"Max step size update: {max_shift_step_size:.4f} px")
+            is_step_size_below_threshold = self.check_stopping_condition(max_shift_step_size)
             if is_step_size_below_threshold:
                 break
 
@@ -141,11 +139,7 @@ class ProjectionMatchingAligner(Aligner):
         xp = self.xp
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
-        # Apply tukey window filter - convert to gpu chunked later
         self.apply_window_to_masks(tukey_window)
-        # Get back projection:
-        # - use method from projections class and add filtering
-        # - later, add ability to re-use the same astra_config
         self.aligned_projections.get_3D_reconstruction(
             filter_inputs=True,
             pinned_filtered_sinogram=self.pinned_filtered_sinogram,
@@ -548,7 +542,7 @@ class ProjectionMatchingAligner(Aligner):
         self.pinned_error = self.pinned_error.get()
         self.pinned_unfiltered_error = self.pinned_unfiltered_error.get()
 
-    def check_step_size_update(self) -> bool:
+    def get_step_size_update(self) -> float:
         # Check if the step size update is small enough to stop the loop
         xp = self.xp
         max_shift_step_size = xp.max(
@@ -557,9 +551,12 @@ class ProjectionMatchingAligner(Aligner):
         if self.memory_config == MemoryConfig.GPU_ONLY:
             max_shift_step_size = max_shift_step_size.get()
         self.all_max_shift_step_size = np.append(self.all_max_shift_step_size, max_shift_step_size)
+        return max_shift_step_size
 
-        if self.print_updates:
-            print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
+    def check_stopping_condition(self, max_shift_step_size: float) -> bool:
+        # if self.print_updates:
+            # self.max_shift_step_size = max_shift_step_size
+            # print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
         if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
             print("Minimum step size reached, stopping loop...")
             return True
