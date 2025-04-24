@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Sequence, Union
 import numpy as np
 import copy
 import h5py
@@ -670,11 +670,13 @@ class PhaseProjections(Projections):
         filter_inputs: bool = False,
         pinned_filtered_sinogram: Optional[np.ndarray] = None,
         reinitialize_astra: bool = True,
+        n_pix: Optional[Sequence[int]] = None,
     ):
         self.laminogram.generate_laminogram(
             filter_inputs=filter_inputs,
             pinned_filtered_sinogram=pinned_filtered_sinogram,
             reinitialize_astra=reinitialize_astra,
+            n_pix=n_pix,
         )
 
     def estimate_center_of_rotation(self) -> CenterOfRotationEstimateResults:

@@ -45,11 +45,13 @@ class Laminogram:
     def n_layers(self):
         return self.projections.reconstructed_object_dimensions[2]
 
-    def intialize_astra_reconstructor_inputs(self):
+    def intialize_astra_reconstructor_inputs(self, n_pix: Optional[Sequence[int]] = None):
+        if n_pix is None:
+            n_pix = self.projections.reconstructed_object_dimensions
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
             size=self.projections.size,
             angles=self.projections.angles,
-            n_pix=self.projections.reconstructed_object_dimensions,
+            n_pix=n_pix,
             center_of_rotation=self.projections.center_of_rotation,
             lamino_angle=self.experiment_options.laminography_angle,
             tilt_angle=self.options.geometry.tilt_angle,
@@ -64,6 +66,7 @@ class Laminogram:
         filter_inputs: bool = False,
         pinned_filtered_sinogram: Optional[np.ndarray] = None,
         reinitialize_astra: bool = True,
+        n_pix: Optional[Sequence[int]] = None,
     ):
         # Copy the settings used at the time of the reconstruction
         # self.options = copy.deepcopy(self.projections.options.reconstruct)
@@ -73,7 +76,7 @@ class Laminogram:
         if reinitialize_astra or not self.is_initialized:
             self.clear_astra_objects()
             self.scan_geometry_config, self.vectors, self.object_geometries = (
-                self.intialize_astra_reconstructor_inputs()
+                self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
             self.is_initialized = True
 
