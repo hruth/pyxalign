@@ -1,3 +1,4 @@
+from ctypes import Array
 from functools import partial
 import re
 import traceback
@@ -163,6 +164,8 @@ class ProjectionMatchingAligner(Aligner):
         )
         # Find optimal shift
         self.get_shift_update()
+        # Refine geometry
+        self.get_geometry_update()
         self.plot_update()
 
     @timer()
@@ -197,16 +200,31 @@ class ProjectionMatchingAligner(Aligner):
                 self.shift_update = gutils.pin_memory(np.empty((n_proj, 2), dtype=r_type))
                 self.pinned_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
                 self.pinned_unfiltered_error = gutils.pin_memory(np.empty((n_proj), dtype=r_type))
+                self.pinned_lamino_angle_correction = gutils.pin_memory(
+                    np.empty((n_proj), dtype=r_type)
+                )
+                self.pinned_tilt_angle_correction = gutils.pin_memory(
+                    np.empty((n_proj), dtype=r_type)
+                )
+                self.pinned_skew_angle_correction = gutils.pin_memory(
+                    np.empty((n_proj), dtype=r_type)
+                )
             elif self.memory_config == MemoryConfig.GPU_ONLY:
                 self.shift_update = cp.empty((n_proj, 2), dtype=r_type)  # type: ignore
                 self.pinned_error = cp.empty((n_proj), dtype=r_type)  # type: ignore
                 self.pinned_unfiltered_error = cp.empty((n_proj), dtype=r_type)  # type: ignore
+                self.pinned_lamino_angle_correction = cp.zeros((n_proj), dtype=r_type)
+                self.pinned_tilt_angle_correction = cp.zeros((n_proj), dtype=r_type)
+                self.pinned_skew_angle_correction = cp.zeros((n_proj), dtype=r_type)
         else:
             self.pinned_filtered_sinogram = None
             self.pinned_forward_projection = None
             self.shift_update = None
             self.pinned_error = None
             self.pinned_unfiltered_error = None
+            self.pinned_lamino_angle_correction = None
+            self.pinned_tilt_angle_correction = None
+            self.pinned_skew_angle_correction = None
 
         shape = (self.options.iterations, *(self.pinned_error.shape))
         self.all_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
@@ -222,8 +240,11 @@ class ProjectionMatchingAligner(Aligner):
         )
         self.velocity_map = np.zeros_like(self.shift_update)
         self.all_momentum_acceleration = np.zeros((0, 2), dtype=r_type)
-        self.all_friction = np.zeros([], dtype=r_type)
+        self.all_friction = np.zeros(0, dtype=r_type)
         self.momentum_update_string = ""
+        self.all_lamino_angle_updates = np.zeros(0, dtype=r_type)
+        self.all_tilt_angle_updates = np.zeros(0, dtype=r_type)
+        self.all_skew_angle_updates = np.zeros(0, dtype=r_type)
 
     @timer()
     def get_shift_update(self, debug=False):
@@ -231,16 +252,20 @@ class ProjectionMatchingAligner(Aligner):
         # to move arrays to the gpu in chunks if they
         # are on the cpu. For now, just move the whole
         # array.
+        # if self.memory_config == MemoryConfig.GPU_ONLY:
+        #     forward_projection_input = cp.array(
+        #         self.aligned_projections.laminogram.forward_projections.data
+        #     )
+        # else:
+        #     forward_projection_input = self.aligned_projections.laminogram.forward_projections.data
         if self.memory_config == MemoryConfig.GPU_ONLY:
-            forward_projection_input = cp.array(
+            self.aligned_projections.laminogram.forward_projections.data = cp.array(
                 self.aligned_projections.laminogram.forward_projections.data
             )
-        else:
-            forward_projection_input = self.aligned_projections.laminogram.forward_projections.data
 
         inline_timer = InlineTimer("wrapped get_shift_update")
         inline_timer.start()
-        wrapped_shift_calc_func = self.wrapped_get_shift_update()
+        wrapped_shift_calc_func = self.return_wrapped_get_shift_update()
         (
             self.shift_update,
             self.pinned_error,
@@ -248,7 +273,8 @@ class ProjectionMatchingAligner(Aligner):
         ) = wrapped_shift_calc_func(
             self.aligned_projections.data,
             self.aligned_projections.masks,
-            forward_projection_input,
+            # forward_projection_input,
+            self.aligned_projections.laminogram.forward_projections.data,
             self.options.high_pass_filter,
             self.mass,
             self.secondary_mask,
@@ -383,7 +409,7 @@ class ProjectionMatchingAligner(Aligner):
             + f"{text_colors.OKGREEN}Friction: {friction:.2f}{text_colors.ENDC}"
         )
 
-    def wrapped_get_shift_update(self, debug: bool = False) -> Callable:
+    def return_wrapped_get_shift_update(self, debug: bool = False) -> Callable:
         if debug:
             pinned_results = None
         else:
@@ -580,6 +606,9 @@ class ProjectionMatchingAligner(Aligner):
         self.shift_update = self.shift_update.get()
         self.pinned_error = self.pinned_error.get()
         self.pinned_unfiltered_error = self.pinned_unfiltered_error.get()
+        self.pinned_lamino_angle_correction = self.pinned_lamino_angle_correction.get()
+        self.pinned_tilt_angle_correction = self.pinned_tilt_angle_correction.get()
+        self.pinned_skew_angle_correction = self.pinned_skew_angle_correction.get()
 
     def get_step_size_update(self) -> float:
         # Check if the step size update is small enough to stop the loop
@@ -678,6 +707,9 @@ class ProjectionMatchingAligner(Aligner):
             plt.sca(proj_axis)
             self.aligned_projections.plot_data(self.options.plot.projections, show_plot=False)
             plt.sca(forward_proj_axis)
+            # self.aligned_projections.laminogram.forward_projections.data = (
+            #     self.aligned_projections.laminogram.forward_projections.data.get()
+            # )
             self.aligned_projections.laminogram.forward_projections.plot_data(
                 self.options.plot.projections, title_string="Forward Projection", show_plot=False
             )
@@ -719,7 +751,7 @@ class ProjectionMatchingAligner(Aligner):
             plt.show()
 
     def debug_get_shift_update(self) -> tuple:
-        wrapped_shift_calc_func = self.wrapped_get_shift_update(debug=True)
+        wrapped_shift_calc_func = self.return_wrapped_get_shift_update(debug=True)
         (shift, dX, dY, projections_residuals) = wrapped_shift_calc_func(
             self.aligned_projections.data,
             self.aligned_projections.masks,
@@ -830,6 +862,155 @@ class ProjectionMatchingAligner(Aligner):
         plt.plot(shift[sort_idx])
         plt.legend()
         plt.show()
+
+    @timer()
+    def get_geometry_update(self):
+        if not self.options.refine_geometry.enabled:
+            return
+    
+        xp = cp.get_array_module(self.aligned_projections.data)
+        delta = 0.01
+        deltas = [-delta, delta]
+        offset_forward_projections = []
+
+        # Get sinogram model at +/- a delta on the laminography angle
+        # Get 'infinitesmal' difference of model sinogram with respect to the sinogram angle
+        forward_projections = self.aligned_projections.laminogram.forward_projections.data
+        laminography_angle = self.aligned_projections.options.experiment.laminography_angle
+        for i in range(2):
+            self.aligned_projections.options.experiment.laminography_angle = (
+                laminography_angle + deltas[i]
+            )
+            self.aligned_projections.get_3D_reconstruction(
+                filter_inputs=True,
+                pinned_filtered_sinogram=self.pinned_filtered_sinogram,
+                reinitialize_astra=True,
+            )
+            self.aligned_projections.laminogram.get_forward_projection(
+                pinned_forward_projection=self.pinned_forward_projection,
+            )
+            # needs copy or no?
+            offset_forward_projections += [
+                self.aligned_projections.laminogram.forward_projections.data * 1
+            ]
+        # Revert the laminography angle
+        self.aligned_projections.options.experiment.laminography_angle = laminography_angle
+        # Calculate delta projections for the difference in lamino angle
+        d_proj = (offset_forward_projections[0] - offset_forward_projections[1]) / (2 * delta)
+
+        def get_gd_update(dX, residual, weights, filter):
+            xp = cp.get_array_module(dX)
+            dX = ip.apply_1D_high_pass_filter(dX, 2, filter)
+            optimal_shift = xp.sum(weights * residual * dX, axis=(1, 2)) / xp.sum(
+                weights * dX**2, axis=(1, 2)
+            )
+            return optimal_shift
+
+        def appendShift(appendShift, shift, iteration):
+            if iteration == 0:
+                appendShift = shift
+            else:
+                appendShift = np.append(appendShift, shift)
+            return appendShift
+
+        # add the thing for handling forward projection models here! they need to be
+        # moved to gpu in the gpu_only case.
+        if self.memory_config == MemoryConfig.GPU_ONLY:
+            d_proj = cp.array(d_proj)
+
+
+        # gpu chunked inputs: forward_projections, projections, d_proj
+        def calculate_geometry_update(
+            forward_projections: ArrayType,
+            projections: ArrayType,
+            d_proj: ArrayType,
+            weights: ArrayType,
+            high_pass_filter: float,
+        ):
+            xp = cp.get_array_module(projections)
+            projections_residuals = forward_projections - projections
+            projections_residuals = ip.apply_1D_high_pass_filter(
+                projections_residuals, 2, high_pass_filter
+            )
+            dX = ip.get_filtered_image_gradient(forward_projections, 0, 0, use_filter=False)
+            dY = ip.get_filtered_image_gradient(forward_projections, 1, 0, use_filter=False)
+            # get laminography angle correction
+            lamino_angle_correction = get_gd_update(
+                d_proj, projections_residuals, weights, high_pass_filter
+            )
+            # get tilt angle correction
+            d_vec = dX * xp.linspace(-1, 1, dX.shape[1])[:, None] - dY * xp.linspace(
+                -1, 1, dY.shape[2]
+            )
+            tilt_angle_correction = (
+                get_gd_update(d_vec, projections_residuals, weights, high_pass_filter) * 180 / xp.pi
+            )
+            # get skew angle correction
+            d_vec = dY * xp.linspace(-1, 1, dY.shape[2])
+            skew_angle_correction = (
+                get_gd_update(d_vec, projections_residuals, weights, high_pass_filter) * 180 / xp.pi
+            )
+
+            return lamino_angle_correction, tilt_angle_correction, skew_angle_correction
+
+        calculate_geometry_update_wrapped = device_handling_wrapper(
+            calculate_geometry_update,
+            self.options.refine_geometry.device,
+            chunkable_inputs_for_gpu_idx=[0, 1, 2, 3],
+            common_inputs_for_gpu_idx=[4],
+            pinned_results=(
+                self.pinned_lamino_angle_correction,
+                self.pinned_tilt_angle_correction,
+                self.pinned_skew_angle_correction,
+            ),
+        )
+
+        inline_timer = InlineTimer("calculate_geometry_update_wrapped")
+        inline_timer.start()
+        (
+            self.pinned_lamino_angle_correction,
+            self.pinned_tilt_angle_correction,
+            self.pinned_skew_angle_correction,
+        ) = calculate_geometry_update_wrapped(
+            forward_projections,
+            self.aligned_projections.data,
+            d_proj,
+            self.aligned_projections.masks,
+            self.options.high_pass_filter,
+        )
+        inline_timer.end()
+
+        # Update angles
+        def get_angle_update(angle_correction: ArrayType):
+            angle_update = xp.median(xp.real(angle_correction))
+            if self.memory_config == MemoryConfig.GPU_ONLY:
+                angle_update = angle_update.get()
+            angle_update = angle_update * self.options.refine_geometry.step_relax
+            return angle_update
+
+        # self.aligned_projections.options.experiment.laminography_angle += get_angle_update(
+        #     self.pinned_lamino_angle_correction
+        # )
+        self.aligned_projections.options.reconstruct.geometry.tilt_angle += get_angle_update(
+            self.pinned_tilt_angle_correction
+        )
+        self.aligned_projections.options.reconstruct.geometry.skew_angle += get_angle_update(
+            self.pinned_skew_angle_correction
+        )
+
+        # Store updated results for plotting
+        self.all_lamino_angle_updates = np.append(
+            self.all_lamino_angle_updates,
+            self.aligned_projections.options.experiment.laminography_angle,
+        )
+        self.all_tilt_angle_updates = np.append(
+            self.all_tilt_angle_updates,
+            self.aligned_projections.options.reconstruct.geometry.tilt_angle,
+        )
+        self.all_skew_angle_updates = np.append(
+            self.all_skew_angle_updates,
+            self.aligned_projections.options.reconstruct.geometry.skew_angle,
+        )
 
 
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):

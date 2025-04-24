@@ -70,8 +70,18 @@ class StepMomentum:
     memory: int = 2
 
     alpha: float = 2
-    
+
     gain: float = 0.5
+
+
+@dataclasses.dataclass
+class RefineGeometryOptions:
+    enabled: bool = False
+
+    device: DeviceOptions = field(default_factory=DeviceOptions)
+
+    step_relax: float = 0.01
+
 
 @dataclasses.dataclass
 class ProjectionMatchingOptions(AlignmentOptions):
@@ -115,4 +125,4 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
 
-    # update_plot: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)
+    refine_geometry: RefineGeometryOptions = field(default_factory=RefineGeometryOptions)
