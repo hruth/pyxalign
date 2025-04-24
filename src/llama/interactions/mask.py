@@ -60,6 +60,7 @@ def illum_map_threshold_plotter(
         min=0,
         description="threshold",
         visible=False,  # The slider will be shown via the interact link
+        max=1e9,
     )
 
     # Stop button
