@@ -7,6 +7,7 @@ import cupyx.scipy.ndimage
 import scipy.ndimage
 import skimage
 import scipy.fft
+from scipy.ndimage import distance_transform_edt
 from tqdm import tqdm
 from contextlib import nullcontext
 from llama import gpu_utils
@@ -20,7 +21,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from llama.api.options.options import MaskOptions
-from llama.gpu_utils import memory_releasing_error_handler
+from llama.gpu_utils import get_scipy_module, memory_releasing_error_handler
 from llama.timing.timer_utils import timer, InlineTimer
 from llama.api.types import ArrayType, r_type
 
@@ -272,6 +273,78 @@ def get_illumination_map(empty_array: np.ndarray, probe: np.ndarray, positions: 
         ]
 
     return empty_array
+
+
+def shrink_binary_mask(mask: np.ndarray, shrink_radius: int):
+    """
+    Shrinks a binary circular mask by a given radius.
+
+    Parameters
+    ----------
+    mask : 2D numpy array
+        Binary mask with circular region (1 inside, 0 outside).
+    shrink_radius : float
+        Number of pixels to shrink the mask inward.
+
+    Returns
+    -------
+    shrunken_mask : 2D numpy array
+        Binary mask after shrinking.
+    """
+    if shrink_radius <= 0:
+        return mask.copy()
+
+    # Compute distance from the edge inward (from inside the object)
+    distance_inside = distance_transform_edt(mask)
+
+    # Keep only areas where the distance from the edge is greater than shrink_radius
+    shrunken_mask = distance_inside > shrink_radius
+
+    return shrunken_mask.astype(mask.dtype)
+
+
+def place_patches_fourier(input_shape, patch, locations):
+    """
+    Places the `patch` at each of the `locations` on an array of shape `input_shape` using Fourier transforms.
+
+    Parameters
+    ----------
+    input_shape : tuple of int
+        Shape of the output array (height, width).
+    patch : 2D numpy array
+        Patch to place at each location (must be smaller than input_shape).
+    locations : numpy array of shape (n_points, 2)
+        List of (x, y) locations where patches should be placed. Coordinates are in (row, col) order.
+
+    Returns
+    -------
+    result : 2D numpy array
+        The resulting image with patches placed.
+    """
+    scipy_module = get_scipy_module(patch)
+
+    # Create the impulse mask
+    mask = np.zeros(input_shape, dtype=r_type)
+    for y, x in locations - np.array(patch.shape, dtype=r_type) / 2:
+        if 0 <= y < input_shape[0] and 0 <= x < input_shape[1]:
+            mask[int(y), int(x)] = 1.0
+
+    # Pad patch to the same size
+    padded_patch = np.zeros_like(mask)
+    ph, pw = patch.shape
+    cy, cx = ph // 2, pw // 2
+    padded_patch[:ph, :pw] = patch
+
+    # Shift patch to center the kernel
+    padded_patch = scipy_module.fft.fftshift(padded_patch)
+
+    # Convolution via FFT (using multiplication in Fourier domain)
+    fft_mask = scipy_module.fft.fft2(mask)
+    fft_patch = scipy_module.fft.fft2(padded_patch)
+    result = np.real(scipy_module.fft.ifft2(fft_mask * fft_patch))
+    result = scipy_module.fft.fftshift(result)
+
+    return result
 
 
 class IlluminationMapMaskBuilder:

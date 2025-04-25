@@ -17,6 +17,7 @@ from .alignment import (
     ProjectionMatchingPlotOptions,
     SecondaryMaskOptions,
     ReconstructionMaskOptions,
+    StepMomentum,
 )
 from .projections import (
     CoordinateSearchOptions,

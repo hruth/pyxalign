@@ -35,6 +35,7 @@ from llama.data_structures.laminogram import Laminogram
 from llama.io.save import save_generic_data_structure_to_h5
 
 from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
+from llama.model_functions import symmetric_gaussian_2d
 
 # import llama.plotting.plotters as plotters
 from llama.plotting.plotters import make_image_slider_plot, plot_slice_of_3D_array, ImagePlotObject
@@ -398,6 +399,10 @@ class Projections:
             self.probe_positions.data = [self.probe_positions.data[i] for i in keep_idx]
         self.angles = self.angles[keep_idx]
         self.scan_numbers = self.scan_numbers[keep_idx]
+        # Update the past shifts and staged shift
+        self.shift_manager.staged_shift = self.shift_manager.staged_shift[keep_idx]
+        for i, shift in enumerate(self.shift_manager.past_shifts):
+            self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][keep_idx]
 
     @property
     def n_projections(self) -> int:
@@ -420,6 +425,7 @@ class Projections:
         elif self.options.experiment.sample_width_type == enums.VolumeWidthType.MANUAL:
             n_lateral_pixels = self.options.experiment.sample_width / self.pixel_size
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
+        # n_pix = round_to_divisor(n_pix, "ceil", divisor)
         return np.ceil(n_pix).astype(int)
 
     @property
@@ -601,6 +607,13 @@ class Projections:
         plt.xlabel("scan number")
         plt.ylabel("shift (px)")
         plt.show()
+
+    def replace_probe_with_gaussian(
+        self, amplitude: float, sigma: float, shape: Optional[float] = None
+    ):
+        if shape is None:
+            shape = self.probe.shape
+        self.probe = symmetric_gaussian_2d(shape, amplitude, sigma)
 
     def save_projections_object(
         self,

@@ -13,11 +13,13 @@ git clone https://github.com/hruth/llama.git
 ```
 4. Install the package
 ```bash
-pip install llama
+cd llama
+pip install .
 ```
 For an editable install, use this instead:
 ```bash
-pip install -e llama
+cd llama
+pip install -e .
 ```
 
 To install astra-toolbox and cupy for a specific cuda-toolkit, add `cudatoolkit=[version_number]` to the end of the conda install commands. For example:

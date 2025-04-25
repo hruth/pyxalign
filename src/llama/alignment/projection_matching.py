@@ -1,7 +1,7 @@
 from functools import partial
 import re
 import traceback
-from typing import Optional
+from typing import Callable, Optional
 import matplotlib
 import numpy as np
 import cupy as cp
@@ -13,11 +13,9 @@ from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
 from llama.api.options.transform import ShiftOptions
 from llama.api.options_utils import set_all_device_options
-from llama.data_structures.laminogram import Laminogram
-
-# from llama.projections import PhaseProjections
 import llama.data_structures.projections as projections
 from llama.regularization import chambolleLocalTV3D
+from llama.style.text import text_colors
 from llama.timing.timer_utils import InlineTimer, timer, clear_timer_globals
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip
@@ -33,9 +31,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import astra
 
-# To do:
-# - add option for creating pinned arrays to speed up downsampling
-
 
 class ProjectionMatchingAligner(Aligner):
     @timer()
@@ -48,9 +43,6 @@ class ProjectionMatchingAligner(Aligner):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
         self.print_updates = print_updates
-        # self.plotter = ProjectionMatchingPlotter(self.options.plot)
-        # clear_timer_globals()
-        # self.options.reconstruct.filter.device = self.options.device
 
     @gutils.memory_releasing_error_handler
     @timer()
@@ -111,21 +103,26 @@ class ProjectionMatchingAligner(Aligner):
     @gutils.memory_releasing_error_handler
     @timer()
     def calculate_alignment_shift(self) -> ArrayType:
-        # tukey_window, circulo = self.initialize_windows()
         unshifted_masks, unshifted_projections = self.initialize_arrays()
         self.initialize_attributes()
         self.initialize_shifters()
         tukey_window, circulo = self.initialize_windows()
 
-        # for self.iteration in range(self.options.iterations):
+        print(f"Starting projection-matching alignment downsampling = {self.scale}...")
         if self.print_updates:
-            loop_over = tqdm(range(self.options.iterations), desc="projection matching loop")
+            loop_prog_bar = tqdm(range(self.options.iterations), desc="projection matching loop")
         else:
-            loop_over = range(self.options.iterations)
-        for self.iteration in loop_over:
-            # print("Iteration: ", str(self.iteration) + "/" + str(self.options.iterations))
+            loop_prog_bar = range(self.options.iterations)
+        for self.iteration in loop_prog_bar:
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
-            is_step_size_below_threshold = self.check_step_size_update()
+            max_shift_step_size = self.get_step_size_update()
+            if self.print_updates:
+                prog_bar_update_string = (
+                    f"{text_colors.HEADER}Max step size update: {max_shift_step_size:.4f} px "
+                    + f"{self.momentum_update_string}{text_colors.ENDC}"
+                )
+                loop_prog_bar.set_description(prog_bar_update_string)
+            is_step_size_below_threshold = self.check_stopping_condition(max_shift_step_size)
             if is_step_size_below_threshold:
                 break
 
@@ -141,11 +138,7 @@ class ProjectionMatchingAligner(Aligner):
         xp = self.xp
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
-        # Apply tukey window filter - convert to gpu chunked later
         self.apply_window_to_masks(tukey_window)
-        # Get back projection:
-        # - use method from projections class and add filtering
-        # - later, add ability to re-use the same astra_config
         self.aligned_projections.get_3D_reconstruction(
             filter_inputs=True,
             pinned_filtered_sinogram=self.pinned_filtered_sinogram,
@@ -219,25 +212,21 @@ class ProjectionMatchingAligner(Aligner):
         self.all_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
         self.all_unfiltered_errors = np.zeros(shape=shape, dtype=self.pinned_error.dtype)
         self.all_max_shift_step_size = np.array([], dtype=r_type)
-        self.all_shifts = np.zeros(
+        self.all_shifts_before_momentum = np.zeros(
+            shape=(self.options.iterations, *(self.shift_update.shape)),
+            dtype=self.shift_update.dtype,
+        )
+        self.all_shift_updates = np.zeros(
             shape=(self.options.iterations, *(self.shift_update.shape)),
             dtype=self.shift_update.dtype,
         )
         self.velocity_map = np.zeros_like(self.shift_update)
+        self.all_momentum_acceleration = np.zeros((0, 2), dtype=r_type)
+        self.all_friction = np.zeros([], dtype=r_type)
+        self.momentum_update_string = ""
 
     @timer()
-    def get_shift_update(self):
-        wrapped_func = device_handling_wrapper(
-            func=self.calculate_shift_update,
-            options=self.options.device,
-            chunkable_inputs_for_gpu_idx=[0, 1, 2],
-            common_inputs_for_gpu_idx=[4, 5],
-            pinned_results=(
-                self.shift_update,
-                self.pinned_error,
-                self.pinned_unfiltered_error,
-            ),
-        )
+    def get_shift_update(self, debug=False):
         # Later, you could update the gpu wrapper
         # to move arrays to the gpu in chunks if they
         # are on the cpu. For now, just move the whole
@@ -251,11 +240,12 @@ class ProjectionMatchingAligner(Aligner):
 
         inline_timer = InlineTimer("wrapped get_shift_update")
         inline_timer.start()
+        wrapped_shift_calc_func = self.wrapped_get_shift_update()
         (
             self.shift_update,
             self.pinned_error,
             self.pinned_unfiltered_error,
-        ) = wrapped_func(
+        ) = wrapped_shift_calc_func(
             self.aligned_projections.data,
             self.aligned_projections.masks,
             forward_projection_input,
@@ -270,11 +260,11 @@ class ProjectionMatchingAligner(Aligner):
         if self.memory_config == MemoryConfig.GPU_ONLY:
             self.all_errors[self.iteration] = self.pinned_error.get()
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error.get()
-            # self.all_shifts[self.iteration] = self.shift_update.get()
+            self.all_shift_updates[self.iteration] = self.shift_update.get()
         else:
             self.all_errors[self.iteration] = self.pinned_error * 1
             self.all_unfiltered_errors[self.iteration] = self.pinned_unfiltered_error * 1
-            # self.all_shifts[self.iteration] = self.shift_update * 1
+            self.all_shift_updates[self.iteration] = self.shift_update * 1
         self.total_shift += self.shift_update
 
     @timer()
@@ -289,9 +279,9 @@ class ProjectionMatchingAligner(Aligner):
 
         # apply momentum
         if self.memory_config == MemoryConfig.GPU_ONLY:
-            self.all_shifts[self.iteration] = self.shift_update.get()
+            self.all_shifts_before_momentum[self.iteration] = self.shift_update.get()
         else:
-            self.all_shifts[self.iteration] = self.shift_update * 1
+            self.all_shifts_before_momentum[self.iteration] = self.shift_update * 1
         self.get_shift_momentum()
 
         # Center the shifts around zero in the vertical direction
@@ -322,11 +312,13 @@ class ProjectionMatchingAligner(Aligner):
         if not self.options.momentum.enabled:
             return
 
-        xp = cp.get_array_module(self.all_shifts)
+        xp = cp.get_array_module(self.all_shifts_before_momentum)
         memory = self.options.momentum.memory
         if self.iteration >= memory:
             max_update = xp.quantile(xp.abs(self.shift_update), 0.995, axis=0)
             eligible_axes = np.where(max_update * self.scale < 0.5)[0]
+            if self.memory_config == MemoryConfig.GPU_ONLY:
+                eligible_axes = eligible_axes.get()
             self.add_momentum_to_shift_update(axes=eligible_axes)
 
     @staticmethod
@@ -343,10 +335,13 @@ class ProjectionMatchingAligner(Aligner):
         return result
 
     def add_momentum_to_shift_update(self, axes: list[int]):
-        xp = cp.get_array_module(self.all_shifts)
+        xp = cp.get_array_module(self.all_shifts_before_momentum)
         idx_memory = range(self.iteration - self.options.momentum.memory, self.iteration + 1)
         shift = self.shift_update
         n_mem = self.options.momentum.memory
+
+        if len(axes) == 0:
+            return
 
         for ax in axes:
             if np.all(self.shift_update[:, ax] == 0):
@@ -354,24 +349,57 @@ class ProjectionMatchingAligner(Aligner):
             pearson_corr_coeffs = xp.zeros(n_mem, dtype=r_type)
             for i in range(n_mem):
                 pearson_corr_coeffs[i] = xp.corrcoef(
-                    shift[:, ax], self.all_shifts[idx_memory[i], :, ax]
+                    shift[:, ax], self.all_shifts_before_momentum[idx_memory[i], :, ax]
                 )[0, 1]
-            if self.memory_config == MemoryConfig.GPU_ONLY:
-                pearson_corr_coeffs = pearson_corr_coeffs.get()
 
             # estimate friction
             decay = self.fminsearch(pearson_corr_coeffs, [0]).x[0]
             friction = np.max([0, self.options.momentum.alpha * decay])
             friction = np.min([1, friction])
             # update velocity map
-            self.velocity_map[:, i] = (1 - friction) * self.velocity_map[:, i] + shift[:, i]
+            self.velocity_map[:, ax] = (1 - friction) * self.velocity_map[:, ax] + shift[:, ax]
             # update shift estimates
             gain = self.options.momentum.gain
-            shift[:, i] = (1 - gain) * shift[:, i] + gain * self.velocity_map[:, i]
+            shift[:, ax] = (1 - gain) * shift[:, ax] + gain * self.velocity_map[:, ax]
 
         # reinforce the reference, in case you make edits later and accidentally
         # remove the reference
         self.shift_update = shift
+
+        # Save quantities to print to user
+        if self.memory_config == MemoryConfig.GPU_ONLY:
+            shift = shift.get()
+        momentum_acceleration = np.linalg.norm(shift, ord=2, axis=0) / np.linalg.norm(
+            self.all_shifts_before_momentum[idx_memory[-1]], ord=2, axis=0
+        )
+        for i in range(2):
+            self.all_momentum_acceleration = np.append(
+                self.all_momentum_acceleration, momentum_acceleration[None], axis=0
+            )
+        self.all_friction = np.append(self.all_friction, friction)
+
+        self.momentum_update_string = (
+            f"{text_colors.OKCYAN}Momentum acceleration: {np.array2string(momentum_acceleration, precision=2, floatmode='fixed')} "
+            + f"{text_colors.OKGREEN}Friction: {friction:.2f}{text_colors.ENDC}"
+        )
+
+    def wrapped_get_shift_update(self, debug: bool = False) -> Callable:
+        if debug:
+            pinned_results = None
+        else:
+            pinned_results = (
+                self.shift_update,
+                self.pinned_error,
+                self.pinned_unfiltered_error,
+            )
+        wrapped_func = device_handling_wrapper(
+            func=self.calculate_shift_update,
+            options=self.options.device,
+            chunkable_inputs_for_gpu_idx=[0, 1, 2],
+            common_inputs_for_gpu_idx=[4, 5],
+            pinned_results=pinned_results,
+        )
+        return wrapped_func
 
     @staticmethod
     def calculate_shift_update(
@@ -382,6 +410,7 @@ class ProjectionMatchingAligner(Aligner):
         mass: float,
         secondary_mask: ArrayType,
         filter_directions: tuple[int] = (2,),
+        debug: bool = False,
     ) -> tuple[ArrayType, ArrayType, ArrayType]:
         xp = cp.get_array_module(sinogram)
         masks = secondary_mask * masks
@@ -406,7 +435,8 @@ class ProjectionMatchingAligner(Aligner):
             xp.sum(masks * dX * projections_residuals, axis=(1, 2))
             / xp.sum(masks * dX**2, axis=(1, 2))
         )
-        del dX
+        if not debug:
+            del dX
 
         dY = ip.get_filtered_image_gradient(forward_projection_model, 1, high_pass_filter)
         dY = ip.apply_1D_high_pass_filter(dY, 1, high_pass_filter)
@@ -414,11 +444,14 @@ class ProjectionMatchingAligner(Aligner):
             xp.sum(masks * dY * projections_residuals, axis=(1, 2))
             / xp.sum(masks * dY**2, axis=(1, 2))
         )
-        del dY
+        if not debug:
+            del dY
 
         shift = xp.array([x_shift, y_shift]).transpose().astype(r_type)
-
-        return shift, error, unfiltered_error
+        if not debug:
+            return shift, error, unfiltered_error
+        else:
+            return shift, dX, dY, projections_residuals
 
     @timer()
     def apply_window_to_masks(self, tukey_window: ArrayType):
@@ -548,7 +581,7 @@ class ProjectionMatchingAligner(Aligner):
         self.pinned_error = self.pinned_error.get()
         self.pinned_unfiltered_error = self.pinned_unfiltered_error.get()
 
-    def check_step_size_update(self) -> bool:
+    def get_step_size_update(self) -> float:
         # Check if the step size update is small enough to stop the loop
         xp = self.xp
         max_shift_step_size = xp.max(
@@ -557,9 +590,9 @@ class ProjectionMatchingAligner(Aligner):
         if self.memory_config == MemoryConfig.GPU_ONLY:
             max_shift_step_size = max_shift_step_size.get()
         self.all_max_shift_step_size = np.append(self.all_max_shift_step_size, max_shift_step_size)
+        return max_shift_step_size
 
-        if self.print_updates:
-            print("Max step size update: " + "{:.4f}".format(max_shift_step_size) + " px")
+    def check_stopping_condition(self, max_shift_step_size: float) -> bool:
         if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
             print("Minimum step size reached, stopping loop...")
             return True
@@ -684,6 +717,119 @@ class ProjectionMatchingAligner(Aligner):
 
             # fig.tight_layout()
             plt.show()
+
+    def debug_get_shift_update(self) -> tuple:
+        wrapped_shift_calc_func = self.wrapped_get_shift_update(debug=True)
+        (shift, dX, dY, projections_residuals) = wrapped_shift_calc_func(
+            self.aligned_projections.data,
+            self.aligned_projections.masks,
+            self.aligned_projections.laminogram.forward_projections.data,
+            self.options.high_pass_filter,
+            self.mass,
+            self.secondary_mask,
+            self.options.filter_directions,
+            True,
+        )
+        return shift, dX, dY, projections_residuals
+
+    def plot_shift_update_arrays_for_debugging(
+        self,
+        i: int,
+        shift: np.ndarray,
+        dX: np.ndarray,
+        dY: np.ndarray,
+        projections_residuals: np.ndarray,
+        sort: bool = True,
+        arrays_clim: Optional[np.ndarray] = None,
+        gradient_clim: Optional[np.ndarray] = None,
+        numerator_clim: Optional[np.ndarray] = None,
+        denominator_clim: Optional[np.ndarray] = None,
+        use_colorbars: bool = False,
+    ):
+        if sort:
+            sort_idx = np.argsort(self.aligned_projections.angles)
+        else:
+            sort_idx = np.arange(0, len(dX), dtype=int)
+
+        proj = self.aligned_projections.data[sort_idx[i]]
+        forward_proj = self.aligned_projections.laminogram.forward_projections.data[sort_idx[i]]
+        mask = self.aligned_projections.masks[sort_idx[i]]
+
+        fig, ax = plt.subplots(3, 4, layout="compressed", figsize=(15, 7.5))
+        plt.suptitle(f"Arrays for {i}")
+
+        # Plot projection, forward projection, and residual
+        plt.sca(ax[0, 0])
+        plt.title("Projection")
+        plt.imshow(proj, cmap="bone")
+        plt.clim(arrays_clim)
+        plt.sca(ax[0, 1])
+        plt.title("Forward Projection")
+        plt.imshow(forward_proj, cmap="bone")
+        plt.clim(arrays_clim)
+        plt.sca(ax[0, 2])
+        plt.title("Residual")
+        plt.imshow(proj - forward_proj, cmap="bone")
+        plt.clim(arrays_clim)
+        plt.sca(ax[0, 3])
+        plt.title("Masked and Filtered Residual")
+        plt.imshow((projections_residuals[sort_idx[i]]) * mask, cmap="bone")
+        plt.clim(arrays_clim)
+
+        # Plot image gradients
+        plt.sca(ax[1, 0])
+        plt.title("dX")
+        plt.imshow(dX[sort_idx[i]], cmap="bone")
+        plt.clim(gradient_clim)
+        plt.sca(ax[1, 1])
+        plt.title("dY")
+        plt.imshow(dY[sort_idx[i]], cmap="bone")
+        plt.clim(gradient_clim)
+
+        # Plot numerator of shift calculation
+        plt.sca(ax[1, 2])
+        plt.title(r"dX $\times$ residual $\times$ mask")
+        plt.imshow(dX[sort_idx[i]] * projections_residuals[sort_idx[i]] * mask, cmap="bone")
+        plt.clim(numerator_clim)
+        plt.sca(ax[1, 3])
+        plt.title(r"dY $\times$ residual $\times$ mask")
+        plt.imshow(dY[sort_idx[i]] * projections_residuals[sort_idx[i]] * mask, cmap="bone")
+        plt.clim(numerator_clim)
+
+        # Plot denominator of shift calculation
+        plt.sca(ax[2, 2])
+        plt.title(r"dX$^2$ $\times$ mask")
+        plt.imshow(mask * dX[sort_idx[i]] ** 2, cmap="bone")
+        plt.clim(denominator_clim)
+        plt.sca(ax[2, 3])
+        plt.title(r"dY$^2$ $\times$ mask")
+        plt.imshow(mask * dY[sort_idx[i]] ** 2, cmap="bone")
+        plt.clim(denominator_clim)
+
+        for axis in ax.ravel():
+            axis.axis("off")
+            plt.sca(axis)
+            if use_colorbars:
+                plt.colorbar()
+        plt.show()
+
+        print((self.total_shift * self.scale)[sort_idx[i]])
+        fig, ax = plt.subplots(2, 1, layout="compressed")
+        for axis in ax.ravel():
+            plt.sca(axis)
+            plt.axvline(i, color="gray", label=f"Index {i}")
+            plt.grid(linestyle=":")
+            plt.autoscale(enable=True, axis="x", tight=True)
+            plt.ylabel("Shift (px)")
+
+        plt.sca(ax[0])
+        plt.title("Total Shift")
+        plt.plot((self.total_shift * self.scale)[sort_idx])
+        plt.sca(ax[1])
+        plt.title("Shift Update")
+        plt.plot(shift[sort_idx])
+        plt.legend()
+        plt.show()
 
 
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):

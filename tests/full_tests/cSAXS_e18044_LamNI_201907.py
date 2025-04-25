@@ -1,4 +1,5 @@
 import os
+import argparse
 import multiprocessing as mp
 import cupy as cp
 
@@ -7,14 +8,15 @@ import llama
 from llama import options as opts
 from llama.api import enums
 from llama.api.types import r_type
+from llama.io.load import load_task
 from llama.io.loaders.enums import LoaderType
 from llama import gpu_utils
-from llama.test_utils_2 import CITestHelper, CITestArgumentParser
+from llama.test_utils_2 import CITestArgumentParser, CITestHelper
 from llama.api.options_utils import set_all_device_options
 import llama.io.loaders
 
 
-def run_full_test_TP2(
+def run_full_test_cSAXS_e18044_LamNi_201907(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
@@ -23,52 +25,55 @@ def run_full_test_TP2(
 
     # Setup the test
     ci_options = opts.CITestOptions(
-        test_data_name="TP2",
+        test_data_name="cSAXS_e18044_LamNI_201907",
         update_tester_results=update_tester_results,
-        proj_idx=list(range(0, 199, 45)),
+        proj_idx=list(range(0, 750, 150)),
         save_temp_files=save_temp_files,
     )
     ci_test_helper = CITestHelper(options=ci_options)
     # define a downscaling value for when volumes are saved to prevent
     # saving files large files
-    s = 4
+    s = 16
 
     # Setup default gpu options
     n_gpus = cp.cuda.runtime.getDeviceCount()
     gpu_list = list(range(0, n_gpus))
+    single_gpu_device_options = opts.DeviceOptions()
     multi_gpu_device_options = opts.DeviceOptions(
         gpu=opts.GPUOptions(
             n_gpus=n_gpus,
             gpu_indices=gpu_list,
-            chunk_length=2,
+            chunk_length=20,
         )
     )
 
+    # if not projection_matching_only:
     checkpoint_list = [enums.TestStartPoints.BEGINNING]
     if test_start_point in checkpoint_list:
         ### Load ptycho input data ###
 
         # Set experiment details
-        lamino_angle = 61.3758  # laminography measurement angle
+        lamino_angle = 61.108  # laminography measurement angle
         sample_thickness = 7e-6  # thickness of the sample; determines number of pixels in the depth direction of the reconstruction
-        rotation_angle = 72  # angle that ptycho reconstructions will be rotated by
+        rotation_angle = 72.605  # angle that ptycho reconstructions will be rotated by
+        shear_angle = -1.296
 
         # Define paths to ptycho reconstructions and the tomography_scannumbers.txt file
         parent_folder = ci_test_helper.inputs_folder
-        dat_file_path = os.path.join(
-            parent_folder, "specES1", "dat-files", "tomography_scannumbers.txt"
-        )
-        parent_projection_folder = os.path.join(parent_folder, "ptycho_recon", "TP_2")
+        dat_file_path = os.path.join(parent_folder, "specES1", "dat-files", "tomography_scannumbers.txt")
+        parent_projection_folder = os.path.join(parent_folder, "analysis")
 
         # Define options for loading ptycho reconstructions
         options = llama.io.loaders.LamniLoadOptions(
-            loader_type=LoaderType.LAMNI_V2,
-            selected_experiment_name="test_pattern_2",
-            selected_sequences=[1, 2, 3, 4, 5, 6, 7],
-            selected_metadata_list=["roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat"],
+            loader_type=LoaderType.LAMNI_V1,
+            selected_experiment_name="unlabeled",
+            selected_sequences=[3, 4, 5],
+            selected_metadata_list=["512x512_b0_MLc_Niter500_recons"],
+            scan_start=2714,
+            scan_end=3465,
         )
 
-        # Load ptycho reconstructions, probe positions, measurement angles, and scan numbers
+        # Load data
         lamni_data = llama.io.loaders.load_data_from_lamni_format(
             dat_file_path=dat_file_path,
             parent_projections_folder=parent_projection_folder,
@@ -76,25 +81,21 @@ def run_full_test_TP2(
             options=options,
         )
 
-        # Convert projection dict to an array
+        new_shape = (2368, 1600)
         projection_array = llama.io.loaders.utils.convert_projection_dict_to_array(
             lamni_data.projections,
             delete_projection_dict=False,
             pad_with_mode=True,
+            new_shape=new_shape,
         )
 
-        # Check/save ci results for loading ptycho inputs
-        scan_number_0 = lamni_data.scan_numbers[0]
         ci_test_helper.save_or_compare_results(lamni_data.probe, "lamni_data_probe")
         ci_test_helper.save_or_compare_results(lamni_data.scan_numbers, "lamni_data_scan_numbers")
         ci_test_helper.save_or_compare_results(lamni_data.angles, "lamni_data_angles")
-        ci_test_helper.save_or_compare_results(projection_array[0], "projection_array_0")
-        ci_test_helper.save_or_compare_results(
-            lamni_data.probe_positions[scan_number_0], "probe_positions_0"
-        )
+        ci_test_helper.save_or_compare_results(projection_array[500], "projection_array_500")
+        ci_test_helper.save_or_compare_results(lamni_data.probe_positions[2730], "probe_positions_2730")
 
-        ### Create Projections object and LaminographyAlignmentTask object ###
-        # Define projection options
+        # define projection options
         projection_options = opts.ProjectionOptions(
             experiment=opts.ExperimentOptions(
                 laminography_angle=lamino_angle,
@@ -107,14 +108,13 @@ def run_full_test_TP2(
                     angle=rotation_angle,
                 ),
                 shear=opts.ShearOptions(
-                    enabled=False,
+                    enabled=True,
+                    angle=shear_angle,
                 ),
             ),
         )
-
-        # Pin the projection array in order to speed up GPU calculations
+        # Pin the projections to speed up GPU calculations
         projection_array = llama.gpu_utils.pin_memory(projection_array)
-
         complex_projections = llama.ComplexProjections(
             projections=projection_array,
             angles=lamni_data.angles,
@@ -124,12 +124,11 @@ def run_full_test_TP2(
             probe=lamni_data.probe,
             skip_pre_processing=False,
         )
-        del lamni_data
-
         task = llama.LaminographyAlignmentTask(
             options=opts.AlignmentTaskOptions(),
             complex_projections=complex_projections,
         )
+        del lamni_data, projection_array
 
         # Check/save results after initial input processing
         ci_test_helper.save_or_compare_results(task, "input_processed_task")
@@ -143,17 +142,16 @@ def run_full_test_TP2(
     checkpoint_list += [enums.TestStartPoints.INITIAL_TASK]
     if test_start_point in checkpoint_list:
         ### Cross-correlation alignment ###
-        width = 448
+        width = 960
         task.options.cross_correlation = opts.CrossCorrelationOptions(
             iterations=10,
             binning=4,
-            filter_position=9,
+            filter_position=101,
             filter_data=0.005,
-            precision=0.01,
             remove_slow_variation=True,
-            crop=opts.CropOptions(enabled=True, horizontal_range=width, vertical_range=width),
             device=multi_gpu_device_options,
-            use_end_corrections=False,
+            use_end_corrections=True,
+            crop=opts.CropOptions(enabled=True, horizontal_range=width, vertical_range=width),
         )
         # Calculate cross-correlation shift
         task.get_cross_correlation_shift()
@@ -164,8 +162,10 @@ def run_full_test_TP2(
         ci_test_helper.save_or_compare_results(task, "cross_corr_aligned_task")
 
         ### Get projection masks ###
+        # Use symmetric gaussian probe instead of measured probe
+        task.complex_projections.replace_probe_with_gaussian(amplitude=1, sigma=128)
         # Calculate masks from probe positions data
-        task.complex_projections.get_masks_from_probe_positions(0.1)
+        task.complex_projections.get_masks_from_probe_positions(threshold=3)
 
         ### Unwrap phase ###
         # Unwrap phase and create phase_projections object
@@ -179,6 +179,8 @@ def run_full_test_TP2(
             task.complex_projections.data.shape, dtype=r_type
         )
         task.get_unwrapped_phase(pinned_data)
+        # Flip contrast on projections
+        task.phase_projections.data[:] = -task.phase_projections.data
 
         # Delete arrays that are no longer needed to free up space
         task.complex_projections = None
@@ -189,54 +191,7 @@ def run_full_test_TP2(
         task.phase_projections.show_center_of_rotation()
         task.phase_projections.pin_arrays()
 
-        ### Estimate center of rotation ###
-        # Define options for center estimation code -- start with coarse alignment
-        estimate_center_options = opts.EstimateCenterOptions(
-            horizontal_coordinate=opts.CoordinateSearchOptions(
-                enabled=True,
-                range=200,
-                spacing=50,
-            ),
-            vertical_coordinate=opts.CoordinateSearchOptions(
-                enabled=True,
-                range=200,
-                spacing=50,
-            ),
-        )
-        # update pma options
-        pma_options = estimate_center_options.projection_matching
-        task.phase_projections.options.estimate_center.downsample.scale = 4
-        task.phase_projections.options.estimate_center.downsample.use_gaussian_filter = True
-        # update astra options to use all gpus (this makes it faster)
-        astra_options = pma_options.reconstruct.astra
-        astra_options.back_project_gpu_indices = gpu_list
-        astra_options.forward_project_gpu_indices = gpu_list
-        # update all device options in pma_options to be multi_gpu_device_options
-        set_all_device_options(pma_options, multi_gpu_device_options)
-        task.phase_projections.options.estimate_center = estimate_center_options
-
-        # Run center estimation code
-        center_estimate = task.phase_projections.estimate_center_of_rotation()
-        task.phase_projections.center_of_rotation = center_estimate.optimal_center_of_rotation
-
-        # Run center estimation code over a smaller area with higher precision
-        estimate_center_options.vertical_coordinate.enabled = False
-        estimate_center_options.horizontal_coordinate.range = 100
-        estimate_center_options.horizontal_coordinate.spacing = 10
-        center_estimate = task.phase_projections.estimate_center_of_rotation()
-        task.phase_projections.center_of_rotation = center_estimate.optimal_center_of_rotation
-
-        # Run center estimation code over a smaller area with even higher precision
-        estimate_center_options.vertical_coordinate.enabled = False
-        estimate_center_options.horizontal_coordinate.range = 20
-        estimate_center_options.horizontal_coordinate.spacing = 1
-        center_estimate = task.phase_projections.estimate_center_of_rotation()
-        task.phase_projections.center_of_rotation = center_estimate.optimal_center_of_rotation
-
-        # Check/save the estimated center of rotation value
-        ci_test_helper.save_or_compare_results(
-            task.phase_projections.center_of_rotation, "estimated_center_of_rotation"
-        )
+        task.phase_projections.center_of_rotation[:] = [890, 1300]
 
         ### Generate preliminary volume ###
         pinned_data = gpu_utils.create_empty_pinned_array(
@@ -263,26 +218,46 @@ def run_full_test_TP2(
     checkpoint_list += [enums.TestStartPoints.PRE_PMA]
     if test_start_point in checkpoint_list:
         ### Projection-matching alignment ####
+        # Use a much smaller mask for alignment
+        task.phase_projections.get_masks_from_probe_positions(15)
+        task.phase_projections.pin_arrays()
         # Define projection matching options
         pma_options = task.options.projection_matching
         pma_options.downsample = opts.DownsampleOptions(
             enabled=True, scale=32, use_gaussian_filter=True
         )
-        pma_options.iterations = 300
+        pma_options.iterations = 1000
         pma_options.high_pass_filter = 0.005
         pma_options.min_step_size = 0.01
         pma_options.step_relax = 0.1
         pma_options.reconstruct.astra.back_project_gpu_indices = gpu_list
         pma_options.reconstruct.astra.forward_project_gpu_indices = gpu_list
         pma_options.mask_shift_type = enums.ShiftType.FFT
-        pma_options.keep_on_gpu = False
+        pma_options.keep_on_gpu = True
+        pma_options.reconstruction_mask.enabled = True
         set_all_device_options(pma_options, multi_gpu_device_options)
+
+        # define function for apropriately updating PMA options at each point
+        def update_pma_options(pma_options: opts.ProjectionMatchingOptions, scale: int):
+            pma_options.downsample.scale = scale
+            pma_options.reconstruction_mask.radial_smooth = 5 * scale
+            if scale >= 4:
+                pma_options.keep_on_gpu = True
+            else:
+                pma_options.keep_on_gpu = False
+            if scale == 1:
+                pma_options.crop = opts.CropOptions(
+                    horizontal_range=1344,
+                    vertical_range=896,
+                    enabled=True,
+                )
+                pma_options.step_relax = 0.5
 
         # Run projection-matching alignment at successively higher resolutions
         scales = [32, 16, 8, 4, 2, 1]
         pma_shifts = {}
         for i, scale in enumerate(scales):
-            pma_options.downsample.scale = scale
+            update_pma_options(pma_options, scale)
             if i == 0:
                 task.get_projection_matching_shift()
             else:
@@ -290,7 +265,16 @@ def run_full_test_TP2(
             pma_shifts[scale] = task.phase_projections.shift_manager.staged_shift * 1
 
             # Check/save the resulting alignment shifts at each resolution
-            ci_test_helper.save_or_compare_results(pma_shifts[scale], f"pma_shift_{scale}x")
+            ci_test_helper.save_or_compare_results(
+                pma_shifts[scale], f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}"
+            )
+
+        # Do one final alignment at increased high pass filter value
+        pma_options.high_pass_filter = 0.01
+        task.get_projection_matching_shift(initial_shift=pma_shifts[1])
+        ci_test_helper.save_or_compare_results(
+            pma_shifts[scale], f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}"
+        )
 
         # Shift the projections by the projection-matching alignment shift
         print(multi_gpu_device_options)
@@ -309,7 +293,7 @@ def run_full_test_TP2(
             task.phase_projections.data.shape, dtype=r_type
         )
         task.phase_projections.laminogram.generate_laminogram(True, pinned_data)
-        del pinned_data        
+        del pinned_data
         ci_test_helper.save_or_compare_results(
             task.phase_projections.laminogram.data[::s, ::s, ::s], "pma_aligned_volume"
         )
@@ -334,8 +318,6 @@ def run_full_test_TP2(
         ci_test_helper.save_tiff(
             task.phase_projections.laminogram.data,
             "pma_aligned_rotated_volume.tiff",
-            min=-0.022,
-            max=0.025,
         )
         # Check/save the aligned and rotated volume
         ci_test_helper.save_or_compare_results(
@@ -345,12 +327,22 @@ def run_full_test_TP2(
 
         ci_test_helper.finish_test()
 
-
 if __name__ == "__main__":
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument(
+    #     "--pma-only", action="store_true"
+    # )  # flag for specifying that you only want to test pma alignment
+    # parser.add_argument(
+    #     "--update-results", action="store_true"
+    # )  # flag for specifying you want test results updated
+
+    # parser.add_argument("--save-temp-results", action="store_true")
+    # args = parser.parse_args()
+
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    run_full_test_TP2(
+    run_full_test_cSAXS_e18044_LamNi_201907(
+        projection_matching_only=args.pma_only,
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
-        test_start_point=args.start_point,
     )

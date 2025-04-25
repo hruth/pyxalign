@@ -1,13 +1,20 @@
+import argparse
+import traceback
 from typing import Optional, Union
 import h5py
 import os
 import numpy as np
 from pathlib import Path
+import subprocess
 
 from llama.data_structures.projections import Projections
 from llama.data_structures.task import LaminographyAlignmentTask
-from llama.test_utils import ResultType, print_comparison_stats
+from llama.io.save import save_array_as_tiff
+from llama.style.text import text_colors
+from llama.test_utils import ResultType, load_task, print_comparison_stats
 from llama.api.options.tests import CITestOptions
+from llama.timing.io import get_timestamp_for_timing_files
+from llama.api.enums import TestStartPoints
 
 projection_arrays_to_compare = [
     "data",
@@ -19,22 +26,49 @@ projection_arrays_to_compare = [
     # "masks"
 ]
 array_save_string = "array"
+primary_ci_test_folder_string = "PYXALIGN_CI_TEST_DATA_DIR"
+secondary_ci_test_folder_string = "PYXALIGN_CI_TEST_DATA_DIR_2"
 
 
 class CITestHelper:
     def __init__(self, options: CITestOptions):
-        self.parent_folder = os.path.join(
-            os.environ["PYXALIGN_CI_TEST_DATA_DIR"], options.test_data_name
-        )
-        if not os.path.exists(self.parent_folder):
-            raise FileNotFoundError(f"The folder {self.parent_folder} does not exist")
-        (
+        self.options = options
+        self.find_ci_test_folder()
+        self.generate_ci_paths()
+        self.store_run_metadata()
+        self.test_result_dict = {}  # holds results of passes and fails when options.stop_on_error is false
+
+
+    def find_ci_test_folder(self) -> str:
+        for folder_string in [primary_ci_test_folder_string, secondary_ci_test_folder_string]:
+            ci_folder = os.path.join(
+                os.environ[folder_string],
+                self.options.test_data_name,
+            )
+            if os.path.exists(ci_folder) and os.path.exists(os.path.join(ci_folder, "inputs")):
+                self.parent_folder = os.path.join(ci_folder)
+                return
+
+        raise FileNotFoundError(f"The folder {self.parent_folder} does not exist")
+
+    def generate_ci_paths(self):
+        self.inputs_folder = os.path.join(self.parent_folder, "inputs")
+        self.ci_results_folder = os.path.join(self.parent_folder, "ci_results")
+        self.extra_results_folder = os.path.join(self.parent_folder, "extra_results")
+        temp_results_folder = os.path.join(self.parent_folder, "temp_results")
+        self.ci_temp_results_folder = os.path.join(temp_results_folder, "ci_results")
+        self.extra_temp_results_folder = os.path.join(temp_results_folder, "extra_results")
+
+        for folder in [
             self.inputs_folder,
             self.ci_results_folder,
             self.extra_results_folder,
+            temp_results_folder,
             self.ci_temp_results_folder,
-        ) = generate_ci_paths(self.parent_folder)
-        self.options = options
+            self.extra_temp_results_folder,
+        ]:
+            if not os.path.exists(folder):
+                os.mkdir(folder)
 
     def save_or_compare_results(
         self, result, name: str, atol: Optional[float] = None, rtol: Optional[float] = None
@@ -45,7 +79,21 @@ class CITestHelper:
         if self.options.update_tester_results:
             self.save_results(result, name)
         else:
-            self.compare_results(result, name, atol, rtol)
+            try:
+                self.compare_results(result, name, atol, rtol)
+                # the next line will only execute if an error is not
+                # raised by compare_results
+                test_passed = True
+            except (AssertionError, ValueError, TypeError) as ex:
+                if self.options.stop_on_error:
+                    raise
+                else:
+                    print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+                    traceback.print_exc()
+                    print("Continuing execution despite failed test")
+                    test_passed = False
+            finally:
+                self.test_result_dict[name] = test_passed
 
     def save_temp_results(self, result: str, name: str):
         save_arbitrary_result(
@@ -77,6 +125,51 @@ class CITestHelper:
         compare_arbitrary_result(
             result, self.ci_results_folder, name, atol, rtol, self.options.proj_idx
         )
+
+    def finish_test(self):
+        if not self.options.update_tester_results:
+            print("SUMMARY OF TESTS:")
+            for i, (test_name, is_passed) in enumerate(self.test_result_dict.items()):
+                if is_passed:
+                    pass_fail_string = f"{text_colors.OKGREEN}PASSED{text_colors.ENDC}"
+                else:
+                    pass_fail_string = f"{text_colors.FAIL}FAILED{text_colors.ENDC}"
+                print(f"{i+1}. {self.test_result_dict[test_name]}: {pass_fail_string}")
+            n_passed = sum([v for v in self.test_result_dict.values()])
+            print(f"{text_colors.HEADER}{n_passed}/{len(self.test_result_dict)}{text_colors.ENDC}")
+
+    def store_run_metadata(self):
+        self.timestamp, date_string, time_string = get_timestamp_for_timing_files()
+
+    def save_checkpoint_task(self, task: LaminographyAlignmentTask, file_name: str):
+        if self.options.update_tester_results:
+            task.save_task(os.path.join(self.extra_results_folder, file_name))
+        if self.options.save_temp_files:
+            task.save_task(os.path.join(self.extra_temp_results_folder, file_name))
+
+    def load_checkpoint_task(self, file_name: str) -> LaminographyAlignmentTask:
+        return load_task(os.path.join(self.extra_results_folder, file_name))
+
+    def save_tiff(
+        self, array: np.ndarray, name: str, min: Optional[float] = None, max: Optional[float] = None
+    ):
+        if self.options.update_tester_results:
+            save_array_as_tiff(array, os.path.join(self.extra_results_folder, name), min, max)
+        if self.options.save_temp_files:
+            save_array_as_tiff(array, os.path.join(self.extra_temp_results_folder, name), min, max)
+
+class CITestArgumentParser:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser()
+        # indicates start point of code
+        self.parser.add_argument(
+            "--start-point", type=str, default=TestStartPoints.BEGINNING
+        )
+        # flag for specifying you want test results updated
+        self.parser.add_argument(
+            "--update-results", action="store_true"
+        )
+        self.parser.add_argument("--save-temp-results", action="store_true")
 
 
 def compare_arbitrary_result(
@@ -195,16 +288,3 @@ def save_array(array: np.ndarray, h5_obj: Union[h5py.File, h5py.Group], dataset_
 def get_rel_path_string(h5_obj: h5py.Group):
     rel_path = Path(h5_obj.file.filename).name + h5_obj.name
     return rel_path
-
-
-def generate_ci_paths(ci_folder: str):
-    inputs_folder = os.path.join(ci_folder, "inputs")
-    ci_results_folder = os.path.join(ci_folder, "ci_results")
-    extra_results_folder = os.path.join(ci_folder, "extra_results")
-    ci_temp_results_folder = os.path.join(ci_folder, "ci_temp_results")
-
-    for folder in [inputs_folder, ci_results_folder, extra_results_folder, ci_temp_results_folder]:
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-
-    return inputs_folder, ci_results_folder, extra_results_folder, ci_temp_results_folder
