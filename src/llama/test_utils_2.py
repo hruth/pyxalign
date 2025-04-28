@@ -38,18 +38,18 @@ class CITestHelper:
         self.store_run_metadata()
         self.test_result_dict = {}  # holds results of passes and fails when options.stop_on_error is false
 
-
     def find_ci_test_folder(self) -> str:
         for folder_string in [primary_ci_test_folder_string, secondary_ci_test_folder_string]:
-            ci_folder = os.path.join(
-                os.environ[folder_string],
-                self.options.test_data_name,
-            )
-            if os.path.exists(ci_folder) and os.path.exists(os.path.join(ci_folder, "inputs")):
-                self.parent_folder = os.path.join(ci_folder)
-                return
+            if folder_string in os.environ:
+                ci_folder = os.path.join(
+                    os.environ[folder_string],
+                    self.options.test_data_name,
+                )
+                if os.path.exists(ci_folder) and os.path.exists(os.path.join(ci_folder, "inputs")):
+                    self.parent_folder = os.path.join(ci_folder)
+                    return
 
-        raise FileNotFoundError(f"The folder {self.parent_folder} does not exist")
+        raise FileNotFoundError(f"The input data folder for {self.options.test_data_name} was not found.")
 
     def generate_ci_paths(self):
         self.inputs_folder = os.path.join(self.parent_folder, "inputs")
@@ -158,17 +158,14 @@ class CITestHelper:
         if self.options.save_temp_files:
             save_array_as_tiff(array, os.path.join(self.extra_temp_results_folder, name), min, max)
 
+
 class CITestArgumentParser:
     def __init__(self):
         self.parser = argparse.ArgumentParser()
         # indicates start point of code
-        self.parser.add_argument(
-            "--start-point", type=str, default=TestStartPoints.BEGINNING
-        )
+        self.parser.add_argument("--start-point", type=str, default=TestStartPoints.BEGINNING)
         # flag for specifying you want test results updated
-        self.parser.add_argument(
-            "--update-results", action="store_true"
-        )
+        self.parser.add_argument("--update-results", action="store_true")
         self.parser.add_argument("--save-temp-results", action="store_true")
 
 
