@@ -60,6 +60,7 @@ class Laminogram:
         object_geometries = reconstruct.get_object_geometries(scan_geometry_config, vectors)
         return scan_geometry_config, vectors, object_geometries
 
+
     @timer()
     def generate_laminogram(
         self,
@@ -67,6 +68,8 @@ class Laminogram:
         pinned_filtered_sinogram: Optional[np.ndarray] = None,
         reinitialize_astra: bool = True,
         n_pix: Optional[Sequence[int]] = None,
+        update_stored_sinogram: bool = True,
+        update_geometries: bool = False,
     ):
         # Copy the settings used at the time of the reconstruction
         # self.options = copy.deepcopy(self.projections.options.reconstruct)
@@ -79,28 +82,40 @@ class Laminogram:
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
             self.is_initialized = True
-
-        if filter_inputs:
-            sinogram = reconstruct.filter_sinogram(
-                sinogram=self.projections.data,
-                vectors=self.vectors,
-                device_options=self.options.filter.device,
-                pinned_results=pinned_filtered_sinogram,
+        elif update_geometries and not reinitialize_astra:
+            # Re-initialize geometries, but not the whole astra object
+            self.scan_geometry_config, self.vectors, self.object_geometries = (
+                self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
-        else:
-            sinogram = self.projections.data
+            # update the geometries, but do not update the stored projections
+            reconstruct.update_astra_reconstructor_config(
+                self.object_geometries,
+                self.astra_config,
+            )
+
+        if update_stored_sinogram:
+            # Prepare the projections before doing the back-projection
+            # if (sinogram is None) and update_stored_sinogram:
+            if filter_inputs:
+                sinogram = reconstruct.filter_sinogram(
+                    sinogram=self.projections.data,
+                    vectors=self.vectors,
+                    device_options=self.options.filter.device,
+                    pinned_results=pinned_filtered_sinogram,
+                )
+            else:
+                sinogram = self.projections.data
 
         if self.astra_config is None:
+            # allocate memory for volume and projections, and store projections
             self.astra_config = reconstruct.create_astra_reconstructor_config(
                 sinogram,
                 self.object_geometries,
             )
         else:
-            self.astra_config = reconstruct.update_astra_reconstructor_config(
-                sinogram,
-                self.object_geometries,
-                self.astra_config,
-            )
+            if update_stored_sinogram:
+                # update the stored projections
+                reconstruct.update_stored_sinogram(sinogram, self.astra_config)
 
         device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
@@ -129,7 +144,7 @@ class Laminogram:
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
         cp.cuda.Device(device).use()
         forward_projections, forward_projection_id = reconstruct.get_forward_projection(
-            reconstruction=self.data,
+            reconstruction=self.data, # should remove this since volume id is always provided
             object_geometries=self.object_geometries,
             pinned_forward_projection=pinned_forward_projection,
             volume_id=self.astra_config["ReconstructionDataId"],

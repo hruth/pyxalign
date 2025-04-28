@@ -25,7 +25,7 @@ from .projections import (
     ProjectionOptions,
     ProjectionTransformOptions,
 )
-from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions
+from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions, GeometryOptions
 from .task import AlignmentTaskOptions
 from .options import (
     ExperimentOptions,

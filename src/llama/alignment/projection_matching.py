@@ -15,6 +15,7 @@ from llama.api.options.projections import ProjectionTransformOptions
 from llama.api.options.transform import ShiftOptions
 from llama.api.options_utils import set_all_device_options
 import llama.data_structures.projections as projections
+from llama.reconstruct import update_stored_sinogram
 from llama.regularization import chambolleLocalTV3D
 from llama.style.text import text_colors
 from llama.timing.timer_utils import InlineTimer, timer, clear_timer_globals
@@ -61,7 +62,8 @@ class ProjectionMatchingAligner(Aligner):
             mask_downsample_use_gaussian_filter=self.options.downsample.use_gaussian_filter,
         )
 
-        projection_options.reconstruct = self.options.reconstruct
+        # projection_options.reconstruct = self.options.reconstruct
+        projection_options.reconstruct = copy.deepcopy(self.options.reconstruct)
         self.aligned_projections = projections.PhaseProjections(
             projections=self.projections.data,
             angles=self.projections.angles,
@@ -142,17 +144,16 @@ class ProjectionMatchingAligner(Aligner):
         self.apply_window_to_masks(tukey_window)
         if self.options.refine_geometry:
             # When using geometry refinement, the astra vectors need
-            # to be updated on every iteration. I may be able to speed
-            # this up by making it so only the vectors are updated, and
-            # leaving the volume and projection allocations.
-            reinitialize_astra = True
+            # to be updated on every iteration.
+            update_geometries = True
         else:
-            reinitialize_astra = False
-        self.aligned_projections.get_3D_reconstruction(
+            update_geometries = False
+        self.aligned_projections.laminogram.generate_laminogram(
             filter_inputs=True,
             pinned_filtered_sinogram=self.pinned_filtered_sinogram,
-            reinitialize_astra=reinitialize_astra,
+            reinitialize_astra=False,
             n_pix=self.n_pix,
+            update_geometries=update_geometries,
         )
         if self.options.reconstruction_mask.enabled:
             self.aligned_projections.laminogram.apply_circular_window(circulo)
@@ -173,9 +174,9 @@ class ProjectionMatchingAligner(Aligner):
         )
         # Find optimal shift
         self.get_shift_update()
+        self.plot_update()
         # Refine geometry
         self.get_geometry_update()
-        self.plot_update()
 
     @timer()
     def apply_new_shift(self, unshifted_projections, unshifted_masks):
@@ -881,7 +882,7 @@ class ProjectionMatchingAligner(Aligner):
 
         # Get sinogram model at +/- a delta on the laminography angle
         # Get 'infinitesmal' difference of model sinogram with respect to the sinogram angle
-        if self.memory_config is MemoryConfig.GPU_ONLY:
+        if self.memory_config == MemoryConfig.GPU_ONLY:
             forward_projections = cp.array(
                 self.aligned_projections.laminogram.forward_projections.data
             )
@@ -892,28 +893,27 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.options.experiment.laminography_angle = (
                 laminography_angle + deltas[i]
             )
-            self.aligned_projections.get_3D_reconstruction(
+            # get volume at new laminography angle
+            self.aligned_projections.laminogram.generate_laminogram(
                 filter_inputs=True,
                 pinned_filtered_sinogram=self.pinned_filtered_sinogram,
-                reinitialize_astra=True,
+                reinitialize_astra=False,
                 n_pix=self.n_pix,
+                update_geometries=True,
             )
+            # get forward projections at new laminography angle
             self.aligned_projections.laminogram.get_forward_projection(
                 pinned_forward_projection=self.pinned_forward_projection,
+                forward_projection_id=self.aligned_projections.laminogram.astra_config[
+                    "ProjectionDataId"
+                ],
             )
-            # # needs copy or no?
-            # offset_forward_projections += [
-            #     self.aligned_projections.laminogram.forward_projections.data * 1
-            # ]
             if i == 0:
                 d_proj = self.aligned_projections.laminogram.forward_projections.data * 1
             else:
                 d_proj = (d_proj - self.aligned_projections.laminogram.forward_projections.data) / (2 * delta)
         # Revert the laminography angle
         self.aligned_projections.options.experiment.laminography_angle = laminography_angle
-        # Calculate delta projections for the difference in lamino angle
-        # d_proj = (offset_forward_projections[0] - offset_forward_projections[1]) / (2 * delta)
-        # del offset_forward_projections
 
         def get_gd_update(dX, residual, weights, filter):
             xp = cp.get_array_module(dX)
@@ -922,13 +922,6 @@ class ProjectionMatchingAligner(Aligner):
                 weights * dX**2, axis=(1, 2)
             )
             return optimal_shift
-
-        def appendShift(appendShift, shift, iteration):
-            if iteration == 0:
-                appendShift = shift
-            else:
-                appendShift = np.append(appendShift, shift)
-            return appendShift
 
         # add the thing for handling forward projection models here! they need to be
         # moved to gpu in the gpu_only case.
