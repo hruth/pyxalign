@@ -27,6 +27,8 @@ def get_astra_reconstructor_geometry(
     tilt_angle: float = 0.0,
     skew_angle: float = 0.0,
 ) -> tuple[dict, np.ndarray]:
+    inline_timer = InlineTimer("initializations")
+    inline_timer.start()
     pixel_scale = [1, 1]
     scan_geometry_config_inputs = {}
     scan_geometry_config_inputs["iVolX"] = n_pix[0]
@@ -53,10 +55,13 @@ def get_astra_reconstructor_geometry(
     vectors = np.zeros((len(angles), 12))
 
     lamino_angle = lamino_angle.transpose()
+    inline_timer.end()
 
     # https://www.astra-toolbox.com/docs/geom3d.html
     # Vectors: (rayX, rayY, rayZ, dX, dY, dZ, uX, uY, uZ, vX, vY, vZ)
 
+    inline_timer = InlineTimer("vector calculation 1")
+    inline_timer.start()
     # ray direction
     vectors[:, 0] = np.sin(angles) * np.cos(lamino_angle)
     vectors[:, 1] = -np.cos(angles) * np.cos(lamino_angle)
@@ -80,7 +85,11 @@ def get_astra_reconstructor_geometry(
     vectors[:, 3:6] = vectors[:, 3:6] - (
         vectors[:, 9:12] * (CoR_offset[0]) + vectors[:, 6:9] * (CoR_offset[1])
     )
+    inline_timer.end()
 
+
+    inline_timer = InlineTimer("vector calculation 2")
+    inline_timer.start()
     # Apply Rodrigues' rotation formula to rotate and skew detector
     # Apply tilt angle: rotate detector in plane perpendicular to the beam axis
     for i in range(len(angles)):
@@ -108,6 +117,7 @@ def get_astra_reconstructor_geometry(
             * np.dot(vectors[i, 0:3], vectors[i, 9:12])
             * (1 - np.cos(skew_angle[i] / 2))
         )
+    inline_timer.end()
 
     return scan_geometry_config_inputs, vectors
 
@@ -145,23 +155,20 @@ def create_astra_reconstructor_config(
 
 @timer()
 def update_astra_reconstructor_config(
-    sinogram: np.ndarray,
+    # sinogram: np.ndarray,
     object_geometries: dict,
     astra_config: Optional[dict] = None,
-) -> tuple[dict, dict]:
+):
     astra.data3d.change_geometry(
         astra_config["ReconstructionDataId"], object_geometries["vol_geom"]
     )
     astra.data3d.change_geometry(astra_config["ProjectionDataId"], object_geometries["proj_geom"])
-    astra.data3d.store(astra_config["ProjectionDataId"], sinogram.transpose([1, 0, 2]))
-    return astra_config
+    # astra.data3d.store(astra_config["ProjectionDataId"], sinogram.transpose([1, 0, 2]))
+    # return astra_config
 
 
-def update_astra_reconstructor_sinogram(sinogram: np.ndarray, astra_config: dict):
-    # # may be unecessary
-    # astra.data3d.change_geometry(astra_config["ReconstructionDataId"], geometries["vol_geom"])
-    # # may be unecessary
-    # astra.data3d.change_geometry(astra_config["ProjectionDataId"], geometries["proj_geom"])
+@timer()
+def update_stored_sinogram(sinogram: np.ndarray, astra_config: dict):
     astra.data3d.store(astra_config["ProjectionDataId"], sinogram.transpose([1, 0, 2]))
 
 
@@ -342,6 +349,9 @@ def get_forward_projection(
         pinned_forward_projection[:] = astra.data3d.get_shared(forward_projection_id).transpose(
             [1, 0, 2]
         )
+        # pinned_forward_projection[:] = astra.data3d.get(forward_projection_id).transpose(
+        #     [1, 0, 2]
+        # )
 
     if return_id:
         return pinned_forward_projection, forward_projection_id

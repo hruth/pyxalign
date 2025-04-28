@@ -127,7 +127,9 @@ def get_tukey_window(
 
 
 @preserve_complexity_or_realness()
-def get_filtered_image_gradient(images: ArrayType, axis: int, high_pass_filter: float) -> ArrayType:
+def get_filtered_image_gradient(
+    images: ArrayType, axis: int, high_pass_filter: float, use_filter: bool = True
+) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
     Np = images.shape
@@ -136,13 +138,15 @@ def get_filtered_image_gradient(images: ArrayType, axis: int, high_pass_filter: 
         X = 2j * xp.pi * scipy.fft.fftshift(xp.arange(0, Np[2], dtype=r_type) / Np[2] - 0.5)
         images = scipy_module.fft.fft(images, axis=2)
         images = images * X
-        images = apply_1D_high_pass_filter(images, 2, high_pass_filter, False)
+        if use_filter:
+            images = apply_1D_high_pass_filter(images, 2, high_pass_filter, False)
         images = scipy_module.fft.ifft(images, axis=2)
     if axis == 1:
         X = 2j * xp.pi * scipy.fft.fftshift(xp.arange(0, Np[1], dtype=r_type) / Np[1] - 0.5)
         images = scipy_module.fft.fft(images, axis=1)
         images = images * X[:, None]
-        images = apply_1D_high_pass_filter(images, 1, high_pass_filter, False)
+        if use_filter:
+            images = apply_1D_high_pass_filter(images, 1, high_pass_filter, False)
         images = scipy_module.fft.ifft(images, axis=1)
 
     return images
