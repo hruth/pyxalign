@@ -38,18 +38,18 @@ class CITestHelper:
         self.store_run_metadata()
         self.test_result_dict = {}  # holds results of passes and fails when options.stop_on_error is false
 
-
     def find_ci_test_folder(self) -> str:
         for folder_string in [primary_ci_test_folder_string, secondary_ci_test_folder_string]:
-            ci_folder = os.path.join(
-                os.environ[folder_string],
-                self.options.test_data_name,
-            )
-            if os.path.exists(ci_folder) and os.path.exists(os.path.join(ci_folder, "inputs")):
-                self.parent_folder = os.path.join(ci_folder)
-                return
+            if folder_string in os.environ:
+                ci_folder = os.path.join(
+                    os.environ[folder_string],
+                    self.options.test_data_name,
+                )
+                if os.path.exists(ci_folder) and os.path.exists(os.path.join(ci_folder, "inputs")):
+                    self.parent_folder = os.path.join(ci_folder)
+                    return
 
-        raise FileNotFoundError(f"The folder {self.parent_folder} does not exist")
+        raise FileNotFoundError(f"The input data folder for {self.options.test_data_name} was not found.")
 
     def generate_ci_paths(self):
         self.inputs_folder = os.path.join(self.parent_folder, "inputs")
@@ -79,6 +79,7 @@ class CITestHelper:
         if self.options.update_tester_results:
             self.save_results(result, name)
         else:
+            test_passed = False
             try:
                 self.compare_results(result, name, atol, rtol)
                 # the next line will only execute if an error is not
@@ -91,7 +92,6 @@ class CITestHelper:
                     print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
                     traceback.print_exc()
                     print("Continuing execution despite failed test")
-                    test_passed = False
             finally:
                 self.test_result_dict[name] = test_passed
 
@@ -134,7 +134,7 @@ class CITestHelper:
                     pass_fail_string = f"{text_colors.OKGREEN}PASSED{text_colors.ENDC}"
                 else:
                     pass_fail_string = f"{text_colors.FAIL}FAILED{text_colors.ENDC}"
-                print(f"{i+1}. {self.test_result_dict[test_name]}: {pass_fail_string}")
+                print(f"{i+1}. {test_name}: {pass_fail_string}")
             n_passed = sum([v for v in self.test_result_dict.values()])
             print(f"{text_colors.HEADER}{n_passed}/{len(self.test_result_dict)}{text_colors.ENDC}")
 
@@ -158,17 +158,14 @@ class CITestHelper:
         if self.options.save_temp_files:
             save_array_as_tiff(array, os.path.join(self.extra_temp_results_folder, name), min, max)
 
+
 class CITestArgumentParser:
     def __init__(self):
         self.parser = argparse.ArgumentParser()
         # indicates start point of code
-        self.parser.add_argument(
-            "--start-point", type=str, default=TestStartPoints.BEGINNING
-        )
+        self.parser.add_argument("--start-point", type=str, default=TestStartPoints.BEGINNING)
         # flag for specifying you want test results updated
-        self.parser.add_argument(
-            "--update-results", action="store_true"
-        )
+        self.parser.add_argument("--update-results", action="store_true")
         self.parser.add_argument("--save-temp-results", action="store_true")
 
 
