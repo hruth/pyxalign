@@ -6,6 +6,7 @@ from enum import StrEnum
 from numbers import Number
 from llama.api.enums import SpecialValuePlaceholder
 import tifffile as tiff
+import os
 
 
 def save_generic_data_structure_to_h5(d: dict, h5_obj: Union[h5py.Group, h5py.File]):
@@ -76,6 +77,7 @@ def save_options_to_h5_file(file_path: str, options):
 
 
 def convert_to_uint_16(images: np.ndarray, min: float = None, max: float = None):
+    images = images.copy()
     if min is None:
         min = images.min()
     if max is None:
@@ -86,6 +88,26 @@ def convert_to_uint_16(images: np.ndarray, min: float = None, max: float = None)
     return (65535 * (images - min) / delta).astype(np.uint16)
 
 
-def save_array_as_tiff(images: np.ndarray, file_path: str, min: float = None, max: float = None):
-    tiff.imwrite(file_path, convert_to_uint_16(images, min, max))
+def save_array_as_tiff(
+    images: np.ndarray,
+    file_path: str,
+    min: float = None,
+    max: float = None,
+    divide_into_smaller_files: bool = True,
+):
+    images_uint16 = convert_to_uint_16(images, min, max)
+    if divide_into_smaller_files:
+        # If the tiff file is too large, imagej will not be able to open it
+        max_file_size = 4 * 1e9  # max file size that imagej will tolerate is 4 GB
+        if images_uint16.nbytes > max_file_size:
+            n_files = int(np.ceil(images_uint16.nbytes / max_file_size))
+            n_layers = len(images_uint16)
+            layers_per_file = int(np.ceil(n_layers / n_files))
+            path, ext = os.path.splitext(file_path)
+            for i in range(n_files):
+                selected_layers = images_uint16[i * layers_per_file : (i + 1) * layers_per_file]
+                selection_file_path = path + f"_{i+1}_of_{n_files}" + ext
+                tiff.imwrite(selection_file_path, selected_layers)
+        else:
+            tiff.imwrite(file_path, images_uint16)
     print(f"File saved to: {file_path}")
