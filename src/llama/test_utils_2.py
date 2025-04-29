@@ -79,6 +79,7 @@ class CITestHelper:
         if self.options.update_tester_results:
             self.save_results(result, name)
         else:
+            test_passed = False
             try:
                 self.compare_results(result, name, atol, rtol)
                 # the next line will only execute if an error is not
@@ -91,7 +92,6 @@ class CITestHelper:
                     print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
                     traceback.print_exc()
                     print("Continuing execution despite failed test")
-                    test_passed = False
             finally:
                 self.test_result_dict[name] = test_passed
 
@@ -134,7 +134,7 @@ class CITestHelper:
                     pass_fail_string = f"{text_colors.OKGREEN}PASSED{text_colors.ENDC}"
                 else:
                     pass_fail_string = f"{text_colors.FAIL}FAILED{text_colors.ENDC}"
-                print(f"{i+1}. {self.test_result_dict[test_name]}: {pass_fail_string}")
+                print(f"{i+1}. {test_name}: {pass_fail_string}")
             n_passed = sum([v for v in self.test_result_dict.values()])
             print(f"{text_colors.HEADER}{n_passed}/{len(self.test_result_dict)}{text_colors.ENDC}")
 

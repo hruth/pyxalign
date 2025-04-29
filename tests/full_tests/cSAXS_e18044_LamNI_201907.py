@@ -328,21 +328,10 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         ci_test_helper.finish_test()
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument(
-    #     "--pma-only", action="store_true"
-    # )  # flag for specifying that you only want to test pma alignment
-    # parser.add_argument(
-    #     "--update-results", action="store_true"
-    # )  # flag for specifying you want test results updated
-
-    # parser.add_argument("--save-temp-results", action="store_true")
-    # args = parser.parse_args()
-
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
     run_full_test_cSAXS_e18044_LamNi_201907(
-        projection_matching_only=args.pma_only,
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
+        test_start_point=args.start_point,
     )
