@@ -212,7 +212,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
 
         # save the task before starting projection matching alignment
         ci_test_helper.save_checkpoint_task(task, file_name="pre_pma_task.h5")
-    else:
+    elif test_start_point == enums.TestStartPoints.PRE_PMA:
         task = ci_test_helper.load_checkpoint_task(file_name="pre_pma_task.h5")
 
     checkpoint_list += [enums.TestStartPoints.PRE_PMA]
@@ -235,6 +235,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         pma_options.mask_shift_type = enums.ShiftType.FFT
         pma_options.keep_on_gpu = True
         pma_options.reconstruction_mask.enabled = True
+        pma_options.momentum.enabled = True
         set_all_device_options(pma_options, multi_gpu_device_options)
 
         # define function for apropriately updating PMA options at each point
