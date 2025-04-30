@@ -303,48 +303,48 @@ def shrink_binary_mask(mask: np.ndarray, shrink_radius: int):
     return shrunken_mask.astype(mask.dtype)
 
 
-def place_patches_fourier(input_shape, patch, locations):
-    """
-    Places the `patch` at each of the `locations` on an array of shape `input_shape` using Fourier transforms.
-
-    Parameters
-    ----------
-    input_shape : tuple of int
-        Shape of the output array (height, width).
-    patch : 2D numpy array
-        Patch to place at each location (must be smaller than input_shape).
-    locations : numpy array of shape (n_points, 2)
-        List of (x, y) locations where patches should be placed. Coordinates are in (row, col) order.
-
-    Returns
-    -------
-    result : 2D numpy array
-        The resulting image with patches placed.
-    """
+def place_patches_fourier_batch(input_shape: tuple, patch: np.ndarray, positions: list[np.ndarray]):
+    patch = cp.array(patch)
+    xp = cp.get_array_module(patch)
     scipy_module = get_scipy_module(patch)
 
-    # Create the impulse mask
-    mask = np.zeros(input_shape, dtype=r_type)
-    for y, x in locations - np.array(patch.shape, dtype=r_type) / 2:
-        if 0 <= y < input_shape[0] and 0 <= x < input_shape[1]:
-            mask[int(y), int(x)] = 1.0
+    impulse_mask = xp.zeros(input_shape[1:], dtype=r_type)
+    padded_patch = xp.zeros_like(impulse_mask)
+    masks_out = gpu_utils.create_empty_pinned_array(input_shape, r_type)
+    for i in tqdm(range(len(positions))):
+        # reset the impulse mask
+        impulse_mask[:] = 0
+        padded_patch[:] = 0
 
-    # Pad patch to the same size
-    padded_patch = np.zeros_like(mask)
-    ph, pw = patch.shape
-    cy, cx = ph // 2, pw // 2
-    padded_patch[:ph, :pw] = patch
+        # mark impulse locations
+        locations = positions[i]
+        offset = np.array(patch.shape, dtype=r_type) / 2
+        coords = locations - offset
+        indices = np.round(coords).astype(int)
+        valid = (
+            (indices[:, 0] >= 0)
+            & (indices[:, 0] < input_shape[1])
+            & (indices[:, 1] >= 0)
+            & (indices[:, 1] < input_shape[2])
+        )
+        indices = indices[valid]
+        impulse_mask[indices[:, 0], indices[:, 1]] = 1.0
 
-    # Shift patch to center the kernel
-    padded_patch = scipy_module.fft.fftshift(padded_patch)
+        # pad patch to the same size
+        ph, pw = patch.shape
+        padded_patch[:ph, :pw] = patch
 
-    # Convolution via FFT (using multiplication in Fourier domain)
-    fft_mask = scipy_module.fft.fft2(mask)
-    fft_patch = scipy_module.fft.fft2(padded_patch)
-    result = np.real(scipy_module.fft.ifft2(fft_mask * fft_patch))
-    result = scipy_module.fft.fftshift(result)
+        # Shift patch to center the kernel
+        padded_patch = scipy_module.fft.fftshift(padded_patch)
 
-    return result
+        # Convolution via FFT (using multiplication in Fourier domain)
+        fft_mask = scipy_module.fft.fft2(impulse_mask)
+        fft_patch = scipy_module.fft.fft2(padded_patch)
+        result = xp.real(scipy_module.fft.ifft2(fft_mask * fft_patch))
+        result = scipy_module.fft.fftshift(result)
+        result.get(out=masks_out[i])
+
+    return masks_out
 
 
 class IlluminationMapMaskBuilder:
@@ -352,11 +352,20 @@ class IlluminationMapMaskBuilder:
     Class for building mask from the illumination map.
     """
 
-    def get_mask_base(self, probe: np.ndarray, positions: np.ndarray, projections: np.ndarray):
-        self.masks = np.zeros_like(projections, dtype=r_type)
+    def get_mask_base(
+        self,
+        probe: np.ndarray,
+        positions: list[np.ndarray],
+        projections: np.ndarray,
+        use_fourier: bool = True,
+    ):
         # The base for building the mask is the illumination map
-        for i in range(len(positions)):
-            get_illumination_map(self.masks[i], probe, positions[i])
+        if use_fourier:
+            self.masks = place_patches_fourier_batch(projections.shape, probe, positions)
+        else:
+            for i in range(len(positions)):
+                self.masks = np.zeros_like(projections, dtype=r_type)
+                get_illumination_map(self.masks[i], probe, positions[i])
 
     def set_mask_threshold_interactively(self, projections: np.ndarray):
         # Use interactivity to decide mask threshold

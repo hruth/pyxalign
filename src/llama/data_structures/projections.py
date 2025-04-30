@@ -369,7 +369,7 @@ class Projections:
             raise Exception
         if self.mask_builder is None:
             self.mask_builder = IlluminationMapMaskBuilder()
-            self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data)
+            self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data, use_fourier=True)
             self.mask_builder.clip_masks(threshold)
         else:
             self.mask_builder.clip_masks()
