@@ -4,6 +4,8 @@ import numpy as np
 import cupy as cp
 import astra
 import copy
+from PyQt5.QtWidgets import QApplication
+
 from llama.api.constants import divisor
 from llama.api.options.device import DeviceOptions
 from llama.api.options.plotting import PlotDataOptions
@@ -13,6 +15,8 @@ from llama.gpu_utils import get_scipy_module, pin_memory
 import llama.image_processing as ip
 from llama import reconstruct
 from llama.io.save import save_array_as_tiff
+from llama.plotting.interactive.arrays import VolumeViewer
+from llama.plotting.interactive.launchers import launch_volume_viewer
 from llama.plotting.plotters import plot_slice_of_3D_array
 import llama.data_structures.projections as projections
 from llama.timing.timer_utils import timer
@@ -40,6 +44,8 @@ class Laminogram:
         self.forward_projection_id: int = None
         self.is_initialized: bool = False
         self.optimal_rotation_angles: Sequence[float] = [0, 0, 0]
+        self.data = None
+        self.forward_projections = None
 
     @property
     def n_layers(self):
@@ -59,7 +65,6 @@ class Laminogram:
         )
         object_geometries = reconstruct.get_object_geometries(scan_geometry_config, vectors)
         return scan_geometry_config, vectors, object_geometries
-
 
     @timer()
     def generate_laminogram(
@@ -117,10 +122,21 @@ class Laminogram:
                 # update the stored projections
                 reconstruct.update_stored_sinogram(sinogram, self.astra_config)
 
+        # size of the 3D reconstruction
+        volume_shape = np.array(
+            [
+                self.scan_geometry_config["iVolZ"],
+                self.scan_geometry_config["iVolX"],
+                self.scan_geometry_config["iVolY"],
+            ]
+        )
         device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         cp.cuda.Device(device).use()
-        self.data: np.ndarray = reconstruct.get_3D_reconstruction(self.astra_config)
+        if self.data is None or np.all(self.data.shape == volume_shape):
+            self.data = reconstruct.get_3D_reconstruction(self.astra_config)
+        else:
+            self.data[:] = reconstruct.get_3D_reconstruction(self.astra_config)
         cp.cuda.Device(device).use()
 
     @timer()
@@ -144,7 +160,7 @@ class Laminogram:
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
         cp.cuda.Device(device).use()
         forward_projections, forward_projection_id = reconstruct.get_forward_projection(
-            reconstruction=self.data, # should remove this since volume id is always provided
+            reconstruction=self.data,  # should remove this since volume id is always provided
             object_geometries=self.object_geometries,
             pinned_forward_projection=pinned_forward_projection,
             volume_id=self.astra_config["ReconstructionDataId"],
@@ -305,6 +321,9 @@ class Laminogram:
         if data is None:
             data = self.data
         save_array_as_tiff(data, file_path, min, max)
+
+    def launch_viewer(self):
+        self.gui = launch_volume_viewer(self.data)
 
 
 def get_tomogram_rotation_angles(

@@ -16,7 +16,7 @@ from llama.gpu_wrapper import device_handling_wrapper
 from llama.interactions.mask import illum_map_threshold_plotter
 from llama.transformations.helpers import is_array_real
 from IPython.display import display
-
+from PyQt5.QtWidgets import QApplication
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -367,18 +367,18 @@ class IlluminationMapMaskBuilder:
                 self.masks = np.zeros_like(projections, dtype=r_type)
                 get_illumination_map(self.masks[i], probe, positions[i])
 
-    def set_mask_threshold_interactively(self, projections: np.ndarray):
+    def set_mask_threshold_interactively(self, projections: np.ndarray) -> float:
         # Use interactivity to decide mask threshold
+        app = QApplication.instance() or QApplication([])
         self.threshold_selector = illum_map_threshold_plotter(
             self.masks, projections, init_thresh=0.01
         )
+        self.threshold_selector.show()
+        app.exec_()
+        threshold = self.threshold_selector.threshold
+        return threshold
 
     def clip_masks(self, thresh: Optional[float] = None):
-        if thresh is None:
-            if not self.threshold_selector.is_final_value:
-                raise Exception
-            thresh = self.threshold_selector.threshold
-
         clip_idx = self.masks > thresh
         self.masks[:] = 0
         self.masks[clip_idx] = 1

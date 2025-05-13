@@ -173,7 +173,7 @@ def update_stored_sinogram(sinogram: np.ndarray, astra_config: dict):
 
 
 @timer()
-def get_3D_reconstruction(astra_config: Optional[dict] = None) -> tuple[np.ndarray, dict, dict]:
+def get_3D_reconstruction(astra_config: Optional[dict] = None) -> np.ndarray:
     # Create the algorithm object from the configuration structure
     inline_timer = InlineTimer("create astra algorithm ID")
     inline_timer.start()

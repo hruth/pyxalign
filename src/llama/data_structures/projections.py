@@ -3,6 +3,7 @@ import numpy as np
 import copy
 import h5py
 import matplotlib.pyplot as plt
+from PyQt5.QtWidgets import QApplication
 from llama.api.constants import divisor
 from llama.api.options.plotting import PlotDataOptions
 from llama.estimate_center import (
@@ -14,6 +15,7 @@ from llama.estimate_center import (
 from llama.api import enums
 from llama.api.options.alignment import AlignmentOptions
 from llama.api.options.device import DeviceOptions
+from llama.api.options import ProjectionViewerOptions
 
 from llama.api.options.projections import (
     EstimateCenterOptions,
@@ -36,7 +38,8 @@ from llama.io.save import save_generic_data_structure_to_h5
 
 from llama.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
 from llama.model_functions import symmetric_gaussian_2d
-
+from llama.plotting.interactive.arrays import ProjectionViewer
+from llama.plotting.interactive.launchers import launch_projection_viewer
 import llama.plotting.plotters as plotters
 from llama.timing.timer_utils import timer, clear_timer_globals
 from llama.transformations.classes import (
@@ -345,16 +348,19 @@ class Projections:
         if self.probe_positions is not None:
             self.probe_positions.shift_positions(shift)
 
-    @timer()
-    def setup_masks_from_probe_positions(self):
-        if self.probe is None or self.probe_positions is None:
-            raise Exception(
-                "The Projections object must have probe_positions and "
-                + "probe attribute to run create_mask_from_probe_positions!"
-            )
-        self.mask_builder = IlluminationMapMaskBuilder()
-        self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data)
-        self.mask_builder.set_mask_threshold_interactively(self.data)
+    # @timer()
+    # def setup_masks_from_probe_positions(self):
+    #     if self.probe is None or self.probe_positions is None:
+    #         raise Exception(
+    #             "The Projections object must have probe_positions and "
+    #             + "probe attribute to run create_mask_from_probe_positions!"
+    #         )
+    #     self.mask_builder = IlluminationMapMaskBuilder()
+    #     self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data)
+    #     # Set threshold value for building masks
+    #     self.mask_builder.set_mask_threshold_interactively(self.data)
+    #     # Build the masks
+    #     self.get_masks_from_probe_positions()
 
     @timer()
     def get_masks_from_probe_positions(
@@ -365,14 +371,30 @@ class Projections:
         1) Run `setup_masks_from_probe_positions` first
         2) Provide the threshold input, above which to set the illumination map to 1
         """
-        if self.mask_builder is None and threshold is None:
-            raise Exception
-        if self.mask_builder is None:
+        # if self.mask_builder is None and threshold is None:
+        # raise Exception
+        if threshold is None:
+            # set threshold interactively
+            if self.probe is None or self.probe_positions is None:
+                raise Exception(
+                    "The Projections object must have probe_positions and "
+                    + "probe attribute to run create_mask_from_probe_positions!"
+                )
             self.mask_builder = IlluminationMapMaskBuilder()
-            self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data, use_fourier=True)
+            self.mask_builder.get_mask_base(
+                self.probe, self.probe_positions.data, self.data, use_fourier=True
+            )
+            # Set threshold value for building masks
+            threshold = self.mask_builder.set_mask_threshold_interactively(self.data)
             self.mask_builder.clip_masks(threshold)
         else:
-            self.mask_builder.clip_masks()
+            self.mask_builder = IlluminationMapMaskBuilder()
+            self.mask_builder.get_mask_base(
+                self.probe, self.probe_positions.data, self.data, use_fourier=True
+            )
+            self.mask_builder.clip_masks(threshold)
+        # else:
+        # self.mask_builder.clip_masks()
         self.masks = self.mask_builder.masks
 
         if delete_mask_builder:
@@ -440,7 +462,7 @@ class Projections:
             masks=self.masks,
             device_options=device_options,
         )
-    
+
     def undo_last_shift(self, device_options: Optional[DeviceOptions] = None):
         if self.probe_positions is not None:
             self.probe_positions.shift_positions(-self.shift_manager.past_shifts[-1])
@@ -648,6 +670,9 @@ class Projections:
             h5_obj.close()
         print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
 
+    def launch_viewer(self, options: Optional[ProjectionViewerOptions] = None):
+        self.gui = launch_projection_viewer(self, options)
+
 
 class ComplexProjections(Projections):
     def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
@@ -789,7 +814,7 @@ class ShiftManager:
                 masks=masks,
                 function_type=self.staged_function_type,
                 device_options=device_options,
-            )        
+            )
             self.unstage_shift()
         else:
             print("There is no shift to apply!")

@@ -21,7 +21,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
 ):
-    plt.ion()
+    # plt.ion()
 
     # Setup the test
     ci_options = opts.CITestOptions(
@@ -236,6 +236,8 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         pma_options.keep_on_gpu = True
         pma_options.reconstruction_mask.enabled = True
         pma_options.momentum.enabled = True
+        pma_options.interactive_viewer.update.enabled = True
+        pma_options.interactive_viewer.close_old_windows = True
         set_all_device_options(pma_options, multi_gpu_device_options)
 
         # define function for apropriately updating PMA options at each point
@@ -243,7 +245,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             pma_options.downsample.scale = scale
             pma_options.reconstruction_mask.radial_smooth = 5 * scale
             if scale >= 4:
-                pma_options.keep_on_gpu = True
+                pma_options.keep_on_gpu = False
             else:
                 pma_options.keep_on_gpu = False
             if scale == 1:

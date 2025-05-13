@@ -1,6 +1,8 @@
 from typing import Optional
 import numpy as np
 import h5py
+from PyQt5.QtWidgets import QApplication
+
 from llama import gpu_utils
 from llama.data_structures.projections import (
     ComplexProjections,
@@ -14,6 +16,8 @@ from llama.api.options.task import AlignmentTaskOptions
 from llama.api import enums
 from llama.api.types import r_type
 from llama.io.save import save_generic_data_structure_to_h5
+from llama.plotting.interactive.projection_matching import ProjectionMatchingViewer
+from llama.plotting.interactive.task import TaskViewer
 from llama.timing.timer_utils import clear_timer_globals
 
 
@@ -33,6 +37,7 @@ class LaminographyAlignmentTask:
         self.complex_projections = complex_projections
         self.phase_projections = phase_projections
         self.pma_object: ProjectionMatchingAligner = None
+        self.pma_GUI_list: list[ProjectionMatchingViewer] = []
 
     def get_cross_correlation_shift(
         self,
@@ -64,23 +69,45 @@ class LaminographyAlignmentTask:
         print("Cross-correlation shift stored in shift_manager")
 
     def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray] = None):
-        if self.pma_object is not None and hasattr(self.pma_object, "aligned_projections"):
-            # Clear old astra objects
-            self.pma_object.aligned_projections.laminogram.clear_astra_objects()
+        if self.pma_object is not None:
+            if hasattr(self.pma_object, "aligned_projections"):
+                # Clear old astra objects
+                self.pma_object.aligned_projections.laminogram.clear_astra_objects()
 
         clear_timer_globals()
+        # Initialize the projection-matching alignment object
         self.pma_object = ProjectionMatchingAligner(
             self.phase_projections, self.options.projection_matching
         )
-        # Run the projection matching alignment algorithm
-        shift = self.pma_object.run(initial_shift=initial_shift)
-        # Store the result in the ShiftManager object
-        self.phase_projections.shift_manager.stage_shift(
-            shift=shift,
-            function_type=enums.ShiftType.FFT,
-            alignment_options=self.options.projection_matching,
-        )
-        print("Projection-matching shift stored in shift_manager")
+        if self.options.projection_matching.interactive_viewer.close_old_windows:
+            self.clear_pma_GUI_list()
+        try:
+            if self.pma_object.options.interactive_viewer.update.enabled:
+                # Run PMA algorithm
+                shift = self.pma_object.run_with_GUI(initial_shift=initial_shift)
+                # Store the QWidget in a list so the window remains open even if
+                # another PMA loop is started
+                self.pma_GUI_list += [self.pma_object.gui]  # uncomment later
+                # Close window
+                # self.pma_object.gui.close() # I think adding this helped, or removing the list helped.
+            else:
+                # Run PMA algorithm
+                shift = self.pma_object.run(initial_shift=initial_shift)
+        except (Exception, KeyboardInterrupt):
+            shift = self.pma_object.total_shift * self.pma_object.scale
+        finally:
+            # Store the result in the ShiftManager object
+            self.phase_projections.shift_manager.stage_shift(
+                shift=shift,
+                function_type=enums.ShiftType.FFT,
+                alignment_options=self.options.projection_matching,
+            )
+            print("Projection-matching shift stored in shift_manager")
+
+    def clear_pma_GUI_list(self):
+        for gui in self.pma_GUI_list:
+            gui.close()
+        self.pma_GUI_list = []
 
     def get_complex_projection_masks(self, enable_plotting: bool = False):
         clear_timer_globals()
@@ -118,3 +145,8 @@ class LaminographyAlignmentTask:
                     projection.save_projections_object(h5_obj=h5_obj.create_group(attr))
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
+
+    def launch_viewer(self):
+        app = QApplication.instance() or QApplication([])
+        self.gui = TaskViewer(self)
+        self.gui.show()

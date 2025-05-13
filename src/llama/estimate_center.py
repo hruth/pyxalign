@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import llama.alignment.projection_matching as pm
 from llama.api.options import transform
-import llama.data_structures.projections as proj
+import llama.data_structures.projections as p
 from llama.api.options.projections import (
     CoordinateSearchOptions,
     EstimateCenterOptions,
@@ -45,7 +45,7 @@ class CenterOfRotationEstimateResults:
 
 def estimate_center_of_rotation(
     # projections: np.ndarray,
-    projections: "proj.Projections",
+    projections: "p.Projections",
     angles: np.ndarray,
     masks: np.ndarray,
     options: EstimateCenterOptions,
@@ -87,7 +87,7 @@ def estimate_center_of_rotation(
         crop=options.crop,
     )
 
-    downsampled_projections = proj.PhaseProjections(
+    downsampled_projections = p.PhaseProjections(
         projections=projections.data,
         angles=angles,
         scan_numbers=projections.scan_numbers,

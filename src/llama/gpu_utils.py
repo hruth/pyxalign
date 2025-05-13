@@ -9,6 +9,7 @@ import cupyx.scipy.signal
 import cupyx.scipy.interpolate
 import cupyx.scipy.fft as cufft
 import numpy as np
+import sys
 from typing import Union
 import llama.api.enums as enums
 # from llama.timer import timer
@@ -145,8 +146,10 @@ def memory_releasing_error_handler(func, show_info: bool = False) -> T:
     def wrapped(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except KeyboardInterrupt as ex:
+            print(f"{type(ex).__name__}: Execution stopped by user")
+            traceback.print_exc()
         except Exception as ex:
-            # except cp.cuda.memory.OutOfMemoryError as ex:
             print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
             traceback.print_exc()
         finally:
@@ -154,9 +157,7 @@ def memory_releasing_error_handler(func, show_info: bool = False) -> T:
                 with cp.cuda.Device(gpu):
                     if show_info:
                         print_gpu_memory_use()
-
                     cp.get_default_memory_pool().free_all_blocks()
-
                     if show_info:
                         print_gpu_memory_use()
 

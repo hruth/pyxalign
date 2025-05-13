@@ -1,6 +1,7 @@
 from abc import ABC
 import dataclasses
 from dataclasses import field
+from functools import partial
 from typing import Optional
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions
@@ -84,6 +85,15 @@ class RefineGeometryOptions:
 
 
 @dataclasses.dataclass
+class InteractiveViewerOptions:
+    close_old_windows: bool = True
+
+    update: UpdatePlotOptions = field(
+        default_factory=partial(UpdatePlotOptions, stride=10)
+    )
+
+
+@dataclasses.dataclass
 class ProjectionMatchingOptions(AlignmentOptions):
     iterations: int = 300
 
@@ -126,3 +136,5 @@ class ProjectionMatchingOptions(AlignmentOptions):
     plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
 
     refine_geometry: RefineGeometryOptions = field(default_factory=RefineGeometryOptions)
+
+    interactive_viewer: InteractiveViewerOptions = field(default_factory=InteractiveViewerOptions)

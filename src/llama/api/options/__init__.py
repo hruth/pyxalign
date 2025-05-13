@@ -34,5 +34,11 @@ from .options import (
     PhaseUnwrapOptions,
     RegularizationOptions,
 )
-from .plotting import UpdatePlotOptions, PlotDataOptions, ScalebarOptions
+from .plotting import (
+    UpdatePlotOptions,
+    PlotDataOptions,
+    ScalebarOptions,
+    ArrayViewerOptions,
+    ProjectionViewerOptions,
+)
 from .tests import CITestOptions

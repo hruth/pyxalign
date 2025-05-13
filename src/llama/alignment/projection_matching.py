@@ -1,24 +1,21 @@
-from ctypes import Array
 from functools import partial
-import re
-import traceback
 from typing import Callable, Optional
 import matplotlib
 import numpy as np
 import cupy as cp
 import copy
-from collections import defaultdict
 from scipy.optimize import minimize
+from PyQt5.QtWidgets import QApplication
 
 from llama.alignment.base import Aligner
 from llama.api.options.projections import ProjectionTransformOptions
 from llama.api.options.transform import ShiftOptions
 from llama.api.options_utils import set_all_device_options
 import llama.data_structures.projections as projections
-from llama.reconstruct import update_stored_sinogram
+from llama.plotting.interactive.projection_matching import ProjectionMatchingViewer
 from llama.regularization import chambolleLocalTV3D
 from llama.style.text import text_colors
-from llama.timing.timer_utils import InlineTimer, timer, clear_timer_globals
+from llama.timing.timer_utils import InlineTimer, timer
 from llama.transformations.classes import Shifter
 import llama.image_processing as ip
 import llama.api.maps as maps
@@ -27,11 +24,11 @@ from llama.api.options.alignment import ProjectionMatchingOptions, ProjectionMat
 import llama.gpu_utils as gutils
 from llama.api.types import ArrayType, r_type
 from llama.gpu_wrapper import device_handling_wrapper
-from llama.timing.timer_utils import timer
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import astra
+import time
 
 
 class ProjectionMatchingAligner(Aligner):
@@ -45,6 +42,7 @@ class ProjectionMatchingAligner(Aligner):
         super().__init__(projections, options)
         self.options: ProjectionMatchingOptions = self.options
         self.print_updates = print_updates
+        self.gui: ProjectionMatchingViewer = None
 
     @gutils.memory_releasing_error_handler
     @timer()
@@ -128,6 +126,7 @@ class ProjectionMatchingAligner(Aligner):
             is_step_size_below_threshold = self.check_stopping_condition(max_shift_step_size)
             if is_step_size_below_threshold:
                 break
+            self.check_for_error()
 
     @timer()
     def iterate(
@@ -175,7 +174,7 @@ class ProjectionMatchingAligner(Aligner):
         # Find optimal shift
         self.get_shift_update()
         self.plot_update()
-        # Refine geometry
+        self.update_GUI()
         self.get_geometry_update()
 
     @timer()
@@ -638,12 +637,58 @@ class ProjectionMatchingAligner(Aligner):
         else:
             return False
 
+    def run_with_GUI(self, initial_shift: np.ndarray):
+        "Launches the PMA viewer gui and runs the PMA loop"
+        app = QApplication.instance() or QApplication([])
+        self.gui = ProjectionMatchingViewer(self, multi_thread_func=self.run)
+        self.gui.show()
+        shift = self.gui.start_thread(initial_shift=initial_shift)
+        self.gui.finish_test()
+        # closing the window during destroys the QThread reference
+        # app.exec_() # this makes it so the user has to close the window before moving on
+        return shift
+
+    @timer()
+    def update_GUI(self):
+        "Update gui plots with data from the last PMA iteration"
+        if (
+            self.options.interactive_viewer.update.enabled
+            and self.iteration % self.options.interactive_viewer.update.stride == 0
+        ):
+            # Prevent PMA thread execution until the gui plot update has
+            # finished. This is probably unecessary.
+            # t0 = time.time()
+            self.gui.mutex.lock()
+            if self.iteration == 0:
+                self.gui.signals.initialize_plots.emit()
+            self.gui.signals.update_plots.emit()
+            self.gui.wait_cond.wait(self.gui.mutex)
+            self.gui.mutex.unlock()
+            # print(f"unlocked, {time.time() - t0}")
+
+    def check_for_error(self):
+        if self.options.interactive_viewer.update.enabled and self.gui.force_stop:
+            self.gui.finish_test()
+            raise Exception("User manually stopped execution")
+
+    def show_GUI(self):
+        "Relaunch the viewer. Intended to be used after running PMA and closing the original gui."
+        if self.gui is None:
+            app = QApplication.instance() or QApplication([])
+            self.gui = ProjectionMatchingViewer(self)
+            self.gui.show()
+            self.gui.initialize_plots(add_stop_button=False)
+            self.gui.update_plots()
+        else:
+            app = QApplication.instance() or QApplication([])
+            self.gui.show()
+
     @timer()
     def plot_update(self):
         if self.options.plot.update.enabled and (
-            self.iteration % self.options.plot.update.stride == 0
+            self.iteration and self.options.plot.update.stride == 0
         ):
-            matplotlib.use("module://matplotlib_inline.backend_inline")
+            # matplotlib.use("module://matplotlib_inline.backend_inline")
             sort_idx = np.argsort(self.aligned_projections.angles)
             sorted_angles = self.aligned_projections.angles[sort_idx]
             total_shift = self.total_shift[sort_idx]
@@ -874,7 +919,7 @@ class ProjectionMatchingAligner(Aligner):
     def get_geometry_update(self):
         if not self.options.refine_geometry.enabled:
             return
-    
+
         xp = cp.get_array_module(self.aligned_projections.data)
         delta = 0.01
         deltas = [-delta, delta]
@@ -911,7 +956,9 @@ class ProjectionMatchingAligner(Aligner):
             if i == 0:
                 d_proj = self.aligned_projections.laminogram.forward_projections.data * 1
             else:
-                d_proj = (d_proj - self.aligned_projections.laminogram.forward_projections.data) / (2 * delta)
+                d_proj = (d_proj - self.aligned_projections.laminogram.forward_projections.data) / (
+                    2 * delta
+                )
         # Revert the laminography angle
         self.aligned_projections.options.experiment.laminography_angle = laminography_angle
 
@@ -927,7 +974,6 @@ class ProjectionMatchingAligner(Aligner):
         # moved to gpu in the gpu_only case.
         if self.memory_config == MemoryConfig.GPU_ONLY:
             d_proj = cp.array(d_proj)
-
 
         # gpu chunked inputs: forward_projections, projections, d_proj
         def calculate_geometry_update(

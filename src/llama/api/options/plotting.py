@@ -12,6 +12,7 @@ class UpdatePlotOptions:
 
     stride: int = 1
 
+
 @dataclasses.dataclass
 class ScalebarOptions:
     enabled: bool = True
@@ -38,3 +39,19 @@ class PlotDataOptions:
     index: Optional[int] = None
 
     clim: Optional[Sequence] = None
+
+
+@dataclasses.dataclass
+class ArrayViewerOptions:
+    slider_axis: int = 0
+
+    start_index: int = 0
+
+
+@dataclasses.dataclass
+class ProjectionViewerOptions:
+    show_mask: bool = False
+
+    process_func: Optional[enums.ProcessFunc] = None
+
+    sort: bool = True
