@@ -27,7 +27,7 @@
 #     - name: Activate environment
 #       id: activate_env
 #       run: |
-#         source /home/beams/HRUTH/miniconda3/bin/activate llama_2
+#         source /home/beams/HRUTH/miniconda3/bin/activate pyxalign_2
 
 #     - name: Test with pytest
 #       run: |

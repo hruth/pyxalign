@@ -2,14 +2,14 @@ import argparse
 import time
 import numpy as np
 import cupy as cp
-from llama.gpu_utils import is_pinned
-from llama.data_structures.projections import ComplexProjections
-from llama.api.options.transform import ShiftOptions
-from llama.transformations.classes import Shifter
-from llama.api import enums
+from pyxalign.gpu_utils import is_pinned
+from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.api.options.transform import ShiftOptions
+from pyxalign.transformations.classes import Shifter
+from pyxalign.api import enums
 
-import llama.test_utils as tutils
-from llama.api.types import r_type
+import pyxalign.test_utils as tutils
+from pyxalign.api.types import r_type
 
 filename = "cSAXS_projections_downsampling16.h5"
 repeat_array = False

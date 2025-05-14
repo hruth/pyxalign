@@ -2,13 +2,13 @@
 # import h5py
 # import numpy as np
 
-# from llama.api.options.projections import ProjectionOptions
-# from llama.api.options.task import AlignmentTaskOptions
-# from llama.task import LaminographyAlignmentTask
-# from llama.projections import ComplexProjections
-# from llama.api import enums
+# from pyxalign.api.options.projections import ProjectionOptions
+# from pyxalign.api.options.task import AlignmentTaskOptions
+# from pyxalign.task import LaminographyAlignmentTask
+# from pyxalign.projections import ComplexProjections
+# from pyxalign.api import enums
 
-# import llama.test_utils as tutils
+# import pyxalign.test_utils as tutils
 
 # file_name = "3a4bd4a_downsampled_4x.h5"
 

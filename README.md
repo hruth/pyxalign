@@ -7,18 +7,18 @@ conda install -c conda-forge astra-toolbox
 ```bash
 conda install -c conda-forge cupy
 ```
-3. Clone the llama git repo
+3. Clone the pyxalign git repo
 ```bash
-git clone https://github.com/hruth/llama.git
+git clone https://github.com/hruth/pyxalign.git
 ```
 4. Install the package
 ```bash
-cd llama
+cd pyxalign
 pip install .
 ```
 For an editable install, use this instead:
 ```bash
-cd llama
+cd pyxalign
 pip install -e .
 ```
 

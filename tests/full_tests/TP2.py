@@ -3,15 +3,15 @@ import multiprocessing as mp
 import cupy as cp
 
 import matplotlib.pyplot as plt
-import llama
-from llama import options as opts
-from llama.api import enums
-from llama.api.types import r_type
-from llama.io.loaders.enums import LoaderType
-from llama import gpu_utils
-from llama.test_utils_2 import CITestHelper, CITestArgumentParser
-from llama.api.options_utils import set_all_device_options
-import llama.io.loaders
+import pyxalign
+from pyxalign import options as opts
+from pyxalign.api import enums
+from pyxalign.api.types import r_type
+from pyxalign.io.loaders.enums import LoaderType
+from pyxalign import gpu_utils
+from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
+from pyxalign.api.options_utils import set_all_device_options
+import pyxalign.io.loaders
 
 
 def run_full_test_TP2(
@@ -61,7 +61,7 @@ def run_full_test_TP2(
         parent_projection_folder = os.path.join(parent_folder, "ptycho_recon", "TP_2")
 
         # Define options for loading ptycho reconstructions
-        options = llama.io.loaders.LamniLoadOptions(
+        options = pyxalign.io.loaders.LamniLoadOptions(
             loader_type=LoaderType.LAMNI_V2,
             selected_experiment_name="test_pattern_2",
             selected_sequences=[1, 2, 3, 4, 5, 6, 7],
@@ -69,7 +69,7 @@ def run_full_test_TP2(
         )
 
         # Load ptycho reconstructions, probe positions, measurement angles, and scan numbers
-        lamni_data = llama.io.loaders.load_data_from_lamni_format(
+        lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
             dat_file_path=dat_file_path,
             parent_projections_folder=parent_projection_folder,
             n_processes=int(mp.cpu_count() * 0.8),
@@ -77,7 +77,7 @@ def run_full_test_TP2(
         )
 
         # Convert projection dict to an array
-        projection_array = llama.io.loaders.utils.convert_projection_dict_to_array(
+        projection_array = pyxalign.io.loaders.utils.convert_projection_dict_to_array(
             lamni_data.projections,
             delete_projection_dict=False,
             pad_with_mode=True,
@@ -113,9 +113,9 @@ def run_full_test_TP2(
         )
 
         # Pin the projection array in order to speed up GPU calculations
-        projection_array = llama.gpu_utils.pin_memory(projection_array)
+        projection_array = pyxalign.gpu_utils.pin_memory(projection_array)
 
-        complex_projections = llama.ComplexProjections(
+        complex_projections = pyxalign.ComplexProjections(
             projections=projection_array,
             angles=lamni_data.angles,
             scan_numbers=lamni_data.scan_numbers,
@@ -126,7 +126,7 @@ def run_full_test_TP2(
         )
         del lamni_data
 
-        task = llama.LaminographyAlignmentTask(
+        task = pyxalign.LaminographyAlignmentTask(
             options=opts.AlignmentTaskOptions(),
             complex_projections=complex_projections,
         )

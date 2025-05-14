@@ -1,11 +1,11 @@
 import os
 import numpy as np
 
-from llama.data_structures.projections import PhaseProjections
-from llama.data_structures.task import LaminographyAlignmentTask
-from llama.api import enums
-from llama.io import save, load
-from llama.api.options import ProjectionOptions, AlignmentTaskOptions
+from pyxalign.data_structures.projections import PhaseProjections
+from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.api import enums
+from pyxalign.io import save, load
+from pyxalign.api.options import ProjectionOptions, AlignmentTaskOptions
 
 
 def test_task_io(pytestconfig=None, overwrite_results=False, check_results=True):

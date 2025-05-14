@@ -4,16 +4,16 @@ import multiprocessing as mp
 import cupy as cp
 
 import matplotlib.pyplot as plt
-import llama
-from llama import options as opts
-from llama.api import enums
-from llama.api.types import r_type
-from llama.io.load import load_task
-from llama.io.loaders.enums import LoaderType
-from llama import gpu_utils
-from llama.test_utils_2 import CITestArgumentParser, CITestHelper
-from llama.api.options_utils import set_all_device_options
-import llama.io.loaders
+import pyxalign
+from pyxalign import options as opts
+from pyxalign.api import enums
+from pyxalign.api.types import r_type
+from pyxalign.io.load import load_task
+from pyxalign.io.loaders.enums import LoaderType
+from pyxalign import gpu_utils
+from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
+from pyxalign.api.options_utils import set_all_device_options
+import pyxalign.io.loaders
 
 
 def run_full_test_cSAXS_e18044_LamNi_201907(
@@ -64,7 +64,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         parent_projection_folder = os.path.join(parent_folder, "analysis")
 
         # Define options for loading ptycho reconstructions
-        options = llama.io.loaders.LamniLoadOptions(
+        options = pyxalign.io.loaders.LamniLoadOptions(
             loader_type=LoaderType.LAMNI_V1,
             selected_experiment_name="unlabeled",
             selected_sequences=[3, 4, 5],
@@ -74,7 +74,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         # Load data
-        lamni_data = llama.io.loaders.load_data_from_lamni_format(
+        lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
             dat_file_path=dat_file_path,
             parent_projections_folder=parent_projection_folder,
             n_processes=int(mp.cpu_count() * 0.8),
@@ -82,7 +82,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         new_shape = (2368, 1600)
-        projection_array = llama.io.loaders.utils.convert_projection_dict_to_array(
+        projection_array = pyxalign.io.loaders.utils.convert_projection_dict_to_array(
             lamni_data.projections,
             delete_projection_dict=False,
             pad_with_mode=True,
@@ -114,8 +114,8 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             ),
         )
         # Pin the projections to speed up GPU calculations
-        projection_array = llama.gpu_utils.pin_memory(projection_array)
-        complex_projections = llama.ComplexProjections(
+        projection_array = pyxalign.gpu_utils.pin_memory(projection_array)
+        complex_projections = pyxalign.ComplexProjections(
             projections=projection_array,
             angles=lamni_data.angles,
             scan_numbers=lamni_data.scan_numbers,
@@ -124,7 +124,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             probe=lamni_data.probe,
             skip_pre_processing=False,
         )
-        task = llama.LaminographyAlignmentTask(
+        task = pyxalign.LaminographyAlignmentTask(
             options=opts.AlignmentTaskOptions(),
             complex_projections=complex_projections,
         )

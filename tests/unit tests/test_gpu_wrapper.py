@@ -2,17 +2,17 @@ import argparse
 import h5py
 import numpy as np
 import cupy as cp
-from llama.api.options.device import DeviceOptions, GPUOptions
+from pyxalign.api.options.device import DeviceOptions, GPUOptions
 
-from llama.api.options.projections import ProjectionOptions
-from llama.api.options.task import AlignmentTaskOptions
-from llama.gpu_utils import get_available_gpus, is_pinned, pin_memory
-from llama.gpu_wrapper import device_handling_wrapper
-from llama.data_structures.task import LaminographyAlignmentTask
-from llama.data_structures.projections import ComplexProjections
-from llama.api import enums
+from pyxalign.api.options.projections import ProjectionOptions
+from pyxalign.api.options.task import AlignmentTaskOptions
+from pyxalign.gpu_utils import get_available_gpus, is_pinned, pin_memory
+from pyxalign.gpu_wrapper import device_handling_wrapper
+from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.api import enums
 
-import llama.test_utils as tutils
+import pyxalign.test_utils as tutils
 
 n_arrays = 211
 array_size = (23, 29)
