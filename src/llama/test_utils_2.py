@@ -29,6 +29,9 @@ array_save_string = "array"
 primary_ci_test_folder_string = "PYXALIGN_CI_TEST_DATA_DIR"
 secondary_ci_test_folder_string = "PYXALIGN_CI_TEST_DATA_DIR_2"
 
+pass_string = f"{text_colors.OKGREEN}PASSED{text_colors.ENDC}"
+fail_string = f"{text_colors.FAIL}FAILED{text_colors.ENDC}"
+
 
 class CITestHelper:
     def __init__(self, options: CITestOptions):
@@ -131,9 +134,9 @@ class CITestHelper:
             print("SUMMARY OF TESTS:")
             for i, (test_name, is_passed) in enumerate(self.test_result_dict.items()):
                 if is_passed:
-                    pass_fail_string = f"{text_colors.OKGREEN}PASSED{text_colors.ENDC}"
+                    pass_fail_string = pass_string
                 else:
-                    pass_fail_string = f"{text_colors.FAIL}FAILED{text_colors.ENDC}"
+                    pass_fail_string = fail_string
                 print(f"{i+1}. {test_name}: {pass_fail_string}")
             n_passed = sum([v for v in self.test_result_dict.values()])
             print(f"{text_colors.HEADER}{n_passed}/{len(self.test_result_dict)}{text_colors.ENDC}")
@@ -232,11 +235,11 @@ def compare_arrays(
     reference_result = h5_obj[name][()]
     load_path = get_rel_path_string(h5_obj[name])
     if not np.allclose(result, reference_result, atol=atol, rtol=rtol):
-        print(f"{load_path} FAILED")
+        print(f"{load_path} {fail_string}")
         print_comparison_stats(result, reference_result)
         raise AssertionError(f"Data for {name} does not match saved results!")
     else:
-        print(f"{load_path} PASSED")
+        print(f"{load_path} {pass_string}")
 
 
 def save_arbitrary_result(result, folder: str, name: str, proj_idx: list[int]):

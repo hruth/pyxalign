@@ -293,7 +293,6 @@ def run_full_test_TP2(
             ci_test_helper.save_or_compare_results(pma_shifts[scale], f"pma_shift_{scale}x")
 
         # Shift the projections by the projection-matching alignment shift
-        print(multi_gpu_device_options)
         task.phase_projections.apply_staged_shift(multi_gpu_device_options)
 
         # Save the fully aligned task

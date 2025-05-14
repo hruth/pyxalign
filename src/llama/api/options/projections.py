@@ -2,15 +2,23 @@ from dataclasses import field
 import dataclasses
 from typing import Optional
 from llama.api import enums
-from llama.api.options.alignment import ProjectionMatchingOptions
+from llama.api.options.alignment import InteractiveViewerOptions, ProjectionMatchingOptions
 from llama.api.options.options import (
     ExperimentOptions,
     MaskOptions,
     PhaseUnwrapOptions,
 )
+from llama.api.options.plotting import UpdatePlotOptions
 from llama.api.options.reconstruct import ReconstructOptions
 from llama.api.options.transform import CropOptions, DownsampleOptions, RotationOptions
 from functools import partial
+
+
+def pma_factory_for_estimate_center_options():
+    return ProjectionMatchingOptions(
+        iterations=1,
+        interactive_viewer=InteractiveViewerOptions(update=UpdatePlotOptions(enabled=False)),
+    )
 
 
 @dataclasses.dataclass
@@ -35,7 +43,7 @@ class EstimateCenterOptions:
     crop: CropOptions = field(default_factory=CropOptions)
 
     projection_matching: ProjectionMatchingOptions = field(
-        default_factory=partial(ProjectionMatchingOptions, iterations=1)
+        default_factory=pma_factory_for_estimate_center_options
     )
 
     horizontal_coordinate: CoordinateSearchOptions = field(default_factory=CoordinateSearchOptions)
@@ -82,4 +90,3 @@ class ProjectionOptions:
     # mask_downsample_use_gaussian_filter: bool = False
 
     # phase_ramp_removal: PhaseRampRemovalOptions = field(default_factory=PhaseRampRemovalOptions)
-
