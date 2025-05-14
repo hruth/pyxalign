@@ -1,7 +1,6 @@
 from functools import wraps
 from ctypes import ArgumentError
-from typing import Optional, Sequence, Callable, TypeVar, Any
-from typing_extensions import ParamSpec
+from typing import Optional, Sequence, Callable, TypeVar, ParamSpec
 import numpy as np
 import cupy as cp
 import traceback
