@@ -1,9 +1,9 @@
 import h5py
 
-from llama.api.options.projections import ProjectionOptions
-from llama.api.options.task import AlignmentTaskOptions
-from llama.data_structures.task import LaminographyAlignmentTask
-from llama.data_structures.projections import ComplexProjections, PhaseProjections
+from pyxalign.api.options.projections import ProjectionOptions
+from pyxalign.api.options.task import AlignmentTaskOptions
+from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.data_structures.projections import ComplexProjections, PhaseProjections
 
 import matplotlib.pyplot as plt
 

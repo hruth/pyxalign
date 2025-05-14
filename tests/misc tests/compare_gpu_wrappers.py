@@ -4,19 +4,19 @@ import numpy as np
 import copy
 import astra
 
-from llama.api.options.projections import ProjectionOptions
-from llama.api.options.task import AlignmentTaskOptions
-from llama.data_structures.task import LaminographyAlignmentTask
-from llama.data_structures.projections import ComplexProjections
-from llama.api import enums
-from llama import reconstruct
+from pyxalign.api.options.projections import ProjectionOptions
+from pyxalign.api.options.task import AlignmentTaskOptions
+from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.api import enums
+from pyxalign import reconstruct
 import demo_utils as dutils
-import llama.gpu_utils as gutils
-import llama.api.options as opts
+import pyxalign.gpu_utils as gutils
+import pyxalign.api.options as opts
 
 import laminoAlign as lam
 
-import llama.test_utils as tutils
+import pyxalign.test_utils as tutils
 
 def filter_sinogram_new():
     # Load demo task (750 x 960 x 2368 projections)

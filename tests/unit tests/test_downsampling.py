@@ -3,17 +3,17 @@ import time
 import h5py
 import numpy as np
 import pytest
-from llama.api.options.device import DeviceOptions, GPUOptions
+from pyxalign.api.options.device import DeviceOptions, GPUOptions
 
-from llama.api.options.projections import ProjectionOptions
-from llama.gpu_utils import is_pinned
-from llama.data_structures.projections import ComplexProjections
-from llama.api.options.transform import DownsampleOptions, ShiftOptions
-from llama.transformations.classes import Downsampler, Shifter
-from llama.api import enums
+from pyxalign.api.options.projections import ProjectionOptions
+from pyxalign.gpu_utils import is_pinned
+from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.api.options.transform import DownsampleOptions, ShiftOptions
+from pyxalign.transformations.classes import Downsampler, Shifter
+from pyxalign.api import enums
 
-import llama.test_utils as tutils
-from llama.api.types import ArrayType, r_type, c_type
+import pyxalign.test_utils as tutils
+from pyxalign.api.types import ArrayType, r_type, c_type
 
 filename = "cSAXS_projections_downsampling16.h5"
 scale = 4

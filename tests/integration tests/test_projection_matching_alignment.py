@@ -5,16 +5,16 @@ from time import time
 
 import pytest
 
-from llama.api.options.device import DeviceOptions, GPUOptions
-from llama.api.options.projections import ProjectionOptions
-from llama.api.options.reconstruct import ReconstructOptions
-from llama.api.options.task import AlignmentTaskOptions
-from llama.data_structures.task import LaminographyAlignmentTask
-from llama.data_structures.projections import ComplexProjections
-from llama.api import enums
+from pyxalign.api.options.device import DeviceOptions, GPUOptions
+from pyxalign.api.options.projections import ProjectionOptions
+from pyxalign.api.options.reconstruct import ReconstructOptions
+from pyxalign.api.options.task import AlignmentTaskOptions
+from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.api import enums
 
-import llama.test_utils as tutils
-import llama.gpu_utils as gutils
+import pyxalign.test_utils as tutils
+import pyxalign.gpu_utils as gutils
 
 file_name = "task_3a4bd4a_downsampled_4x.h5"
 n_iterations = 3

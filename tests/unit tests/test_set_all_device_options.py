@@ -1,7 +1,7 @@
 
-from llama.api.options_utils import set_all_device_options
-import llama.api.options as opts
-import llama.api.enums as enums
+from pyxalign.api.options_utils import set_all_device_options
+import pyxalign.api.options as opts
+import pyxalign.api.enums as enums
 
 new_options = opts.DeviceOptions(
     device_type=enums.DeviceType.GPU,

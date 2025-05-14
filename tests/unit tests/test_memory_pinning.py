@@ -1,5 +1,5 @@
 import time
-from llama.gpu_utils import pin_memory, is_pinned
+from pyxalign.gpu_utils import pin_memory, is_pinned
 import numpy as np
 import cupy as cp
 import os

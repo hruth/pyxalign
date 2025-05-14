@@ -1,13 +1,13 @@
 import argparse
 import pytest
 from pytest import Config
-import llama
+import pyxalign
 import os
 import matplotlib.pyplot as plt
 import numpy as np
 import multiprocessing as mp
-import llama.io.loaders.lamni.utils
-import llama.test_utils as tutils
+import pyxalign.io.loaders.lamni.utils
+import pyxalign.test_utils as tutils
 
 try:
     from paths.lamni_loader_paths import parent_projection_folder, dat_file_path
@@ -27,7 +27,7 @@ def test_lamni_loader(pytestconfig: Config, overwrite_results=False, check_resul
         overwrite_results = pytestconfig.getoption("overwrite_results")
     test_name = "test_lamni_loader"
 
-    options = llama.io.loaders.lamni.utils.LamniLoadOptions(
+    options = pyxalign.io.loaders.lamni.utils.LamniLoadOptions(
         selected_experiment_name="unlabeled",
         selected_sequences=[3],
         selected_metadata_list=["512x512_b0_MLc_Niter500_recons"],
@@ -35,7 +35,7 @@ def test_lamni_loader(pytestconfig: Config, overwrite_results=False, check_resul
         scan_end=2750,
     )
     # Load data
-    lamni_data = llama.io.loaders.load_data_from_lamni_format(
+    lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
         dat_file_path=dat_file_path,
         parent_projections_folder=parent_projection_folder,
         n_processes=int(mp.cpu_count() / 2),
