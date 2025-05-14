@@ -2,7 +2,6 @@ from abc import ABC
 import dataclasses
 from dataclasses import field
 from functools import partial
-from typing import Optional
 import llama.api.enums as enums
 from llama.api.options.device import DeviceOptions
 from llama.api.options.options import RegularizationOptions
@@ -89,7 +88,7 @@ class InteractiveViewerOptions:
     close_old_windows: bool = True
 
     update: UpdatePlotOptions = field(
-        default_factory=partial(UpdatePlotOptions, stride=10)
+        default_factory=partial(UpdatePlotOptions, enabled=True, stride=10)
     )
 
 
