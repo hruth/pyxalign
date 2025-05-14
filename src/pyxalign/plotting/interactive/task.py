@@ -28,9 +28,9 @@ class TaskViewer(QWidget):
                 "Unwrapped Projections",
             )
         # 3D volume tab
-        if task.phase_projections.laminogram.data is not None:
+        if task.phase_projections.volume.data is not None:
             tabs.addTab(
-                VolumeViewer(task.phase_projections.laminogram.data),
+                VolumeViewer(task.phase_projections.volume.data),
                 "3D Reconstruction",
             )
 

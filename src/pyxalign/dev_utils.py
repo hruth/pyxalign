@@ -173,13 +173,13 @@ if __name__ == "__main__":
     )
     check_staleness("phase projections", stale_projections, type(new_projections))
     check_staleness(
-        "phase projections laminogram",
-        stale_projections.laminogram,
-        type(new_projections.laminogram),
+        "phase projections volume",
+        stale_projections.volume,
+        type(new_projections.volume),
     )
     check_staleness(
-        "phase projections laminogram",
-        stale_projections.laminogram,
-        type(new_projections.laminogram),
+        "phase projections volume",
+        stale_projections.volume,
+        type(new_projections.volume),
     )
     check_staleness("image_shift_fft", stale_func, new_func)

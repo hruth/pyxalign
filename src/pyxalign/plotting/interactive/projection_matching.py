@@ -84,7 +84,7 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
                 include_shifts=False,
             )
             # volume viewer
-            self.volume_viewer = VolumeViewer(self.pma_object.aligned_projections.laminogram.data)
+            self.volume_viewer = VolumeViewer(self.pma_object.aligned_projections.volume.data)
 
             # metrics viewer
             metrics_widget = QWidget()
@@ -154,7 +154,7 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
     @timer()
     def update_plots(self):
         try:
-            self.volume_viewer.update_arrays(self.pma_object.aligned_projections.laminogram.data)
+            self.volume_viewer.update_arrays(self.pma_object.aligned_projections.volume.data)
             # self.projection_viewer.update_arrays()#self.pma_object.aligned_projections.data)
             itimer = InlineTimer("shift_viewer")
             itimer.start()

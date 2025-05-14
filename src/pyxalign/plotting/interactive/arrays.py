@@ -159,8 +159,8 @@ class ProjectionViewer(MultiThreadedWidget):
             self.array_names += [self.masks_name]
             self.array_names += [self.projections_plus_masks_name]
         has_forward_projection = (
-            hasattr(self.projections, "laminogram")
-            and self.projections.laminogram.forward_projections is not None
+            hasattr(self.projections, "volume")
+            and self.projections.volume.forward_projections is not None
         )
         if has_forward_projection:
             self.array_names += [self.forward_projections_name]
@@ -201,10 +201,10 @@ class ProjectionViewer(MultiThreadedWidget):
         elif checked_button_name == self.projections_plus_masks_name:
             self.array_viewer.array3d = self.projections.masks + self.projections.data
         elif checked_button_name == self.forward_projections_name:
-            self.array_viewer.array3d = self.projections.laminogram.forward_projections.data
+            self.array_viewer.array3d = self.projections.volume.forward_projections.data
         elif checked_button_name == self.residuals_name:
             self.array_viewer.array3d = (
-                self.projections.data - self.projections.laminogram.forward_projections.data
+                self.projections.data - self.projections.volume.forward_projections.data
             )
         # update the viewer display
         self.array_viewer.refresh_frame()

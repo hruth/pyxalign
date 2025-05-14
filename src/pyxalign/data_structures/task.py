@@ -72,7 +72,7 @@ class LaminographyAlignmentTask:
         if self.pma_object is not None:
             if hasattr(self.pma_object, "aligned_projections"):
                 # Clear old astra objects
-                self.pma_object.aligned_projections.laminogram.clear_astra_objects()
+                self.pma_object.aligned_projections.volume.clear_astra_objects()
 
         clear_timer_globals()
         # Initialize the projection-matching alignment object

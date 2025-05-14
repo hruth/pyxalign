@@ -246,13 +246,13 @@ def run_full_test_TP2(
         task.phase_projections.options.reconstruct.astra.back_project_gpu_indices = gpu_list
         task.phase_projections.options.reconstruct.astra.forward_project_gpu_indices = gpu_list
         task.phase_projections.options.reconstruct
-        task.phase_projections.laminogram.generate_laminogram(True, pinned_data)
-        task.phase_projections.laminogram.plot_data()
+        task.phase_projections.volume.generate_laminogram(True, pinned_data)
+        task.phase_projections.volume.plot_data()
         del pinned_data
 
         # Check/save the preliminary volume
         ci_test_helper.save_or_compare_results(
-            task.phase_projections.laminogram.data[::s, ::s, ::s], "pre_pma_volume"
+            task.phase_projections.volume.data[::s, ::s, ::s], "pre_pma_volume"
         )
 
         # save the task before starting projection matching alignment
@@ -307,38 +307,38 @@ def run_full_test_TP2(
         pinned_data = gpu_utils.create_empty_pinned_array(
             task.phase_projections.data.shape, dtype=r_type
         )
-        task.phase_projections.laminogram.generate_laminogram(True, pinned_data)
+        task.phase_projections.volume.generate_laminogram(True, pinned_data)
         del pinned_data        
         ci_test_helper.save_or_compare_results(
-            task.phase_projections.laminogram.data[::s, ::s, ::s], "pma_aligned_volume"
+            task.phase_projections.volume.data[::s, ::s, ::s], "pma_aligned_volume"
         )
         ci_test_helper.save_tiff(
-            task.phase_projections.laminogram.data,
+            task.phase_projections.volume.data,
             "pma_aligned_volume.tiff",
         )
 
         # Estimate optimal angles to rotate the volume by
-        task.phase_projections.laminogram.get_optimal_rotation_of_reconstruction()
+        task.phase_projections.volume.get_optimal_rotation_of_reconstruction()
         ci_test_helper.save_or_compare_results(
-            task.phase_projections.laminogram.optimal_rotation_angles,
+            task.phase_projections.volume.optimal_rotation_angles,
             "tomogram_rotation_angles",
             atol=0.05,
             rtol=0.05,
         )
 
         # Rotate the volume
-        task.phase_projections.laminogram.rotate_reconstruction()
+        task.phase_projections.volume.rotate_reconstruction()
 
         # save a tiff stack of the rotated reconstruction
         ci_test_helper.save_tiff(
-            task.phase_projections.laminogram.data,
+            task.phase_projections.volume.data,
             "pma_aligned_rotated_volume.tiff",
             min=-0.022,
             max=0.025,
         )
         # Check/save the aligned and rotated volume
         ci_test_helper.save_or_compare_results(
-            task.phase_projections.laminogram.data[::s, ::s, ::s],
+            task.phase_projections.volume.data[::s, ::s, ::s],
             "pma_aligned_rotated_volume",
         )
 

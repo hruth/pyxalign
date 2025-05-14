@@ -27,7 +27,7 @@ from pyxalign.transformations.classes import Rotator
 from pyxalign.transformations.functions import image_rotate_fft
 
 
-class Laminogram:
+class Volume:
     def __init__(
         self,
         projections: "projections.PhaseProjections",

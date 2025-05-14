@@ -26,19 +26,19 @@ def filter_sinogram_new():
         use_local=True,
     )
 
-    laminogram = task.phase_projections.laminogram
+    volume = task.phase_projections.volume
     # Get vectors needed for initialization
-    laminogram.options = copy.deepcopy(laminogram.projections.options.reconstruct)
-    laminogram.experiment_options = copy.deepcopy(laminogram.projections.options.experiment)
-    astra.set_gpu_index(laminogram.options.astra.back_project_gpu_indices)
+    volume.options = copy.deepcopy(volume.projections.options.reconstruct)
+    volume.experiment_options = copy.deepcopy(volume.projections.options.experiment)
+    astra.set_gpu_index(volume.options.astra.back_project_gpu_indices)
     scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
-        size=laminogram.projections.data,
-        angles=laminogram.projections.angles,
-        n_pix=laminogram.projections.reconstructed_object_dimensions,
-        center_of_rotation=laminogram.projections.center_of_rotation,
-        lamino_angle=laminogram.experiment_options.laminography_angle,
-        tilt_angle=laminogram.experiment_options.tilt_angle,
-        skew_angle=laminogram.experiment_options.skew_angle,
+        size=volume.projections.data,
+        angles=volume.projections.angles,
+        n_pix=volume.projections.reconstructed_object_dimensions,
+        center_of_rotation=volume.projections.center_of_rotation,
+        lamino_angle=volume.experiment_options.laminography_angle,
+        tilt_angle=volume.experiment_options.tilt_angle,
+        skew_angle=volume.experiment_options.skew_angle,
     )
     # Pin memory for filtering
     pinned_filtered_sinogram = gutils.pin_memory(np.zeros_like(task.phase_projections.data))

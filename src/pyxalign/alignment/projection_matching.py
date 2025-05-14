@@ -97,7 +97,7 @@ class ProjectionMatchingAligner(Aligner):
         shift = self.total_shift * self.scale
 
         # Clear astra objects
-        self.aligned_projections.laminogram.clear_astra_objects()
+        self.aligned_projections.volume.clear_astra_objects()
 
         return shift
 
@@ -147,7 +147,7 @@ class ProjectionMatchingAligner(Aligner):
             update_geometries = True
         else:
             update_geometries = False
-        self.aligned_projections.laminogram.generate_laminogram(
+        self.aligned_projections.volume.generate_laminogram(
             filter_inputs=True,
             pinned_filtered_sinogram=self.pinned_filtered_sinogram,
             reinitialize_astra=False,
@@ -155,19 +155,19 @@ class ProjectionMatchingAligner(Aligner):
             update_geometries=update_geometries,
         )
         if self.options.reconstruction_mask.enabled:
-            self.aligned_projections.laminogram.apply_circular_window(circulo)
+            self.aligned_projections.volume.apply_circular_window(circulo)
             # Store data for the forward projection
             astra.data3d.store(
-                self.aligned_projections.laminogram.astra_config["ReconstructionDataId"],
-                self.aligned_projections.laminogram.data,
+                self.aligned_projections.volume.astra_config["ReconstructionDataId"],
+                self.aligned_projections.volume.data,
             )
         self.regularize_reconstruction()
         if self.iteration == self.options.iterations:
             return
         # Get forward projection
-        self.aligned_projections.laminogram.get_forward_projection(
+        self.aligned_projections.volume.get_forward_projection(
             pinned_forward_projection=self.pinned_forward_projection,
-            forward_projection_id=self.aligned_projections.laminogram.astra_config[
+            forward_projection_id=self.aligned_projections.volume.astra_config[
                 "ProjectionDataId"
             ],
         )
@@ -263,13 +263,13 @@ class ProjectionMatchingAligner(Aligner):
         # array.
         if self.memory_config == MemoryConfig.GPU_ONLY:
             forward_projection_input = cp.array(
-                self.aligned_projections.laminogram.forward_projections.data
+                self.aligned_projections.volume.forward_projections.data
             )
         else:
-            forward_projection_input = self.aligned_projections.laminogram.forward_projections.data
+            forward_projection_input = self.aligned_projections.volume.forward_projections.data
         # if self.memory_config == MemoryConfig.GPU_ONLY:
-        #     self.aligned_projections.laminogram.forward_projections.data = cp.array(
-        #         self.aligned_projections.laminogram.forward_projections.data
+        #     self.aligned_projections.volume.forward_projections.data = cp.array(
+        #         self.aligned_projections.volume.forward_projections.data
         #     )
 
         inline_timer = InlineTimer("wrapped get_shift_update")
@@ -283,7 +283,7 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.data,
             self.aligned_projections.masks,
             forward_projection_input,
-            # self.aligned_projections.laminogram.forward_projections.data,
+            # self.aligned_projections.volume.forward_projections.data,
             self.options.high_pass_filter,
             self.mass,
             self.secondary_mask,
@@ -508,15 +508,15 @@ class ProjectionMatchingAligner(Aligner):
     @timer()
     def regularize_reconstruction(self):
         if self.options.regularization.enabled:
-            self.aligned_projections.laminogram.data[:] = chambolleLocalTV3D(
-                self.aligned_projections.laminogram.data,
+            self.aligned_projections.volume.data[:] = chambolleLocalTV3D(
+                self.aligned_projections.volume.data,
                 self.options.regularization.local_TV_lambda,
                 self.options.regularization.iterations,
             )
             # Store the updated reconstruction
             astra.data3d.store(
-                self.aligned_projections.laminogram.astra_config["ReconstructionDataId"],
-                self.aligned_projections.laminogram.data,
+                self.aligned_projections.volume.astra_config["ReconstructionDataId"],
+                self.aligned_projections.volume.data,
             )
 
     @timer()
@@ -581,7 +581,7 @@ class ProjectionMatchingAligner(Aligner):
 
         # Generate circular mask for reconstruction
         if self.options.reconstruction_mask.enabled:
-            circulo = self.aligned_projections.laminogram.get_circular_window(
+            circulo = self.aligned_projections.volume.get_circular_window(
                 radial_smooth=self.options.reconstruction_mask.radial_smooth / self.scale,
                 rad_apod=self.options.reconstruction_mask.rad_apod / self.scale,
             )
@@ -591,7 +591,7 @@ class ProjectionMatchingAligner(Aligner):
         # Generate secondary masks
         if self.options.secondary_mask.enabled:
             self.secondary_mask = (
-                self.aligned_projections.laminogram.generate_projection_masks_from_circulo(
+                self.aligned_projections.volume.generate_projection_masks_from_circulo(
                     radial_smooth=self.options.secondary_mask.radial_smooth / self.scale,
                     rad_apod=self.options.secondary_mask.rad_apod / self.scale,
                 )
@@ -755,14 +755,14 @@ class ProjectionMatchingAligner(Aligner):
             twin_ax.tick_params(axis="y", colors=ax_color)
 
             plt.sca(rec_axis)
-            self.aligned_projections.laminogram.plot_data(
+            self.aligned_projections.volume.plot_data(
                 self.options.plot.reconstruction, show_plot=False
             )
 
             plt.sca(proj_axis)
             self.aligned_projections.plot_data(self.options.plot.projections, show_plot=False)
             plt.sca(forward_proj_axis)
-            self.aligned_projections.laminogram.forward_projections.plot_data(
+            self.aligned_projections.volume.forward_projections.plot_data(
                 self.options.plot.projections, title_string="Forward Projection", show_plot=False
             )
 
@@ -807,7 +807,7 @@ class ProjectionMatchingAligner(Aligner):
         (shift, dX, dY, projections_residuals) = wrapped_shift_calc_func(
             self.aligned_projections.data,
             self.aligned_projections.masks,
-            self.aligned_projections.laminogram.forward_projections.data,
+            self.aligned_projections.volume.forward_projections.data,
             self.options.high_pass_filter,
             self.mass,
             self.secondary_mask,
@@ -836,7 +836,7 @@ class ProjectionMatchingAligner(Aligner):
             sort_idx = np.arange(0, len(dX), dtype=int)
 
         proj = self.aligned_projections.data[sort_idx[i]]
-        forward_proj = self.aligned_projections.laminogram.forward_projections.data[sort_idx[i]]
+        forward_proj = self.aligned_projections.volume.forward_projections.data[sort_idx[i]]
         mask = self.aligned_projections.masks[sort_idx[i]]
 
         fig, ax = plt.subplots(3, 4, layout="compressed", figsize=(15, 7.5))
@@ -929,17 +929,17 @@ class ProjectionMatchingAligner(Aligner):
         # Get 'infinitesmal' difference of model sinogram with respect to the sinogram angle
         if self.memory_config == MemoryConfig.GPU_ONLY:
             forward_projections = cp.array(
-                self.aligned_projections.laminogram.forward_projections.data
+                self.aligned_projections.volume.forward_projections.data
             )
         else:
-            forward_projections = self.aligned_projections.laminogram.forward_projections.data * 1
+            forward_projections = self.aligned_projections.volume.forward_projections.data * 1
         laminography_angle = self.aligned_projections.options.experiment.laminography_angle
         for i in range(2):
             self.aligned_projections.options.experiment.laminography_angle = (
                 laminography_angle + deltas[i]
             )
             # get volume at new laminography angle
-            self.aligned_projections.laminogram.generate_laminogram(
+            self.aligned_projections.volume.generate_laminogram(
                 filter_inputs=True,
                 pinned_filtered_sinogram=self.pinned_filtered_sinogram,
                 reinitialize_astra=False,
@@ -947,16 +947,16 @@ class ProjectionMatchingAligner(Aligner):
                 update_geometries=True,
             )
             # get forward projections at new laminography angle
-            self.aligned_projections.laminogram.get_forward_projection(
+            self.aligned_projections.volume.get_forward_projection(
                 pinned_forward_projection=self.pinned_forward_projection,
-                forward_projection_id=self.aligned_projections.laminogram.astra_config[
+                forward_projection_id=self.aligned_projections.volume.astra_config[
                     "ProjectionDataId"
                 ],
             )
             if i == 0:
-                d_proj = self.aligned_projections.laminogram.forward_projections.data * 1
+                d_proj = self.aligned_projections.volume.forward_projections.data * 1
             else:
-                d_proj = (d_proj - self.aligned_projections.laminogram.forward_projections.data) / (
+                d_proj = (d_proj - self.aligned_projections.volume.forward_projections.data) / (
                     2 * delta
                 )
         # Revert the laminography angle

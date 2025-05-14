@@ -33,7 +33,7 @@ from pyxalign.api.options.transform import (
 )
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
-from pyxalign.data_structures.laminogram import Laminogram
+from pyxalign.data_structures.volume import Volume
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
 from pyxalign.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
@@ -688,7 +688,7 @@ class ComplexProjections(Projections):
 
 class PhaseProjections(Projections):
     def _post_init(self):
-        self.laminogram = Laminogram(self)
+        self.volume = Volume(self)
 
     def get_3D_reconstruction(
         self,
@@ -697,7 +697,7 @@ class PhaseProjections(Projections):
         reinitialize_astra: bool = True,
         n_pix: Optional[Sequence[int]] = None,
     ):
-        self.laminogram.generate_laminogram(
+        self.volume.generate_laminogram(
             filter_inputs=filter_inputs,
             pinned_filtered_sinogram=pinned_filtered_sinogram,
             reinitialize_astra=reinitialize_astra,

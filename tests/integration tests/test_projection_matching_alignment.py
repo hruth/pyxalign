@@ -72,13 +72,13 @@ def test_pma_mixed(pytestconfig, overwrite_results=False, check_results=True):
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
-    assert gutils.is_pinned(task.pma_object.aligned_projections.laminogram.forward_projections.data)
+    assert gutils.is_pinned(task.pma_object.aligned_projections.volume.forward_projections.data)
     assert (
-        task.pma_object.aligned_projections.laminogram.forward_projections.data
+        task.pma_object.aligned_projections.volume.forward_projections.data
         is task.pma_object.pinned_forward_projection
     )
     tutils.check_or_record_results(
-        task.pma_object.aligned_projections.laminogram.data,
+        task.pma_object.aligned_projections.volume.data,
         test_name,
         comparison_test_name,
         overwrite_results,
@@ -121,13 +121,13 @@ def test_pma_mixed_multi_gpu(pytestconfig, overwrite_results=False, check_result
     assert task.pma_object.memory_config is enums.MemoryConfig.MIXED
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
-    assert gutils.is_pinned(task.pma_object.aligned_projections.laminogram.forward_projections.data)
+    assert gutils.is_pinned(task.pma_object.aligned_projections.volume.forward_projections.data)
     assert (
-        task.pma_object.aligned_projections.laminogram.forward_projections.data
+        task.pma_object.aligned_projections.volume.forward_projections.data
         is task.pma_object.pinned_forward_projection
     )
     tutils.check_or_record_results(
-        task.pma_object.aligned_projections.laminogram.data,
+        task.pma_object.aligned_projections.volume.data,
         test_name,
         comparison_test_name,
         overwrite_results,
@@ -164,7 +164,7 @@ def test_pma_fully_on_gpu(pytestconfig, overwrite_results=False, check_results=T
     assert gutils.is_pinned(task.pma_object.pinned_filtered_sinogram)
     assert gutils.is_pinned(task.pma_object.pinned_forward_projection)
     tutils.check_or_record_results(
-        task.pma_object.aligned_projections.laminogram.data,
+        task.pma_object.aligned_projections.volume.data,
         test_name,
         comparison_test_name,
         overwrite_results,
@@ -198,7 +198,7 @@ def test_pma_fully_on_cpu(pytestconfig, overwrite_results=False, check_results=T
 
     assert task.pma_object.memory_config is enums.MemoryConfig.CPU_ONLY
     tutils.check_or_record_results(
-        task.pma_object.aligned_projections.laminogram.data,
+        task.pma_object.aligned_projections.volume.data,
         test_name,
         comparison_test_name,
         overwrite_results,
