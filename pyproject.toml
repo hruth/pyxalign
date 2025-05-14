@@ -13,7 +13,6 @@ dependencies = [
     "tqdm",
     "ipywidgets",
     "plotly",
-    "ipykernel",
     "ipympl",
     "tifffile",
     "PyQt5",

@@ -1,17 +1,15 @@
 ### Installation Instructions
-1. Install the astra-toolbox from conda-forge
+1. Install astra-toolbox, CuPy, and ipykernel from conda-forge:
 ```bash
 conda install -c conda-forge astra-toolbox
-```
-2. Install CuPy from conda-forge
-```bash
 conda install -c conda-forge cupy
+conda install -c conda-forge ipykernel
 ```
-3. Clone the pyxalign git repo
+2. Clone the pyxalign git repo
 ```bash
 git clone https://github.com/hruth/pyxalign.git
 ```
-4. Install the package
+3. Install the package
 ```bash
 cd pyxalign
 pip install .
