@@ -32,21 +32,28 @@ from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 from pyxalign.timing.timer_utils import timer
 
 
-class XRFChannelSelector:
+class XRFChannelSelectorWidget(QWidget):
     def __init__(
-        self, channels: list[str], primary_channel: str, connected_function: callable, parent=None
+        self,
+        channels: list[str],
+        primary_channel: str,
+        button_clicked_function: callable,
+        parent=None,
     ):
-        self.scroll_area = QScrollArea(parent)
-        self.scroll_area.setWidgetResizable(True)
+        super().__init__(parent=parent)
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
 
-        self.radio_group = QButtonGroup(parent)
+        self.radio_group = QButtonGroup(self)
         self.radio_group.setExclusive(True)
 
-        widget = QWidget(self.scroll_area)
-        layout = QVBoxLayout(widget)
+        radio_container = (
+            QWidget()
+        )  # Initialize the widget containing a scroll area and button list
+        layout = QVBoxLayout(radio_container)  # set the layout
 
         for channel in channels:
-            radio_button = QRadioButton(channel, widget)
+            radio_button = QRadioButton(channel, radio_container)
             layout.addWidget(radio_button)
             self.radio_group.addButton(radio_button)
 
@@ -58,17 +65,18 @@ class XRFChannelSelector:
             if channel == primary_channel:
                 radio_button.setChecked(True)
 
-        self.radio_group.buttonClicked.connect(connected_function)
-        self.scroll_area.setWidget(widget)
+        self.radio_group.buttonClicked.connect(button_clicked_function)
+        scroll_area.setWidget(radio_container)
 
-        title_label = QLabel("Channel Selection:")
-        title_label.setStyleSheet("font-weight: bold; font-size: 14pt;")
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(title_label)
-        self.layout.addWidget(self.scroll_area)
+        title_label = QLabel("Channel Selection")
+        title_label.setStyleSheet("font-weight: bold; font-size: 11pt;")
 
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setMaximumWidth(200)
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(title_label)
+        main_layout.addWidget(scroll_area)
+        self.setLayout(main_layout)
+        self.setStyleSheet("color: #420d2a;")
+        self.setMaximumWidth(200)
 
 
 class XRFProjectionsViewer(MultiThreadedWidget):
@@ -90,10 +98,10 @@ class XRFProjectionsViewer(MultiThreadedWidget):
         self.xrf_task = xrf_task
         self.resize(1460, 850)
 
-        self.channel_selector = XRFChannelSelector(
+        self.channel_selector_widget = XRFChannelSelectorWidget(
             self.xrf_task.channels,
             self.xrf_task.primary_channel,
-            connected_function=self.change_projection_viewer_channel,
+            button_clicked_function=self.change_projection_viewer_channel,
             parent=self,
         )
 
@@ -107,12 +115,11 @@ class XRFProjectionsViewer(MultiThreadedWidget):
         # Add to layout
         layout = QHBoxLayout()
         self.setLayout(layout)
-        # layout.addWidget(self.channel_selector.scroll_area)
-        layout.addLayout(self.channel_selector.layout)
+        layout.addWidget(self.channel_selector_widget)
         layout.addWidget(self.projection_viewer)
 
-    def change_projection_viewer_channel(self):
-        current_channel = self.channel_selector.radio_group.checkedButton().text()
+    def change_projection_viewer_channel(self, button: QRadioButton):
+        current_channel = button.text()
         self.projection_viewer.projections = self.xrf_task.projections_dict[current_channel]
         self.update_radio_button_group()
         self.projection_viewer.update_arrays()
@@ -162,25 +169,24 @@ class XRFVolumeViewer(MultiThreadedWidget):
             self.xrf_task.projections_dict[self.xrf_task.primary_channel].volume.data
         )
 
-        self.channel_selector = XRFChannelSelector(
+        self.channel_selector_widget = XRFChannelSelectorWidget(
             self.xrf_task.channels,
             self.xrf_task.primary_channel,
-            connected_function=self.change_projection_viewer_channel,
+            button_clicked_function=self.change_projection_viewer_channel,
             parent=self,
         )
 
         # Add to layout
         layout = QHBoxLayout()
         self.setLayout(layout)
-        # layout.addWidget(self.channel_selector.scroll_area)
-        layout.addLayout(self.channel_selector.layout)
+        layout.addWidget(self.channel_selector_widget)
         layout.addWidget(self.volume_viewer)
 
     def has_volume(self, channel: str):
         return self.xrf_task.projections_dict[channel].volume is not None
 
-    def change_projection_viewer_channel(self):
-        current_channel = self.channel_selector.radio_group.checkedButton().text()
+    def change_projection_viewer_channel(self, button: QRadioButton):
+        current_channel = button.text()
         if self.has_volume(current_channel):
             self.volume_viewer.update_arrays(
                 self.xrf_task.projections_dict[current_channel].volume.data
