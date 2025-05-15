@@ -1,5 +1,13 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QHeaderView
+from PyQt5.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QHeaderView,
+    QCheckBox,
+)
 from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtCore import Qt
 
 
 def populate_tree_widget(tree_widget: QTreeWidget, data):
@@ -96,3 +104,24 @@ class OptionsDisplayWidget(QWidget):
 
         # Add the tree to our layout
         layout.addWidget(self.tree_widget)
+
+
+def sync_checkboxes(*checkboxes):
+    """
+    Synchronize the given QCheckBox widgets so that when one changes its state,
+    all of them are updated to match it. Signals are blocked temporarily on
+    the other checkboxes to prevent infinite loops.
+    """
+
+    def update_states(state, source_checkbox):
+        # Convert integer state to boolean
+        checked = state == Qt.Checked
+        for cb in checkboxes:
+            if cb is not source_checkbox:
+                cb.blockSignals(True)
+                cb.setChecked(checked)
+                cb.blockSignals(False)
+
+    # Connect each checkbox's stateChanged signal to our update function
+    for cb in checkboxes:
+        cb.stateChanged.connect(lambda state, src=cb: update_states(state, src))

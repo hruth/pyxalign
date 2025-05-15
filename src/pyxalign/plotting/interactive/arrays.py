@@ -23,7 +23,7 @@ from matplotlib.backends.backend_qt5agg import (
 import numpy as np
 from matplotlib.figure import Figure
 import matplotlib
-from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
+from pyxalign.plotting.interactive.utils import OptionsDisplayWidget, sync_checkboxes
 
 from pyxalign.timing.timer_utils import timer
 
@@ -67,6 +67,16 @@ class VolumeViewer(MultiThreadedWidget):
                 start_index=int(volume.shape[2] / 2),
             ),
         )
+
+        # Remove clim auto-scale selector from all but one array
+        self.side_viewer_1.auto_clim_check_box.hide()
+        self.side_viewer_2.auto_clim_check_box.hide()
+        sync_checkboxes(
+                self.depth_viewer.auto_clim_check_box,
+                self.side_viewer_1.auto_clim_check_box,
+                self.side_viewer_2.auto_clim_check_box,
+        )
+
 
         # Layout
         layout = QHBoxLayout()
