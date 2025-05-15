@@ -158,21 +158,19 @@ class ProjectionViewer(MultiThreadedWidget):
         if self.projections.masks is not None:
             self.array_names += [self.masks_name]
             self.array_names += [self.projections_plus_masks_name]
-        has_forward_projection = (
-            hasattr(self.projections, "volume")
-            and self.projections.volume.forward_projections is not None
-        )
-        if has_forward_projection:
+        if self.has_forward_projection():
             self.array_names += [self.forward_projections_name]
             self.array_names += [self.residuals_name]
 
         # Build button group
+        self.radio_button_dict: dict[str, QRadioButton] = {}
         self.radio_button_group = QButtonGroup(parent=self)
         button_layout = QVBoxLayout()
 
         # Add each button
         for array_name in self.array_names:
             rb = QRadioButton(array_name, self)
+            self.radio_button_dict[array_name] = rb
             rb.setChecked(array_name == self.projections_name)
             self.radio_button_group.addButton(rb)
             button_layout.addWidget(rb)
@@ -190,6 +188,12 @@ class ProjectionViewer(MultiThreadedWidget):
         button_group_box.setLayout(button_layout)
 
         return button_group_box
+
+    def has_forward_projection(self):
+        return (
+            hasattr(self.projections, "volume")
+            and self.projections.volume.forward_projections is not None
+        )
 
     def update_arrays(self):
         # Update the data in the array viewer
@@ -243,7 +247,7 @@ class AllShiftsViewer(MultiThreadedWidget):
         self.checkbox_widget = QWidget()
         self.checkbox_layout = QVBoxLayout(self.checkbox_widget)
         self.checkboxes = []
-        
+
         if len(self.shifts_list) > 0:
             # Add checkbox for total shift
             self.shifts_list = [np.sum(self.shifts_list, 0)] + self.shifts_list
@@ -274,7 +278,9 @@ class AllShiftsViewer(MultiThreadedWidget):
             cb.setStyleSheet("font-size: 12pt;")
         # format layout
         self.checkbox_layout.setSpacing(10)  # Reduce space between widgets
-        self.checkbox_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        self.checkbox_layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
         # wrap the button layout in a QGroupBox
         button_group_box = QGroupBox("Select shifts to display")
         button_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")

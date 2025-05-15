@@ -47,6 +47,8 @@ class ArrayViewerOptions:
 
     start_index: int = 0
 
+    auto_adjust_clim: bool = False
+
 
 @dataclasses.dataclass
 class ProjectionViewerOptions:

@@ -17,6 +17,8 @@ from PyQt5.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
     QFrame,
+    QCheckBox,
+    QScrollArea,
 )
 from PyQt5.QtCore import (
     Qt,
@@ -127,7 +129,6 @@ class ArrayViewer(MultiThreadedWidget):
             cmap="bone",
         )
         self.canvas.draw()
-        self.display_frame(index=self.options.start_index)
 
         # Create a slider
         self.slider = QSlider(Qt.Horizontal)
@@ -181,17 +182,24 @@ class ArrayViewer(MultiThreadedWidget):
         self.timer.setInterval(100)  # milliseconds per frame
         self.timer.timeout.connect(self.next_frame)
 
+        # Radio button for toggling auto clim adjustment
+        self.auto_clim_check_box = QCheckBox("Enable amplitude rescaling")
+        self.auto_clim_check_box.stateChanged.connect(self.refresh_frame)
+        self.auto_clim_check_box.setStyleSheet("QCheckBox {font-size: 15px;}")
+
         # Layout
         layout = QVBoxLayout()
         layout.addWidget(self.toolbar)
+        layout.addWidget(self.auto_clim_check_box)
         layout.addWidget(self.canvas)
         layout.addWidget(self.slider)
         layout.addLayout(spin_play_layout)
         self.setLayout(layout)
 
+        # was 10
         small_style = """
             QWidget {
-                font-size: 10px;
+                font-size: 14px;
             }
             QSlider::groove:horizontal {
                 height: 4px;
@@ -201,6 +209,9 @@ class ArrayViewer(MultiThreadedWidget):
             }
         """
         self.setStyleSheet(small_style)
+
+        # Refresh the display at the end of the window initialization
+        self.display_frame(index=self.options.start_index)
 
     def display_frame(self, index=0):
         if self.sort_idx is not None:
@@ -212,6 +223,8 @@ class ArrayViewer(MultiThreadedWidget):
             image = image.get()
         self.im.set_data(image)  # faster than the clear() and imshow() method
         self.ax.set_title(f"Frame {index}")
+        if self.auto_clim_check_box.isChecked():
+            self.im.autoscale()
         self.canvas.draw_idle()  # faster than the draw() method
 
     def update_frame(self, value):
@@ -234,6 +247,15 @@ class ArrayViewer(MultiThreadedWidget):
 
     def refresh_frame(self):
         self.update_frame(self.slider.value())
+
+    # def update_clim(self):
+    #     self.im.autoscale()
+    #     # self.canvas.draw_idle()
+
+    # def update_color_scale(self, recompute_clim: bool):
+        # if recompute_clim:
+            
+
 
     def start(self):
         self.show()
