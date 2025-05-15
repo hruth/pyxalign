@@ -280,7 +280,6 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         # Shift the projections by the projection-matching alignment shift
-        print(multi_gpu_device_options)
         task.phase_projections.apply_staged_shift(multi_gpu_device_options)
 
         # Save the fully aligned task

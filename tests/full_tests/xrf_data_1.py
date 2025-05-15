@@ -1,22 +1,17 @@
+import os
 import cupy as cp
 import numpy as np
-import matplotlib.pyplot as plt
-import pyxalign
+from PyQt5.QtWidgets import QApplication
 from pyxalign import options as opts
 from pyxalign.api import enums
-from pyxalign.api.types import r_type
 from pyxalign.data_structures.xrf_task import XRFTask
-from pyxalign.io.load import load_task
-from pyxalign.io.loaders.enums import LoaderType
-from pyxalign import gpu_utils
 from pyxalign.io.loaders.xrf.api import (
     convert_xrf_projection_dicts_to_arrays,
     load_data_from_xrf_format,
 )
 from pyxalign.io.loaders.xrf.options import XRFLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
-from pyxalign.api.options_utils import set_all_device_options
-import pyxalign.io.loaders
+from pyxalign.plotting.interactive.xrf import XRFVolumeViewer
 
 
 def run_full_test_xrf_data_type_1(
@@ -28,7 +23,7 @@ def run_full_test_xrf_data_type_1(
 
     # Setup the test
     ci_options = opts.CITestOptions(
-        test_data_name="xrf_data_1",
+        test_data_name=os.path.join("2ide","2025-1_Lamni-4"),
         update_tester_results=update_tester_results,
         proj_idx=list(range(0, 750, 150)),
         save_temp_files=save_temp_files,
@@ -41,7 +36,6 @@ def run_full_test_xrf_data_type_1(
     # Setup default gpu options
     n_gpus = cp.cuda.runtime.getDeviceCount()
     gpu_list = list(range(0, n_gpus))
-    single_gpu_device_options = opts.DeviceOptions()
     multi_gpu_device_options = opts.DeviceOptions(
         gpu=opts.GPUOptions(
             n_gpus=n_gpus,
@@ -68,7 +62,9 @@ def run_full_test_xrf_data_type_1(
         )
 
         for channel, projection_array in xrf_array_dict.items():
-            ci_test_helper.save_or_compare_results(projection_array[:3], f"input_projections_{channel}")
+            ci_test_helper.save_or_compare_results(
+                projection_array[:3], f"input_projections_{channel}"
+            )
 
         # Insert data into an XRFTask object
         primary_channel = "Ti"
@@ -76,7 +72,7 @@ def run_full_test_xrf_data_type_1(
             xrf_array_dict=xrf_array_dict,
             angles=xrf_standard_data_dict[primary_channel].angles,
             scan_numbers=xrf_standard_data_dict[primary_channel].scan_numbers,
-            task_options=opts.AlignmentTaskOptions(),
+            alignment_options=opts.AlignmentTaskOptions(),
             projection_options=opts.ProjectionOptions(
                 experiment=opts.ExperimentOptions(laminography_angle=90 - lamino_angle),
             ),
@@ -99,7 +95,6 @@ def run_full_test_xrf_data_type_1(
                 proj.volume.data[::s, ::s, ::s], f"pre_pma_volume_{channel}"
             )
 
-        
         # create dummy mask
         xrf_task.projections_dict[xrf_task._primary_channel].masks = np.ones_like(
             xrf_task.projections_dict[xrf_task._primary_channel].data
@@ -109,27 +104,59 @@ def run_full_test_xrf_data_type_1(
         # Specify which element will be used for projection-matching alignment
         xrf_task._primary_channel = "Ti"
 
-        pma_options = xrf_task.task_options.projection_matching
+        pma_options = xrf_task.alignment_options.projection_matching
         pma_options.keep_on_gpu = True
         pma_options.high_pass_filter = 0.001
         pma_options.min_step_size = 0.005
         pma_options.iterations = 1000
-        pma_options.step_relax = 0.1
-        pma_options.plot.update.stride = 50
-        pma_options.plot.update.enabled = True
-        pma_options.downsample.scale = 2
         pma_options.downsample.enabled = True
-        pma_options.downsample.use_gaussian_filter = True
-        # pma_options.mask_shift_type = "linear"
-        # pma_options.projection_shift_type = "linear"
         pma_options.mask_shift_type = "fft"
         pma_options.projection_shift_type = "fft"
         pma_options.momentum.enabled = True
         pma_options.interactive_viewer.update.enabled = True
         pma_options.interactive_viewer.update.stride = 50
 
+        # Run projection-matching alignment at successively higher resolutions
+        scales = [2, 1]
+        shift = None
+        for i, scale in enumerate(scales):
+            pma_options.downsample.scale = scale
+            shift = xrf_task.get_projection_matching_shift(initial_shift=shift)
+            # Check/save the resulting alignment shifts at each resolution
+            ci_test_helper.save_or_compare_results(shift, f"pma_shift_{scale}x")
 
-        
+        # shift all projections
+        xrf_task.apply_staged_shift_to_all_channels()
+
+        # create final reconstructions
+        for channel, projections in xrf_task.projections_dict.items():
+            projections.get_3D_reconstruction(True)
+            # Check/save the aligned volume
+            ci_test_helper.save_or_compare_results(
+                projections.volume.data[::s, ::s, ::s], f"pma_aligned_volume_{channel}"
+            )
+
+        # Rotate all of the reconstructions
+        for channel, projections in xrf_task.projections_dict.items():
+            projections.volume.optimal_rotation_angles = np.array(
+                [2.7, 4, 40]
+            )  # estimated this manually
+            projections.volume.rotate_reconstruction()
+            # Check/save the aligned, rotated volume
+            ci_test_helper.save_or_compare_results(
+                proj.volume.data, f"pma_aligned_rotated_volume_{channel}"
+            )
+
+        xrf_task.clear_pma_gui_list()
+
+        # print results of the test
+        ci_test_helper.finish_test()
+
+        # End with launching the viewer
+        app = QApplication.instance() or QApplication([])
+        gui = XRFVolumeViewer(xrf_task)
+        gui.show()
+        app.exec()
 
 
 if __name__ == "__main__":

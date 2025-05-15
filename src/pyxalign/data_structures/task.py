@@ -4,6 +4,7 @@ import h5py
 from PyQt5.QtWidgets import QApplication
 
 from pyxalign import gpu_utils
+from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.data_structures.projections import (
     ComplexProjections,
     PhaseProjections,
@@ -37,7 +38,7 @@ class LaminographyAlignmentTask:
         self.complex_projections = complex_projections
         self.phase_projections = phase_projections
         self.pma_object: ProjectionMatchingAligner = None
-        self.pma_GUI_list: list[ProjectionMatchingViewer] = []
+        self.pma_gui_list: list[ProjectionMatchingViewer] = []
 
     def get_cross_correlation_shift(
         self,
@@ -68,46 +69,40 @@ class LaminographyAlignmentTask:
         projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
 
-    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray] = None):
+    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray] = None) -> np.ndarray:
+        # clear existing astra objects
         if self.pma_object is not None:
             if hasattr(self.pma_object, "aligned_projections"):
-                # Clear old astra objects
                 self.pma_object.aligned_projections.volume.clear_astra_objects()
-
+        
+        # reset timers
         clear_timer_globals()
-        # Initialize the projection-matching alignment object
-        self.pma_object = ProjectionMatchingAligner(
-            self.phase_projections, self.options.projection_matching
-        )
-        if self.options.projection_matching.interactive_viewer.close_old_windows:
-            self.clear_pma_GUI_list()
-        try:
-            if self.pma_object.options.interactive_viewer.update.enabled:
-                # Run PMA algorithm
-                shift = self.pma_object.run_with_GUI(initial_shift=initial_shift)
-                # Store the QWidget in a list so the window remains open even if
-                # another PMA loop is started
-                self.pma_GUI_list += [self.pma_object.gui]  # uncomment later
-                # Close window
-                # self.pma_object.gui.close() # I think adding this helped, or removing the list helped.
-            else:
-                # Run PMA algorithm
-                shift = self.pma_object.run(initial_shift=initial_shift)
-        except (Exception, KeyboardInterrupt):
-            shift = self.pma_object.total_shift * self.pma_object.scale
-        finally:
-            # Store the result in the ShiftManager object
-            self.phase_projections.shift_manager.stage_shift(
-                shift=shift,
-                function_type=enums.ShiftType.FFT,
-                alignment_options=self.options.projection_matching,
-            )
-            print("Projection-matching shift stored in shift_manager")
 
-    def clear_pma_GUI_list(self):
-        for gui in self.pma_GUI_list:
+        # close old gui windows
+        if self.options.projection_matching.interactive_viewer.close_old_windows:
+            self.clear_pma_gui_list()
+        else:
+            self.pma_gui_list += [self.pma_object.gui]
+
+        # run the pma algorithm
+        self.pma_object, shift = run_projection_matching(
+            self.phase_projections, initial_shift, self.options.projection_matching
+        )
+
+        # Store the result in the ShiftManager object
+        self.phase_projections.shift_manager.stage_shift(
+            shift=shift,
+            function_type=enums.ShiftType.FFT,
+            alignment_options=self.options.projection_matching,
+        )
+        print("Projection-matching shift stored in shift_manager")
+
+        return shift
+
+    def clear_pma_gui_list(self):
+        for gui in self.pma_gui_list:
             gui.close()
-        self.pma_GUI_list = []
+        self.pma_gui_list = []
 
     def get_complex_projection_masks(self, enable_plotting: bool = False):
         clear_timer_globals()
@@ -150,3 +145,23 @@ class LaminographyAlignmentTask:
         app = QApplication.instance() or QApplication([])
         self.gui = TaskViewer(self)
         self.gui.show()
+
+
+def run_projection_matching(
+    phase_projections: PhaseProjections,
+    initial_shift: np.ndarray,
+    projection_matching_options: ProjectionMatchingOptions,
+) -> tuple[ProjectionMatchingAligner, np.ndarray]:
+    # Initialize the projection-matching alignment object
+    pma_object = ProjectionMatchingAligner(phase_projections, projection_matching_options)
+    try:
+        if pma_object.options.interactive_viewer.update.enabled:
+            # Run PMA algorithm
+            shift = pma_object.run_with_GUI(initial_shift=initial_shift)
+        else:
+            # Run PMA algorithm
+            shift = pma_object.run(initial_shift=initial_shift)
+    except (Exception, KeyboardInterrupt):
+        shift = pma_object.total_shift * pma_object.scale
+    finally:
+        return pma_object, shift

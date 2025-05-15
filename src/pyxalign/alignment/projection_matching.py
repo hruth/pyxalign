@@ -1,6 +1,5 @@
 from functools import partial
 from typing import Callable, Optional
-import matplotlib
 import numpy as np
 import cupy as cp
 import copy
@@ -20,7 +19,7 @@ from pyxalign.transformations.classes import Shifter
 import pyxalign.image_processing as ip
 import pyxalign.api.maps as maps
 from pyxalign.api.enums import DeviceType, MemoryConfig
-from pyxalign.api.options.alignment import ProjectionMatchingOptions, ProjectionMatchingPlotOptions
+from pyxalign.api.options.alignment import ProjectionMatchingOptions
 import pyxalign.gpu_utils as gutils
 from pyxalign.api.types import ArrayType, r_type
 from pyxalign.gpu_wrapper import device_handling_wrapper
@@ -28,7 +27,6 @@ from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import astra
-import time
 
 
 class ProjectionMatchingAligner(Aligner):
