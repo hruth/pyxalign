@@ -9,7 +9,7 @@ from pyxalign.io.loaders.xrf.api import (
     convert_xrf_projection_dicts_to_arrays,
     load_data_from_xrf_format,
 )
-from pyxalign.io.loaders.xrf.options import XRFV1LoadOptions
+from pyxalign.io.loaders.xrf.options import XRFLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.plotting.interactive.xrf import XRFVolumeViewer
 
@@ -50,7 +50,7 @@ def run_full_test_xrf_data_type_1(
         ### Load ptycho input data ###
 
         folder = ci_test_helper.inputs_folder
-        xrf_load_options = XRFV1LoadOptions()
+        xrf_load_options = XRFLoadOptions()
         xrf_standard_data_dict, extra_PVs = load_data_from_xrf_format(folder, xrf_load_options)
         scan_0 = list(extra_PVs.keys())[0]
         lamino_angle = float(extra_PVs[scan_0]["2xfm:m12.VAL"])
