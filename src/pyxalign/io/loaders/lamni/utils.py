@@ -1,10 +1,13 @@
+import os
+import re
 from typing import Optional
 import pandas as pd
 import numpy as np
-from pyxalign.io.loaders.enums import LamniLoaderType
+from pyxalign.io.loaders.enums import ExperimentInfoSourceType, LamniLoaderType
 from pyxalign.io.loaders.lamni.options import LamniLoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum, LoaderInstanceType
 from pyxalign.io.loaders.utils import generate_input_user_prompt
+from pyxalign.api.types import r_type
 from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
@@ -80,7 +83,7 @@ def select_experiment_and_sequences(
 
 
 @timer()
-def extract_experiment_data(
+def extract_info_from_lamni_dat_file(
     dat_file_path: str,
     scan_start: Optional[int] = None,
     scan_end: Optional[int] = None,
@@ -148,8 +151,11 @@ def load_experiment(
     # This is the function that should be called to load data, regardless
     # of the loader being used. Re-purpose this and the loader instance's methods
     # in the future as new loaders require some changes to the structure.
-    scan_numbers, angles, experiment_names, sequences = extract_experiment_data(
-        dat_file_path, options.scan_start, options.scan_end
+    # scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
+    #     dat_file_path, options.scan_start, options.scan_end
+    # )
+    scan_numbers, angles, experiment_names, sequences = extract_experiment_info(
+        options, parent_projections_folder, dat_file_path
     )
     selected_experiment = select_experiment_and_sequences(
         parent_projections_folder,
@@ -202,6 +208,55 @@ def load_experiment(
 
     return selected_experiment
 
+def extract_experiment_info(
+    options: LamniLoadOptions,
+    reconstructions_folder: Optional[str] = None,
+    dat_file_path: Optional[str] = None,
+):
+    if options.scan_info_source_type == ExperimentInfoSourceType.LAMNI_DAT_FILE:
+        scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
+            dat_file_path, options.scan_start, options.scan_end
+        )
+    else:
+        scan_numbers, angles, experiment_names, sequences = extract_info_from_folder_names(
+            reconstructions_folder
+        )
+
+    return scan_numbers, angles, experiment_names, sequences
+
+
+def extract_info_from_folder_names(
+    folder: str,
+) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
+    scan_numbers = extract_numeric_patterns(folder)
+    # Implement "angle rule" later
+    angles = np.zeros(len(scan_numbers), dtype=r_type) # incorrect, placeholder
+    experiment_names = [""] * len(scan_numbers)
+    sequences = np.zeros(len(scan_numbers), dtype=int)
+    return scan_numbers, angles, experiment_names, sequences
+
+
+def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
+    # Compile a regular expression to match folders like "S0123"
+    pattern = re.compile(r"^S(\d+)$")
+
+    extracted_numbers = []
+
+    # List all items in the parent directory
+    for item in os.listdir(parent_directory):
+        # Build the full path to check if it's a directory
+        full_path = os.path.join(parent_directory, item)
+
+        # Check if the item is a directory and follows the "S####" format
+        if os.path.isdir(full_path):
+            match = pattern.match(item)
+            if match:
+                # Extract the numeric portion and convert it to an integer
+                num_pattern = int(match.group(1))
+                extracted_numbers.append(num_pattern)
+
+    # Convert the list of numbers into a NumPy array
+    return np.array(extracted_numbers)
 
 def insert_new_line_between_list(list_of_strings: list[str]):
     return "[\n " + ",\n ".join(f'"{item}"' for item in list_of_strings) + "\n]"

@@ -1,7 +1,7 @@
 from typing import Optional
 import numpy as np
 import dataclasses
-from pyxalign.io.loaders.enums import LamniLoaderType
+from pyxalign.io.loaders.enums import LamniLoaderType, ExperimentInfoSourceType
 from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 
 
@@ -36,7 +36,9 @@ class LamniLoadOptions:
     "Only include files with these strings in the metadata string."
     exclude_files_with: Optional[list[str]] = None
     "Exclude files with any of these strings in the metadata string."
-    ask_for_backup_files: bool = False 
+    ask_for_backup_files: bool = False
+    "Whether or not the UI asks for backup files if a projection file is not found."
+    scan_info_source_type: ExperimentInfoSourceType = ExperimentInfoSourceType.LAMNI_DAT_FILE
 
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):

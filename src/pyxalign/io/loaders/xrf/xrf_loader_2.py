@@ -83,38 +83,38 @@ def load_experiment_xrf_v2(
     return selected_experiment
 
 
-def extract_xrf_experiment_data_from_recon_folder(
-    folder: str,
-) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
-    scan_numbers = extract_numeric_patterns(folder)
-    # Implement "angle rule" later
-    angles = np.linspace(0, 360, len(scan_numbers), dtype=r_type) # incorrect, placeholder  # noqa: F821
-    experiment_names = [""] * len(scan_numbers)
-    sequences = np.zeros(len(scan_numbers), dtype=r_type)
-    return scan_numbers, angles, experiment_names, sequences
+# def extract_xrf_experiment_data_from_recon_folder(
+#     folder: str,
+# ) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
+#     scan_numbers = extract_numeric_patterns(folder)
+#     # Implement "angle rule" later
+#     angles = np.linspace(0, 360, len(scan_numbers), dtype=r_type) # incorrect, placeholder  # noqa: F821
+#     experiment_names = [""] * len(scan_numbers)
+#     sequences = np.zeros(len(scan_numbers), dtype=r_type)
+#     return scan_numbers, angles, experiment_names, sequences
 
 
-def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
-    # Compile a regular expression to match folders like "S0123"
-    pattern = re.compile(r"^S(\d+)$")
+# def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
+#     # Compile a regular expression to match folders like "S0123"
+#     pattern = re.compile(r"^S(\d+)$")
 
-    extracted_numbers = []
+#     extracted_numbers = []
 
-    # List all items in the parent directory
-    for item in os.listdir(parent_directory):
-        # Build the full path to check if it's a directory
-        full_path = os.path.join(parent_directory, item)
+#     # List all items in the parent directory
+#     for item in os.listdir(parent_directory):
+#         # Build the full path to check if it's a directory
+#         full_path = os.path.join(parent_directory, item)
 
-        # Check if the item is a directory and follows the "S####" format
-        if os.path.isdir(full_path):
-            match = pattern.match(item)
-            if match:
-                # Extract the numeric portion and convert it to an integer
-                num_pattern = int(match.group(1))
-                extracted_numbers.append(num_pattern)
+#         # Check if the item is a directory and follows the "S####" format
+#         if os.path.isdir(full_path):
+#             match = pattern.match(item)
+#             if match:
+#                 # Extract the numeric portion and convert it to an integer
+#                 num_pattern = int(match.group(1))
+#                 extracted_numbers.append(num_pattern)
 
-    # Convert the list of numbers into a NumPy array
-    return np.array(extracted_numbers)
+#     # Convert the list of numbers into a NumPy array
+#     return np.array(extracted_numbers)
 
 
 class XRFLoaderVersion2(LamniLoaderVersion3):

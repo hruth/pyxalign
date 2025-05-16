@@ -9,4 +9,8 @@ class XRFLoaderType(StrEnum):
     XRF_V1 = auto()
     XRF_V2 = auto()
 
+class ExperimentInfoSourceType(StrEnum):
+    LAMNI_DAT_FILE = auto()
+    PTYCHO_FOLDERS = auto()
+
 
