@@ -8,10 +8,10 @@ from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 @dataclasses.dataclass
 class LamniLoadOptions:
     loader_type: Optional[LamniLoaderType] = dataclasses.field(default=None)
+
     def __post_init__(self):
         if self.loader_type is None:  # Check if the variable is missing
             self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
-
 
     selected_experiment_name: Optional[str] = None
     """Name of the experiment to load. Use "unlabeled" to refer to
@@ -39,6 +39,7 @@ class LamniLoadOptions:
     ask_for_backup_files: bool = False
     "Whether or not the UI asks for backup files if a projection file is not found."
     scan_info_source_type: ExperimentInfoSourceType = ExperimentInfoSourceType.LAMNI_DAT_FILE
+    "Where to get the scan numbers, experiment name, angles, and sequence number"
 
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):

@@ -90,7 +90,7 @@ def extract_info_from_lamni_dat_file(
 ) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
     """
     Extract scan number, measurement angle, and experiment name from the
-    dat file
+    dat file included with lamni experiments
     """
     column_names = [
         "scan_number",
@@ -148,12 +148,6 @@ def load_experiment(
     """
     Load an experiment that is saved with the lamni structure.
     """
-    # This is the function that should be called to load data, regardless
-    # of the loader being used. Re-purpose this and the loader instance's methods
-    # in the future as new loaders require some changes to the structure.
-    # scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
-    #     dat_file_path, options.scan_start, options.scan_end
-    # )
     scan_numbers, angles, experiment_names, sequences = extract_experiment_info(
         options, parent_projections_folder, dat_file_path
     )

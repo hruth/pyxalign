@@ -1,8 +1,5 @@
 from typing import Optional
-import numpy as np
 import dataclasses
-from pyxalign.io.loaders.enums import LoaderType
-from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 
 
 # Channel data could also be in /MAPS/XRF_fits
