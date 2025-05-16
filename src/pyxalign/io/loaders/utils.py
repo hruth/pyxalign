@@ -7,7 +7,7 @@ import numpy as np
 from scipy import stats
 from tqdm import tqdm
 from pyxalign.transformations.functions import image_crop_pad
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.enums import LamniLoaderType
 from pyxalign.api.constants import divisor
 
 border = 60 * "-"
@@ -281,10 +281,10 @@ def convert_projection_dict_to_array(
     return projections_array
 
 
-def select_loader_type_from_prompt() -> LoaderType:
+def select_loader_type_from_prompt() -> LamniLoaderType:
     _, loader_type = generate_input_user_prompt(
         load_object_type_string="loader type",
-        options_list=list(LoaderType),
+        options_list=list(LamniLoaderType),
     )
     return loader_type
 

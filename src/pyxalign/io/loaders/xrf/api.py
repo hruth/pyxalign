@@ -3,14 +3,18 @@ from typing import Optional
 import numpy as np
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.xrf.options import XRFLoadOptions
-from pyxalign.io.loaders.xrf.utils import load_xrf_experiment
+from pyxalign.io.loaders.xrf.xrf_loader_1 import load_xrf_experiment_v1
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
+# def load_data_from_xrf_format(folder: str, options: XRFLoadOptions) -> tuple[dict[str, StandardData], dict]:
+#     file_names = os.listdir(folder)  # Temporary
+#     xrf_standard_data_dict, extra_PVs = load_xrf_experiment(folder, file_names, options)
+#     return xrf_standard_data_dict, extra_PVs
 def load_data_from_xrf_format(folder: str, options: XRFLoadOptions) -> tuple[dict[str, StandardData], dict]:
-    file_names = os.listdir(folder)  # Temporary
-    xrf_standard_data_dict, extra_PVs = load_xrf_experiment(folder, file_names, options)
-    return xrf_standard_data_dict, extra_PVs
+    # xrf_standard_data_dict, extra_PVs = load_xrf_experiment_v1(folder, options)
+    data_out = load_xrf_experiment(folder, options)
+    return data_out # to do: move extra_PVs to be included in the standard data dict somehow
 
 
 def convert_xrf_projection_dicts_to_arrays(

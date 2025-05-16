@@ -1,13 +1,13 @@
 from typing import Optional
 import numpy as np
 import dataclasses
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.enums import LamniLoaderType
 from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 
 
 @dataclasses.dataclass
 class LamniLoadOptions:
-    loader_type: Optional[LoaderType] = dataclasses.field(default=None)
+    loader_type: Optional[LamniLoaderType] = dataclasses.field(default=None)
     def __post_init__(self):
         if self.loader_type is None:  # Check if the variable is missing
             self.loader_type = select_loader_type_from_prompt()  # Assign a generated value

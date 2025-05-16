@@ -1,7 +1,7 @@
 from typing import Optional
 import pandas as pd
 import numpy as np
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.enums import LamniLoaderType
 from pyxalign.io.loaders.lamni.options import LamniLoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum, LoaderInstanceType
 from pyxalign.io.loaders.utils import generate_input_user_prompt
@@ -14,7 +14,7 @@ def get_experiment_subsets(
     angles: np.ndarray,
     experiment_names: list[str],
     sequences: np.ndarray,
-    loader_type: LoaderType,
+    loader_type: LamniLoaderType,
 ) -> dict[str, LoaderInstanceType]:
     subsets = {}
     for unique_name in np.unique(experiment_names):
@@ -37,7 +37,7 @@ def select_experiment_and_sequences(
     angles: np.ndarray,
     experiment_names: list[str],
     sequences: np.ndarray,
-    loader_type: LoaderType,
+    loader_type: LamniLoaderType,
     use_experiment_name: Optional[str] = None,
     use_sequence: Optional[str] = None,
 ) -> LoaderInstanceType:
@@ -131,8 +131,8 @@ def extract_experiment_data(
 
     return (scan_numbers, angles, experiment_names, sequence_number)
 
-# def remove_duplicates(scan_numbers, angles, experiment_names, sequence_number) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
 
+# def remove_duplicates(scan_numbers, angles, experiment_names, sequence_number) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
 
 
 @timer()
