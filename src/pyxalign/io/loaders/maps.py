@@ -4,8 +4,10 @@ from pyxalign.io.loaders.lamni.lamni_loader_1 import LamniLoaderVersion1
 from pyxalign.io.loaders.lamni.lamni_loader_3 import LamniLoaderVersion3
 from pyxalign.io.loaders.enums import LamniLoaderType
 
-LoaderInstanceType = Union[LamniLoaderVersion1, LamniLoaderVersion2]
-LoaderClassType = Union[type[LamniLoaderVersion1], type[LamniLoaderVersion2]]
+LoaderInstanceType = Union[LamniLoaderVersion1, LamniLoaderVersion2, LamniLoaderVersion3]
+LoaderClassType = Union[
+    type[LamniLoaderVersion1], type[LamniLoaderVersion2], type[LamniLoaderVersion3]
+]
 
 
 def get_loader_class_by_enum(key: LamniLoaderType) -> LoaderClassType:

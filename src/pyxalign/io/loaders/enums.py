@@ -8,5 +8,5 @@ class LamniLoaderType(StrEnum):
 class XRFLoaderType(StrEnum):
     XRF_V1 = auto()
     XRF_V2 = auto()
-    
+
 

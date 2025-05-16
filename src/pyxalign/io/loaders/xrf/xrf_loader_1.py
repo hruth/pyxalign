@@ -14,7 +14,7 @@ def load_xrf_experiment_v1(
     angles = []
     extra_PVs_dict = {}
     scan_file_dict = get_scan_file_dict(file_names, options.file_pattern)
-    scan_file_dict = remove_scans_from_dict(scan_file_dict, options.scan_start, options.scan_end)
+    scan_file_dict = remove_scans_from_dict(scan_file_dict, options.base.scan_start, options.base.scan_end)
 
     # Load data from each file
     for scan_number, file_name in scan_file_dict.items():
