@@ -11,6 +11,7 @@ from pyxalign.api.types import r_type
 from pyxalign.io.load import load_task
 from pyxalign.io.loaders.enums import LamniLoaderType
 from pyxalign import gpu_utils
+from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LamniLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
 import pyxalign.io.loaders
@@ -60,11 +61,13 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
 
         # Define paths to ptycho reconstructions and the tomography_scannumbers.txt file
         parent_folder = ci_test_helper.inputs_folder
-        dat_file_path = os.path.join(parent_folder, "specES1", "dat-files", "tomography_scannumbers.txt")
+        dat_file_path = os.path.join(
+            parent_folder, "specES1", "dat-files", "tomography_scannumbers.txt"
+        )
         parent_projection_folder = os.path.join(parent_folder, "analysis")
 
         # Define options for loading ptycho reconstructions
-        options = pyxalign.io.loaders.LamniLoadOptions(
+        base_load_options = BaseLoadOptions(
             loader_type=LamniLoaderType.LAMNI_V1,
             selected_experiment_name="unlabeled",
             selected_sequences=[3, 4, 5],
@@ -72,10 +75,13 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             scan_start=2714,
             scan_end=3465,
         )
+        options = LamniLoadOptions(
+            dat_file_path=dat_file_path,
+            base=base_load_options,
+        )
 
         # Load data
         lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
-            dat_file_path=dat_file_path,
             parent_projections_folder=parent_projection_folder,
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
@@ -93,7 +99,9 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         ci_test_helper.save_or_compare_results(lamni_data.scan_numbers, "lamni_data_scan_numbers")
         ci_test_helper.save_or_compare_results(lamni_data.angles, "lamni_data_angles")
         ci_test_helper.save_or_compare_results(projection_array[500], "projection_array_500")
-        ci_test_helper.save_or_compare_results(lamni_data.probe_positions[2730], "probe_positions_2730")
+        ci_test_helper.save_or_compare_results(
+            lamni_data.probe_positions[2730], "probe_positions_2730"
+        )
 
         # define projection options
         projection_options = opts.ProjectionOptions(
@@ -328,6 +336,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         ci_test_helper.finish_test()
+
 
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
