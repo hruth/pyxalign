@@ -79,7 +79,7 @@ class Volume:
         # Copy the settings used at the time of the reconstruction
         # self.options = copy.deepcopy(self.projections.options.reconstruct)
         # self.experiment_options = copy.deepcopy(self.projections.options.experiment)
-
+        device = cp.cuda.Device()
         # Re-initialize the inputs and clear outputs
         if reinitialize_astra or not self.is_initialized:
             self.clear_astra_objects()
@@ -130,7 +130,7 @@ class Volume:
                 self.scan_geometry_config["iVolY"],
             ]
         )
-        device = cp.cuda.Device()
+        # device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         cp.cuda.Device(device).use()
         if self.data is None or np.all(self.data.shape == volume_shape):

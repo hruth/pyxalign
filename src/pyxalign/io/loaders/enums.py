@@ -10,3 +10,4 @@ class LamniLoaderType(StrEnum):
 class ExperimentInfoSourceType(StrEnum):
     LAMNI_DAT_FILE = auto()
     PTYCHO_FOLDERS = auto()
+    BEAMLINE_2IDE_MDA_FILE = auto()

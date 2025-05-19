@@ -206,6 +206,8 @@ class PMLinePlotWidget(QWidget):
         super().__init__(parent)
         self.pma_object = pma_object
         self.sort_idx = np.argsort(self.pma_object.aligned_projections.angles)
+        if cp.get_array_module(self.sort_idx) is cp:
+            self.sort_idx = self.sort_idx.get()
 
         self.figure = Figure(layout="compressed")
         self.canvas = FigureCanvas(self.figure)

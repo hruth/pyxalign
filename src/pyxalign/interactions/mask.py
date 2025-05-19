@@ -56,7 +56,7 @@ class PlotCanvas(FigureCanvas):
         ax0.set_title("Mask")
 
         # 2) Mask × Projection (angle)
-        if np.isreal(projections[0, 0, 0]):
+        if np.isrealobj(projections[0, 0, 0]):
 
             def process_func(x):
                 return x

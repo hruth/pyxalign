@@ -6,8 +6,8 @@ from pyxalign.io.loaders.lamni.options import LamniLoadOptions
 from pyxalign.io.loaders.lamni.utils import load_experiment
 
 
+# This loads 2IDE data as well now, so I need to rename it somehow
 def load_data_from_lamni_format(
-    dat_file_path: str,
     parent_projections_folder: str,
     n_processes: int = 1,
     options: Optional[LamniLoadOptions] = None,
@@ -19,10 +19,9 @@ def load_data_from_lamni_format(
     """
     if options is None:
         options = LamniLoadOptions()
-    options.print_selections()
+    options.base.print_selections()
     # Load lamni-formatted projection data
     lamni_loader = load_experiment(
-        dat_file_path=dat_file_path,
         parent_projections_folder=parent_projections_folder,
         n_processes=n_processes,
         options=options,

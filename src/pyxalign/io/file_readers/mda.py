@@ -440,11 +440,13 @@ class MDAFile:
     def __str__(self) -> str:
         return yaml.safe_dump(self.to_mapping(), sort_keys=False)
 
-def convert_extra_PVs_to_dict(mda_file: MDAFile):
-    pv_dict = {pv.name: pv for pv in mda_file.extra_pvs}
+def convert_extra_PVs_to_dict(mda_file: MDAFile) -> dict[str, MDAProcessVariable]:
+    return {pv.name: pv for pv in mda_file.extra_pvs}
 
 if __name__ == "__main__":
     # file_path = Path(sys.argv[1])
     file_path = Path("/net/micdata/data1/2ide/2025-1/Lamni-6/mda/2xfm_0250.mda")
     mda_file = MDAFile.read(file_path)
-    print(mda_file)
+    print(f"angle: {convert_extra_PVs_to_dict(mda_file)["2xfm:m60.VAL"].value[0]}")
+    print(f"lamino angle: {convert_extra_PVs_to_dict(mda_file)["2xfm:m12.VAL"].value[0]}")
+    # print(mda_file)

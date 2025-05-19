@@ -1,14 +1,19 @@
 import os
 import re
-from typing import Optional
+from typing import Optional, TypeVar, Union
 import pandas as pd
 import numpy as np
+from pathlib import Path
+from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
 from pyxalign.io.loaders.enums import ExperimentInfoSourceType, LamniLoaderType
-from pyxalign.io.loaders.lamni.options import LamniLoadOptions
+from pyxalign.io.loaders.lamni.options import LamniLoadOptions, Beamline2IDELoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum, LoaderInstanceType
 from pyxalign.io.loaders.utils import generate_input_user_prompt
 from pyxalign.api.types import r_type
+from pyxalign.io.loaders.xrf.utils import get_scan_file_dict
 from pyxalign.timing.timer_utils import InlineTimer, timer
+
+T = TypeVar("T", bound=Union[LamniLoadOptions, Beamline2IDELoadOptions])
 
 
 def get_experiment_subsets(
@@ -134,39 +139,32 @@ def extract_info_from_lamni_dat_file(
 
     return (scan_numbers, angles, experiment_names, sequence_number)
 
-
-# def remove_duplicates(scan_numbers, angles, experiment_names, sequence_number) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
-
-
 @timer()
 def load_experiment(
-    dat_file_path: str,
     parent_projections_folder: str,
     n_processes: int,
-    options: "LamniLoadOptions",
+    options: T,
 ) -> "LoaderInstanceType":
     """
     Load an experiment that is saved with the lamni structure.
     """
-    scan_numbers, angles, experiment_names, sequences = extract_experiment_info(
-        options, parent_projections_folder, dat_file_path
-    )
+    scan_numbers, angles, experiment_names, sequences = extract_experiment_info(options)
     selected_experiment = select_experiment_and_sequences(
         parent_projections_folder,
         scan_numbers,
         angles,
         experiment_names,
         sequences,
-        options.loader_type,
-        use_experiment_name=options.selected_experiment_name,
-        use_sequence=options.selected_sequences,
+        options.base.loader_type,
+        use_experiment_name=options.base.selected_experiment_name,
+        use_sequence=options.base.selected_sequences,
     )
     selected_experiment.get_projections_folders_and_file_names()
     selected_experiment.extract_metadata_from_all_titles(
-        options.only_include_files_with, options.exclude_files_with
+        options.base.only_include_files_with, options.base.exclude_files_with
     )
     selected_experiment.select_projections(
-        options.selected_metadata_list, options.ask_for_backup_files
+        options.base.selected_metadata_list, options.base.ask_for_backup_files
     )
     # Print data selection settings
     print("Use these settings to bypass user-selection on next load:")
@@ -175,10 +173,10 @@ def load_experiment(
         + f"  selected_sequences={list(np.unique(selected_experiment.sequences))},\n"
         + f"  selected_metadata_list={insert_new_line_between_list(selected_experiment.selected_metadata_list)},\n"
     )
-    if options.scan_start is not None:
-        input_settings_string += f"  scan_start={options.scan_start},\n"
-    if options.scan_end is not None:
-        input_settings_string += f"  scan_end={options.scan_end},\n"
+    if options.base.scan_start is not None:
+        input_settings_string += f"  scan_start={options.base.scan_start},\n"
+    if options.base.scan_end is not None:
+        input_settings_string += f"  scan_end={options.base.scan_end},\n"
     input_settings_string = input_settings_string[:-1]
     print(input_settings_string, flush=True)
 
@@ -202,19 +200,20 @@ def load_experiment(
 
     return selected_experiment
 
-def extract_experiment_info(
-    options: LamniLoadOptions,
-    reconstructions_folder: Optional[str] = None,
-    dat_file_path: Optional[str] = None,
-):
-    if options.scan_info_source_type == ExperimentInfoSourceType.LAMNI_DAT_FILE:
+
+def extract_experiment_info(options: T):
+    if isinstance(options, LamniLoadOptions):
         scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
-            dat_file_path, options.scan_start, options.scan_end
+            options.dat_file_path, options.base.scan_start, options.base.scan_end
         )
-    else:
-        scan_numbers, angles, experiment_names, sequences = extract_info_from_folder_names(
-            reconstructions_folder
+    elif isinstance(options, Beamline2IDELoadOptions):
+        scan_numbers, angles, experiment_names, sequences = extract_info_from_mda_file(
+            options.mda_folder, options.base.scan_start, options.base.scan_end
         )
+    # elif options.scan_info_source_type == ExperimentInfoSourceType.PTYCHO_FOLDERS:
+    #     scan_numbers, angles, experiment_names, sequences = extract_info_from_folder_names(
+    #         reconstructions_folder
+    # )
 
     return scan_numbers, angles, experiment_names, sequences
 
@@ -224,9 +223,39 @@ def extract_info_from_folder_names(
 ) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
     scan_numbers = extract_numeric_patterns(folder)
     # Implement "angle rule" later
-    angles = np.zeros(len(scan_numbers), dtype=r_type) # incorrect, placeholder
+    angles = np.zeros(len(scan_numbers), dtype=r_type)  # incorrect, placeholder
     experiment_names = [""] * len(scan_numbers)
     sequences = np.zeros(len(scan_numbers), dtype=int)
+    return scan_numbers, angles, experiment_names, sequences
+
+
+def extract_info_from_mda_file(
+    mda_folder: str, scan_start: int, scan_end: int
+) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
+    file_names_dict = get_scan_file_dict(os.listdir(mda_folder), r"2xfm_(\d+)\.mda")
+    angles = np.array([], dtype=r_type)
+    scan_numbers = np.array([], dtype=int)
+    for current_scan, current_file in file_names_dict.items():
+        if current_scan < scan_start or current_scan > scan_end:
+            continue
+        mda_file_path = os.path.join(mda_folder, current_file)
+        try:
+            mda_file = MDAFile.read(Path(mda_file_path))
+            pv_dict = convert_extra_PVs_to_dict(mda_file)
+            angles = np.append(angles, pv_dict["2xfm:m60.VAL"].value[0])
+            scan_numbers = np.append(scan_numbers, current_scan) 
+        except Exception:
+            print(f"An error occured when attempting to read scan file {current_file}, skipping file.")
+
+    # lamino_angle = pv_dict["2xfm:m12.VAL"].value[0]
+    # scan_numbers = np.ndarray(list(file_names_dict.keys()), dtype=r_type)
+    experiment_names = [""] * len(scan_numbers)
+    sequences = np.zeros(len(scan_numbers), dtype=int)
+
+    # this is a band-aid fix for now, because this is not the correct spot
+    # to put this conversion
+    angles[:] = -angles
+
     return scan_numbers, angles, experiment_names, sequences
 
 
@@ -251,6 +280,7 @@ def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
 
     # Convert the list of numbers into a NumPy array
     return np.array(extracted_numbers)
+
 
 def insert_new_line_between_list(list_of_strings: list[str]):
     return "[\n " + ",\n ".join(f'"{item}"' for item in list_of_strings) + "\n]"

@@ -124,7 +124,7 @@ class ProjectionViewer(MultiThreadedWidget):
         self.options = options
         self.resize(1300, 900)
 
-        if np.iscomplex(projections.data[0, 0, 0]) and options.process_func is None:
+        if np.iscomplexobj(projections.data) and options.process_func is None:
             self.process_func = np.angle
         else:
             self.process_func = get_process_func_by_enum(options.process_func)
@@ -133,7 +133,8 @@ class ProjectionViewer(MultiThreadedWidget):
             sort_idx = np.argsort(projections.angles)
         else:
             sort_idx = None
-        self.array_viewer = ArrayViewer(array3d=projections.data, sort_idx=sort_idx)
+        # self.array_viewer = ArrayViewer(array3d=projections.data, sort_idx=sort_idx)
+        self.array_viewer = ArrayViewer(array3d=self.process_func(projections.data), sort_idx=sort_idx)
 
         button_group_box = self.build_array_selector()
 
@@ -213,7 +214,7 @@ class ProjectionViewer(MultiThreadedWidget):
         elif checked_button_name == self.masks_name:
             self.array_viewer.array3d = self.projections.masks
         elif checked_button_name == self.projections_plus_masks_name:
-            self.array_viewer.array3d = self.projections.masks + self.projections.data
+            self.array_viewer.array3d = self.projections.masks + self.process_func(self.projections.data)
         elif checked_button_name == self.forward_projections_name:
             self.array_viewer.array3d = self.projections.volume.forward_projections.data
         elif checked_button_name == self.residuals_name:

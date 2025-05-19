@@ -1,12 +1,13 @@
-from typing import Optional
+from typing import Optional, TypeVar, Union
 import numpy as np
 import dataclasses
+from dataclasses import field
 from pyxalign.io.loaders.enums import LamniLoaderType, ExperimentInfoSourceType
 from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 
 
 @dataclasses.dataclass
-class LamniLoadOptions:
+class BaseLoadOptions:
     loader_type: Optional[LamniLoaderType] = dataclasses.field(default=None)
 
     def __post_init__(self):
@@ -16,30 +17,38 @@ class LamniLoadOptions:
     selected_experiment_name: Optional[str] = None
     """Name of the experiment to load. Use "unlabeled" to refer to
     experiments that do not have a name specified in the dat file."""
+
     selected_metadata_list: Optional[list[str]] = None
     """        
     List of projection metadata types that are allowed to be
     loaded, in prioritized order. The metadata types are strings
     extracted from the projection file names.
     """
+
     selected_sequences: Optional[list[int]] = None
     """
     List of sequence numbers to load in. Each sequence corresponds
     to a set of measurements taken sequentially over a 360 degree range.
     The sequence number of a projection comes from the dat file.
     """
+
     scan_start: Optional[int] = None
     "Lower bound of scans to include."
+
     scan_end: Optional[int] = None
     "Upper bound of scans to include."
+
     only_include_files_with: Optional[list[str]] = None
     "Only include files with these strings in the metadata string."
+
     exclude_files_with: Optional[list[str]] = None
     "Exclude files with any of these strings in the metadata string."
+
     ask_for_backup_files: bool = False
     "Whether or not the UI asks for backup files if a projection file is not found."
-    scan_info_source_type: ExperimentInfoSourceType = ExperimentInfoSourceType.LAMNI_DAT_FILE
-    "Where to get the scan numbers, experiment name, angles, and sequence number"
+
+    # scan_info_source_type: ExperimentInfoSourceType = ExperimentInfoSourceType.LAMNI_DAT_FILE
+    # "Where to get the scan numbers, experiment name, angles, and sequence number"
 
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):
@@ -49,3 +58,20 @@ class LamniLoadOptions:
             for k, v in self.__dict__.items():
                 if v is not None:
                     print(f"  {k}: {v}", flush=True)
+
+
+@dataclasses.dataclass
+class LamniLoadOptions:
+    dat_file_path: str
+
+    base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
+
+    # scan_info_source_type: ExperimentInfoSourceType = ExperimentInfoSourceType.LAMNI_DAT_FILE
+    # "Where to get the scan numbers, experiment name, angles, and sequence number"
+
+
+@dataclasses.dataclass
+class Beamline2IDELoadOptions:
+    mda_folder: str
+
+    base: BaseLoadOptions = field(default_factory=BaseLoadOptions)

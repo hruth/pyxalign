@@ -12,6 +12,7 @@ from pyxalign import gpu_utils
 from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
 import pyxalign.io.loaders
+from pyxalign.io.loaders.lamni.options import LamniLoadOptions, BaseLoadOptions
 
 
 def run_full_test_TP2(
@@ -60,17 +61,22 @@ def run_full_test_TP2(
         )
         parent_projection_folder = os.path.join(parent_folder, "ptycho_recon", "TP_2")
 
-        # Define options for loading ptycho reconstructions
-        options = pyxalign.io.loaders.LamniLoadOptions(
+        base_load_options = BaseLoadOptions(
             loader_type=LamniLoaderType.LAMNI_V2,
             selected_experiment_name="test_pattern_2",
             selected_sequences=[1, 2, 3, 4, 5, 6, 7],
             selected_metadata_list=["roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat"],
         )
 
+        # Define options for loading ptycho reconstructions
+        options = LamniLoadOptions(
+            dat_file_path=dat_file_path,
+            base=base_load_options,
+        )
+
         # Load ptycho reconstructions, probe positions, measurement angles, and scan numbers
         lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
-            dat_file_path=dat_file_path,
+            # dat_file_path=dat_file_path,
             parent_projections_folder=parent_projection_folder,
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
@@ -308,7 +314,7 @@ def run_full_test_TP2(
             task.phase_projections.data.shape, dtype=r_type
         )
         task.phase_projections.volume.generate_laminogram(True, pinned_data)
-        del pinned_data        
+        del pinned_data
         ci_test_helper.save_or_compare_results(
             task.phase_projections.volume.data[::s, ::s, ::s], "pma_aligned_volume"
         )
