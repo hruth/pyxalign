@@ -1,10 +1,10 @@
 from enum import StrEnum, auto
 
 
-class LamniLoaderType(StrEnum):
+class LoaderType(StrEnum):
     LAMNI_V1 = auto()
     LAMNI_V2 = auto()
-    LAMNI_V3 = auto()
+    PEAR_V1 = auto()
 
 
 class ExperimentInfoSourceType(StrEnum):

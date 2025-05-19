@@ -8,7 +8,7 @@ from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
 def load_data_from_xrf_format(folder: str, options: XRFLoadOptions) -> tuple[dict[str, StandardData], dict]:
-    file_names = os.listdir(folder)  # Temporary
+    file_names = os.listdir(folder)  # Temporary?
     xrf_standard_data_dict, extra_PVs = load_xrf_experiment(folder, file_names, options)
     return xrf_standard_data_dict, extra_PVs
 

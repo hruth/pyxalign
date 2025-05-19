@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
-from pyxalign.io.loaders.enums import ExperimentInfoSourceType, LamniLoaderType
+from pyxalign.io.loaders.enums import ExperimentInfoSourceType, LoaderType
 from pyxalign.io.loaders.lamni.options import LamniLoadOptions, Beamline2IDELoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum, LoaderInstanceType
 from pyxalign.io.loaders.utils import generate_input_user_prompt
@@ -22,7 +22,7 @@ def get_experiment_subsets(
     angles: np.ndarray,
     experiment_names: list[str],
     sequences: np.ndarray,
-    loader_type: LamniLoaderType,
+    loader_type: LoaderType,
 ) -> dict[str, LoaderInstanceType]:
     subsets = {}
     for unique_name in np.unique(experiment_names):
@@ -45,7 +45,7 @@ def select_experiment_and_sequences(
     angles: np.ndarray,
     experiment_names: list[str],
     sequences: np.ndarray,
-    loader_type: LamniLoaderType,
+    loader_type: LoaderType,
     use_experiment_name: Optional[str] = None,
     use_sequence: Optional[str] = None,
 ) -> LoaderInstanceType:

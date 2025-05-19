@@ -2,13 +2,13 @@ from typing import Optional, TypeVar, Union
 import numpy as np
 import dataclasses
 from dataclasses import field
-from pyxalign.io.loaders.enums import LamniLoaderType, ExperimentInfoSourceType
+from pyxalign.io.loaders.enums import LoaderType, ExperimentInfoSourceType
 from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 
 
 @dataclasses.dataclass
 class BaseLoadOptions:
-    loader_type: Optional[LamniLoaderType] = dataclasses.field(default=None)
+    loader_type: Optional[LoaderType] = dataclasses.field(default=None)
 
     def __post_init__(self):
         if self.loader_type is None:  # Check if the variable is missing

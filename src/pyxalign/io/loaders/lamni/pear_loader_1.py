@@ -9,7 +9,7 @@ from pyxalign.io.loaders.lamni.base_loader import generate_single_projection_sub
 from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
-class LamniLoaderVersion3(LamniLoader):
+class PearLoaderVersion1(LamniLoader):
     analysis_folders: dict[int, list[str]] = {}
 
     @timer()

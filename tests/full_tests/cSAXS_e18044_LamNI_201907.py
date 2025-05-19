@@ -9,7 +9,7 @@ from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.io.load import load_task
-from pyxalign.io.loaders.enums import LamniLoaderType
+from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LamniLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
@@ -68,7 +68,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
 
         # Define options for loading ptycho reconstructions
         base_load_options = BaseLoadOptions(
-            loader_type=LamniLoaderType.LAMNI_V1,
+            loader_type=LoaderType.LAMNI_V1,
             selected_experiment_name="unlabeled",
             selected_sequences=[3, 4, 5],
             selected_metadata_list=["512x512_b0_MLc_Niter500_recons"],
