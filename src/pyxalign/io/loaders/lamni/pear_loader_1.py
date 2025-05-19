@@ -4,12 +4,12 @@ import os
 import h5py
 import re
 from pyxalign.api.types import c_type
-from pyxalign.io.loaders.lamni.base_loader import LamniLoader
+from pyxalign.io.loaders.lamni.base_loader import BaseLoader
 from pyxalign.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
 from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
-class PearLoaderVersion1(LamniLoader):
+class PearLoaderVersion1(BaseLoader):
     analysis_folders: dict[int, list[str]] = {}
 
     @timer()
@@ -159,7 +159,7 @@ def load_positions_from_h5_file(file_path: str):
 def generate_projection_relative_path(
     scan_number: int, n_digits: int, n_scans_per_folder: int
 ) -> str:
-    # Used in LamniLoader
+    # Used in BaseLoader
     return os.path.join(
         generate_projection_group_sub_folder(
             scan_number,

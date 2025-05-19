@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.lamni.base_loader import LamniLoader
+from pyxalign.io.loaders.lamni.base_loader import BaseLoader
 from pyxalign.io.loaders.lamni.options import LamniLoadOptions
 from pyxalign.io.loaders.lamni.utils import load_experiment
 
@@ -12,7 +12,7 @@ def load_data_from_lamni_format(
     n_processes: int = 1,
     options: Optional[LamniLoadOptions] = None,
     return_loader_object: bool = False,
-) -> Union[StandardData, tuple[StandardData, LamniLoader]]:
+) -> Union[StandardData, tuple[StandardData, BaseLoader]]:
     """
     Function for loading lamni-formatted projection data and returning
     it in the standardized format.

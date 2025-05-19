@@ -14,7 +14,7 @@ from pyxalign.io.loaders.utils import (
 from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
-class LamniLoader(ABC):
+class BaseLoader(ABC):
     """
     Class for loading ptychography reconstructions saved in the Lamni
     file structure format.

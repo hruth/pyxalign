@@ -1,12 +1,12 @@
 import numpy as np
 import os
 from scipy.io import loadmat
-from pyxalign.io.loaders.lamni.base_loader import LamniLoader
+from pyxalign.io.loaders.lamni.base_loader import BaseLoader
 from pyxalign.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
 from pyxalign.timing.timer_utils import timer, InlineTimer
 
 
-class LamniLoaderVersion2(LamniLoader):
+class LamniLoaderVersion2(BaseLoader):
     analysis_folders: dict[int, list[str]] = {}
 
     @timer()
