@@ -284,3 +284,7 @@ def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
 
 def insert_new_line_between_list(list_of_strings: list[str]):
     return "[\n " + ",\n ".join(f'"{item}"' for item in list_of_strings) + "\n]"
+
+
+
+

@@ -9,27 +9,14 @@ from pyxalign.timing.timer_utils import timer, InlineTimer
 class LamniLoaderVersion2(BaseLoader):
     analysis_folders: dict[int, list[str]] = {}
 
-    @timer()
-    def get_projections_folders_and_file_names(self):
-        """
-        Generate the folder path for all projections and get a list of
-        the files in that folder.
-        """
-        for scan_number in self.scan_numbers:
-            proj_relative_folder_path = generate_single_projection_sub_folder(
+    def get_projection_sub_folder(self, scan_number: int):
+        return generate_single_projection_sub_folder(
                 scan_number, n_digits=5
             )
-            projection_folder = os.path.join(
-                self.parent_projections_folder, proj_relative_folder_path
-            )
-            self.record_projection_path_and_files(projection_folder, scan_number)
-        print(
-            f"{len(self.projection_folders)} scans have one or more projection files.",
-            flush=True,
-        )
 
     @timer()
     def record_projection_path_and_files(self, folder: str, scan_number: int):
+        # Get all projection
         if os.path.exists(folder) and os.listdir(folder) != []:
             self.projection_folders[scan_number] = folder
             # self.analysis_folders[scan_number] = os.listdir(folder)

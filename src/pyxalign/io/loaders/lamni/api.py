@@ -1,7 +1,8 @@
 from typing import Optional, Union
 
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.lamni.base_loader import BaseLoader
+# from pyxalign.io.loaders.lamni.base_loader import BaseLoader
+BaseLoader=1
 from pyxalign.io.loaders.lamni.options import LamniLoadOptions
 from pyxalign.io.loaders.lamni.utils import load_experiment
 

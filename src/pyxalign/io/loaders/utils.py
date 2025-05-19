@@ -1,5 +1,6 @@
 import multiprocessing as mp
 from time import time
+import re
 from typing import Callable, Optional, Union
 import traceback
 import h5py
@@ -321,3 +322,12 @@ if __name__ == "__main__":
         options_info_type_string="test_type_string",
     )
     print("returned: ", result)
+
+
+def count_digits(s):
+    return len(re.findall(r"\d", s))
+
+
+def extract_s_digit_strings(strings):
+    pattern = r"^S\d+$"  # Matches 'S' followed by one or more digits
+    return [s for s in strings if re.match(pattern, s)]

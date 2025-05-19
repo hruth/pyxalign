@@ -10,8 +10,10 @@ from pyxalign.io.loaders.utils import (
     get_boolean_user_input,
     load_h5_group,
     parallel_load_all_projections,
+    count_digits,
+    extract_s_digit_strings,
 )
-from pyxalign.timing.timer_utils import InlineTimer, timer
+from pyxalign.timing.timer_utils import timer
 
 
 class BaseLoader(ABC):
@@ -85,6 +87,29 @@ class BaseLoader(ABC):
         return len(self.scan_numbers)
 
     @timer()
+    def get_projections_folders_and_file_names(self):
+        """
+        Generate the folder path for all projections and get a list of
+        the files in that folder.
+        """
+        for scan_number in self.scan_numbers:
+            proj_relative_folder_path = self.get_projection_sub_folder(scan_number)
+            projection_folder = os.path.join(
+                self.parent_projections_folder, proj_relative_folder_path
+            )
+            self.record_projection_path_and_files(projection_folder, scan_number)
+        print(
+            f"{len(self.projection_folders)} scans have one or more projection files.",
+            flush=True,
+        )
+
+    def get_projection_sub_folder(self) -> str:
+        raise NotImplementedError
+
+    def record_projection_path_and_files(self):
+        raise NotImplementedError
+
+    @timer()
     def remove_sequences(self, sequences_to_keep: list[int]):
         keep_index = [sequence in sequences_to_keep for sequence in self.sequences]
         # Remove unwanted sequences from arrays and lists
@@ -126,9 +151,9 @@ class BaseLoader(ABC):
     @timer()
     def filter_file_list(self, only_include_files_with: list[str], exclude_files_with: list[str]):
         if only_include_files_with is None:
-           only_include_files_with = []
+            only_include_files_with = []
         if exclude_files_with is None:
-             exclude_files_with = []
+            exclude_files_with = []
         filtered_list = []
         for file_string in self.unique_metadata:
             in_include = np.all([x in file_string for x in only_include_files_with])
@@ -174,7 +199,9 @@ class BaseLoader(ABC):
                     select_new_metadata = get_boolean_user_input(prompt)
                     if select_new_metadata:
                         # Select a new metadata type to load
-                        self.selected_metadata_list += self.select_metadata_type(exclude=self.selected_metadata_list)
+                        self.selected_metadata_list += self.select_metadata_type(
+                            exclude=self.selected_metadata_list
+                        )
                     else:
                         print(f"No projections loaded for {scan_number}", flush=True)
                         prompt = "Remember this choice for remaining projections?"
@@ -236,7 +263,7 @@ class BaseLoader(ABC):
             options_info_list=n_scans_per_option,
             options_info_type_string="scans",
             allow_multiple_selections=True,
-            select_all_info = np.sum(n_scans_per_option),
+            select_all_info=np.sum(n_scans_per_option),
         )
         return selected_metadata
 

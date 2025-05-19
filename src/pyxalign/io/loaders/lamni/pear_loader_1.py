@@ -2,38 +2,29 @@ from typing import Optional
 import numpy as np
 import os
 import h5py
-import re
 from pyxalign.api.types import c_type
 from pyxalign.io.loaders.lamni.base_loader import BaseLoader
 from pyxalign.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
+# from pyxalign.io.loaders.lamni.utils import count_digits, extract_s_digit_strings
+from pyxalign.io.loaders.utils import count_digits, extract_s_digit_strings
 from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
 class PearLoaderVersion1(BaseLoader):
     analysis_folders: dict[int, list[str]] = {}
+    n_digits: int = None
 
-    @timer()
-    def get_projections_folders_and_file_names(self):
-        """
-        Generate the folder path for all projections and get a list of
-        the files in that folder.
-        """
-
-        # Get the number of digits in a scan folder
-        example_scan_folder = extract_s_digit_strings(os.listdir(self.parent_projections_folder))[0]
-        n_digits = count_digits(example_scan_folder)
-        for scan_number in self.scan_numbers:
-            proj_relative_folder_path = generate_single_projection_sub_folder(
-                scan_number,
-                n_digits=n_digits,
-            )
-            projection_folder = os.path.join(
-                self.parent_projections_folder, proj_relative_folder_path
-            )
-            self.record_projection_path_and_files(projection_folder, scan_number)
-        print(
-            f"{len(self.projection_folders)} scans have one or more projection files.",
-            flush=True,
+    def get_projection_sub_folder(self, scan_number: int):
+        # Determine how many digits are in the folder strings
+        if self.n_digits is None:
+            example_scan_folder = extract_s_digit_strings(
+                os.listdir(self.parent_projections_folder)
+            )[0]
+            self.n_digits = count_digits(example_scan_folder)
+        # Return folder string corresponding to this scan number
+        return generate_single_projection_sub_folder(
+            scan_number,
+            n_digits=self.n_digits,
         )
 
     @timer()
@@ -184,12 +175,3 @@ def generate_projection_group_sub_folder(
 
     # Construct the pattern
     return f"S{start}-{end}"
-
-
-def extract_s_digit_strings(strings):
-    pattern = r"^S\d+$"  # Matches 'S' followed by one or more digits
-    return [s for s in strings if re.match(pattern, s)]
-
-
-def count_digits(s):
-    return len(re.findall(r"\d", s))
