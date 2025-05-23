@@ -143,10 +143,11 @@ class LaminographyAlignmentTask:
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
 
-    def launch_viewer(self):
+    def launch_viewer(self) -> QApplication:
         app = QApplication.instance() or QApplication([])
         self.gui = TaskViewer(self)
         self.gui.show()
+        return app
 
 
 def run_projection_matching(

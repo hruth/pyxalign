@@ -27,12 +27,12 @@ class TaskViewer(QWidget):
                 ProjectionViewer(task.phase_projections, ProjectionViewerOptions()),
                 "Unwrapped Projections",
             )
-        # 3D volume tab
-        if task.phase_projections.volume.data is not None:
-            tabs.addTab(
-                VolumeViewer(task.phase_projections.volume.data),
-                "3D Reconstruction",
-            )
+            # 3D volume tab
+            if task.phase_projections.volume is not None:
+                tabs.addTab(
+                    VolumeViewer(task.phase_projections.volume.data),
+                    "3D Reconstruction",
+                )
 
         if task.pma_object is not None:
             pma_gui = ProjectionMatchingViewer(task.pma_object)
