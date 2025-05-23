@@ -10,8 +10,6 @@ from pyxalign.io.loaders.utils import (
     get_boolean_user_input,
     load_h5_group,
     parallel_load_all_projections,
-    count_digits,
-    extract_s_digit_strings,
 )
 from pyxalign.timing.timer_utils import timer
 
@@ -295,13 +293,13 @@ class BaseLoader(ABC):
         raise NotImplementedError
 
     def load_positions(self):
-        pass
+        raise NotImplementedError
 
     def load_probe(self):
-        pass
+        raise NotImplementedError
 
     def load_projection_params(self):
-        pass
+        raise NotImplementedError
 
 
 def generate_single_projection_sub_folder(scan_number: int, n_digits) -> str:
