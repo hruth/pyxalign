@@ -94,13 +94,9 @@ class CrossCorrelationAligner(Aligner):
             cumulative_shift = np.cumsum(shift_relative, axis=0)
             cumulative_shift = cumulative_shift - np.mean(cumulative_shift, axis=0)
 
-            # plt.plot(cumulative_shift, label="pre-processed shift")
-
             # Remove smoothed shift
             if self.options.remove_slow_variation:
                 cumulative_shift = self.subtract_slow_variation(cumulative_shift)
-
-            # plt.plot(cumulative_shift, label="variation removed")
 
             if self.options.use_end_corrections:
                 # Add a linear correction to the shift, in order to
@@ -119,15 +115,9 @@ class CrossCorrelationAligner(Aligner):
                 y =  m1 * x + m2 * x
                 cumulative_shift = cumulative_shift + y - y.mean(0)
 
-                # plt.plot(cumulative_shift, label="pre-processed shift")
-            # plt.title(f"Iteration {i}")
-            # plt.legend()
-            # plt.show()
-
             shift_total = shift_total + cumulative_shift[idx_sort_inverse, :]
-            shift_total = self.clamp_shift(shift_total, 6)
-            # plt.plot(cumulative_shift, label="shift update")
-            # plt.show()
+            if self.options.apply_optional_clamp:
+                shift_total = self.clamp_shift(shift_total, 6)
 
         shift_total = np.round(shift_total * self.options.binning)
 

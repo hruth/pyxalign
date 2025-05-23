@@ -31,6 +31,8 @@ class CrossCorrelationOptions(AlignmentOptions):
 
     use_end_corrections: bool = False
 
+    apply_optional_clamp: bool = True
+
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
     crop: CropOptions = field(default_factory=CropOptions)
