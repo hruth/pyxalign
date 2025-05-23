@@ -123,6 +123,8 @@ class XRFTask:
         # close old gui windows
         if self.alignment_options.projection_matching.interactive_viewer.close_old_windows:
             self.clear_pma_gui_list()
+            if self.pma_object is not None and self.pma_object.gui is not None:
+                self.pma_object.gui.close()
         else:
             self.pma_gui_list += [self.pma_object.gui]
 
