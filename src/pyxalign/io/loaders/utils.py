@@ -10,6 +10,7 @@ from tqdm import tqdm
 from pyxalign.transformations.functions import image_crop_pad
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign.api.constants import divisor
+from IPython import get_ipython
 
 border = 60 * "-"
 
@@ -89,7 +90,8 @@ def get_user_input(
     print(border + "\nUSER INPUT NEEDED\n" + prompt, flush=True)
     while True:
         try:
-            user_input = input(prompt)
+            # user_input = input(prompt)
+            user_input = input("Enter input(s):")
             if allow_multiple_selections:
                 selection_idx = [x - 1 for x in parse_space_delimited_integers(user_input)]
                 is_input_allowed = np.all([idx in allowed_inputs for idx in selection_idx])
@@ -305,7 +307,7 @@ def parallel_load_all_projections(
                 pool.imap(projection_loading_function, file_paths.values()), total=len(file_paths)
             )
             projections = dict(zip(file_paths.keys(), projections_map))
-        print(f"Loading complete. Duration: {time() - t_0}")
+        print(f"Projection loading complete. Duration: {time() - t_0}")
     except Exception as ex:
         print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
         print(traceback.format_exc())

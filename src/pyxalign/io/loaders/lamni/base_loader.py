@@ -93,10 +93,14 @@ class BaseLoader(ABC):
         the files in that folder.
         """
         for scan_number in self.scan_numbers:
+            # get relative path for this scan's ptycho results folder
+            # (typically something like "S0123")
             proj_relative_folder_path = self.get_projection_sub_folder(scan_number)
+            # build absolute path to the ptycho results folder
             projection_folder = os.path.join(
                 self.parent_projections_folder, proj_relative_folder_path
             )
+            # get full paths to all existing projection files for current scan number
             self.record_projection_path_and_files(projection_folder, scan_number)
         print(
             f"{len(self.projection_folders)} scans have one or more projection files.",
@@ -136,11 +140,15 @@ class BaseLoader(ABC):
         self,
         only_include_files_with: Optional[list[str]] = None,
         exclude_files_with: Optional[list[str]] = None,
+        pattern: Optional[str] = None,
     ):
+        # make list of relative paths (wrt projection scan folder) of filenames 
         file_list = np.concatenate(list(self.available_projection_files.values())).ravel()
         self.unique_metadata = list(set([filter_string(file_string) for file_string in file_list]))
         # Remove data that doesn't fit specified conditions
-        self.unique_metadata = self.filter_file_list(only_include_files_with, exclude_files_with)
+        self.unique_metadata = self.filter_file_list(
+            only_include_files_with, exclude_files_with, pattern
+        )
         # Count occurences for that metadata string
         self.metadata_count = {}
         for metadata_string in self.unique_metadata:
@@ -149,7 +157,18 @@ class BaseLoader(ABC):
             )
 
     @timer()
-    def filter_file_list(self, only_include_files_with: list[str], exclude_files_with: list[str]):
+    def filter_file_list(
+        self,
+        only_include_files_with: list[str],
+        exclude_files_with: list[str],
+        pattern: Optional[str] = None,
+    ) -> list[str]:
+        """
+        Remove files that do not meet the following conditions:
+        1) file string is not in `only_include_files_with`
+        2) file string is in `exclude_files_with`
+        3) file string does not match `pattern`
+        """
         if only_include_files_with is None:
             only_include_files_with = []
         if exclude_files_with is None:
@@ -158,7 +177,11 @@ class BaseLoader(ABC):
         for file_string in self.unique_metadata:
             in_include = np.all([x in file_string for x in only_include_files_with])
             not_in_exclude = np.all([x not in file_string for x in exclude_files_with])
-            if in_include and not_in_exclude:
+            if pattern is not None:
+                matches_pattern = re.search(pattern, file_string) is not None
+            else:
+                matches_pattern = True
+            if in_include and not_in_exclude and matches_pattern:
                 filtered_list += [file_string]
         return filtered_list
 

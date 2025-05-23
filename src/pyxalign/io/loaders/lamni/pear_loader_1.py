@@ -29,6 +29,7 @@ class PearLoaderVersion1(BaseLoader):
 
     @timer()
     def record_projection_path_and_files(self, folder: str, scan_number: int):
+        # duplicate lamniloaderv2
         # Get all projection folders
         if os.path.exists(folder) and os.listdir(folder) != []:
             self.projection_folders[scan_number] = folder

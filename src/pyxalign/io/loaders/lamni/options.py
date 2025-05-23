@@ -47,8 +47,8 @@ class BaseLoadOptions:
     ask_for_backup_files: bool = False
     "Whether or not the UI asks for backup files if a projection file is not found."
 
-    # scan_info_source_type: ExperimentInfoSourceType = ExperimentInfoSourceType.LAMNI_DAT_FILE
-    # "Where to get the scan numbers, experiment name, angles, and sequence number"
+    file_pattern: str = None
+    "pattern used by re to identify matching folder strings"
 
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):
@@ -65,9 +65,6 @@ class LamniLoadOptions:
     dat_file_path: str
 
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
-
-    # scan_info_source_type: ExperimentInfoSourceType = ExperimentInfoSourceType.LAMNI_DAT_FILE
-    # "Where to get the scan numbers, experiment name, angles, and sequence number"
 
 
 @dataclasses.dataclass

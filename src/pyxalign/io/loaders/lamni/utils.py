@@ -5,13 +5,14 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
-from pyxalign.io.loaders.enums import ExperimentInfoSourceType, LoaderType
+from pyxalign.io.loaders.enums import LoaderType
 from pyxalign.io.loaders.lamni.options import LamniLoadOptions, Beamline2IDELoadOptions
-from pyxalign.io.loaders.maps import get_loader_class_by_enum, LoaderInstanceType
+from pyxalign.io.loaders.maps import get_loader_class_by_enum
 from pyxalign.io.loaders.utils import generate_input_user_prompt
 from pyxalign.api.types import r_type
 from pyxalign.io.loaders.xrf.utils import get_scan_file_dict
-from pyxalign.timing.timer_utils import InlineTimer, timer
+from pyxalign.timing.timer_utils import timer
+from pyxalign.io.loaders.lamni.base_loader import BaseLoader
 
 T = TypeVar("T", bound=Union[LamniLoadOptions, Beamline2IDELoadOptions])
 
@@ -23,7 +24,7 @@ def get_experiment_subsets(
     experiment_names: list[str],
     sequences: np.ndarray,
     loader_type: LoaderType,
-) -> dict[str, LoaderInstanceType]:
+) -> dict[str, BaseLoader]:
     subsets = {}
     for unique_name in np.unique(experiment_names):
         idx = [index for index, name in enumerate(experiment_names) if name == unique_name]
@@ -48,7 +49,7 @@ def select_experiment_and_sequences(
     loader_type: LoaderType,
     use_experiment_name: Optional[str] = None,
     use_sequence: Optional[str] = None,
-) -> LoaderInstanceType:
+) -> BaseLoader:
     """
     Select the experiment you want to load.
     """
@@ -139,12 +140,13 @@ def extract_info_from_lamni_dat_file(
 
     return (scan_numbers, angles, experiment_names, sequence_number)
 
+
 @timer()
 def load_experiment(
     parent_projections_folder: str,
     n_processes: int,
     options: T,
-) -> "LoaderInstanceType":
+) -> BaseLoader:
     """
     Load an experiment that is saved with the lamni structure.
     """
@@ -159,9 +161,14 @@ def load_experiment(
         use_experiment_name=options.base.selected_experiment_name,
         use_sequence=options.base.selected_sequences,
     )
+    # Get paths to all existing projection files for the given scan numbers
     selected_experiment.get_projections_folders_and_file_names()
+    # Extract the unique file string for all projection files, and filter
+    # out the ones that don't match user specified inputs
     selected_experiment.extract_metadata_from_all_titles(
-        options.base.only_include_files_with, options.base.exclude_files_with
+        options.base.only_include_files_with,
+        options.base.exclude_files_with,
+        options.base.file_pattern,
     )
     selected_experiment.select_projections(
         options.base.selected_metadata_list, options.base.ask_for_backup_files
@@ -243,9 +250,11 @@ def extract_info_from_mda_file(
             mda_file = MDAFile.read(Path(mda_file_path))
             pv_dict = convert_extra_PVs_to_dict(mda_file)
             angles = np.append(angles, pv_dict["2xfm:m60.VAL"].value[0])
-            scan_numbers = np.append(scan_numbers, current_scan) 
+            scan_numbers = np.append(scan_numbers, current_scan)
         except Exception:
-            print(f"An error occured when attempting to read scan file {current_file}, skipping file.")
+            print(
+                f"An error occured when attempting to read scan file {current_file}, skipping file."
+            )
 
     # lamino_angle = pv_dict["2xfm:m12.VAL"].value[0]
     # scan_numbers = np.ndarray(list(file_names_dict.keys()), dtype=r_type)
@@ -284,7 +293,3 @@ def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
 
 def insert_new_line_between_list(list_of_strings: list[str]):
     return "[\n " + ",\n ".join(f'"{item}"' for item in list_of_strings) + "\n]"
-
-
-
-

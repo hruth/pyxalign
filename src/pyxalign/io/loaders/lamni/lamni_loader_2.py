@@ -16,18 +16,29 @@ class LamniLoaderVersion2(BaseLoader):
 
     @timer()
     def record_projection_path_and_files(self, folder: str, scan_number: int):
-        # Get all projection
+        """Get full file paths to all existing projection files for the given scan number"""
+        # duplicates pearloader
+        # Get all existing projection paths
         if os.path.exists(folder) and os.listdir(folder) != []:
+            # Record the absolute path to the scan folder containing ptycho results
             self.projection_folders[scan_number] = folder
-            # self.analysis_folders[scan_number] = os.listdir(folder)
+            # Initialize list of analysis folders for this scan. Each entry of the
+            # list will be a string with with some name like "Ndp128_LSQML_c1234_m0.5_gaussian_p5_mm_opr2_ic"
             self.analysis_folders[scan_number] = []
             inline_timer = InlineTimer("get_nested_analysis_folders")
             inline_timer.start()
+            # Populate self.analysis_folders[scan_number] with the list of 
+            # ptycho results subfolder names
             self.get_nested_analysis_folders(folder, scan_number)
             inline_timer.end()
+            # Initialize available_projection_files, which will contain the full
+            # path to all available projection files for this scan
             self.available_projection_files[scan_number] = []
             for analysis_sub_folder in self.analysis_folders[scan_number]:
+                # Get list of all files in the ptycho results sub-folder
                 file_names = os.listdir(os.path.join(folder, analysis_sub_folder))
+                # Add file names that are in the expected projection file format to 
+                # the list
                 self.available_projection_files[scan_number] += [
                     os.path.join(analysis_sub_folder, file)
                     for file in file_names
@@ -46,7 +57,6 @@ class LamniLoaderVersion2(BaseLoader):
             [self.check_if_projection_file(os.path.join(folder, x)) for x in os.listdir(folder)]
         )
         if folder_contains_projection_file:
-            # relative_path = re.sub(self.projection_folders[scan_number], "", folder)
             relative_path = os.path.relpath(folder, self.projection_folders[scan_number])
             self.analysis_folders[scan_number] += [relative_path]
 
