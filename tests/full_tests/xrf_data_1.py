@@ -4,6 +4,7 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication
 from pyxalign import options as opts
 from pyxalign.api import enums
+from pyxalign.api.types import r_type
 from pyxalign.data_structures.xrf_task import XRFTask
 from pyxalign.io.loaders.xrf.api import (
     convert_xrf_projection_dicts_to_arrays,
@@ -11,19 +12,17 @@ from pyxalign.io.loaders.xrf.api import (
 )
 from pyxalign.io.loaders.xrf.options import XRFLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
-from pyxalign.plotting.interactive.xrf import XRFVolumeViewer
+from pyxalign.plotting.interactive.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 
 def run_full_test_xrf_data_type_1(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
-    test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
+    test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,  # not yet used
 ):
-    # plt.ion()
-
     # Setup the test
     ci_options = opts.CITestOptions(
-        test_data_name=os.path.join("2ide","2025-1_Lamni-4"),
+        test_data_name=os.path.join("2ide", "2025-1_Lamni-4"),
         update_tester_results=update_tester_results,
         proj_idx=list(range(0, 750, 150)),
         save_temp_files=save_temp_files,
@@ -84,8 +83,18 @@ def run_full_test_xrf_data_type_1(
 
         # Update sample thickness and center of rotation
         xrf_task.projection_options.experiment.sample_thickness = 70
-        xrf_task.center_of_rotation[1] = 130
-        xrf_task.center_of_rotation[0] = 30
+        xrf_task.center_of_rotation = np.array([30, 130], dtype=r_type)
+
+        # check projection arrays, angles, cor, and sample thickness for all channels
+        for channel, proj in xrf_task.projections_dict.items():
+            ci_test_helper.save_or_compare_results(
+                proj.data[::s, ::s, ::s], f"pre_pma_projections_{channel}"
+            )
+            ci_test_helper.save_or_compare_results(proj.angles, f"angles_{channel}")
+            ci_test_helper.save_or_compare_results(proj.scan_numbers, f"scan_numbers_{channel}")
+            ci_test_helper.save_or_compare_results(
+                proj.center_of_rotation, f"center_of_rotation_{channel}"
+            )
 
         # create preliminary reconstructions
         for channel, proj in xrf_task.projections_dict.items():
@@ -95,14 +104,16 @@ def run_full_test_xrf_data_type_1(
                 proj.volume.data[::s, ::s, ::s], f"pre_pma_volume_{channel}"
             )
 
+        # app = QApplication.instance() or QApplication([])
+        # gui = XRFVolumeViewer(xrf_task)
+        # gui.show()
+        # app.exec()
+
         # create dummy mask
         xrf_task.projections_dict[xrf_task._primary_channel].masks = np.ones_like(
             xrf_task.projections_dict[xrf_task._primary_channel].data
         )
         xrf_task.projections_dict[xrf_task._primary_channel].pin_arrays()
-
-        # Specify which element will be used for projection-matching alignment
-        xrf_task._primary_channel = "Ti"
 
         pma_options = xrf_task.alignment_options.projection_matching
         pma_options.keep_on_gpu = True
@@ -146,15 +157,26 @@ def run_full_test_xrf_data_type_1(
             ci_test_helper.save_or_compare_results(
                 proj.volume.data, f"pma_aligned_rotated_volume_{channel}"
             )
+            # Save tiff file
+            ci_test_helper.save_tiff(
+                projections.volume.data,
+                f"pma_aligned_rotated_volume_{channel}.tiff",
+            )
 
         xrf_task.clear_pma_gui_list()
 
         # print results of the test
         ci_test_helper.finish_test()
 
-        # End with launching the viewer
+        # Launch the volume viewer
         app = QApplication.instance() or QApplication([])
         gui = XRFVolumeViewer(xrf_task)
+        gui.show()
+        app.exec()
+
+        # Launch the projections viewer
+        app = QApplication.instance() or QApplication([])
+        gui = XRFProjectionsViewer(xrf_task)
         gui.show()
         app.exec()
 
