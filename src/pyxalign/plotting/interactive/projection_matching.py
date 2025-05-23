@@ -2,8 +2,7 @@ from typing import Callable, Optional
 import traceback
 
 import pyxalign.alignment.projection_matching as pm
-from pyxalign.api.options.plotting import ProjectionViewerOptions
-from pyxalign.api.types import ArrayType
+from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.plotting.interactive.arrays import ProjectionViewer, VolumeViewer
 from pyxalign.plotting.interactive.base import MultiThreadedWidget
 from PyQt5.QtWidgets import (
@@ -75,6 +74,7 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
 
     def initialize_plots(self, add_stop_button: bool = True):
         try:
+            self.set_thread_gpu()
             tabs = QTabWidget()
 
             # projections viewer
@@ -154,6 +154,7 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
     @timer()
     def update_plots(self):
         try:
+            self.set_thread_gpu()
             self.volume_viewer.update_arrays(self.pma_object.aligned_projections.volume.data)
             # self.projection_viewer.update_arrays()#self.pma_object.aligned_projections.data)
             itimer = InlineTimer("shift_viewer")
@@ -195,8 +196,9 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
         finally:
             self.signals.update_plots_finished.emit()
 
-    def start(self):
-        self.show()
+    def set_thread_gpu(self):
+        if self.pma_object.options.keep_on_gpu:
+            cp.cuda.Device(self.pma_object.options.device.gpu.gpu_indices[0]).use()
 
 
 class PMLinePlotWidget(QWidget):
@@ -206,8 +208,9 @@ class PMLinePlotWidget(QWidget):
         super().__init__(parent)
         self.pma_object = pma_object
         self.sort_idx = np.argsort(self.pma_object.aligned_projections.angles)
-        if cp.get_array_module(self.sort_idx) is cp:
-            self.sort_idx = self.sort_idx.get()
+        # if cp.get_array_module(self.sort_idx) is cp:
+            # self.sort_idx = self.sort_idx.get()
+        self.sort_idx = return_cpu_array(self.sort_idx)
 
         self.figure = Figure(layout="compressed")
         self.canvas = FigureCanvas(self.figure)
@@ -431,7 +434,7 @@ class PMShiftDiffPlotWidget(PMLinePlotWidget):
     def y_data(self):
         return (
             return_cpu_array(self.pma_object.total_shift[self.sort_idx])
-            - self.pma_object.initial_shift[self.sort_idx] / self.pma_object.scale
+            - return_cpu_array(self.pma_object.initial_shift[self.sort_idx]) / self.pma_object.scale
         )
 
     @property
@@ -448,8 +451,3 @@ class PMShiftDiffPlotWidget(PMLinePlotWidget):
         self.add_y_axis_in_microns()
 
 
-def return_cpu_array(array: ArrayType):
-    if cp.get_array_module(array) == cp:
-        return array.get()
-    else:
-        return array

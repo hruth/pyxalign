@@ -162,3 +162,10 @@ def memory_releasing_error_handler(func, show_info: bool = False) -> T:
                         print_gpu_memory_use()
 
     return wrapped
+
+
+def return_cpu_array(array: ArrayType):
+    if cp.get_array_module(array) == cp:
+        return array.get()
+    else:
+        return array

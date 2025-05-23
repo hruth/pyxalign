@@ -1,12 +1,4 @@
-from PyQt5.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QHeaderView,
-    QCheckBox,
-)
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QHeaderView
 from PyQt5.QtCore import Qt
 
 
@@ -118,9 +110,7 @@ def sync_checkboxes(*checkboxes):
         checked = state == Qt.Checked
         for cb in checkboxes:
             if cb is not source_checkbox:
-                cb.blockSignals(True)
                 cb.setChecked(checked)
-                cb.blockSignals(False)
 
     # Connect each checkbox's stateChanged signal to our update function
     for cb in checkboxes:

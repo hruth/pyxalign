@@ -1,7 +1,9 @@
 from typing import Callable, Optional
+import cupy as cp
 from pyxalign.api.maps import get_process_func_by_enum
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
 import pyxalign.data_structures.projections as p
+from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.plotting.interactive.base import ArrayViewer, MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QWidget,
@@ -72,11 +74,10 @@ class VolumeViewer(MultiThreadedWidget):
         self.side_viewer_1.auto_clim_check_box.hide()
         self.side_viewer_2.auto_clim_check_box.hide()
         sync_checkboxes(
-                self.depth_viewer.auto_clim_check_box,
-                self.side_viewer_1.auto_clim_check_box,
-                self.side_viewer_2.auto_clim_check_box,
+            self.depth_viewer.auto_clim_check_box,
+            self.side_viewer_1.auto_clim_check_box,
+            self.side_viewer_2.auto_clim_check_box,
         )
-
 
         # Layout
         layout = QHBoxLayout()
@@ -134,7 +135,9 @@ class ProjectionViewer(MultiThreadedWidget):
         else:
             sort_idx = None
         # self.array_viewer = ArrayViewer(array3d=projections.data, sort_idx=sort_idx)
-        self.array_viewer = ArrayViewer(array3d=self.process_func(projections.data), sort_idx=sort_idx)
+        self.array_viewer = ArrayViewer(
+            array3d=self.process_func(projections.data), sort_idx=sort_idx
+        )
 
         button_group_box = self.build_array_selector()
 
@@ -214,13 +217,19 @@ class ProjectionViewer(MultiThreadedWidget):
         elif checked_button_name == self.masks_name:
             self.array_viewer.array3d = self.projections.masks
         elif checked_button_name == self.projections_plus_masks_name:
-            self.array_viewer.array3d = self.projections.masks + self.process_func(self.projections.data)
+            self.array_viewer.array3d = self.projections.masks + self.process_func(
+                self.projections.data
+            )
         elif checked_button_name == self.forward_projections_name:
             self.array_viewer.array3d = self.projections.volume.forward_projections.data
         elif checked_button_name == self.residuals_name:
+            projections = return_cpu_array(self.projections.data)
             self.array_viewer.array3d = (
-                self.projections.data - self.projections.volume.forward_projections.data
+                projections - self.projections.volume.forward_projections.data
             )
+            # self.array_viewer.array3d = (
+            #     self.projections.data - self.projections.volume.forward_projections.data
+            # )
         # update the viewer display
         self.array_viewer.refresh_frame()
 
