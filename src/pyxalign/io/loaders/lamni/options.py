@@ -18,11 +18,12 @@ class BaseLoadOptions:
     """Name of the experiment to load. Use "unlabeled" to refer to
     experiments that do not have a name specified in the dat file."""
 
-    selected_metadata_list: Optional[list[str]] = None
+    selected_ptycho_strings: Optional[list[str]] = None
     """        
-    List of projection metadata types that are allowed to be
-    loaded, in prioritized order. The metadata types are strings
-    extracted from the projection file names.
+    List of ptycho file strings that are allowed to be loaded, 
+    in prioritized order. The ptycho file strings are strings
+    extracted from the projection file names. They will be something
+    like 
     """
 
     selected_sequences: Optional[list[int]] = None
@@ -39,10 +40,10 @@ class BaseLoadOptions:
     "Upper bound of scans to include."
 
     only_include_files_with: Optional[list[str]] = None
-    "Only include files with these strings in the metadata string."
+    "Only include files with these strings in the ptycho file string."
 
     exclude_files_with: Optional[list[str]] = None
-    "Exclude files with any of these strings in the metadata string."
+    "Exclude files with any of these strings in the ptycho file string."
 
     ask_for_backup_files: bool = False
     "Whether or not the UI asks for backup files if a projection file is not found."

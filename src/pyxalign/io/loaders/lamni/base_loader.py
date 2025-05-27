@@ -134,7 +134,7 @@ class BaseLoader(ABC):
         self.ptycho_params = return_dict_subset(self.ptycho_params, sequences_to_keep)
 
     @timer()
-    def extract_metadata_from_all_titles(
+    def get_matching_ptycho_file_strings(
         self,
         only_include_files_with: Optional[list[str]] = None,
         exclude_files_with: Optional[list[str]] = None,
@@ -142,16 +142,16 @@ class BaseLoader(ABC):
     ):
         # make list of relative paths (wrt projection scan folder) of filenames 
         file_list = np.concatenate(list(self.available_projection_files.values())).ravel()
-        self.unique_metadata = list(set([filter_string(file_string) for file_string in file_list]))
+        self.unique_ptycho_file_strings = list(set([filter_string(file_string) for file_string in file_list]))
         # Remove data that doesn't fit specified conditions
-        self.unique_metadata = self.filter_file_list(
+        self.unique_ptycho_file_strings = self.filter_file_list(
             only_include_files_with, exclude_files_with, pattern
         )
-        # Count occurences for that metadata string
-        self.metadata_count = {}
-        for metadata_string in self.unique_metadata:
-            self.metadata_count[metadata_string] = np.sum(
-                [metadata_string in string for string in file_list]
+        # Count occurences for that ptycho file string
+        self.unique_ptycho_file_string_count = {}
+        for unique_string in self.unique_ptycho_file_strings:
+            self.unique_ptycho_file_string_count[unique_string] = np.sum(
+                [unique_string in string for string in file_list]
             )
 
     @timer()
@@ -172,7 +172,7 @@ class BaseLoader(ABC):
         if exclude_files_with is None:
             exclude_files_with = []
         filtered_list = []
-        for file_string in self.unique_metadata:
+        for file_string in self.unique_ptycho_file_strings:
             in_include = np.all([x in file_string for x in only_include_files_with])
             not_in_exclude = np.all([x not in file_string for x in exclude_files_with])
             if pattern is not None:
@@ -186,21 +186,21 @@ class BaseLoader(ABC):
     @timer()
     def select_projections(
         self,
-        selected_metadata_list: Optional[list[str]],
-        ask_for_backup_metadata: bool,
+        selected_ptycho_file_strings: Optional[list[str]],
+        ask_for_backup_ptycho_file_string: bool,
     ):
         """
         Select which projections to load.
         """
-        if selected_metadata_list is None:
-            self.selected_metadata_list = self.select_metadata_type()
+        if selected_ptycho_file_strings is None:
+            self.select_ptycho_file_strings = self.select_ptycho_file_strings()
         else:
-            self.selected_metadata_list = selected_metadata_list
+            self.select_ptycho_file_strings = selected_ptycho_file_strings
         for scan_number in self.projection_folders.keys():
             while True:
                 # Find file strings with matching types
-                proj_file_string = self.find_matching_metadata(
-                    self.selected_metadata_list, self.available_projection_files[scan_number]
+                proj_file_string = self.find_matching_ptycho_file_strings(
+                    self.select_ptycho_file_strings, self.available_projection_files[scan_number]
                 )
                 if proj_file_string is not None:
                     # get the file path to the reconstruction file
@@ -208,25 +208,25 @@ class BaseLoader(ABC):
                         self.projection_folders[scan_number], proj_file_string
                     )
                     break
-                elif ask_for_backup_metadata:
+                elif ask_for_backup_ptycho_file_string:
                     print(border, flush=True)
                     prompt = (
-                        "No projection files with the specified metadata type(s) "
+                        "No projection files with the specified ptycho file strings(s) "
                         + f"were found for scan {scan_number}.\n"
                         + "Select an option:\n"
-                        + "y: Select another acceptable metadata type\n"
+                        + "y: Select another acceptable ptycho file string\n"
                         + "n: continue without loading"
                     )
-                    select_new_metadata = get_boolean_user_input(prompt)
-                    if select_new_metadata:
-                        # Select a new metadata type to load
-                        self.selected_metadata_list += self.select_metadata_type(
-                            exclude=self.selected_metadata_list
+                    select_new_ptycho_file_string = get_boolean_user_input(prompt)
+                    if select_new_ptycho_file_string:
+                        # Select a new ptycho file string to load
+                        self.select_ptycho_file_strings += self.select_ptycho_file_strings(
+                            exclude=self.select_ptycho_file_strings
                         )
                     else:
                         print(f"No projections loaded for {scan_number}", flush=True)
                         prompt = "Remember this choice for remaining projections?"
-                        ask_for_backup_metadata = not get_boolean_user_input(prompt)
+                        ask_for_backup_ptycho_file_string = not get_boolean_user_input(prompt)
                         print(border, flush=True)
                         break
                 else:
@@ -247,11 +247,13 @@ class BaseLoader(ABC):
         )
 
     @timer()
-    def find_matching_metadata(
-        self, selected_metadata_list: list[str], projection_files: list[str]
+    def find_matching_ptycho_file_strings(
+        self, selected_ptycho_file_strings: list[str], projection_files: list[str]
     ) -> str:
-        for selected_metadata in selected_metadata_list:
-            matched_strings = [string for string in projection_files if selected_metadata in string]
+        for ptycho_file_string in selected_ptycho_file_strings:
+            matched_strings = [
+                string for string in projection_files if ptycho_file_string in string
+            ]
             if len(matched_strings) == 1:
                 return matched_strings[0]
             elif len(matched_strings) > 1:
@@ -269,24 +271,26 @@ class BaseLoader(ABC):
             self.projections[scan_number] = File["/reconstruction/object"][:]
 
     @timer()
-    def select_metadata_type(self, exclude: Optional[list[str]] = None) -> list[str]:
+    def select_ptycho_file_strings(self, exclude: Optional[list[str]] = None) -> list[str]:
         if exclude is not None:
-            remaining_metadata_options = {
-                k: self.metadata_count[k] for k in self.metadata_count.keys() if k not in exclude
+            remaining_ptycho_file_string_options = {
+                k: self.unique_ptycho_file_string_count[k]
+                for k in self.unique_ptycho_file_string_count.keys()
+                if k not in exclude
             }
         else:
-            remaining_metadata_options = self.metadata_count
+            remaining_ptycho_file_string_options = self.unique_ptycho_file_string_count
 
-        n_scans_per_option = [count for count in remaining_metadata_options.values()]
-        _, selected_metadata = generate_input_user_prompt(
-            load_object_type_string="projection metadata type",
-            options_list=remaining_metadata_options.keys(),
+        n_scans_per_option = [count for count in remaining_ptycho_file_string_options.values()]
+        _, selected_ptycho_file_strings = generate_input_user_prompt(
+            load_object_type_string="ptycho file string",
+            options_list=remaining_ptycho_file_string_options.keys(),
             options_info_list=n_scans_per_option,
             options_info_type_string="scans",
             allow_multiple_selections=True,
             select_all_info=np.sum(n_scans_per_option),
         )
-        return selected_metadata
+        return selected_ptycho_file_strings
 
     @staticmethod
     def load_single_projection(self):

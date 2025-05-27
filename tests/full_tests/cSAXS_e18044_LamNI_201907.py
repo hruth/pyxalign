@@ -71,7 +71,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             loader_type=LoaderType.LAMNI_V1,
             selected_experiment_name="unlabeled",
             selected_sequences=[3, 4, 5],
-            selected_metadata_list=["512x512_b0_MLc_Niter500_recons"],
+            selected_ptycho_strings=["512x512_b0_MLc_Niter500_recons"],
             scan_start=2714,
             scan_end=3465,
         )
