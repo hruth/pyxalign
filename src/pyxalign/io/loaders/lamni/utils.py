@@ -151,6 +151,10 @@ def load_experiment(
     Load an experiment that is saved with the lamni structure.
     """
     scan_numbers, angles, experiment_names, sequences = extract_experiment_info(options)
+    if len(np.unique(experiment_names)) == 1:
+        options.base.selected_experiment_name = experiment_names[0]
+    if len(np.unique(sequences)) == 1:
+        options.base.selected_sequences = [sequences[0]]
     selected_experiment = select_experiment_and_sequences(
         parent_projections_folder,
         scan_numbers,
@@ -208,7 +212,7 @@ def load_experiment(
     return selected_experiment
 
 
-def extract_experiment_info(options: T):
+def extract_experiment_info(options: T) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
     if isinstance(options, LamniLoadOptions):
         scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
             options.dat_file_path, options.base.scan_start, options.base.scan_end
