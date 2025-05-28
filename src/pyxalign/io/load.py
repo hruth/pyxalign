@@ -3,6 +3,7 @@ from dataclasses import fields, is_dataclass
 import enum
 
 from pyxalign.data_structures.projections import (
+    Projections,
     ComplexProjections,
     PhaseProjections,
     Projections,
@@ -46,7 +47,10 @@ def load_projections(
         "complex_projections": ComplexProjections,
         "phase_projections": PhaseProjections,
     }
-    loaded_projections = {"complex_projections": None, "phase_projections": None}
+    loaded_projections: dict[str, Projections] = {
+        "complex_projections": None,
+        "phase_projections": None,
+    }
     for group, projection_class in projections_map.items():
         if group in h5_obj.keys() and group not in exclude:
             transform_tracker = TransformTracker(
@@ -59,6 +63,10 @@ def load_projections(
             shift_manager.past_shifts = load_list_of_arrays(h5_obj[group], "applied_shifts")
             if "staged_shift" in h5_obj[group].keys():
                 shift_manager.staged_shift = h5_obj[group]["staged_shift"][()]
+            if "file_paths" in h5_obj[group].keys():
+                file_paths = load_list_of_arrays(h5_obj[group], "file_paths")
+            else:
+                file_paths = None
 
             loaded_projections[group] = projection_class(
                 projections=h5_obj[group]["data"][()],
@@ -73,7 +81,9 @@ def load_projections(
                 shift_manager=shift_manager,
                 skip_pre_processing=True,
                 add_center_offset_to_positions=False,
+                file_paths=file_paths
             )
+
             if "dropped_scan_numbers" in h5_obj[group].keys():
                 dropped_scan_numbers = h5_obj[group]["dropped_scan_numbers"][()]
                 if is_null_type(dropped_scan_numbers):
@@ -102,7 +112,11 @@ def load_list_of_arrays(h5_obj: h5py.Group, name: str):
             n_arrays = len(h5_obj[name])
             list_of_arrays = list(range(n_arrays))
             for i in range(n_arrays):
-                list_of_arrays[i] = h5_obj[name][str(i)][()]
+                entry = h5_obj[name][str(i)][()]
+                if isinstance(entry, bytes):
+                    entry = entry.decode()
+                list_of_arrays[i] = entry
+                # list_of_arrays[i] = h5_obj[name][str(i)][()]
             return list_of_arrays
 
 

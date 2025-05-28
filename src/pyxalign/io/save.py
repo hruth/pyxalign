@@ -52,7 +52,7 @@ def save_generic_data_structure_to_h5(d: dict, h5_obj: Union[h5py.Group, h5py.Fi
             # List of string enums
             sub_group = h5_obj.create_group(value_name)
             for i, list_entry in enumerate(value):
-                save_string_to_h5(sub_group, list_entry[i], str(i))
+                save_string_to_h5(sub_group, list_entry, str(i))
 
         elif isinstance(value, list) and (len(value) > 0 and isinstance(value[0], np.ndarray)):
             # List of numpy arrays

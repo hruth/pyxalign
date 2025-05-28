@@ -109,8 +109,10 @@ class Projections:
         shift_manager: Optional["ShiftManager"] = None,
         transform_tracker: Optional[TransformTracker] = None,
         pin_arrays: bool = False,
+        file_paths: Optional[list[str]] = None,
     ):
         self.options = options
+        self.file_paths = file_paths
         self.angles = angles
         self.data = projections
         self.masks = masks
@@ -414,13 +416,17 @@ class Projections:
                 arr = arr[keep_idx]
             return arr
 
+        # Remove projections
         self.data = return_modified_array(self.data, repin_array)
+        # Update all other relevant arrays
         if self.masks is not None:
             self.masks = return_modified_array(self.masks, repin_array)
         if self.probe_positions is not None:
             self.probe_positions.data = [self.probe_positions.data[i] for i in keep_idx]
         self.angles = self.angles[keep_idx]
         self.scan_numbers = self.scan_numbers[keep_idx]
+        if self.file_paths is not None:
+            self.file_paths = self.file_paths[keep_idx]
         # Update the past shifts and staged shift
         self.shift_manager.staged_shift = self.shift_manager.staged_shift[keep_idx]
         for i, shift in enumerate(self.shift_manager.past_shifts):
@@ -645,6 +651,10 @@ class Projections:
             positions = self.probe_positions.data
         else:
             positions = None
+        if self.file_paths is not None:
+            file_paths = self.file_paths
+        else:
+            file_paths = None
         save_attr_dict = {
             "data": self.data,
             "angles": self.angles,
@@ -660,6 +670,7 @@ class Projections:
             "applied_shifts": self.shift_manager.past_shifts,
             "staged_shift": self.shift_manager.staged_shift,
             "dropped_scan_numbers": self.dropped_scan_numbers,
+            "file_paths": file_paths,
         }
         # Save all elements from save_attr_dict to the .h5 file
         save_generic_data_structure_to_h5(save_attr_dict, h5_obj)
@@ -861,6 +872,7 @@ def get_kwargs_for_copying_to_new_projections_object(
         "center_of_rotation": projections.center_of_rotation * 1,
         "skip_pre_processing": True,
         "add_center_offset_to_positions": False,
+        "file_paths": copy.deepcopy(projections.file_paths)
     }
     if include_projections_copy:
         kwargs["projections"] = projections.data * 1

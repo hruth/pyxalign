@@ -28,7 +28,6 @@ def refresh_task(stale_task: LaminographyAlignmentTask) -> LaminographyAlignment
 def refresh_projections(stale_projections: Projections) -> Projections:
     for projection_class in [PhaseProjections, ComplexProjections]:
         if projection_class.__name__ == stale_projections.__class__.__name__:
-            # PhaseProjections()
             new_projections: Projections = projection_class(
                 projections=stale_projections.data,
                 angles=stale_projections.angles,
@@ -42,6 +41,7 @@ def refresh_projections(stale_projections: Projections) -> Projections:
                 center_of_rotation=stale_projections.center_of_rotation,
                 skip_pre_processing=True,
                 add_center_offset_to_positions=False,
+                file_paths=stale_projections.file_paths,
             )
             new_projections.dropped_scan_numbers = stale_projections.dropped_scan_numbers
     return new_projections
