@@ -22,8 +22,6 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
 ):
-    # plt.ion()
-
     # Setup the test
     ci_options = opts.CITestOptions(
         test_data_name="cSAXS_e18044_LamNI_201907",
@@ -162,7 +160,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             crop=opts.CropOptions(enabled=True, horizontal_range=width, vertical_range=width),
         )
         # Calculate cross-correlation shift
-        task.get_cross_correlation_shift()
+        task.get_cross_correlation_shift(plot_results=False)
         # Apply the cross-correlation shift to projections
         task.complex_projections.apply_staged_shift()
 
@@ -183,35 +181,25 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             lsq_fit_ramp_removal=False,
         )
         # Pin data used in calculating phase projections
-        pinned_data = gpu_utils.create_empty_pinned_array(
-            task.complex_projections.data.shape, dtype=r_type
-        )
-        task.get_unwrapped_phase(pinned_data)
+        task.get_unwrapped_phase()
         # Flip contrast on projections
         task.phase_projections.data[:] = -task.phase_projections.data
 
         # Delete arrays that are no longer needed to free up space
         task.complex_projections = None
-        del pinned_data
 
         # Check/save results of unwrapping phase
         ci_test_helper.save_or_compare_results(task, "unwrapped_phase")
-        task.phase_projections.show_center_of_rotation()
         task.phase_projections.pin_arrays()
 
         task.phase_projections.center_of_rotation[:] = [890, 1300]
 
         ### Generate preliminary volume ###
-        pinned_data = gpu_utils.create_empty_pinned_array(
-            task.phase_projections.data.shape, dtype=r_type
-        )
         set_all_device_options(task.phase_projections.options, multi_gpu_device_options)
         task.phase_projections.options.reconstruct.astra.back_project_gpu_indices = gpu_list
         task.phase_projections.options.reconstruct.astra.forward_project_gpu_indices = gpu_list
         task.phase_projections.options.reconstruct
-        task.phase_projections.volume.generate_volume(True, pinned_data)
-        task.phase_projections.volume.plot_data()
-        del pinned_data
+        task.phase_projections.volume.generate_volume(True)
 
         # Check/save the preliminary volume
         ci_test_helper.save_or_compare_results(
@@ -299,11 +287,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         ci_test_helper.save_or_compare_results(task, "pma_aligned_task")
 
         ### Generate aligned volumes ###
-        pinned_data = gpu_utils.create_empty_pinned_array(
-            task.phase_projections.data.shape, dtype=r_type
-        )
-        task.phase_projections.volume.generate_volume(True, pinned_data)
-        del pinned_data
+        task.phase_projections.volume.generate_volume(True)
         ci_test_helper.save_or_compare_results(
             task.phase_projections.volume.data[::s, ::s, ::s], "pma_aligned_volume"
         )

@@ -44,6 +44,7 @@ class LaminographyAlignmentTask:
         self,
         projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
         illum_sum: np.ndarray = None,
+        plot_results: bool = True,
     ):
         clear_timer_globals()
         # Only for complex projections for now
@@ -66,7 +67,8 @@ class LaminographyAlignmentTask:
             function_type=enums.ShiftType.CIRC,
             alignment_options=self.options.cross_correlation,
         )
-        projections.plot_staged_shift("Cross-correlation Shift")
+        if plot_results:
+            projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
 
     def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray] = None) -> np.ndarray:
