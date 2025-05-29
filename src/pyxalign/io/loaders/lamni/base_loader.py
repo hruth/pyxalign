@@ -4,6 +4,7 @@ import numpy as np
 import os
 from abc import ABC
 import re
+from tqdm import tqdm
 from pyxalign.io.loaders.utils import (
     border,
     generate_input_user_prompt,
@@ -90,7 +91,9 @@ class BaseLoader(ABC):
         Generate the folder path for all projections and get a list of
         the files in that folder.
         """
-        for scan_number in self.scan_numbers:
+        print("Collecting ptychography reconstruction folder names...")
+        for scan_number in tqdm(self.scan_numbers):
+        # for scan_number in self.scan_numbers:
             # get relative path for this scan's ptycho results folder
             # (typically something like "S0123")
             proj_relative_folder_path = self.get_projection_sub_folder(scan_number)

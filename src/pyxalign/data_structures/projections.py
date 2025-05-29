@@ -113,14 +113,14 @@ class Projections:
     ):
         self.options = options
         self.file_paths = file_paths
-        self.angles = angles
+        self.angles = np.array(angles, dtype=r_type)
         self.data = projections
         self.masks = masks
         if pin_arrays:
             self.pin_arrays()
         self.probe = probe
         if scan_numbers is not None:
-            self.scan_numbers = scan_numbers
+            self.scan_numbers = np.array(scan_numbers, dtype=int)
         else:
             self.scan_numbers = np.arange(0, len(projections), dtype=int)
         if probe_positions is not None:
@@ -402,11 +402,43 @@ class Projections:
         if delete_mask_builder:
             self.mask_builder = None
 
-    def drop_projections(self, remove_idx: list[int], repin_array: bool = False):
-        "Permanently remove specific projections from object"
-        keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
+    # def drop_projections(self, remove_idx: list[int], repin_array: bool = False):
+    #     "Permanently remove specific projections from object"
+    #     keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
 
-        self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
+    #     self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
+
+    #     def return_modified_array(arr, repin_array: bool):
+    #         if gpu_utils.is_pinned(self.data) and repin_array:
+    #             # Repin data if it was already pinned
+    #             arr = gpu_utils.pin_memory(arr[keep_idx])
+    #         else:
+    #             arr = arr[keep_idx]
+    #         return arr
+
+    #     # Remove projections
+    #     self.data = return_modified_array(self.data, repin_array)
+    #     # Update all other relevant arrays
+    #     if self.masks is not None:
+    #         self.masks = return_modified_array(self.masks, repin_array)
+    #     if self.probe_positions is not None:
+    #         self.probe_positions.data = [self.probe_positions.data[i] for i in keep_idx]
+    #     self.angles = self.angles[keep_idx]
+    #     self.scan_numbers = self.scan_numbers[keep_idx]
+    #     if self.file_paths is not None:
+    #         self.file_paths = self.file_paths[keep_idx]
+    #     # Update the past shifts and staged shift
+    #     self.shift_manager.staged_shift = self.shift_manager.staged_shift[keep_idx]
+    #     for i, shift in enumerate(self.shift_manager.past_shifts):
+    #         self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][keep_idx]
+    def drop_projections(self, remove_scans: list[int], repin_array: bool = False):
+        "Permanently remove specific projections from object"
+        # keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
+        # self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
+        if not hasattr(remove_scans, "__len__"):
+            raise TypeError("Input argument `remove_scans` should be a list of integers")
+        keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan not in remove_scans]
+        self.dropped_scan_numbers += remove_scans
 
         def return_modified_array(arr, repin_array: bool):
             if gpu_utils.is_pinned(self.data) and repin_array:
@@ -426,11 +458,12 @@ class Projections:
         self.angles = self.angles[keep_idx]
         self.scan_numbers = self.scan_numbers[keep_idx]
         if self.file_paths is not None:
-            self.file_paths = self.file_paths[keep_idx]
+            self.file_paths = [self.file_paths[i] for i in keep_idx]
+
         # Update the past shifts and staged shift
         self.shift_manager.staged_shift = self.shift_manager.staged_shift[keep_idx]
         for i, shift in enumerate(self.shift_manager.past_shifts):
-            self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][keep_idx]
+            self.shift_manager.past_shifts
 
     @property
     def n_projections(self) -> int:

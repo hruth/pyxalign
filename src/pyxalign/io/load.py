@@ -66,13 +66,17 @@ def load_projections(
             if "staged_shift" in h5_obj[group].keys():
                 staged_shift = h5_obj[group]["staged_shift"][()]
                 if "staged_shift_function_type" in h5_obj[group].keys():
-                    staged_function_type = h5_obj[group]["staged_shift_function_type"][()].decode()
-                    staged_function_type = ShiftType(staged_function_type)
+                    staged_shift_function_type =  h5_obj[group]["staged_shift_function_type"][()]
+                    if is_null_type(staged_shift_function_type):
+                        staged_shift_function_type = handle_null_type(staged_shift_function_type)
+                    else:
+                        staged_shift_function_type = staged_shift_function_type.decode()
+                        staged_shift_function_type = ShiftType(staged_shift_function_type)
                 else:
-                    staged_function_type = None
+                    staged_shift_function_type = None
                 shift_manager.stage_shift(
                     shift=staged_shift,
-                    function_type=staged_function_type,
+                    function_type=staged_shift_function_type,
                 )
 
             # Create Projections object
