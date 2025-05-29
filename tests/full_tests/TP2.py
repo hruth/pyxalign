@@ -251,7 +251,7 @@ def run_full_test_TP2(
         task.phase_projections.options.reconstruct.astra.back_project_gpu_indices = gpu_list
         task.phase_projections.options.reconstruct.astra.forward_project_gpu_indices = gpu_list
         task.phase_projections.options.reconstruct
-        task.phase_projections.volume.generate_laminogram(True, pinned_data)
+        task.phase_projections.volume.generate_volume(True, pinned_data)
         task.phase_projections.volume.plot_data()
         del pinned_data
 
@@ -312,7 +312,7 @@ def run_full_test_TP2(
         pinned_data = gpu_utils.create_empty_pinned_array(
             task.phase_projections.data.shape, dtype=r_type
         )
-        task.phase_projections.volume.generate_laminogram(True, pinned_data)
+        task.phase_projections.volume.generate_volume(True, pinned_data)
         del pinned_data
         ci_test_helper.save_or_compare_results(
             task.phase_projections.volume.data[::s, ::s, ::s], "pma_aligned_volume"

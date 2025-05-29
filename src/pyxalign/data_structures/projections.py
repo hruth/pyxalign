@@ -742,7 +742,7 @@ class PhaseProjections(Projections):
         reinitialize_astra: bool = True,
         n_pix: Optional[Sequence[int]] = None,
     ):
-        self.volume.generate_laminogram(
+        self.volume.generate_volume(
             filter_inputs=filter_inputs,
             pinned_filtered_sinogram=pinned_filtered_sinogram,
             reinitialize_astra=reinitialize_astra,

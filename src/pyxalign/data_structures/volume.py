@@ -10,7 +10,7 @@ from pyxalign.api.constants import divisor
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
-from pyxalign.gpu_utils import get_scipy_module, pin_memory
+from pyxalign.gpu_utils import create_empty_pinned_array_like, get_scipy_module, pin_memory
 
 import pyxalign.image_processing as ip
 from pyxalign import reconstruct
@@ -67,7 +67,7 @@ class Volume:
         return scan_geometry_config, vectors, object_geometries
 
     @timer()
-    def generate_laminogram(
+    def generate_volume(
         self,
         filter_inputs: bool = False,
         pinned_filtered_sinogram: Optional[np.ndarray] = None,
@@ -102,6 +102,8 @@ class Volume:
             # Prepare the projections before doing the back-projection
             # if (sinogram is None) and update_stored_sinogram:
             if filter_inputs:
+                if pinned_filtered_sinogram is None:
+                    pinned_filtered_sinogram = create_empty_pinned_array_like(self.projections.data)
                 sinogram = reconstruct.filter_sinogram(
                     sinogram=self.projections.data,
                     vectors=self.vectors,
@@ -133,7 +135,7 @@ class Volume:
         # device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         cp.cuda.Device(device).use()
-        if self.data is None or np.all(self.data.shape == volume_shape):
+        if self.data is None or not np.all(self.data.shape == volume_shape):
             self.data = reconstruct.get_3D_reconstruction(self.astra_config)
         else:
             self.data[:] = reconstruct.get_3D_reconstruction(self.astra_config)

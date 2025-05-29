@@ -145,7 +145,7 @@ class ProjectionMatchingAligner(Aligner):
             update_geometries = True
         else:
             update_geometries = False
-        self.aligned_projections.volume.generate_laminogram(
+        self.aligned_projections.volume.generate_volume(
             filter_inputs=True,
             pinned_filtered_sinogram=self.pinned_filtered_sinogram,
             reinitialize_astra=False,
@@ -937,7 +937,7 @@ class ProjectionMatchingAligner(Aligner):
                 laminography_angle + deltas[i]
             )
             # get volume at new laminography angle
-            self.aligned_projections.volume.generate_laminogram(
+            self.aligned_projections.volume.generate_volume(
                 filter_inputs=True,
                 pinned_filtered_sinogram=self.pinned_filtered_sinogram,
                 reinitialize_astra=False,
