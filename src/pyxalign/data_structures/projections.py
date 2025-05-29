@@ -669,6 +669,7 @@ class Projections:
             "downsample": self.transform_tracker.scale,
             "applied_shifts": self.shift_manager.past_shifts,
             "staged_shift": self.shift_manager.staged_shift,
+            "staged_shift_function_type": self.shift_manager.staged_function_type,
             "dropped_scan_numbers": self.dropped_scan_numbers,
             "file_paths": file_paths,
         }

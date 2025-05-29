@@ -13,7 +13,7 @@ from pyxalign.data_structures.projections import (
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.projections import ProjectionOptions
-from pyxalign.api.enums import SpecialValuePlaceholder
+from pyxalign.api.enums import SpecialValuePlaceholder, ShiftType
 from pyxalign.api.types import c_type, r_type
 
 from typing import Type, TypeVar, Union
@@ -53,21 +53,33 @@ def load_projections(
     }
     for group, projection_class in projections_map.items():
         if group in h5_obj.keys() and group not in exclude:
+            # Create TransformTracker object
             transform_tracker = TransformTracker(
                 rotation=h5_obj[group]["rotation"][()],
                 shear=h5_obj[group]["shear"][()],
                 downsample=h5_obj[group]["downsample"][()],
             )
 
+            # Create ShiftManager object
             shift_manager = ShiftManager(n_projections=len(h5_obj[group]["angles"][()]))
             shift_manager.past_shifts = load_list_of_arrays(h5_obj[group], "applied_shifts")
             if "staged_shift" in h5_obj[group].keys():
-                shift_manager.staged_shift = h5_obj[group]["staged_shift"][()]
+                staged_shift = h5_obj[group]["staged_shift"][()]
+                if "staged_shift_function_type" in h5_obj[group].keys():
+                    staged_function_type = h5_obj[group]["staged_shift_function_type"][()].decode()
+                    staged_function_type = ShiftType(staged_function_type)
+                else:
+                    staged_function_type = None
+                shift_manager.stage_shift(
+                    shift=staged_shift,
+                    function_type=staged_function_type,
+                )
+
+            # Create Projections object
             if "file_paths" in h5_obj[group].keys():
                 file_paths = load_list_of_arrays(h5_obj[group], "file_paths")
             else:
                 file_paths = None
-
             loaded_projections[group] = projection_class(
                 projections=h5_obj[group]["data"][()],
                 angles=h5_obj[group]["angles"][()],
