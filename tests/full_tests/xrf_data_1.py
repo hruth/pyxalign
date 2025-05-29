@@ -79,7 +79,7 @@ def run_full_test_xrf_data_type_1(
         )
 
         # remove bad data
-        xrf_task.drop_projections_from_all_channels(remove_idx=[143])
+        xrf_task.drop_projections_from_all_channels(remove_scans=[xrf_task.scan_numbers[143]])
 
         # Update sample thickness and center of rotation
         xrf_task.projection_options.experiment.sample_thickness = 70

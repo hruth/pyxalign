@@ -101,9 +101,9 @@ class XRFTask:
         for _, projections in self.projections_dict.items():
             projections.apply_staged_shift(device_options)
 
-    def drop_projections_from_all_channels(self, remove_idx: list[int]):
+    def drop_projections_from_all_channels(self, remove_scans: list[int]):
         for _, projections in self.projections_dict.items():
-            projections.drop_projections(remove_idx=remove_idx)
+            projections.drop_projections(remove_scans=remove_scans)
 
     def pin_all_arrays(self):
         for _, projections in self.projections_dict.items():
