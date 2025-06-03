@@ -4,6 +4,7 @@ import numpy as np
 import cupy as cp
 import astra
 import copy
+import h5py
 from PyQt5.QtWidgets import QApplication
 
 from pyxalign.api.constants import divisor
@@ -320,9 +321,18 @@ class Volume:
         max: Optional[float] = None,
         data: Optional[np.ndarray] = None,
     ):
+        if data is None and self.data is None:
+            print("There is no volume data to save!")
         if data is None:
             data = self.data
+
         save_array_as_tiff(data, file_path, min, max)
+
+    def save_as_h5(self, file_path: str):
+        if self.data is None:
+            print("There is no volume data to save!")
+        with h5py.File(file_path, "w") as F:
+            F.create_dataset(name="volume", data=self.data)
 
     def launch_viewer(self):
         self.gui = launch_volume_viewer(self.data)
