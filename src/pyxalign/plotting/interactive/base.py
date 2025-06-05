@@ -256,6 +256,21 @@ class ArrayViewer(MultiThreadedWidget):
     def update_index_externally(self, index: int):
         self.slider.setValue(index)
 
+    def reinitialize_all(
+        self,
+        array3d: np.ndarray,
+        sort_idx: Optional[Sequence] = None,
+        extra_title_strings_list: Optional[Sequence] = None,
+    ):
+        self.array3d = array3d
+        self.sort_idx = sort_idx
+        self.extra_title_strings_list = extra_title_strings_list
+        self.num_frames = self.array3d.shape[self.options.slider_axis]
+        self.slider.setMaximum(self.num_frames - 1)
+        self.spinbox.setMaximum(self.num_frames - 1)
+        self.refresh_frame()
+        # self.update_index_externally(self.slider.value())
+
     # def update_clim(self):
     #     self.im.autoscale()
     #     # self.canvas.draw_idle()

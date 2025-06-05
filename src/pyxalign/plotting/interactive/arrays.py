@@ -19,6 +19,8 @@ from PyQt5.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
 )
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import (
@@ -165,8 +167,6 @@ class ProjectionViewer(MultiThreadedWidget):
         array_view_layout.addWidget(left_panel)
         left_panel_layout.addWidget(button_group_box)
         if enable_dropping:
-            # tmp_checkbox = QCheckBox()
-            # left_panel_layout.addWidget(tmp_checkbox) # replace with array dropper
             projection_dropping_widget = self.build_projection_dropper()
             left_panel_layout.addWidget(projection_dropping_widget)
         left_panel_layout.addSpacerItem(
@@ -192,9 +192,15 @@ class ProjectionViewer(MultiThreadedWidget):
         self.mark_for_removal_check_box = QCheckBox("Mark for removal", self)
         self.mark_for_removal_check_box.clicked.connect(self.update_staged_for_removal_list)
         self.array_viewer.slider.valueChanged.connect(self.update_mark_for_removal_check_box)
-        # create the list widget
-        self.staged_for_removal_list = QListWidget(self)
-        self.staged_for_removal_list.currentItemChanged.connect(self.list_item_selected)
+        # create table widget for show scans staged for removal
+        self.staged_for_removal_table = QTableWidget(self)
+        self.staged_for_removal_table.setColumnCount(3)
+        self.staged_for_removal_table.setHorizontalHeaderLabels(["Index", "Scan Number", "Angle (deg)"])
+        self.staged_for_removal_table.currentCellChanged.connect(self.table_item_selected)
+        # create table widget for previously removed scans
+        self.removed_scans_table = QTableWidget(self)
+        self.removed_scans_table.setColumnCount(1)
+        self.removed_scans_table.setHorizontalHeaderLabels(["Scan Number"])
         # create the button for permanently dropping projections
         drop_projections_button = QPushButton("Permanently Remove Projections", self)
         drop_projections_button.pressed.connect(self.remove_staged_projections)
@@ -203,7 +209,8 @@ class ProjectionViewer(MultiThreadedWidget):
         self.array_viewer.spin_play_layout.insertWidget(
             insertion_index, self.mark_for_removal_check_box
         )
-        widget_layout.addWidget(self.staged_for_removal_list)
+        widget_layout.addWidget(self.staged_for_removal_table)
+        widget_layout.addWidget(self.removed_scans_table)
         widget_layout.addWidget(drop_projections_button)
         # format list widget style
         widget_group_box = QGroupBox("Projections Staged for Removal")
@@ -214,24 +221,41 @@ class ProjectionViewer(MultiThreadedWidget):
 
     def remove_staged_projections(self):
         # remove scans from projection object
-        scan_idx = [
-            int(index) for index in get_strings_from_list_widget(self.staged_for_removal_list)
-        ]
-        self.projections.drop_projections(
-            remove_scans=list(self.projections.scan_numbers[scan_idx])
+        remove_scan_numbers = []
+        for row in range(self.staged_for_removal_table.rowCount()):
+            remove_scan_numbers += [int(self.staged_for_removal_table.item(row, 1).text())]
+        # drop projections
+        self.projections.drop_projections(remove_scan_numbers)
+        # clear rows
+        self.staged_for_removal_table.blockSignals(True)
+        self.staged_for_removal_table.setRowCount(0)
+        self.staged_for_removal_table.blockSignals(False)
+        # update table of dropped scans
+        new_rows_count = len(remove_scan_numbers)
+        for i in range(new_rows_count):
+            row_index = self.removed_scans_table.rowCount()
+            self.removed_scans_table.insertRow(row_index)
+            self.removed_scans_table.setItem(
+                row_index, 0, QTableWidgetItem(str(remove_scan_numbers[i]))
+            )
+        # un-check scan removal checkbox
+        self.mark_for_removal_check_box.blockSignals(True)
+        self.mark_for_removal_check_box.setChecked(False)
+        self.mark_for_removal_check_box.blockSignals(False)
+        # re-initialize array viewer
+        self.array_viewer.reinitialize_all(
+            self.projections.data,
+            np.argsort(self.projections.angles),
+            [f"\nScan {scan}" for scan in self.projections.scan_numbers],
         )
-        # update scan number title strings
-        self.array_viewer.extra_title_strings_list = [
-            f"\nScan {scan}" for scan in self.projections.scan_numbers
-        ]
 
-    def list_item_selected(self, list_widget_item: QListWidgetItem):
-        index = int(list_widget_item.text())
+    def table_item_selected(self, row: int):
+        index = int(self.staged_for_removal_table.item(row, 0).text())
         self.array_viewer.update_index_externally(index)
 
     def update_mark_for_removal_check_box(self):
         "Update the scan removal checkbox as the scan index changes"
-        scans_in_list = get_strings_from_list_widget(self.staged_for_removal_list)
+        scans_in_list = get_strings_from_list_widget(self.staged_for_removal_table)
         is_checked = str(self.array_viewer.slider.value()) in scans_in_list
         self.mark_for_removal_check_box.setChecked(is_checked)
 
@@ -239,12 +263,26 @@ class ProjectionViewer(MultiThreadedWidget):
         index = self.array_viewer.slider.value()
         if self.mark_for_removal_check_box.isChecked():
             # add the scan to the list widget
-            QListWidgetItem(str(index), self.staged_for_removal_list)
+            sorted_index = self.array_viewer.sort_idx[index]
+            row_index = self.staged_for_removal_table.rowCount()
+            self.staged_for_removal_table.insertRow(row_index)
+            # add index
+            self.staged_for_removal_table.setItem(row_index, 0, QTableWidgetItem(str(index)))
+            # add scan number
+            self.staged_for_removal_table.setItem(
+                row_index, 1, QTableWidgetItem(str(self.projections.scan_numbers[sorted_index]))
+            )
+            # add angle
+            self.staged_for_removal_table.setItem(
+                row_index, 2, QTableWidgetItem(f"{self.projections.angles[sorted_index]:.3f}")
+            )
         else:
-            # remove the scan from the list widget
-            matching_items = self.staged_for_removal_list.findItems(str(index), Qt.MatchExactly)
-            row = self.staged_for_removal_list.row(matching_items[0])
-            self.staged_for_removal_list.takeItem(row)
+            # find row and remove it
+            for row in range(self.staged_for_removal_table.rowCount()):
+                current_scan_index = int(self.staged_for_removal_table.item(row, 0).text())
+                if index == current_scan_index:
+                    self.staged_for_removal_table.removeRow(row)
+                    return
 
     def build_array_selector(self) -> QWidget:
         self.projections_name = "projections"
