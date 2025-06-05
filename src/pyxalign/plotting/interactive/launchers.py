@@ -17,10 +17,12 @@ def launch_volume_viewer(array_3d: np.ndarray) -> VolumeViewer:
 
 
 def launch_projection_viewer(
-    projections: "p.Projections", options: Optional[ProjectionViewerOptions] = None
+    projections: "p.Projections",
+    options: Optional[ProjectionViewerOptions] = None,
+    enable_dropping: bool = True,
 ) -> ProjectionViewer:
     app = QApplication.instance() or QApplication([])
-    gui = ProjectionViewer(projections, options)
+    gui = ProjectionViewer(projections, options, enable_dropping=enable_dropping)
     gui.show()
     return gui
 

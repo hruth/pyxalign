@@ -16,6 +16,9 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QSpacerItem,
     QGroupBox,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
 )
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import (
@@ -25,7 +28,11 @@ from matplotlib.backends.backend_qt5agg import (
 import numpy as np
 from matplotlib.figure import Figure
 import matplotlib
-from pyxalign.plotting.interactive.utils import OptionsDisplayWidget, sync_checkboxes
+from pyxalign.plotting.interactive.utils import (
+    OptionsDisplayWidget,
+    get_strings_from_list_widget,
+    sync_checkboxes,
+)
 
 from pyxalign.timing.timer_utils import timer
 
@@ -112,6 +119,7 @@ class ProjectionViewer(MultiThreadedWidget):
         multi_thread_func: Optional[Callable] = None,
         include_options: bool = True,
         include_shifts: bool = True,
+        enable_dropping: bool = False,
         parent=None,
     ):
         super().__init__(
@@ -134,9 +142,10 @@ class ProjectionViewer(MultiThreadedWidget):
             sort_idx = np.argsort(projections.angles)
         else:
             sort_idx = None
-        # self.array_viewer = ArrayViewer(array3d=projections.data, sort_idx=sort_idx)
         self.array_viewer = ArrayViewer(
-            array3d=self.process_func(projections.data), sort_idx=sort_idx
+            array3d=self.process_func(projections.data),
+            sort_idx=sort_idx,
+            extra_title_strings_list=[f"\nScan {scan}" for scan in self.projections.scan_numbers],
         )
 
         button_group_box = self.build_array_selector()
@@ -148,7 +157,22 @@ class ProjectionViewer(MultiThreadedWidget):
         self.setLayout(layout)
         # setup array view layout
         array_view_layout = QHBoxLayout()
-        array_view_layout.addWidget(button_group_box)
+
+        # setup control panel on the left
+        left_panel = QWidget()
+        left_panel_layout = QVBoxLayout()
+        left_panel.setLayout(left_panel_layout)
+        array_view_layout.addWidget(left_panel)
+        left_panel_layout.addWidget(button_group_box)
+        if enable_dropping:
+            # tmp_checkbox = QCheckBox()
+            # left_panel_layout.addWidget(tmp_checkbox) # replace with array dropper
+            projection_dropping_widget = self.build_projection_dropper()
+            left_panel_layout.addWidget(projection_dropping_widget)
+        left_panel_layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+
         array_view_layout.addWidget(self.array_viewer)
         array_view_widget = QWidget()
         array_view_widget.setLayout(array_view_layout)
@@ -161,6 +185,66 @@ class ProjectionViewer(MultiThreadedWidget):
             # create options viewer
             self.options_display = OptionsDisplayWidget(projections.options)
             tabs.addTab(self.options_display, "Projection Options")
+
+    def build_projection_dropper(self) -> QWidget:
+        widget_layout = QVBoxLayout()
+        # create the checkbox widget
+        self.mark_for_removal_check_box = QCheckBox("Mark for removal", self)
+        self.mark_for_removal_check_box.clicked.connect(self.update_staged_for_removal_list)
+        self.array_viewer.slider.valueChanged.connect(self.update_mark_for_removal_check_box)
+        # create the list widget
+        self.staged_for_removal_list = QListWidget(self)
+        self.staged_for_removal_list.currentItemChanged.connect(self.list_item_selected)
+        # create the button for permanently dropping projections
+        drop_projections_button = QPushButton("Permanently Remove Projections", self)
+        drop_projections_button.pressed.connect(self.remove_staged_projections)
+        # insert widgets into layout
+        insertion_index = self.array_viewer.spin_play_layout.count() - 1
+        self.array_viewer.spin_play_layout.insertWidget(
+            insertion_index, self.mark_for_removal_check_box
+        )
+        widget_layout.addWidget(self.staged_for_removal_list)
+        widget_layout.addWidget(drop_projections_button)
+        # format list widget style
+        widget_group_box = QGroupBox("Projections Staged for Removal")
+        widget_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
+        widget_group_box.setLayout(widget_layout)
+
+        return widget_group_box
+
+    def remove_staged_projections(self):
+        # remove scans from projection object
+        scan_idx = [
+            int(index) for index in get_strings_from_list_widget(self.staged_for_removal_list)
+        ]
+        self.projections.drop_projections(
+            remove_scans=list(self.projections.scan_numbers[scan_idx])
+        )
+        # update scan number title strings
+        self.array_viewer.extra_title_strings_list = [
+            f"\nScan {scan}" for scan in self.projections.scan_numbers
+        ]
+
+    def list_item_selected(self, list_widget_item: QListWidgetItem):
+        index = int(list_widget_item.text())
+        self.array_viewer.update_index_externally(index)
+
+    def update_mark_for_removal_check_box(self):
+        "Update the scan removal checkbox as the scan index changes"
+        scans_in_list = get_strings_from_list_widget(self.staged_for_removal_list)
+        is_checked = str(self.array_viewer.slider.value()) in scans_in_list
+        self.mark_for_removal_check_box.setChecked(is_checked)
+
+    def update_staged_for_removal_list(self):
+        index = self.array_viewer.slider.value()
+        if self.mark_for_removal_check_box.isChecked():
+            # add the scan to the list widget
+            QListWidgetItem(str(index), self.staged_for_removal_list)
+        else:
+            # remove the scan from the list widget
+            matching_items = self.staged_for_removal_list.findItems(str(index), Qt.MatchExactly)
+            row = self.staged_for_removal_list.row(matching_items[0])
+            self.staged_for_removal_list.takeItem(row)
 
     def build_array_selector(self) -> QWidget:
         self.projections_name = "projections"
@@ -194,7 +278,7 @@ class ProjectionViewer(MultiThreadedWidget):
 
         # Format button layout
         button_layout.setSpacing(10)  # Reduce space between widgets
-        button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        # button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
         # Wrap the button layout in a QGroupBox
         button_group_box = QGroupBox("Array Selection")
@@ -227,9 +311,6 @@ class ProjectionViewer(MultiThreadedWidget):
             self.array_viewer.array3d = (
                 projections - self.projections.volume.forward_projections.data
             )
-            # self.array_viewer.array3d = (
-            #     self.projections.data - self.projections.volume.forward_projections.data
-            # )
         # update the viewer display
         self.array_viewer.refresh_frame()
 

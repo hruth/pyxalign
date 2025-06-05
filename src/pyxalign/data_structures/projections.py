@@ -408,6 +408,8 @@ class Projections:
         # self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
         if not hasattr(remove_scans, "__len__"):
             raise TypeError("Input argument `remove_scans` should be a list of integers")
+        if isinstance(remove_scans, np.ndarray):
+            remove_scans = list(remove_scans)
         keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan not in remove_scans]
         self.dropped_scan_numbers += remove_scans
 
@@ -687,7 +689,7 @@ class Projections:
         print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
 
     def launch_viewer(self, options: Optional[ProjectionViewerOptions] = None):
-        self.gui = launch_projection_viewer(self, options)
+        self.gui = launch_projection_viewer(self, options, enable_dropping=True)
 
 
 class ComplexProjections(Projections):

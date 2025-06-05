@@ -95,12 +95,14 @@ class ArrayViewer(MultiThreadedWidget):
         options: Optional[ArrayViewerOptions] = None,
         sort_idx: Optional[Sequence] = None,
         multi_thread_func: Optional[Callable] = None,
+        extra_title_strings_list: Optional[list[str]] = None,
         parent=None,
     ):
         super().__init__(
             multi_thread_func=multi_thread_func,
             parent=parent,
         )
+        self.extra_title_strings_list = extra_title_strings_list
 
         if cp.get_array_module(array3d) == cp:
             self.array3d = array3d.get()
@@ -170,10 +172,10 @@ class ArrayViewer(MultiThreadedWidget):
         }
         """)
         # Package play button, and spin box
-        spin_play_layout = QHBoxLayout()
-        spin_play_layout.addWidget(self.play_button)
-        spin_play_layout.addWidget(self.spinbox)
-        spin_play_layout.addSpacerItem(
+        self.spin_play_layout = QHBoxLayout()
+        self.spin_play_layout.addWidget(self.play_button)
+        self.spin_play_layout.addWidget(self.spinbox)
+        self.spin_play_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
         )
 
@@ -193,7 +195,7 @@ class ArrayViewer(MultiThreadedWidget):
         layout.addWidget(self.auto_clim_check_box)
         layout.addWidget(self.canvas)
         layout.addWidget(self.slider)
-        layout.addLayout(spin_play_layout)
+        layout.addLayout(self.spin_play_layout)
         self.setLayout(layout)
 
         # was 10
@@ -222,7 +224,10 @@ class ArrayViewer(MultiThreadedWidget):
         if cp.get_array_module(image) == cp:
             image = image.get()
         self.im.set_data(image)  # faster than the clear() and imshow() method
-        self.ax.set_title(f"Frame {index}")
+        title = f"Index {index}"
+        if self.extra_title_strings_list is not None:
+            title += self.extra_title_strings_list[plot_index]
+        self.ax.set_title(title)
         if self.auto_clim_check_box.isChecked():
             self.im.autoscale()
         self.canvas.draw_idle()  # faster than the draw() method
@@ -247,6 +252,9 @@ class ArrayViewer(MultiThreadedWidget):
 
     def refresh_frame(self):
         self.update_frame(self.slider.value())
+
+    def update_index_externally(self, index: int):
+        self.slider.setValue(index)
 
     # def update_clim(self):
     #     self.im.autoscale()
