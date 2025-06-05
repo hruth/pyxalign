@@ -28,7 +28,10 @@ class TaskViewer(QWidget):
                 "Unwrapped Projections",
             )
             # 3D volume tab
-            if task.phase_projections.volume is not None:
+            if (
+                task.phase_projections.volume is not None
+                and task.phase_projections.volume.data is not None
+            ):
                 tabs.addTab(
                     VolumeViewer(task.phase_projections.volume.data),
                     "3D Reconstruction",

@@ -133,8 +133,14 @@ class ArrayViewer(MultiThreadedWidget):
         )
         self.canvas.draw()
 
-        self.slider, self.spinbox, self.play_button, self.timer, index_selection_layout = (
-            return_spin_play_slider_widgets(self.num_frames, self.options.start_index)
+        self.indexing_widget = IndexSelectorWidget(
+            self.num_frames, self.options.start_index, parent=parent
+        )
+        self.slider, self.spinbox, self.play_button, self.timer = (
+            self.indexing_widget.slider,
+            self.indexing_widget.spinbox,
+            self.indexing_widget.play_button,
+            self.indexing_widget.timer,
         )
         self.slider.valueChanged.connect(self.update_frame)
         self.spinbox.valueChanged.connect(self.update_frame)
@@ -151,7 +157,8 @@ class ArrayViewer(MultiThreadedWidget):
         layout.addWidget(self.toolbar)
         layout.addWidget(self.auto_clim_check_box)
         layout.addWidget(self.canvas)
-        layout.addLayout(index_selection_layout)
+        # layout.addLayout(index_selection_layout)
+        layout.addWidget(self.indexing_widget)
         self.setLayout(layout)
 
         # was 10
@@ -230,58 +237,72 @@ class ArrayViewer(MultiThreadedWidget):
         self.show()
 
 
-def return_spin_play_slider_widgets(
-    num_frames: int, start_index: Optional[int] = 0, parent: Optional[QWidget] = None
-) -> tuple[QSlider, QSpinBox, QPushButton, QTimer, QLayout]:
-    # Create a slider
-    slider = QSlider(Qt.Horizontal)
-    slider.setMinimum(0)
-    slider.setMaximum(num_frames - 1)
-    slider.setValue(start_index)
-    # slider.valueChanged.connect(update_frame)
+class IndexSelectorWidget(QWidget):
+    def __init__(
+        self,
+        num_frames: int,
+        start_index: Optional[int] = None,
+        include_play_button: bool = True,
+        parent: Optional[QWidget] = None,
+    ):
+        super().__init__(parent=parent)
+        if start_index is None:
+            start_index = 0
 
-    # SpinBox (editable + arrows)
-    spinbox = QSpinBox()
-    spinbox.setMinimum(0)
-    spinbox.setMaximum(num_frames - 1)
-    spinbox.setValue(start_index)
-    slider.valueChanged.connect(spinbox.setValue)
-    spinbox.valueChanged.connect(slider.setValue)
-    # spinbox.valueChanged.connect(update_frame)
-    spinbox.setStyleSheet("""
-    QSpinBox {
-        font-size: 14px;
-        padding: 3px 6px;                /* Inner spacing (top/bottom, left/right) */
-        min-width: 60px;                  /* Minimum width */
-        min-height: 20px;                 /* Minimum height */
-        text-align: center;              /* Text alignment */
-    }                           
-    """)
+        # Create a slider
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(num_frames - 1)
+        self.slider.setValue(start_index)
+        # slider.valueChanged.connect(update_frame)
 
-    # Play button
-    play_button = QPushButton("Play")
-    # play_button.clicked.connect(toggle_play)
-    play_button.setStyleSheet("""
-    QPushButton {
-        font-size: 14px;
-        padding: 3px 6px;                /* Inner spacing (top/bottom, left/right) */
-        min-width: 60px;                  /* Minimum width */
-        min-height: 20px;                 /* Minimum height */
-        text-align: center;              /* Text alignment */
-    }
-    """)
-    # Package play button, and spin box
-    spin_play_layout = QHBoxLayout()
-    spin_play_layout.addWidget(play_button)
-    spin_play_layout.addWidget(spinbox)
-    spin_play_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
-    index_selection_layout = QVBoxLayout()
-    index_selection_layout.addWidget(slider)
-    index_selection_layout.addLayout(spin_play_layout)
+        # SpinBox (editable + arrows)
+        self.spinbox = QSpinBox()
+        self.spinbox.setMinimum(0)
+        self.spinbox.setMaximum(num_frames - 1)
+        self.spinbox.setValue(start_index)
+        self.slider.valueChanged.connect(self.spinbox.setValue)
+        self.spinbox.valueChanged.connect(self.slider.setValue)
+        # self.spinbox.valueChanged.connect(update_frame)
+        self.spinbox.setStyleSheet("""
+        QSpinBox {
+            font-size: 14px;
+            padding: 3px 6px;                /* Inner spacing (top/bottom, left/right) */
+            min-width: 60px;                  /* Minimum width */
+            min-height: 20px;                 /* Minimum height */
+            text-align: center;              /* Text alignment */
+        }                           
+        """)
 
-    # Timer for playback
-    timer = QTimer(parent)
-    timer.setInterval(100)  # milliseconds per frame
-    # timer.timeout.connect(next_frame)
+        # Play button
+        if include_play_button:
+            self.play_button = QPushButton("Play")
+            # self.play_button.clicked.connect(toggle_play)
+            self.play_button.setStyleSheet("""
+            QPushButton {
+                font-size: 14px;
+                padding: 3px 6px;                /* Inner spacing (top/bottom, left/right) */
+                min-width: 60px;                  /* Minimum width */
+                min-height: 20px;                 /* Minimum height */
+                text-align: center;              /* Text alignment */
+            }
+            """)
+        # Package play button, and spin box
+        self.spin_play_layout = QHBoxLayout()
+        if include_play_button:
+            self.spin_play_layout.addWidget(self.play_button)
+        self.spin_play_layout.addWidget(self.spinbox)
+        self.spin_play_layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        )
+        index_selection_layout = QVBoxLayout()
+        index_selection_layout.addWidget(self.slider)
+        index_selection_layout.addLayout(self.spin_play_layout)
+        index_selection_layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+        self.setLayout(index_selection_layout)
 
-    return slider, spinbox, play_button, timer, index_selection_layout
+        # Timer for playback
+        self.timer = QTimer(parent)
+        self.timer.setInterval(100)  # milliseconds per frame
