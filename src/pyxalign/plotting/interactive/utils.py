@@ -123,17 +123,7 @@ def sync_checkboxes(*checkboxes):
     for cb in checkboxes:
         cb.stateChanged.connect(lambda state, src=cb: update_states(state, src))
 
-
-# def get_strings_from_list_widget(list_widget: QTableWidget) -> list:
-#     """
-#     Returns all the strings from a QListWidget as a Python list of strings.
-#     """
-#     items_text = []
-#     for i in range(list_widget.count()):
-#         items_text.append(list_widget.item(i).text())
-#     return items_text
-        
-def get_strings_from_list_widget(table_widget: QTableWidget) -> list:
+def get_strings_from_table_widget(table_widget: QTableWidget) -> list:
     """
     Returns all the strings from a QTableWidget as a Python list of strings.
     """

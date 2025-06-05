@@ -16,11 +16,10 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QSpacerItem,
     QGroupBox,
-    QListWidget,
-    QListWidgetItem,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QSlider,
 )
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import (
@@ -32,7 +31,7 @@ from matplotlib.figure import Figure
 import matplotlib
 from pyxalign.plotting.interactive.utils import (
     OptionsDisplayWidget,
-    get_strings_from_list_widget,
+    get_strings_from_table_widget,
     sync_checkboxes,
 )
 
@@ -204,14 +203,23 @@ class ProjectionViewer(MultiThreadedWidget):
         # create the button for permanently dropping projections
         drop_projections_button = QPushButton("Permanently Remove Projections", self)
         drop_projections_button.pressed.connect(self.remove_staged_projections)
+        # Create new slider and attach it to the array_viewer slider
+        self.projection_removal_slider = QSlider(Qt.Horizontal, self)
+        self.projection_removal_slider.setMinimum(0)
+        self.projection_removal_slider.setMaximum(self.array_viewer.slider.maximum())
+        self.projection_removal_slider.setValue(self.array_viewer.slider.value())
+        self.projection_removal_slider.valueChanged.connect(self.array_viewer.slider.setValue)
         # insert widgets into layout
-        insertion_index = self.array_viewer.spin_play_layout.count() - 1
-        self.array_viewer.spin_play_layout.insertWidget(
-            insertion_index, self.mark_for_removal_check_box
-        )
+        # insertion_index = self.array_viewer.spin_play_layout.count() - 1
+        # self.array_viewer.spin_play_layout.insertWidget(
+        #     insertion_index, self.mark_for_removal_check_box
+        # )
         widget_layout.addWidget(self.staged_for_removal_table)
         widget_layout.addWidget(self.removed_scans_table)
         widget_layout.addWidget(drop_projections_button)
+        
+        widget_layout.addWidget(self.projection_removal_slider)
+        widget_layout.addWidget(self.mark_for_removal_check_box) # temp location
         # format list widget style
         widget_group_box = QGroupBox("Projections Staged for Removal")
         widget_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
@@ -255,7 +263,7 @@ class ProjectionViewer(MultiThreadedWidget):
 
     def update_mark_for_removal_check_box(self):
         "Update the scan removal checkbox as the scan index changes"
-        scans_in_list = get_strings_from_list_widget(self.staged_for_removal_table)
+        scans_in_list = get_strings_from_table_widget(self.staged_for_removal_table)
         is_checked = str(self.array_viewer.slider.value()) in scans_in_list
         self.mark_for_removal_check_box.setChecked(is_checked)
 
@@ -354,6 +362,9 @@ class ProjectionViewer(MultiThreadedWidget):
 
     def start(self):
         self.show()
+
+# class ScanRemovalTool(QWidget):
+    # def __init__(self, p)
 
 
 class AllShiftsViewer(MultiThreadedWidget):
