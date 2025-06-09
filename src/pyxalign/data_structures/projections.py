@@ -688,8 +688,14 @@ class Projections:
             h5_obj.close()
         print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
 
-    def launch_viewer(self, options: Optional[ProjectionViewerOptions] = None):
-        self.gui = launch_projection_viewer(self, options, enable_dropping=True)
+    def launch_viewer(
+        self,
+        options: Optional[ProjectionViewerOptions] = None,
+        wait_until_closed: Optional[bool] = False,
+    ):
+        self.gui = launch_projection_viewer(
+            self, options, enable_dropping=True, wait_until_closed=wait_until_closed
+        )
 
 
 class ComplexProjections(Projections):

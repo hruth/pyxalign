@@ -20,10 +20,13 @@ def launch_projection_viewer(
     projections: "p.Projections",
     options: Optional[ProjectionViewerOptions] = None,
     enable_dropping: bool = True,
+    wait_until_closed: bool = False,
 ) -> ProjectionViewer:
     app = QApplication.instance() or QApplication([])
     gui = ProjectionViewer(projections, options, enable_dropping=enable_dropping)
     gui.show()
+    if wait_until_closed:
+        app.exec_()
     return gui
 
 
