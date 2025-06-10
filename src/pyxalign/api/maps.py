@@ -65,7 +65,7 @@ def get_process_func_by_enum(key: Union[None, ProcessFunc]) -> Callable:
     return {
         ProcessFunc.ANGLE: np.angle,
         ProcessFunc.ABS: np.abs,
-        None: lambda x: x,
+        ProcessFunc.NONE: lambda x: x,
     }[key]
 
 # Functions with enum outputs

@@ -1,7 +1,7 @@
 import sys
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import fields, is_dataclass
 from enum import Enum
-from typing import Optional, Tuple, Union, TypeVar, get_origin, get_args
+from typing import Optional, Union, TypeVar, get_origin, get_args
 import cupy as cp
 
 import pyxalign.api.options as opts
@@ -29,6 +29,25 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 
 OptionsClass = TypeVar("OptionsClass")
+
+
+class NoScrollSpinBox(QSpinBox):
+    def wheelEvent(self, event):
+        event.ignore()  # Prevent changing value on scroll
+
+
+class NoScrollDoubleSpinBox(QDoubleSpinBox):
+    def wheelEvent(self, event):
+        event.ignore()  # Prevent changing value on scroll
+
+
+class MinimalDecimalSpinBox(NoScrollDoubleSpinBox):
+    def textFromValue(self, value):
+        # Format to suppress trailing zeros, but respect min/max decimals
+        text = f"{value:.10f}".rstrip("0").rstrip(".")
+        if text == "-0":  # Optional: fix "-0" to "0"
+            text = "0"
+        return text
 
 
 class CollapsiblePanel(QWidget):
@@ -61,7 +80,7 @@ class CollapsiblePanel(QWidget):
         self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        # main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.toggle_button)
         main_layout.addWidget(self.content_area)
 
@@ -106,6 +125,9 @@ class DataclassEditor(QWidget):
         # Container widget that will hold the form
         scroll_widget = QWidget()
         self.form_layout = QFormLayout()
+        self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        print(self.form_layout.verticalSpacing())
         scroll_widget.setLayout(self.form_layout)
 
         # Put that container inside the scroll area
@@ -165,7 +187,6 @@ class DataclassEditor(QWidget):
         Create an appropriate widget for the field type, connect signals to keep
         data_obj[field_name] updated in real time.
         """
-        # hbox = QHBoxLayout(self)
         # Handle booleans
         if self._is_bool_type(field_type):
             cb = QCheckBox()
@@ -181,7 +202,7 @@ class DataclassEditor(QWidget):
                 print(f"[Warning] Field '{field_name}' (int) has value {field_value} => forcing 0.")
                 field_value = 0
 
-            spin = QSpinBox()
+            spin = NoScrollSpinBox()
             spin.setRange(-999999, 999999)
             spin.setValue(field_value)
             spin.valueChanged.connect(lambda val, o=data_obj, fn=field_name: setattr(o, fn, val))
@@ -190,9 +211,10 @@ class DataclassEditor(QWidget):
 
         # Handle floats
         elif self._is_float_type(field_type):
-            dspin = QDoubleSpinBox()
+            # dspin = QDoubleSpinBox()
+            dspin = MinimalDecimalSpinBox()
             dspin.setRange(-999999.0, 999999.0)
-            dspin.setDecimals(6)
+            dspin.setDecimals(20)
             if isinstance(field_value, float):
                 dspin.setValue(field_value)
             else:
@@ -242,12 +264,15 @@ class DataclassEditor(QWidget):
                 new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
                 setattr(data_obj, field_name, tuple(new_indices))
 
-            n_boxes, box_labels = self.get_n_boxes_and_labels(data_obj, field_name)
+            n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
+                data_obj, field_name
+            )
 
             if n_boxes is not None:
                 for i in range(n_boxes):
                     cb = QCheckBox(box_labels[i])
-                    cb.setChecked(box_labels[i] in active_indices)
+                    # cb.setChecked(i in active_indices)
+                    cb.setChecked(corresponding_values[i] in active_indices)
                     cb.toggled.connect(update_tuple)
                     checkboxes.append(cb)
                     checkbox_layout.addWidget(cb)
@@ -364,7 +389,7 @@ class DataclassEditor(QWidget):
 
     def get_n_boxes_and_labels(
         self, data_obj: OptionsClass, field_name: str
-    ) -> tuple[int, list[str]]:
+    ) -> tuple[int, list[str], list[Union[int, float]]]:
         gpu_list_field_names = [
             "gpu_indices",
             "back_project_gpu_indices",
@@ -373,6 +398,7 @@ class DataclassEditor(QWidget):
         if field_name in gpu_list_field_names:
             n_boxes = cp.cuda.runtime.getDeviceCount()
             box_labels = [str(i) for i in range(n_boxes)]
+            corresponding_values = [i for i in range(n_boxes)]
         elif (
             hasattr(opts, "ProjectionMatchingOptions")
             and isinstance(data_obj, opts.ProjectionMatchingOptions)
@@ -380,10 +406,12 @@ class DataclassEditor(QWidget):
         ):
             n_boxes = 2
             box_labels = ["x", "y"]
+            corresponding_values = [i + 1 for i in range(n_boxes)]
         else:
             n_boxes = None
             box_labels = None
-        return n_boxes, box_labels
+            corresponding_values = None
+        return n_boxes, box_labels, corresponding_values
 
 
 def string_to_tuple(input_str: str) -> tuple[int]:
@@ -404,6 +432,16 @@ if __name__ == "__main__":
 
     editor = DataclassEditor(config_instance)
     editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
+
+    # Use the left half of the screen
+    screen_geometry = app.desktop().availableGeometry(editor)
+    editor.setGeometry(
+        screen_geometry.x(),
+        screen_geometry.y(),
+        int(screen_geometry.width() / 2),
+        int(screen_geometry.height() * 0.9),
+    )
+
     editor.show()
 
     sys.exit(app.exec_())

@@ -71,7 +71,7 @@ class StepMomentum:
 
     memory: int = 2
 
-    alpha: float = 2
+    alpha: float = 2.0
 
     gain: float = 0.5
 
