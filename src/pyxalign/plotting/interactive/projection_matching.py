@@ -59,11 +59,11 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
         self.signals.update_plots.connect(self.update_plots)
         self.signals.update_plots_finished.connect(self.wakeup)
 
+        # use these to pause the main thread from the PMA thread
         self.mutex = QMutex()
         self.wait_cond = QWaitCondition()
 
     def wakeup(self):
-        # pass
         self.wait_cond.wakeAll()
 
     def stop_alignment_thread(self):

@@ -13,7 +13,7 @@ class GPUOptions:
 
     n_gpus: int = 1
 
-    gpu_indices: Sequence[int] = (0,)
+    gpu_indices: tuple[int] = (0,)
     """The GPU indices to use for computation. If empty, use whatever GPUs are available in order."""
 
 
