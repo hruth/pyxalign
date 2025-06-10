@@ -68,26 +68,31 @@ class PMAMasterWidget(MultiThreadedWidget):
 
     def generate_start_and_stop_buttons(self):
         self.button_widget = QWidget(self)
-        button_layout = QGridLayout()
+        # button_layout = QGridLayout()
+        button_layout = QHBoxLayout()
         self.button_widget.setLayout(button_layout)
 
         self.start_sequence_button = QPushButton("Start Alignment Sequence")
         self.stop_alignment_button = QPushButton("Stop Current Alignment")
-        self.stop_sequence_button = QPushButton("Stop Sequence")
+        self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
+
+        self.start_sequence_button.pressed.connect(self.start_alignment)
 
         self.start_sequence_button.setStyleSheet("QPushButton { background-color: green;}")
         self.stop_alignment_button.setStyleSheet("QPushButton { background-color: red;}")
         self.stop_sequence_button.setStyleSheet("QPushButton { background-color: red;}")
 
-        self.start_sequence_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-
-        button_layout.addWidget(self.start_sequence_button, 0, 0)
-        button_layout.addWidget(self.stop_alignment_button, 0, 1)
-        button_layout.addWidget(self.stop_sequence_button, 1, 1)
+        button_layout.addWidget(self.start_sequence_button)
+        button_layout.addWidget(self.stop_alignment_button)
+        button_layout.addWidget(self.stop_sequence_button)
+        button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
 
         self.button_widget.setStyleSheet(
-            "QPushButton { font-weight: bold; font-size: 11pt; color: white;}"
+            "QPushButton { font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
         )
+
+    def start_alignment(self):
+        self.task.get_projection_matching_shift()
 
     def generate_options_selection_widget(self):
         self.options_editor = BasicOptionsEditor(self.task.options.projection_matching)
@@ -106,6 +111,7 @@ if __name__ == "__main__":
     dummy_task = load.load_task(
         "/gpfs/dfnt1/test/hruth/pyxalign_ci_test_data/dummy_inputs/cSAXS_e18044_LamNI_201907_16x_downsampled_pre_pma_task.h5"
     )
+    dummy_task.options.projection_matching.iterations = 50
     app = QApplication(sys.argv)
     master_widget = PMAMasterWidget(dummy_task)
 
