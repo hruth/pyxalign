@@ -138,12 +138,6 @@ class BasicOptionsEditor(QWidget):
         # Populate the form
         self._add_dataclass_fields(data, self.form_layout)
 
-        # Optionally add a button box for OK/Cancel at the bottom
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.accepted.connect(self.on_ok)
-        button_box.rejected.connect(self.on_cancel)
-        main_layout.addWidget(button_box)
-
         # Optionally, set a default window size for the editor
         self.resize(600, 400)
 
@@ -197,7 +191,10 @@ class BasicOptionsEditor(QWidget):
 
         # Handle ints
         elif self._is_int_type(field_type):
-            if not isinstance(field_value, int):
+            # ensure the value is in the proper type
+            try:
+                field_value = int(field_value)
+            except Exception as e:
                 # fallback or log
                 print(f"[Warning] Field '{field_name}' (int) has value {field_value} => forcing 0.")
                 field_value = 0
@@ -206,24 +203,24 @@ class BasicOptionsEditor(QWidget):
             spin.setRange(-999999, 999999)
             spin.setValue(field_value)
             spin.valueChanged.connect(lambda val, o=data_obj, fn=field_name: setattr(o, fn, val))
-            # return spin
             input_widget = spin
 
         # Handle floats
         elif self._is_float_type(field_type):
-            # dspin = QDoubleSpinBox()
+            try:
+                field_value = float(field_value)
+            except Exception as e:
+                # fallback or log
+                print(
+                    f"[Warning] Field '{field_name}' (float) has value {field_value} => forcing 0."
+                )
+                field_value = 0.0
+
             dspin = MinimalDecimalSpinBox()
+            dspin.setValue(field_value)
             dspin.setRange(-999999.0, 999999.0)
             dspin.setDecimals(20)
-            if isinstance(field_value, float):
-                dspin.setValue(field_value)
-            else:
-                print(
-                    f"[Warning] Field '{field_name}' (float) has value {field_value} => forcing 0.0"
-                )
-                dspin.setValue(0.0)
             dspin.valueChanged.connect(lambda val, o=data_obj, fn=field_name: setattr(o, fn, val))
-            # return dspin
             input_widget = dspin
 
         # Handle Enums
@@ -242,13 +239,11 @@ class BasicOptionsEditor(QWidget):
                 setattr(o, fn, chosen_enum_member)
 
             combo.currentIndexChanged.connect(on_combo_changed)
-            # return combo
             input_widget = combo
 
         # Handle tuple of int
         elif self._is_tuple_of_int(field_type):
             container = QWidget()
-            # hbox = QHBoxLayout()
             checkbox_layout = QHBoxLayout()
             container.setLayout(checkbox_layout)
             container.setContentsMargins(0, 0, 0, 0)
@@ -295,11 +290,7 @@ class BasicOptionsEditor(QWidget):
             line = QLineEdit()
             line.setText(str(field_value) if field_value is not None else "")
             line.textChanged.connect(lambda txt, o=data_obj, fn=field_name: setattr(o, fn, txt))
-            # return line
             input_widget = line
-
-        # layout = QHBoxLayout(self)
-        # input_widget.setLayout()
 
         formatted_widget = QWidget()
         hbox = QHBoxLayout()
@@ -310,12 +301,6 @@ class BasicOptionsEditor(QWidget):
 
         # return input_widget
         return formatted_widget
-
-    def on_ok(self):
-        self.close()
-
-    def on_cancel(self):
-        self.close()
 
     ########################################################################
     # Helper methods for type checking
