@@ -18,8 +18,11 @@ from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.io.save import save_generic_data_structure_to_h5
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
-from pyxalign.plotting.interactive.task import TaskViewer
 from pyxalign.timing.timer_utils import clear_timer_globals
+
+# from pyxalign.plotting.interactive.task import TaskViewer # causes circular imports
+import pyxalign.plotting.interactive.task as task_viewer
+import pyxalign.interactions.pma_runner as pma_runner
 
 
 class LaminographyAlignmentTask:
@@ -150,7 +153,7 @@ class LaminographyAlignmentTask:
 
     def launch_viewer(self) -> QApplication:
         app = QApplication.instance() or QApplication([])
-        self.gui = TaskViewer(self)
+        self.gui = task_viewer.TaskViewer(self)
         self.gui.show()
         return app
 

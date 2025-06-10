@@ -104,13 +104,13 @@ class CollapsiblePanel(QWidget):
         self.content_area.setLayout(content_layout)
 
 
-class DataclassEditor(QWidget):
+class BasicOptionsEditor(QWidget):
     """
     A widget that displays a GUI for editing a (nested) dataclass instance.
     Updates to widgets immediately update the fields in the dataclass.
     """
 
-    def __init__(self, data, parent=None):
+    def __init__(self, data: OptionsClass, parent=None):
         super().__init__(parent)
         self._data = data  # The root dataclass instance
 
@@ -430,7 +430,7 @@ if __name__ == "__main__":
     # Use your own dataclass or any nested structure from opts
     config_instance = opts.ProjectionMatchingOptions()
 
-    editor = DataclassEditor(config_instance)
+    editor = BasicOptionsEditor(config_instance)
     editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
 
     # Use the left half of the screen
