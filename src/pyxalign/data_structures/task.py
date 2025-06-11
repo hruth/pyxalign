@@ -91,9 +91,6 @@ class LaminographyAlignmentTask:
         else:
             self.pma_gui_list += [self.pma_object.gui]
 
-        # launch a window here that lets you pick settings?
-        # pma_options_selector = OptionsSelector(self.projection_matching.options)
-
         # run the pma algorithm
         self.pma_object, shift = run_projection_matching(
             self.phase_projections, initial_shift, self.options.projection_matching

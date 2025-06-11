@@ -104,7 +104,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         )
 
     def generate_sequencer(self):
-        self.sequence_table = SequencerWidget(self)
+        self.sequence_table = SequencerWidget(self.task.options.projection_matching, parent=self)
 
     def make_first_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)

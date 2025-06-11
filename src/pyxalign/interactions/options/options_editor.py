@@ -1,7 +1,7 @@
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from typing import Optional, Union, TypeVar, get_origin, get_args
+from typing import Optional, Union, TypeVar, get_origin, get_args, Any
 import cupy as cp
 import numpy as np
 import pyxalign.api.options as opts
@@ -80,7 +80,6 @@ class CollapsiblePanel(QWidget):
         self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         main_layout = QVBoxLayout(self)
-        # main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.toggle_button)
         main_layout.addWidget(self.content_area)
 
@@ -90,7 +89,7 @@ class CollapsiblePanel(QWidget):
         if self.toggle_button.isChecked():
             # Expand
             self.toggle_button.setArrowType(Qt.DownArrow)
-            self.content_area.setMaximumHeight(16777215)  # effectively "no limit"
+            self.content_area.setMaximumHeight(16777215)  # effectively no limit
         else:
             # Collapse
             self.toggle_button.setArrowType(Qt.RightArrow)
@@ -104,214 +103,169 @@ class CollapsiblePanel(QWidget):
         self.content_area.setLayout(content_layout)
 
 
-class BasicOptionsEditor(QWidget):
+def string_to_tuple(input_str: str) -> tuple[int]:
     """
-    A widget that displays a GUI for editing a (nested) dataclass instance.
-    Updates to widgets immediately update the fields in the dataclass.
+    Convert a string representation of a tuple (e.g., "(1,2,3)")
+    into an actual Python tuple of integers (1, 2, 3).
+    """
+    stripped_str = input_str.strip().strip("()")
+    elements = stripped_str.split(",")
+    return tuple(int(x) for x in elements if x.strip() != "")
+
+
+class SingleOptionEditor(QWidget):
+    """
+    A widget for editing a single field in the parent dataclass.
+    It determines the field type, creates an appropriate editor,
+    and updates the parent dataclass field value whenever changes occur.
     """
 
     def __init__(
-        self, data: OptionsClass, skip_fields: list[str], parent=None
+        self, data_obj, field_name: str, skip_fields: Optional[list[str]] = None, parent=None
     ):
+        """
+        :param data_obj: Parent dataclass instance (the 'options' object).
+        :param field_name: Name of the field to edit.
+        :param skip_fields: List of fully qualified field names to skip.
+        :param parent: Optional parent QWidget.
+        """
         super().__init__(parent)
-        self._data = data  # The root dataclass instance
+        self.data_obj = data_obj
+        self.field_name = field_name
         self.skip_fields = skip_fields
 
-        # Top-level layout
-        main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
+        # Find the field's declared type (from the dataclass fields)
+        self.field_type = None
+        for f in fields(type(data_obj)):
+            if f.name == field_name:
+                self.field_type = f.type
+                break
 
-        # Create a QScrollArea so that form expansions do not resize the window
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
+        # If we couldn't find a declared field type, fall back to value-based
+        if not self.field_type:
+            self.field_type = type(getattr(data_obj, field_name, None))
 
-        # Container widget that will hold the form
-        scroll_widget = QWidget()
-        self.form_layout = QFormLayout()
-        self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        scroll_widget.setLayout(self.form_layout)
+        # Main layout for this widget
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
 
-        # Put that container inside the scroll area
-        scroll_area.setWidget(scroll_widget)
+        # Build and add the core input widget
+        input_widget = self._create_editor_widget()
+        layout.addWidget(input_widget)
 
-        main_layout.addWidget(scroll_area)
+        # Add a spacer to push the input widget to the left
+        layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-        # Populate the form
-        self._add_dataclass_fields(data, self.form_layout)
+    def value(self) -> Any:
+        return getattr(self.data_obj, self.field_name)
 
-        # Optionally, set a default window size for the editor
-        self.resize(600, 400)
-
-    def _add_dataclass_fields(self, data_obj: OptionsClass, form_layout: QFormLayout, parent_name: str = ""):
-        """Add editors for each field of the given dataclass object into form_layout."""
-        if not is_dataclass(data_obj):
-            return  # Not a dataclass, do nothing
-
-        for f in fields(data_obj):
-            field_name = f.name
-            field_type = f.type
-            field_value = getattr(data_obj, field_name)
-
-            full_field_name = parent_name + field_name
-            print(full_field_name)
-
-            if self._check_if_skipped_field(full_field_name):
-                continue
-
-            # If this is a nested dataclass, create a collapsible panel
-            if is_dataclass(field_value):
-                panel = CollapsiblePanel(title=field_name)
-                # Use a QFormLayout for nested fields as well
-                nested_layout = QFormLayout()
-                panel.setContentLayout(nested_layout)
-
-                # Recursively add items to nested_layout
-                self._add_dataclass_fields(field_value, nested_layout, parent_name + field_name + ".")
-                # Insert the collapsible panel as a row in the form
-                form_layout.addRow(field_name, panel)
-                # By default, the panel is collapsed
-                continue
-
-            # Otherwise, make a row for this field
-            editor = self._create_editor_widget(data_obj, field_name, field_type, field_value)
-            label = QLabel(field_name)
-            form_layout.addRow(label, editor)
-
-    def _check_if_skipped_field(self, current_full_field_name: str) -> bool:
-        return current_full_field_name in self.skip_fields
-
-    def _create_editor_widget(
-        self,
-        data_obj,
-        field_name: str,
-        field_type: type,
-        field_value: Union[tuple, int, float, Enum, OptionsClass],
-    ) -> QWidget:
+    def _create_editor_widget(self) -> QWidget:
         """
-        Create an appropriate widget for the field type, connect signals to keep
-        data_obj[field_name] updated in real time.
+        Creates and returns the actual input widget for this single field
+        based on the type of the field.
         """
+        field_value = getattr(self.data_obj, self.field_name, None)
+
         # Handle booleans
-        if self._is_bool_type(field_type):
+        if self._is_bool_type(self.field_type):
             cb = QCheckBox()
             cb.setChecked(bool(field_value))
-            cb.toggled.connect(lambda checked, o=data_obj, fn=field_name: setattr(o, fn, checked))
-            # return cb
-            input_widget = cb
+            cb.toggled.connect(lambda checked: setattr(self.data_obj, self.field_name, checked))
+            return cb
 
         # Handle ints
-        elif self._is_int_type(field_type):
-            # ensure the value is in the proper type
-            try:
-                field_value = int(field_value)
-            except Exception as e:
-                # fallback or log
-                print(f"[Warning] Field '{field_name}' (int) has value {field_value} => forcing 0.")
-                field_value = 0
-
+        elif self._is_int_type(self.field_type):
             spin = NoScrollSpinBox()
             spin.setRange(-999999, 999999)
-            spin.setValue(field_value)
-            spin.valueChanged.connect(lambda val, o=data_obj, fn=field_name: setattr(o, fn, val))
-            input_widget = spin
+            try:
+                spin.setValue(int(field_value))
+            except (ValueError, TypeError):
+                spin.setValue(0)
+            spin.valueChanged.connect(lambda val: setattr(self.data_obj, self.field_name, val))
+            return spin
 
         # Handle floats
-        elif self._is_float_type(field_type):
-            try:
-                field_value = float(field_value)
-            except Exception as e:
-                # fallback or log
-                print(
-                    f"[Warning] Field '{field_name}' (float) has value {field_value} => forcing 0."
-                )
-                field_value = 0.0
-
+        elif self._is_float_type(self.field_type):
             dspin = MinimalDecimalSpinBox()
-            dspin.setValue(field_value)
             dspin.setRange(-999999.0, 999999.0)
             dspin.setDecimals(20)
-            dspin.valueChanged.connect(lambda val, o=data_obj, fn=field_name: setattr(o, fn, val))
-            input_widget = dspin
+            try:
+                dspin.setValue(float(field_value))
+            except (ValueError, TypeError):
+                dspin.setValue(0.0)
+            dspin.valueChanged.connect(lambda val: setattr(self.data_obj, self.field_name, val))
+            return dspin
 
         # Handle Enums
-        elif self._is_enum_type(field_type):
+        elif self._is_enum_type(self.field_type):
             combo = QComboBox()
-            enum_cls = self._extract_enum_class(field_type)
+            enum_cls = self._extract_enum_class(self.field_type)
             current_index = 0
             for i, e_val in enumerate(enum_cls):
                 combo.addItem(e_val.value, e_val)
                 if field_value == e_val:
                     current_index = i
             combo.setCurrentIndex(current_index)
-
-            def on_combo_changed(idx, o=data_obj, fn=field_name, c=combo):
-                chosen_enum_member = c.itemData(idx)
-                setattr(o, fn, chosen_enum_member)
-
-            combo.currentIndexChanged.connect(on_combo_changed)
-            input_widget = combo
+            combo.currentIndexChanged.connect(
+                lambda idx: setattr(self.data_obj, self.field_name, combo.itemData(idx))
+            )
+            return combo
 
         # Handle tuple of int
-        elif self._is_tuple_of_int(field_type):
-            container = QWidget()
-            checkbox_layout = QHBoxLayout()
-            container.setLayout(checkbox_layout)
-            container.setContentsMargins(0, 0, 0, 0)
+        elif self._is_tuple_of_int(self.field_type):
+            return self._create_tuple_of_int_widget(field_value)
 
-            if isinstance(field_value, tuple):
-                active_indices = set(field_value)
-            else:
-                active_indices = set()
-
-            checkboxes = []
-
-            def update_tuple():
-                new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
-                setattr(data_obj, field_name, tuple(new_indices))
-
-            n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
-                data_obj, field_name
-            )
-
-            if n_boxes is not None:
-                for i in range(n_boxes):
-                    cb = QCheckBox(box_labels[i])
-                    # cb.setChecked(i in active_indices)
-                    cb.setChecked(corresponding_values[i] in active_indices)
-                    cb.toggled.connect(update_tuple)
-                    checkboxes.append(cb)
-                    checkbox_layout.addWidget(cb)
-                # hbox.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
-            else:
-                # Fallback: let user type a string => parse as tuple
-                line = QLineEdit()
-                line.setText(str(field_value) if field_value is not None else "")
-                line.textChanged.connect(
-                    lambda txt, o=data_obj, fn=field_name: setattr(o, fn, string_to_tuple(txt))
-                )
-                checkbox_layout.addWidget(line)
-
-            # return container
-            input_widget = container
-
-        # Otherwise, handle everything else as a string
+        # Otherwise, treat as string
         else:
-            print(f"WARNING: {field_name} being handled as string")
+            line = QLineEdit()
+            if field_value is not None:
+                line.setText(str(field_value))
+            line.textChanged.connect(lambda txt: setattr(self.data_obj, self.field_name, txt))
+            return line
+
+    def _create_tuple_of_int_widget(self, field_value):
+        """
+        Creates a widget of checkboxes for a tuple of ints (e.g., GPU device indices).
+        If the number of boxes can't be determined, it reverts to a freeform string.
+        """
+        container = QWidget()
+        checkbox_layout = QHBoxLayout()
+        container.setLayout(checkbox_layout)
+        container.setContentsMargins(0, 0, 0, 0)
+
+        if isinstance(field_value, tuple):
+            active_indices = set(field_value)
+        else:
+            active_indices = set()
+
+        checkboxes = []
+
+        def update_tuple():
+            new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
+            setattr(self.data_obj, self.field_name, tuple(new_indices))
+
+        n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
+            self.data_obj, self.field_name
+        )
+
+        if n_boxes is not None:
+            for i in range(n_boxes):
+                cb = QCheckBox(box_labels[i])
+                cb.setChecked(corresponding_values[i] in active_indices)
+                cb.toggled.connect(update_tuple)
+                checkboxes.append(cb)
+                checkbox_layout.addWidget(cb)
+        else:
+            # Fallback: let user type a string => parse as tuple
             line = QLineEdit()
             line.setText(str(field_value) if field_value is not None else "")
-            line.textChanged.connect(lambda txt, o=data_obj, fn=field_name: setattr(o, fn, txt))
-            input_widget = line
+            line.textChanged.connect(
+                lambda txt: setattr(self.data_obj, self.field_name, string_to_tuple(txt))
+            )
+            checkbox_layout.addWidget(line)
 
-        formatted_widget = QWidget()
-        hbox = QHBoxLayout()
-        formatted_widget.setLayout(hbox)
-        hbox.addWidget(input_widget)
-        # input_widget.setLayout(hbox)
-        hbox.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
-
-        # return input_widget
-        return formatted_widget
+        return container
 
     ########################################################################
     # Helper methods for type checking
@@ -331,7 +285,6 @@ class BasicOptionsEditor(QWidget):
             return True
         if get_origin(t) is Union:
             args = get_args(t)
-            # e.g., Union[int, NoneType] => Optional[int]
             if len(args) == 2 and int in args and type(None) in args:
                 return True
         return False
@@ -385,7 +338,11 @@ class BasicOptionsEditor(QWidget):
 
     def get_n_boxes_and_labels(
         self, data_obj: OptionsClass, field_name: str
-    ) -> tuple[int, list[str], list[Union[int, float]]]:
+    ) -> tuple[Optional[int], Optional[list[str]], Optional[list[int]]]:
+        """
+        Determines if we can display a fixed number of checkboxes
+        for the current field. Returns (n_boxes, box_labels, corresponding_values).
+        """
         gpu_list_field_names = [
             "gpu_indices",
             "back_project_gpu_indices",
@@ -402,22 +359,90 @@ class BasicOptionsEditor(QWidget):
         ):
             n_boxes = 2
             box_labels = ["x", "y"]
+            # For "filter_directions", the values are 1 for x and 2 for y
             corresponding_values = [i + 1 for i in range(n_boxes)]
         else:
             n_boxes = None
             box_labels = None
             corresponding_values = None
+
         return n_boxes, box_labels, corresponding_values
 
 
-def string_to_tuple(input_str: str) -> tuple[int]:
+class BasicOptionsEditor(QWidget):
     """
-    Convert a string representation of a tuple (e.g., "(1,2,3)")
-    into an actual Python tuple of integers (1, 2, 3).
+    A widget that displays a GUI for editing a (nested) dataclass instance.
+    Updates to widgets immediately update the fields in the dataclass.
     """
-    stripped_str = input_str.strip().strip("()")
-    elements = stripped_str.split(",")
-    return tuple(int(x) for x in elements if x.strip() != "")
+
+    def __init__(self, data: OptionsClass, skip_fields: list[str], parent=None):
+        super().__init__(parent)
+        self._data = data  # The root dataclass instance
+        self.skip_fields = skip_fields
+
+        # Top-level layout
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+
+        # Create a QScrollArea so that form expansions do not resize the window
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        # Container widget that will hold the form
+        scroll_widget = QWidget()
+        self.form_layout = QFormLayout()
+        self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        scroll_widget.setLayout(self.form_layout)
+
+        # Put that container inside the scroll area
+        scroll_area.setWidget(scroll_widget)
+        main_layout.addWidget(scroll_area)
+
+        # Populate the form
+        self._add_dataclass_fields(data, self.form_layout)
+
+        # Optionally, set a default window size for the editor
+        self.resize(600, 400)
+
+    def _add_dataclass_fields(
+        self, data_obj: OptionsClass, form_layout: QFormLayout, parent_name: str = ""
+    ):
+        """Add editors for each field of the given dataclass object into form_layout."""
+        if not is_dataclass(data_obj):
+            return  # Not a dataclass, do nothing
+
+        for f in fields(data_obj):
+            field_name = f.name
+            field_value = getattr(data_obj, field_name)
+
+            full_field_name = parent_name + field_name
+            print(full_field_name)
+
+            # Skip fields if instructed
+            if self._check_if_skipped_field(full_field_name):
+                continue
+
+            # If this is a nested dataclass, create a collapsible panel
+            if is_dataclass(field_value):
+                panel = CollapsiblePanel(title=field_name)
+                nested_layout = QFormLayout()
+                panel.setContentLayout(nested_layout)
+
+                # Recursively add items to nested_layout
+                self._add_dataclass_fields(
+                    field_value, nested_layout, parent_name + field_name + "."
+                )
+                form_layout.addRow(field_name, panel)
+                continue
+
+            # Otherwise, make a row for this field by adding a SingleOptionEditor
+            label = QLabel(field_name)
+            editor = SingleOptionEditor(data_obj, field_name, self.skip_fields, self)
+            form_layout.addRow(label, editor)
+
+    def _check_if_skipped_field(self, current_full_field_name: str) -> bool:
+        return current_full_field_name in self.skip_fields
 
 
 if __name__ == "__main__":
@@ -426,8 +451,9 @@ if __name__ == "__main__":
     # Use your own dataclass or any nested structure from opts
     config_instance = opts.ProjectionMatchingOptions()
 
-    # editor = BasicOptionsEditor(config_instance, skip_fields=[(opts.DeviceOptions, "gpu")])
-    editor = BasicOptionsEditor(config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"])
+    editor = BasicOptionsEditor(
+        config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
+    )
     editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
 
     # Use the left half of the screen
@@ -440,5 +466,4 @@ if __name__ == "__main__":
     )
 
     editor.show()
-
     sys.exit(app.exec_())
