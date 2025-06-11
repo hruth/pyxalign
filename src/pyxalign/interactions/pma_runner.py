@@ -6,6 +6,7 @@ import cupy as cp
 from pyxalign.api.options.task import AlignmentTaskOptions
 
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
+from pyxalign.interactions.sequencer import SequencerWidget
 
 # from pyxalign.io.load import load_task
 import pyxalign.io.load as load
@@ -33,6 +34,7 @@ from PyQt5.QtWidgets import (
     QSpacerItem,
     QTabWidget,
     QGridLayout,
+    QTableWidget,
 )
 from PyQt5.QtCore import Qt
 
@@ -64,6 +66,7 @@ class PMAMasterWidget(MultiThreadedWidget):
 
         self.generate_start_and_stop_buttons()
         self.generate_options_selection_widget()
+        self.generate_sequencer()
         self.make_first_tab_layout(tabs)
 
     def generate_start_and_stop_buttons(self):
@@ -72,7 +75,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         button_layout = QHBoxLayout()
         self.button_widget.setLayout(button_layout)
 
-        self.start_sequence_button = QPushButton("Start Alignment Sequence")
+        self.start_sequence_button = QPushButton("Start Alignment")
         self.stop_alignment_button = QPushButton("Stop Current Alignment")
         self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
 
@@ -92,17 +95,31 @@ class PMAMasterWidget(MultiThreadedWidget):
         )
 
     def start_alignment(self):
+        # add in sequence!!
         self.task.get_projection_matching_shift()
 
     def generate_options_selection_widget(self):
-        self.options_editor = BasicOptionsEditor(self.task.options.projection_matching)
+        self.options_editor = BasicOptionsEditor(
+            self.task.options.projection_matching, skip_fields=["plot"]
+        )
+
+    def generate_sequencer(self):
+        self.sequence_table = SequencerWidget(self)
 
     def make_first_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
-        layout = QVBoxLayout()
-        alignment_setup_widget.setLayout(layout)
-        layout.addWidget(self.options_editor)
-        layout.addWidget(self.button_widget)
+
+        v_layout = QVBoxLayout()
+        # alignment_setup_widget.setLayout(v_layout)
+        v_layout.addWidget(self.options_editor)
+        v_layout.addWidget(self.button_widget)
+
+        h_layout = QHBoxLayout()
+        h_layout.addLayout(v_layout)
+        h_layout.addWidget(self.sequence_table)
+
+        alignment_setup_widget.setLayout(h_layout)
+
         tabs.addTab(alignment_setup_widget, "Options")
 
 
@@ -111,7 +128,7 @@ if __name__ == "__main__":
     dummy_task = load.load_task(
         "/gpfs/dfnt1/test/hruth/pyxalign_ci_test_data/dummy_inputs/cSAXS_e18044_LamNI_201907_16x_downsampled_pre_pma_task.h5"
     )
-    dummy_task.options.projection_matching.iterations = 50
+    dummy_task.options.projection_matching.iterations = 21
     app = QApplication(sys.argv)
     master_widget = PMAMasterWidget(dummy_task)
 
@@ -120,7 +137,7 @@ if __name__ == "__main__":
     master_widget.setGeometry(
         screen_geometry.x(),
         screen_geometry.y(),
-        int(screen_geometry.width() / 2),
+        int(screen_geometry.width() * .75),
         int(screen_geometry.height() * 0.9),
     )
 

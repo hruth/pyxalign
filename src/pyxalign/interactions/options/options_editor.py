@@ -3,7 +3,7 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 from typing import Optional, Union, TypeVar, get_origin, get_args
 import cupy as cp
-
+import numpy as np
 import pyxalign.api.options as opts
 
 from PyQt5.QtWidgets import (
@@ -110,9 +110,12 @@ class BasicOptionsEditor(QWidget):
     Updates to widgets immediately update the fields in the dataclass.
     """
 
-    def __init__(self, data: OptionsClass, parent=None):
+    def __init__(
+        self, data: OptionsClass, skip_fields: list[str], parent=None
+    ):
         super().__init__(parent)
         self._data = data  # The root dataclass instance
+        self.skip_fields = skip_fields
 
         # Top-level layout
         main_layout = QVBoxLayout()
@@ -127,7 +130,6 @@ class BasicOptionsEditor(QWidget):
         self.form_layout = QFormLayout()
         self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        print(self.form_layout.verticalSpacing())
         scroll_widget.setLayout(self.form_layout)
 
         # Put that container inside the scroll area
@@ -141,7 +143,7 @@ class BasicOptionsEditor(QWidget):
         # Optionally, set a default window size for the editor
         self.resize(600, 400)
 
-    def _add_dataclass_fields(self, data_obj: OptionsClass, form_layout: QFormLayout):
+    def _add_dataclass_fields(self, data_obj: OptionsClass, form_layout: QFormLayout, parent_name: str = ""):
         """Add editors for each field of the given dataclass object into form_layout."""
         if not is_dataclass(data_obj):
             return  # Not a dataclass, do nothing
@@ -151,6 +153,12 @@ class BasicOptionsEditor(QWidget):
             field_type = f.type
             field_value = getattr(data_obj, field_name)
 
+            full_field_name = parent_name + field_name
+            print(full_field_name)
+
+            if self._check_if_skipped_field(full_field_name):
+                continue
+
             # If this is a nested dataclass, create a collapsible panel
             if is_dataclass(field_value):
                 panel = CollapsiblePanel(title=field_name)
@@ -159,7 +167,7 @@ class BasicOptionsEditor(QWidget):
                 panel.setContentLayout(nested_layout)
 
                 # Recursively add items to nested_layout
-                self._add_dataclass_fields(field_value, nested_layout)
+                self._add_dataclass_fields(field_value, nested_layout, parent_name + field_name + ".")
                 # Insert the collapsible panel as a row in the form
                 form_layout.addRow(field_name, panel)
                 # By default, the panel is collapsed
@@ -169,6 +177,9 @@ class BasicOptionsEditor(QWidget):
             editor = self._create_editor_widget(data_obj, field_name, field_type, field_value)
             label = QLabel(field_name)
             form_layout.addRow(label, editor)
+
+    def _check_if_skipped_field(self, current_full_field_name: str) -> bool:
+        return current_full_field_name in self.skip_fields
 
     def _create_editor_widget(
         self,
@@ -415,7 +426,8 @@ if __name__ == "__main__":
     # Use your own dataclass or any nested structure from opts
     config_instance = opts.ProjectionMatchingOptions()
 
-    editor = BasicOptionsEditor(config_instance)
+    # editor = BasicOptionsEditor(config_instance, skip_fields=[(opts.DeviceOptions, "gpu")])
+    editor = BasicOptionsEditor(config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"])
     editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
 
     # Use the left half of the screen
