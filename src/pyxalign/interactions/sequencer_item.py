@@ -1,9 +1,10 @@
 import sys
 import dataclasses
 from dataclasses import dataclass, fields
-from typing import Any
+from typing import Any, Optional, TypeVar
 import matplotlib
 import copy
+import time
 import pyxalign.api.options as opts
 
 from PyQt5.QtWidgets import (
@@ -14,12 +15,19 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QLabel,
     QFrame,
-    QCheckBox
+    QCheckBox,
+    QSizePolicy,
 )
 from PyQt5.QtCore import Qt
 
-from pyxalign.interactions.options.options_editor import SingleOptionEditor
+from pyxalign.interactions.options.options_editor import OptionsClass, SingleOptionEditor
 
+T = TypeVar("T")
+
+
+class NoScrollComboBox(QComboBox):
+    def wheelEvent(self, event):
+        event.ignore()  # Prevent changing value on scroll
 
 class SequencerItem(QWidget):
     """
@@ -28,10 +36,11 @@ class SequencerItem(QWidget):
     contains further nested dataclasses.
     """
 
-    def __init__(self, options):
+    def __init__(self, options, initial_state: Optional[tuple[str, T, bool]] = None):
         super().__init__()
-        self.data = copy.deepcopy(options)
+        self.options = copy.deepcopy(options)
         self.options_editor = None
+        self.run_alignment_after_checkbox = None
 
         # Top-level layout for this widget
         self.main_layout = QVBoxLayout()
@@ -52,21 +61,49 @@ class SequencerItem(QWidget):
         # We keep track of each "level" of selection:
         # - A combo box for the dataclass attributes
         # - The corresponding dataclass instance or "leaf" value
-        self.combo_boxes = []  # [(QComboBox, associated_object), ...]
+        self.combo_boxes: list[
+            (NoScrollComboBox, OptionsClass)
+        ] = []  # [(QComboBox, associated_object), ...]
 
         # Create the initial combo box for the top-level dataclass
-        self.add_combo_box(self.data)
-
-        # self.selected_label = QLabel("Selected Path: (None)")
-        # self.frame_layout.addWidget(self.selected_label)
+        self.add_combo_box(self.options)
 
         self.selection_layout = QHBoxLayout()
         self.selected_label = QLabel("")
         self.selection_layout.addWidget(self.selected_label)
         self.frame_layout.addLayout(self.selection_layout)
 
-    def value(self) -> Any:
-        return self.options_editor.value()
+        if initial_state is not None:
+            initial_field = initial_state[0]
+            initial_value = initial_state[1]
+            checkbox_state = initial_state[2]
+
+            field_list = initial_field.split(".")
+            for i, field in enumerate(field_list):
+                if i == len(field_list) - 1 and initial_value is not None:
+                    # update options to duplicated value
+                    parent_options = self.combo_boxes[i][1]
+                    setattr(parent_options, field, initial_value)
+                self.combo_boxes[i][0].setCurrentText(field)
+                time.sleep(0.1)
+            if self.run_alignment_after_checkbox is not None:
+                self.run_alignment_after_checkbox.setChecked(checkbox_state)
+
+
+    def value(self) -> T:
+        if self.options_editor is not None:
+            return self.options_editor.value()
+        else:
+            return None
+
+    def full_field_path(self) -> str:
+        return self.selected_label.text()
+
+    def checkbox_state(self) -> bool:
+        if self.run_alignment_after_checkbox is not None:
+            return self.run_alignment_after_checkbox.isChecked()
+        else:
+            return None
 
     def on_combo_box_changed(self):
         """
@@ -105,15 +142,16 @@ class SequencerItem(QWidget):
         self.options_editor = SingleOptionEditor(copy.deepcopy(parent_obj), attr_name, parent=self)
         self.selection_layout.addWidget(self.options_editor)
         # Add checkbox indicating if you want to run the algo after selection or not
-        self.run_alignment_after_checkbox = QCheckBox("Run alignment after value change: ", self)
-        self.frame_layout.addWidget(self.run_alignment_after_checkbox)
+        self.run_alignment_after_checkbox = QCheckBox("Run alignment after value change:", self)
+        self.run_alignment_after_checkbox.setLayoutDirection(Qt.RightToLeft)
+        self.selection_layout.addWidget(self.run_alignment_after_checkbox)
 
     def add_combo_box(self, obj):
         """
         Adds a new combo box for the provided dataclass object,
         allowing selection of its fields/attributes.
         """
-        combo_box = QComboBox()
+        combo_box = NoScrollComboBox()
         combo_box.setEditable(False)
 
         # Insert a placeholder entry so the drop-down appears empty initially
@@ -122,11 +160,16 @@ class SequencerItem(QWidget):
         for f in fields(obj):
             combo_box.addItem(f.name)
 
-        # Keep track of this combo in our list, along with the associated object
+        # Keep track of this combo in our list, along with the associated objects
+
         self.combo_boxes.append((combo_box, obj))
         combo_box.currentIndexChanged.connect(self.on_combo_box_changed)
 
+        # turn off mouse wheel scrolling
+
+
         # Insert in the frame layout
+        combo_box.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         self.frame_layout.insertWidget(len(self.combo_boxes) - 1, combo_box)
         self.adjustSize()
 
@@ -143,10 +186,15 @@ class SequencerItem(QWidget):
             cb.deleteLater()
 
         if self.options_editor is not None:
+            # remove options editor
             self.frame_layout.removeWidget(self.options_editor)
             self.options_editor.deleteLater()
             self.options_editor.setParent(None)
             self.options_editor = None
+            # remove checkbox
+            self.run_alignment_after_checkbox.deleteLater()
+            self.run_alignment_after_checkbox.setParent(None)
+            self.run_alignment_after_checkbox = None
 
     def update_selected_label(self, ignore_tail=False) -> str:
         """
@@ -156,7 +204,7 @@ class SequencerItem(QWidget):
         properly selected field, ignoring placeholder selections in deeper combos.
         """
         path_parts = []
-        current_obj = self.data
+        current_obj = self.options
 
         for combo_box, obj in self.combo_boxes:
             idx = combo_box.currentIndex()

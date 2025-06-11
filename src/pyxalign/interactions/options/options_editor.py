@@ -234,10 +234,7 @@ class SingleOptionEditor(QWidget):
         container.setLayout(checkbox_layout)
         container.setContentsMargins(0, 0, 0, 0)
 
-        if isinstance(field_value, tuple):
-            active_indices = set(field_value)
-        else:
-            active_indices = set()
+        active_indices = set(field_value)
 
         checkboxes = []
 

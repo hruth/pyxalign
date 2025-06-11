@@ -16,7 +16,7 @@ class AlignmentOptions(ABC):
 
 
 @dataclasses.dataclass
-class CrossCorrelationOptions(AlignmentOptions):
+class CrossCorrelationOptions:
     iterations: int = 100
 
     binning: int = 4
@@ -95,12 +95,30 @@ class InteractiveViewerOptions:
 
 
 @dataclasses.dataclass
-class ProjectionMatchingOptions(AlignmentOptions):
+class ProjectionMatchingOptions:
+    device: DeviceOptions = field(default_factory=DeviceOptions)
+
+    keep_on_gpu: bool = False
+
+    interactive_viewer: InteractiveViewerOptions = field(default_factory=InteractiveViewerOptions)
+
     iterations: int = 300
+
+    downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
+
+    crop: CropOptions = field(default_factory=CropOptions)
 
     high_pass_filter: float = 0.005
 
-    tukey_shape_parameter: float = 0.2
+    step_relax: float = 0.1
+
+    min_step_size: float = 0.01
+
+    regularization: RegularizationOptions = field(default_factory=RegularizationOptions)
+
+    refine_geometry: RefineGeometryOptions = field(default_factory=RefineGeometryOptions)
+
+    momentum: StepMomentum = field(default_factory=StepMomentum)
 
     reconstruction_mask: ReconstructionMaskOptions = field(
         default_factory=ReconstructionMaskOptions
@@ -108,23 +126,11 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     secondary_mask: SecondaryMaskOptions = field(default_factory=SecondaryMaskOptions)
 
-    step_relax: float = 0.1
-
-    min_step_size: float = 0.01
-
-    max_step_size: float = 0.5
-
-    regularization: RegularizationOptions = field(default_factory=RegularizationOptions)
-
-    keep_on_gpu: bool = False
-
-    device: DeviceOptions = field(default_factory=DeviceOptions)
-
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
 
-    crop: CropOptions = field(default_factory=CropOptions)
+    tukey_shape_parameter: float = 0.2
 
-    downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
+    max_step_size: float = 0.5
 
     projection_shift_type: enums.ShiftType = enums.ShiftType.FFT
 
@@ -132,10 +138,4 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     filter_directions: tuple[int] = (2,)
 
-    momentum: StepMomentum = field(default_factory=StepMomentum)
-
     plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
-
-    refine_geometry: RefineGeometryOptions = field(default_factory=RefineGeometryOptions)
-
-    interactive_viewer: InteractiveViewerOptions = field(default_factory=InteractiveViewerOptions)

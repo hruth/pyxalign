@@ -49,7 +49,7 @@ class SequencerWidget(QWidget):
         self.add_sequencer_button.pressed.connect(self.add_new_sequencer)
 
         self.copy_sequencer_button = QPushButton("Duplicate Last Sequence")
-        self.copy_sequencer_button.pressed.connect(self.add_new_sequencer)
+        self.copy_sequencer_button.pressed.connect(self.duplicate_last_sequence)
 
         self.remove_sequencer_button = QPushButton("Delete Last Sequence")
         self.remove_sequencer_button.pressed.connect(self.remove_last_sequence)
@@ -57,11 +57,20 @@ class SequencerWidget(QWidget):
         self.main_layout.addWidget(scroll_area)
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.add_sequencer_button)
+        button_layout.addWidget(self.copy_sequencer_button)
         button_layout.addWidget(self.remove_sequencer_button)
         self.main_layout.addLayout(button_layout)
 
     def add_new_sequencer(self):
         new_item = SequencerItem(self.options)
+        self.sequencer_items += [new_item]
+        self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
+    
+    def duplicate_last_sequence(self):
+        initial_field = self.sequencer_items[-1].full_field_path()
+        initial_value = self.sequencer_items[-1].value()
+        checkbox_state = self.sequencer_items[-1].checkbox_state()
+        new_item = SequencerItem(self.options, initial_state=(initial_field, initial_value, checkbox_state))
         self.sequencer_items += [new_item]
         self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
 
