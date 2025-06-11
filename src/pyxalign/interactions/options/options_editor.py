@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import (
     QLayout,
     QScrollArea,
     QSpacerItem,
+    QFrame,
 )
 from PyQt5.QtCore import Qt
 
@@ -77,7 +78,6 @@ class CollapsiblePanel(QWidget):
 
         self.content_area = QWidget()
         self.content_area.setMaximumHeight(0)  # fully collapse
-        self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(self.toggle_button)
@@ -121,7 +121,11 @@ class SingleOptionEditor(QWidget):
     """
 
     def __init__(
-        self, data_obj, field_name: str, skip_fields: Optional[list[str]] = None, parent=None
+        self,
+        data_obj,
+        field_name: str,
+        skip_fields: Optional[list[str]] = None,
+        parent=None,
     ):
         """
         :param data_obj: Parent dataclass instance (the 'options' object).
@@ -388,6 +392,8 @@ class BasicOptionsEditor(QWidget):
         # Container widget that will hold the form
         scroll_widget = QWidget()
         self.form_layout = QFormLayout()
+        self.form_layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
+        scroll_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         scroll_widget.setLayout(self.form_layout)
@@ -396,6 +402,7 @@ class BasicOptionsEditor(QWidget):
         scroll_area.setWidget(scroll_widget)
         title = QLabel("Options Editor")
         title.setStyleSheet("QLabel {font-size: 16px;}")
+
         main_layout.addWidget(title)
         main_layout.addWidget(scroll_area)
 
@@ -403,10 +410,14 @@ class BasicOptionsEditor(QWidget):
         self._add_dataclass_fields(data, self.form_layout)
 
         # Optionally, set a default window size for the editor
-        self.resize(600, 400)
+        # self.resize(600, 400)
 
     def _add_dataclass_fields(
-        self, data_obj: OptionsClass, form_layout: QFormLayout, parent_name: str = ""
+        self,
+        data_obj: OptionsClass,
+        form_layout: QFormLayout,
+        parent_name: str = "",
+        level: int = 0,
     ):
         """Add editors for each field of the given dataclass object into form_layout."""
         if not is_dataclass(data_obj):
@@ -431,15 +442,39 @@ class BasicOptionsEditor(QWidget):
 
                 # Recursively add items to nested_layout
                 self._add_dataclass_fields(
-                    field_value, nested_layout, parent_name + field_name + "."
+                    field_value,
+                    nested_layout,
+                    parent_name=parent_name + field_name + ".",
+                    level=level + 1,
                 )
-                form_layout.addRow(field_name, panel)
+
+                if level == 0:
+                    form_layout.addRow(field_name, self.wrap_in_frame(panel))
+                else:
+                    form_layout.addRow(field_name, panel)
                 continue
 
             # Otherwise, make a row for this field by adding a SingleOptionEditor
-            label = QLabel(field_name)
             editor = SingleOptionEditor(data_obj, field_name, self.skip_fields, self)
-            form_layout.addRow(label, editor)
+            if level == 0:
+                form_layout.addRow(field_name, self.wrap_in_frame(editor))
+            else:
+                form_layout.addRow(field_name, editor)
+
+    def wrap_in_frame(self, widget: QWidget) -> QFrame:
+        # Create a frame to wrap the panel
+        frame = QFrame()
+        # frame.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        frame.setFrameShape(QFrame.Panel)
+        frame.setLineWidth(1)  # optional: adjust thickness
+        frame.setMidLineWidth(0)  # optional
+        frame.setStyleSheet("QFrame { background-color:lightGray; border:lightGray}")
+
+        # Add the panel to the frame's layout
+        frame_layout = QVBoxLayout(frame)
+        frame_layout.setContentsMargins(4, 4, 4, 4)  # optional: remove padding
+        frame_layout.addWidget(widget)
+        return frame
 
     def _check_if_skipped_field(self, current_full_field_name: str) -> bool:
         return current_full_field_name in self.skip_fields
@@ -469,24 +504,24 @@ def set_option_from_field_path(options: OptionsClass, field_path: str, value: An
 
 
 if __name__ == "__main__":
-    p = opts.ProjectionMatchingOptions()
-    set_option_from_field_path(p, "device.gpu.gpu_indices", (1, 2, 4))
-    print(p)
-    print("\n")
-    print(p.device)
+    # p = opts.ProjectionMatchingOptions()
+    # set_option_from_field_path(p, "device.gpu.gpu_indices", (1, 2, 4))
+    # print(p)
+    # print("\n")
+    # print(p.device)
 
-    # app = QApplication(sys.argv)
+    app = QApplication(sys.argv)
 
-    # # Use your own dataclass or any nested structure from opts
-    # config_instance = opts.ProjectionMatchingOptions()
+    # Use your own dataclass or any nested structure from opts
+    config_instance = opts.ProjectionMatchingOptions()
 
-    # editor = BasicOptionsEditor(
-    #     config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
-    # )
-    # editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
+    editor = BasicOptionsEditor(
+        config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
+    )
+    editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
 
-    # # Use the left half of the screen
-    # screen_geometry = app.desktop().availableGeometry(editor)
+    # Use the left half of the screen
+    screen_geometry = app.desktop().availableGeometry(editor)
     # editor.setGeometry(
     #     screen_geometry.x(),
     #     screen_geometry.y(),
@@ -494,5 +529,5 @@ if __name__ == "__main__":
     #     int(screen_geometry.height() * 0.9),
     # )
 
-    # editor.show()
-    # sys.exit(app.exec_())
+    editor.show()
+    sys.exit(app.exec_())

@@ -51,7 +51,7 @@ class SequencerItem(QWidget):
         self.frame.setFrameShape(QFrame.Box)
         self.frame.setFrameShadow(QFrame.Plain)
         self.frame.setLineWidth(1)
-        self.frame.setStyleSheet("QFrame { background-color:#c2d1c9; border:#c2d1c9}")
+        self.frame.setStyleSheet("QFrame { background-color:lightGray; border:lightGray}")
         self.main_layout.addWidget(self.frame)
 
         # A layout that goes inside the frame
