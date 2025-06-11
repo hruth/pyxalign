@@ -1,5 +1,6 @@
 import sys
 import matplotlib
+import copy
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
@@ -18,12 +19,13 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
+from pyxalign.interactions.options.options_editor import OptionsClass, set_option_from_field_path
 
 from pyxalign.interactions.sequencer_item import SequencerItem
 
 
 class SequencerWidget(QWidget):
-    def __init__(self, options, parent=None):
+    def __init__(self, options: OptionsClass, parent=None):
         super().__init__(parent)
         self.options = options
 
@@ -54,6 +56,9 @@ class SequencerWidget(QWidget):
         self.remove_sequencer_button = QPushButton("Delete Last Sequence")
         self.remove_sequencer_button.pressed.connect(self.remove_last_sequence)
 
+        sequencer_title = QLabel("Options Sequencer")
+        sequencer_title.setStyleSheet("QLabel {font-size: 16px;}")
+        self.main_layout.addWidget(sequencer_title)
         self.main_layout.addWidget(scroll_area)
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.add_sequencer_button)
@@ -79,6 +84,21 @@ class SequencerWidget(QWidget):
             self.sequencer_items[-1].deleteLater()
             self.sequencer_items = self.sequencer_items[:-1]
 
+    def generate_options_sequence(self, options: OptionsClass) -> list[OptionsClass]:
+        options_sequence: list[OptionsClass] = []
+        options_item = copy.deepcopy(options)
+        for item in self.sequencer_items:
+            if item.value() is None:
+                continue
+            options_item = set_option_from_field_path(
+                copy.deepcopy(options_item), item.full_field_path(), item.value()
+            )
+            if item.checkbox_state():
+                options_sequence += [options_item]
+        if len(options_sequence) == 0:
+            options_sequence += [options_item]
+
+        return options_sequence
 
 # For demonstration purposes only:
 if __name__ == "__main__":

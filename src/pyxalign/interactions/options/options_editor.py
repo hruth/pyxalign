@@ -394,6 +394,9 @@ class BasicOptionsEditor(QWidget):
 
         # Put that container inside the scroll area
         scroll_area.setWidget(scroll_widget)
+        title = QLabel("Options Editor")
+        title.setStyleSheet("QLabel {font-size: 16px;}")
+        main_layout.addWidget(title)
         main_layout.addWidget(scroll_area)
 
         # Populate the form
@@ -442,25 +445,54 @@ class BasicOptionsEditor(QWidget):
         return current_full_field_name in self.skip_fields
 
 
+def return_parent_option(options: OptionsClass, field_path: str) -> OptionsClass:
+    field_names = field_path.split(".")
+    current_item = options
+    for i, name in enumerate(field_names):
+        if i == len(field_names) - 1:
+            return current_item
+        current_item = getattr(current_item, name)
+
+
+def get_option_from_field_path(options: OptionsClass, field_path: str) -> Any:
+    parent_options = return_parent_option(options, field_path)
+    field_name = field_path.split(".")[-1]
+    return getattr(parent_options, field_name)
+
+
+def set_option_from_field_path(options: OptionsClass, field_path: str, value: Any) -> OptionsClass:
+    parent_options = return_parent_option(options, field_path)
+    field_name = field_path.split(".")[-1]
+    setattr(parent_options, field_name, value)
+    # return parent_options
+    return options
+
+
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    p = opts.ProjectionMatchingOptions()
+    set_option_from_field_path(p, "device.gpu.gpu_indices", (1, 2, 4))
+    print(p)
+    print("\n")
+    print(p.device)
 
-    # Use your own dataclass or any nested structure from opts
-    config_instance = opts.ProjectionMatchingOptions()
+    # app = QApplication(sys.argv)
 
-    editor = BasicOptionsEditor(
-        config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
-    )
-    editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
+    # # Use your own dataclass or any nested structure from opts
+    # config_instance = opts.ProjectionMatchingOptions()
 
-    # Use the left half of the screen
-    screen_geometry = app.desktop().availableGeometry(editor)
-    editor.setGeometry(
-        screen_geometry.x(),
-        screen_geometry.y(),
-        int(screen_geometry.width() / 2),
-        int(screen_geometry.height() * 0.9),
-    )
+    # editor = BasicOptionsEditor(
+    #     config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
+    # )
+    # editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
 
-    editor.show()
-    sys.exit(app.exec_())
+    # # Use the left half of the screen
+    # screen_geometry = app.desktop().availableGeometry(editor)
+    # editor.setGeometry(
+    #     screen_geometry.x(),
+    #     screen_geometry.y(),
+    #     int(screen_geometry.width() / 2),
+    #     int(screen_geometry.height() * 0.9),
+    # )
+
+    # editor.show()
+    # sys.exit(app.exec_())

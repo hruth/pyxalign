@@ -35,6 +35,7 @@ from PyQt5.QtWidgets import (
     QTabWidget,
     QGridLayout,
     QTableWidget,
+    QTabBar,
 )
 from PyQt5.QtCore import Qt
 
@@ -60,6 +61,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.task = task
 
         tabs = QTabWidget()
+        tabs.setStyleSheet("QTabBar{font-size: 20px;}")
         layout = QHBoxLayout()
         layout.addWidget(tabs)
         self.setLayout(layout)
@@ -71,7 +73,6 @@ class PMAMasterWidget(MultiThreadedWidget):
 
     def generate_start_and_stop_buttons(self):
         self.button_widget = QWidget(self)
-        # button_layout = QGridLayout()
         button_layout = QHBoxLayout()
         self.button_widget.setLayout(button_layout)
 
@@ -79,7 +80,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.stop_alignment_button = QPushButton("Stop Current Alignment")
         self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
 
-        self.start_sequence_button.pressed.connect(self.start_alignment)
+        self.start_sequence_button.pressed.connect(self.start_alignment_sequence)
 
         self.start_sequence_button.setStyleSheet("QPushButton { background-color: green;}")
         self.stop_alignment_button.setStyleSheet("QPushButton { background-color: red;}")
@@ -94,9 +95,13 @@ class PMAMasterWidget(MultiThreadedWidget):
             "QPushButton { font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
         )
 
-    def start_alignment(self):
-        # add in sequence!!
-        self.task.get_projection_matching_shift()
+    def start_alignment_sequence(self):
+        options_sequence = self.sequencer.generate_options_sequence(
+            self.task.options.projection_matching
+        )
+        shift = None
+        for options in options_sequence:
+            shift = self.task.get_projection_matching_shift(initial_shift=shift, options=options)
 
     def generate_options_selection_widget(self):
         self.options_editor = BasicOptionsEditor(
@@ -104,22 +109,17 @@ class PMAMasterWidget(MultiThreadedWidget):
         )
 
     def generate_sequencer(self):
-        self.sequence_table = SequencerWidget(self.task.options.projection_matching, parent=self)
+        self.sequencer = SequencerWidget(self.task.options.projection_matching, parent=self)
 
     def make_first_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
 
-        v_layout = QVBoxLayout()
-        # alignment_setup_widget.setLayout(v_layout)
-        v_layout.addWidget(self.options_editor)
-        v_layout.addWidget(self.button_widget)
+        layout = QGridLayout()
+        layout.addWidget(self.options_editor, 0, 0)
+        layout.addWidget(self.sequencer, 0, 1)
+        layout.addWidget(self.button_widget, 1, 0, 1, 2)
 
-        h_layout = QHBoxLayout()
-        h_layout.addLayout(v_layout)
-        h_layout.addWidget(self.sequence_table)
-
-        alignment_setup_widget.setLayout(h_layout)
-
+        alignment_setup_widget.setLayout(layout)
         tabs.addTab(alignment_setup_widget, "Options")
 
 
