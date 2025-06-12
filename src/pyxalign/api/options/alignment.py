@@ -94,6 +94,10 @@ class InteractiveViewerOptions:
     )
 
 
+def downsample_factory_for_estimate_center_options() -> DownsampleOptions:
+    return DownsampleOptions(enabled=True)
+
+
 @dataclasses.dataclass
 class ProjectionMatchingOptions:
     device: DeviceOptions = field(default_factory=DeviceOptions)
@@ -104,7 +108,9 @@ class ProjectionMatchingOptions:
 
     iterations: int = 300
 
-    downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
+    downsample: DownsampleOptions = field(
+        default_factory=downsample_factory_for_estimate_center_options
+    )
 
     crop: CropOptions = field(default_factory=CropOptions)
 

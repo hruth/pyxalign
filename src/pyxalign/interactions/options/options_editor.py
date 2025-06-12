@@ -428,7 +428,6 @@ class BasicOptionsEditor(QWidget):
             field_value = getattr(data_obj, field_name)
 
             full_field_name = parent_name + field_name
-            print(full_field_name)
 
             # Skip fields if instructed
             if self._check_if_skipped_field(full_field_name):
