@@ -166,13 +166,11 @@ def load_experiment(
         use_sequence=options.base.selected_sequences,
     )
     # Get paths to all existing projection files for the given scan numbers
-    selected_experiment.get_projections_folders_and_file_names()
+    selected_experiment.get_projections_folders_and_file_names(options.base.file_pattern)
     # Extract the unique file string for all projection files, and filter
     # out the ones that don't match user specified inputs
     selected_experiment.get_matching_ptycho_file_strings(
-        options.base.only_include_files_with,
-        options.base.exclude_files_with,
-        options.base.file_pattern,
+        options.base.only_include_files_with, options.base.exclude_files_with
     )
     selected_experiment.select_projections(
         options.base.selected_ptycho_strings, options.base.ask_for_backup_files

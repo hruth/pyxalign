@@ -12,6 +12,7 @@ from pyxalign.io.loaders.utils import (
     load_h5_group,
     parallel_load_all_projections,
 )
+from pathlib import Path
 from pyxalign.timing.timer_utils import timer
 
 
@@ -86,14 +87,14 @@ class BaseLoader(ABC):
         return len(self.scan_numbers)
 
     @timer()
-    def get_projections_folders_and_file_names(self):
+    def get_projections_folders_and_file_names(self, pattern: str):
         """
         Generate the folder path for all projections and get a list of
         the files in that folder.
         """
         print("Collecting ptychography reconstruction folder names...")
         for scan_number in tqdm(self.scan_numbers):
-        # for scan_number in self.scan_numbers:
+            # for scan_number in self.scan_numbers:
             # get relative path for this scan's ptycho results folder
             # (typically something like "S0123")
             proj_relative_folder_path = self.get_projection_sub_folder(scan_number)
@@ -102,7 +103,7 @@ class BaseLoader(ABC):
                 self.parent_projections_folder, proj_relative_folder_path
             )
             # get full paths to all existing projection files for current scan number
-            self.record_projection_path_and_files(projection_folder, scan_number)
+            self.record_projection_path_and_files(projection_folder, scan_number, pattern)
         print(
             f"{len(self.projection_folders)} scans have one or more projection files.",
             flush=True,
@@ -141,14 +142,15 @@ class BaseLoader(ABC):
         self,
         only_include_files_with: Optional[list[str]] = None,
         exclude_files_with: Optional[list[str]] = None,
-        pattern: Optional[str] = None,
     ):
-        # make list of relative paths (wrt projection scan folder) of filenames 
+        # make list of relative paths (wrt projection scan folder) of filenames
         file_list = np.concatenate(list(self.available_projection_files.values())).ravel()
-        self.unique_ptycho_file_strings = list(set([filter_string(file_string) for file_string in file_list]))
+        self.unique_ptycho_file_strings = list(
+            set([filter_string(file_string) for file_string in file_list])
+        )
         # Remove data that doesn't fit specified conditions
         self.unique_ptycho_file_strings = self.filter_file_list(
-            only_include_files_with, exclude_files_with, pattern
+            only_include_files_with, exclude_files_with
         )
         # Count occurences for that ptycho file string
         self.unique_ptycho_file_string_count = {}
@@ -159,16 +161,12 @@ class BaseLoader(ABC):
 
     @timer()
     def filter_file_list(
-        self,
-        only_include_files_with: list[str],
-        exclude_files_with: list[str],
-        pattern: Optional[str] = None,
+        self, only_include_files_with: list[str], exclude_files_with: list[str]
     ) -> list[str]:
         """
         Remove files that do not meet the following conditions:
         1) file string is not in `only_include_files_with`
         2) file string is in `exclude_files_with`
-        3) file string does not match `pattern`
         """
         if only_include_files_with is None:
             only_include_files_with = []
@@ -178,11 +176,7 @@ class BaseLoader(ABC):
         for file_string in self.unique_ptycho_file_strings:
             in_include = np.all([x in file_string for x in only_include_files_with])
             not_in_exclude = np.all([x not in file_string for x in exclude_files_with])
-            if pattern is not None:
-                matches_pattern = re.search(pattern, file_string) is not None
-            else:
-                matches_pattern = True
-            if in_include and not_in_exclude and matches_pattern:
+            if in_include and not_in_exclude:
                 filtered_list += [file_string]
         return filtered_list
 
@@ -321,6 +315,6 @@ def filter_string(input_string: str) -> str:
     result = pattern.sub("", input_string)
     # Remove the specific string "recons.h5"
     # result = result.replace("_recons.h5", "")
-    result = result.replace(".h5", "")
+    # result = result.replace(".h5", "")
     # Return the cleaned string, stripping extra whitespace
     return result.strip()
