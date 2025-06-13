@@ -51,6 +51,8 @@ class BaseLoadOptions:
     file_pattern: str = None
     "pattern used by re to identify matching folder strings"
 
+    select_all_by_default: bool = False
+
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):
             print("No loading options provided.", flush=True)

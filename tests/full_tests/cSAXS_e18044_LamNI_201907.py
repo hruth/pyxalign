@@ -73,6 +73,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             # selected_ptycho_strings=["512x512_b0_MLc_Niter500_recons.h5"],
             scan_start=2714,
             scan_end=3465,
+            select_all_by_default=True,
         )
         options = LamniLoadOptions(
             dat_file_path=dat_file_path,

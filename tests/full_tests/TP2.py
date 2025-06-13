@@ -66,8 +66,9 @@ def run_full_test_TP2(
             loader_type=LoaderType.LAMNI_V2,
             selected_experiment_name="test_pattern_2",
             selected_sequences=[1, 2, 3, 4, 5, 6, 7],
-            # file_pattern=r"roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat"
-            selected_ptycho_strings=["roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat"],
+            file_pattern=r"roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat",
+            # selected_ptycho_strings=["roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat"],
+            select_all_by_default=True,
         )
         options = LamniLoadOptions(
             dat_file_path=dat_file_path,

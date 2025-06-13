@@ -191,7 +191,9 @@ class BaseLoader(ABC):
         Select which projections to load.
         """
         if selected_ptycho_file_strings is None:
-            self.selected_ptycho_file_strings = self.select_ptycho_file_strings()
+            self.selected_ptycho_file_strings = self.select_ptycho_file_strings(
+                select_all_by_default=select_all_by_default
+            )
         else:
             self.selected_ptycho_file_strings = selected_ptycho_file_strings
         for scan_number in self.projection_folders.keys():
@@ -269,7 +271,9 @@ class BaseLoader(ABC):
             self.projections[scan_number] = File["/reconstruction/object"][:]
 
     @timer()
-    def select_ptycho_file_strings(self, exclude: Optional[list[str]] = None) -> list[str]:
+    def select_ptycho_file_strings(
+        self, exclude: Optional[list[str]] = None, select_all_by_default: bool = False
+    ) -> list[str]:
         if exclude is not None:
             remaining_ptycho_file_string_options = {
                 k: self.unique_ptycho_file_string_count[k]
@@ -287,6 +291,7 @@ class BaseLoader(ABC):
             options_info_type_string="scans",
             allow_multiple_selections=True,
             select_all_info=np.sum(n_scans_per_option),
+            select_all_by_default=select_all_by_default,
         )
         return selected_ptycho_file_strings
 
