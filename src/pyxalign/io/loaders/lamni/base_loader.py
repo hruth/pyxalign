@@ -185,19 +185,20 @@ class BaseLoader(ABC):
         self,
         selected_ptycho_file_strings: Optional[list[str]],
         ask_for_backup_ptycho_file_string: bool,
+        select_all_by_default: bool,
     ):
         """
         Select which projections to load.
         """
         if selected_ptycho_file_strings is None:
-            self.select_ptycho_file_strings = self.select_ptycho_file_strings()
+            self.selected_ptycho_file_strings = self.select_ptycho_file_strings()
         else:
-            self.select_ptycho_file_strings = selected_ptycho_file_strings
+            self.selected_ptycho_file_strings = selected_ptycho_file_strings
         for scan_number in self.projection_folders.keys():
             while True:
                 # Find file strings with matching types
                 proj_file_string = self.find_matching_ptycho_file_strings(
-                    self.select_ptycho_file_strings, self.available_projection_files[scan_number]
+                    self.selected_ptycho_file_strings, self.available_projection_files[scan_number]
                 )
                 if proj_file_string is not None:
                     # get the file path to the reconstruction file
@@ -217,8 +218,8 @@ class BaseLoader(ABC):
                     select_new_ptycho_file_string = get_boolean_user_input(prompt)
                     if select_new_ptycho_file_string:
                         # Select a new ptycho file string to load
-                        self.select_ptycho_file_strings += self.select_ptycho_file_strings(
-                            exclude=self.select_ptycho_file_strings
+                        self.selected_ptycho_file_strings += self.selected_ptycho_file_strings(
+                            exclude=self.selected_ptycho_file_strings
                         )
                     else:
                         print(f"No projections loaded for {scan_number}", flush=True)
