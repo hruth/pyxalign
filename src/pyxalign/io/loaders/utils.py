@@ -138,7 +138,14 @@ def generate_input_user_prompt(
     prepend_option_with: Optional[str] = None,
     use_option: Optional[str] = None,
     select_all_info: Optional[str] = None,
-) -> tuple[int, str]:
+    select_all_by_default: bool = False,
+) -> tuple[Union[int, list[int]], Union[str, list[str]]]:
+    if select_all_by_default:
+        if allow_multiple_selections:
+            return [0], list(options_list)
+        else:
+            return 0, options_list[0]
+
     select_all_string = "select all"
     if select_all_info is None:
         select_all_info = ""

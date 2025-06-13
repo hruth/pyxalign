@@ -166,23 +166,23 @@ def load_experiment(
         use_sequence=options.base.selected_sequences,
     )
     # Get paths to all existing projection files for the given scan numbers
-    selected_experiment.get_projections_folders_and_file_names()
+    selected_experiment.get_projections_folders_and_file_names(options.base.file_pattern)
     # Extract the unique file string for all projection files, and filter
     # out the ones that don't match user specified inputs
     selected_experiment.get_matching_ptycho_file_strings(
-        options.base.only_include_files_with,
-        options.base.exclude_files_with,
-        options.base.file_pattern,
+        options.base.only_include_files_with, options.base.exclude_files_with
     )
     selected_experiment.select_projections(
-        options.base.selected_ptycho_strings, options.base.ask_for_backup_files
+        options.base.selected_ptycho_strings,
+        options.base.ask_for_backup_files,
+        options.base.select_all_by_default,
     )
     # Print data selection settings
     print("Use these settings to bypass user-selection on next load:")
     input_settings_string = (
         f'  selected_experiment_name="{selected_experiment.experiment_name}",\n'
         + f"  selected_sequences={list(np.unique(selected_experiment.sequences))},\n"
-        + f"  selected_ptycho_strings={insert_new_line_between_list(selected_experiment.select_ptycho_file_strings)},\n"
+        + f"  selected_ptycho_strings={insert_new_line_between_list(selected_experiment.selected_ptycho_file_strings)},\n"
     )
     if options.base.scan_start is not None:
         input_settings_string += f"  scan_start={options.base.scan_start},\n"

@@ -2,6 +2,7 @@ from typing import Optional
 import numpy as np
 import os
 import h5py
+from pathlib import Path
 from pyxalign.api.types import c_type
 from pyxalign.io.loaders.lamni.base_loader import BaseLoader
 from pyxalign.io.loaders.lamni.base_loader import generate_single_projection_sub_folder
@@ -9,7 +10,6 @@ from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
 class LamniLoaderVersion1(BaseLoader):
-
     def get_projection_sub_folder(self, scan_number: int):
         return generate_projection_relative_path(
             scan_number,
@@ -18,10 +18,17 @@ class LamniLoaderVersion1(BaseLoader):
         )
 
     @timer()
-    def record_projection_path_and_files(self, folder: str, scan_number: int):
+    def record_projection_path_and_files(self, folder: str, scan_number: int, pattern: str):
         if os.path.exists(folder) and os.listdir(folder) != []:
             self.projection_folders[scan_number] = folder
-            self.available_projection_files[scan_number] = os.listdir(folder)
+            if pattern is not None:
+                full_paths = list(Path(folder).glob(pattern))
+                self.available_projection_files[scan_number] = [
+                    os.path.relpath(path, folder) for path in full_paths
+                ]
+            else:
+                self.projection_folders[scan_number] = folder
+                self.available_projection_files[scan_number] = os.listdir(folder)
 
     @staticmethod
     def load_single_projection(file_path: str) -> np.ndarray:

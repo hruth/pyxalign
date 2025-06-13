@@ -1,3 +1,4 @@
+from typing import Union
 import numpy as np
 import os
 from pyxalign.io.loaders.lamni.base_loader import BaseLoader
@@ -5,6 +6,7 @@ from pyxalign.io.loaders.lamni.base_loader import generate_single_projection_sub
 from pyxalign.timing.timer_utils import timer, InlineTimer
 from pyxalign.io.loaders.utils import count_digits, extract_s_digit_strings
 from abc import ABC
+from pathlib import Path
 
 
 class NestedLoader(BaseLoader, ABC):
@@ -25,9 +27,28 @@ class NestedLoader(BaseLoader, ABC):
         )
 
     @timer()
-    def record_projection_path_and_files(self, folder: str, scan_number: int):
+    def find_paths_with_glob(
+        self, folder: str, scan_number: int, pattern: str
+    ) -> Union[list[str], None]:
+        if os.path.exists(folder):
+            full_paths = list(Path(folder).glob(pattern))
+            return full_paths
+
+    @timer()
+    def record_projection_path_and_files(self, folder: str, scan_number: int, pattern: str):
         """Get full file paths to all existing projection files for the given scan number"""
         # duplicates pearloader
+
+        # If glob pattern is specified, only use that to find files
+        if pattern is not None:
+            full_paths = self.find_paths_with_glob(folder, scan_number, pattern)
+            if full_paths is not None:
+                self.projection_folders[scan_number] = folder
+                self.available_projection_files[scan_number] = [
+                    os.path.relpath(path, folder) for path in full_paths
+                ]
+            return
+
         # Get all existing projection paths
         if os.path.exists(folder) and os.listdir(folder) != []:
             # Record the absolute path to the scan folder containing ptycho results
