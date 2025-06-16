@@ -642,15 +642,15 @@ class Projections:
 
     def save_projections_object(
         self,
-        file_path: Optional[str] = None,
+        save_path: Optional[str] = None,
         h5_obj: Optional[Union[h5py.Group, h5py.File]] = None,
     ):
-        if file_path is None and h5_obj is None:
+        if save_path is None and h5_obj is None:
             raise ValueError("Error: you must pass in either file_path or h5_obj.")
-        elif file_path is not None and h5_obj is not None:
+        elif save_path is not None and h5_obj is not None:
             raise ValueError("Error: you must pass in only file_path OR h5_obj, not both.")
-        elif file_path is not None:
-            h5_obj = h5py.File(file_path, "w")
+        elif save_path is not None:
+            h5_obj = h5py.File(save_path, "w")
 
         # Specify the data to save
         if self.probe_positions is not None:
@@ -686,7 +686,10 @@ class Projections:
 
         if isinstance(h5_obj, h5py.File):
             h5_obj.close()
-        print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
+        if save_path is None:
+            print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
+        else:
+            print(f"projections saved to {save_path}")
 
     def launch_viewer(
         self,
