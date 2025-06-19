@@ -62,12 +62,17 @@ class BaseLoadOptions:
                 if v is not None:
                     print(f"  {k}: {v}", flush=True)
 
-
 @dataclasses.dataclass
 class LamniLoadOptions:
     dat_file_path: str
 
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
+
+    is_tile_scan: bool = False
+
+    selected_tile: Optional[int] = None
+
+    n_tiles: Optional[int] = None
 
 
 @dataclasses.dataclass

@@ -4,6 +4,7 @@ import numpy as np
 import os
 from abc import ABC
 import re
+from scipy import stats
 from tqdm import tqdm
 from pyxalign.io.loaders.utils import (
     border,
@@ -75,6 +76,7 @@ class BaseLoader(ABC):
         self.sequences = sequences
         self.parent_projections_folder = parent_projections_folder
         self.angles = -self.angles
+        self.selected_tile = None
 
         self._post_init()
 
@@ -294,6 +296,20 @@ class BaseLoader(ABC):
             select_all_by_default=select_all_by_default,
         )
         return selected_ptycho_file_strings
+
+    def select_tile(self, selected_tile: int):
+        n_tiles = stats.mode(np.diff(self.scan_numbers)).mode
+        tmp = np.repeat(self.scan_numbers, n_tiles)
+        self.scan_numbers = np.array(
+            [scan - n_tiles + i % n_tiles for i, scan in enumerate(tmp)], dtype=int
+        )
+        self.sequences = np.repeat(self.sequences, n_tiles)
+        self.tile_numbers = np.tile(range(n_tiles), int(len(self.scan_numbers) / n_tiles))
+        keep_idx = self.tile_numbers == selected_tile
+
+        self.scan_numbers = self.scan_numbers[keep_idx]
+        self.sequences = self.sequences[keep_idx]
+        self.tile_numbers = self.tile_numbers[keep_idx]
 
     @staticmethod
     def load_single_projection(self):
