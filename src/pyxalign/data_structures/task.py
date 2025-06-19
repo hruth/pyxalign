@@ -113,16 +113,26 @@ class LaminographyAlignmentTask:
         self.complex_projections.get_masks(enable_plotting)
 
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
-        if (
-            self.phase_projections is not None
-            and gpu_utils.is_pinned(self.phase_projections.data)
-            and pinned_results is not None
-        ):
-            pinned_results = gpu_utils.pin_memory(self.phase_projections.data)
-        elif pinned_results is None:
-            pinned_results = gpu_utils.create_empty_pinned_array(
-                self.complex_projections.data.shape, dtype=r_type
-            )
+        # if (
+        #     self.phase_projections is not None
+        #     and gpu_utils.is_pinned(self.phase_projections.data)
+        #     and pinned_results is None
+        # ):
+        #     pinned_results = gpu_utils.pin_memory(self.phase_projections.data)
+        # elif pinned_results is None:
+        #     pinned_results = gpu_utils.create_empty_pinned_array(
+        #         self.complex_projections.data.shape, dtype=r_type
+        #     )
+        if pinned_results is None:
+            if (
+                self.phase_projections is not None
+                and self.phase_projections.data.shape == self.complex_projections.data.shape
+            ):
+                pinned_results = gpu_utils.pin_memory(self.phase_projections.data)
+            else:
+                pinned_results = gpu_utils.create_empty_pinned_array(
+                    self.complex_projections.data.shape, dtype=r_type
+                )
 
         unwrapped_projections = self.complex_projections.unwrap_phase(pinned_results)
         kwargs = get_kwargs_for_copying_to_new_projections_object(
