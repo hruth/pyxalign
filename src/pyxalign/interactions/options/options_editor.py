@@ -376,7 +376,7 @@ class BasicOptionsEditor(QWidget):
     Updates to widgets immediately update the fields in the dataclass.
     """
 
-    def __init__(self, data: OptionsClass, skip_fields: list[str], parent=None):
+    def __init__(self, data: OptionsClass, skip_fields: list[str]=[], parent=None):
         super().__init__(parent)
         self._data = data  # The root dataclass instance
         self.skip_fields = skip_fields
@@ -395,7 +395,6 @@ class BasicOptionsEditor(QWidget):
         self.form_layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
         scroll_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         scroll_widget.setLayout(self.form_layout)
 
         # Put that container inside the scroll area
