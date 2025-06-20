@@ -11,7 +11,7 @@ from pyxalign.api.types import r_type
 from pyxalign.io.load import load_task
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
-from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LamniLoadOptions
+from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
 import pyxalign.io.loaders
@@ -72,7 +72,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             scan_end=3465,
             select_all_by_default=True,
         )
-        options = LamniLoadOptions(
+        options = LYNXLoadOptions(
             dat_file_path=dat_file_path,
             base=base_load_options,
             selected_sequences=[3, 4, 5],

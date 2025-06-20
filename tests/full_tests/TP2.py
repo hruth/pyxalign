@@ -12,7 +12,7 @@ from pyxalign import gpu_utils
 from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
 import pyxalign.io.loaders
-from pyxalign.io.loaders.lamni.options import LamniLoadOptions, BaseLoadOptions
+from pyxalign.io.loaders.lamni.options import LYNXLoadOptions, BaseLoadOptions
 
 
 def run_full_test_TP2(
@@ -67,7 +67,7 @@ def run_full_test_TP2(
             file_pattern=r"roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat",
             select_all_by_default=True,
         )
-        options = LamniLoadOptions(
+        options = LYNXLoadOptions(
             dat_file_path=dat_file_path,
             base=base_load_options,
             selected_experiment_name="test_pattern_2",

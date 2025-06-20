@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.lamni.base_loader import BaseLoader
-from pyxalign.io.loaders.lamni.options import LamniLoadOptions
+from pyxalign.io.loaders.lamni.options import LYNXLoadOptions
 from pyxalign.io.loaders.lamni.utils import load_experiment
 
 
@@ -10,7 +10,7 @@ from pyxalign.io.loaders.lamni.utils import load_experiment
 def load_data_from_lamni_format(
     parent_projections_folder: str,
     n_processes: int = 1,
-    options: Optional[LamniLoadOptions] = None,
+    options: Optional[LYNXLoadOptions] = None,
     return_loader_object: bool = False,
 ) -> Union[StandardData, tuple[StandardData, BaseLoader]]:
     """
@@ -18,7 +18,7 @@ def load_data_from_lamni_format(
     it in the standardized format.
     """
     if options is None:
-        options = LamniLoadOptions()
+        options = LYNXLoadOptions()
     options.base.print_selections()
     # Load lamni-formatted projection data
     lamni_loader = load_experiment(

@@ -27,7 +27,7 @@ def test_lamni_loader(pytestconfig: Config, overwrite_results=False, check_resul
         overwrite_results = pytestconfig.getoption("overwrite_results")
     test_name = "test_lamni_loader"
 
-    options = pyxalign.io.loaders.lamni.utils.LamniLoadOptions(
+    options = pyxalign.io.loaders.lamni.utils.LYNXLoadOptions(
         selected_experiment_name="",
         selected_sequences=[3],
         selected_ptycho_strings=["512x512_b0_MLc_Niter500_recons"],

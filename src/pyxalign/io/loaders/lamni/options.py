@@ -52,7 +52,7 @@ class BaseLoadOptions:
 
 
 @dataclasses.dataclass
-class LamniLoadOptions:
+class LYNXLoadOptions:
     dat_file_path: str
 
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
