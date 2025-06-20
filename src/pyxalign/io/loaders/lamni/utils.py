@@ -3,10 +3,11 @@ import re
 from typing import Optional, TypeVar, Union
 import pandas as pd
 import numpy as np
+from scipy import stats
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
 from pyxalign.io.loaders.enums import LoaderType
-from pyxalign.io.loaders.lamni.options import LamniLoadOptions, Beamline2IDELoadOptions
+from pyxalign.io.loaders.lamni.options import LYNXLoadOptions, Beamline2IDELoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum
 from pyxalign.io.loaders.utils import generate_input_user_prompt
 from pyxalign.api.types import r_type
@@ -14,7 +15,7 @@ from pyxalign.io.loaders.xrf.utils import get_scan_file_dict
 from pyxalign.timing.timer_utils import timer
 from pyxalign.io.loaders.lamni.base_loader import BaseLoader
 
-T = TypeVar("T", bound=Union[LamniLoadOptions, Beamline2IDELoadOptions])
+T = TypeVar("T", bound=Union[LYNXLoadOptions, Beamline2IDELoadOptions])
 
 
 def get_experiment_subsets(
@@ -49,6 +50,8 @@ def select_experiment_and_sequences(
     loader_type: LoaderType,
     use_experiment_name: Optional[str] = None,
     use_sequence: Optional[str] = None,
+    is_tile_scan: Optional[bool] = False,
+    selected_tile: Optional[int] = None,
 ) -> BaseLoader:
     """
     Select the experiment you want to load.
@@ -66,9 +69,12 @@ def select_experiment_and_sequences(
     )
     selected_experiment = subsets[selected_experiment_name]
 
+    if is_tile_scan:
+        selected_experiment.select_tile(selected_tile)
+
     # Select sequences subset to load
-    # Generate description strings for each option
     unique_sequences = np.unique(selected_experiment.sequences)
+    # Generate description strings for each option
     options_info_list = []
     for i in range(len(unique_sequences)):
         sequence_idx = unique_sequences[i] == selected_experiment.sequences
@@ -90,9 +96,7 @@ def select_experiment_and_sequences(
 
 @timer()
 def extract_info_from_lamni_dat_file(
-    dat_file_path: str,
-    scan_start: Optional[int] = None,
-    scan_end: Optional[int] = None,
+    dat_file_path: str, scan_start: Optional[int] = None, scan_end: Optional[int] = None
 ) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
     """
     Extract scan number, measurement angle, and experiment name from the
@@ -108,7 +112,7 @@ def extract_info_from_lamni_dat_file(
         "experiment_name",
     ]
     dat_file_contents = pd.read_csv(dat_file_path, names=column_names, delimiter=" ", header=None)
-    dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("unlabeled")
+    dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("")
     if scan_start is not None:
         idx = dat_file_contents["scan_number"] > scan_start
         dat_file_contents = dat_file_contents[idx]
@@ -151,10 +155,26 @@ def load_experiment(
     Load an experiment that is saved with the lamni structure.
     """
     scan_numbers, angles, experiment_names, sequences = extract_experiment_info(options)
+    # If there is only one experiment name found, automatically select that one
     if len(np.unique(experiment_names)) == 1:
-        options.base.selected_experiment_name = experiment_names[0]
+        # options.base.selected_experiment_name = experiment_names[0]
+        selected_experiment_name = experiment_names[0]
+    else:
+        selected_experiment_name = options.selected_experiment_name
+    # If there is only one sequence found, automatically select that one
     if len(np.unique(sequences)) == 1:
-        options.base.selected_sequences = [sequences[0]]
+        selected_sequences = [sequences[0]]
+    else:
+        selected_sequences = options.selected_sequences
+        # options.base.selected_sequences = [sequences[0]]
+
+    if isinstance(options, LYNXLoadOptions):
+        is_tile_scan = options.is_tile_scan
+        selected_tile = options.selected_tile
+    else:
+        is_tile_scan = False
+        selected_tile = None
+
     selected_experiment = select_experiment_and_sequences(
         parent_projections_folder,
         scan_numbers,
@@ -162,8 +182,12 @@ def load_experiment(
         experiment_names,
         sequences,
         options.base.loader_type,
-        use_experiment_name=options.base.selected_experiment_name,
-        use_sequence=options.base.selected_sequences,
+        use_experiment_name=selected_experiment_name,
+        use_sequence=selected_sequences,
+        # use_experiment_name=options.base.selected_experiment_name,
+        # use_sequence=options.base.selected_sequences,
+        is_tile_scan=is_tile_scan,
+        selected_tile=selected_tile,
     )
     # Get paths to all existing projection files for the given scan numbers
     selected_experiment.get_projections_folders_and_file_names(options.base.file_pattern)
@@ -213,9 +237,11 @@ def load_experiment(
 
 
 def extract_experiment_info(options: T) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
-    if isinstance(options, LamniLoadOptions):
+    if isinstance(options, LYNXLoadOptions):
         scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
-            options.dat_file_path, options.base.scan_start, options.base.scan_end
+            options.dat_file_path,
+            options.base.scan_start,
+            options.base.scan_end,
         )
     elif isinstance(options, Beamline2IDELoadOptions):
         scan_numbers, angles, experiment_names, sequences = extract_info_from_mda_file(
@@ -297,3 +323,6 @@ def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
 
 def insert_new_line_between_list(list_of_strings: list[str]):
     return "[\n " + ",\n ".join(f'"{item}"' for item in list_of_strings) + "\n]"
+
+
+# def add_tile_scan()

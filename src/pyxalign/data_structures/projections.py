@@ -4,6 +4,7 @@ import copy
 import h5py
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import QApplication
+from pyxalign.alignment.utils import get_center_of_rotation_from_different_resolution_alignment, get_shift_from_different_resolution_alignment
 from pyxalign.api.constants import divisor
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.estimate_center import (
@@ -34,6 +35,7 @@ from pyxalign.api.options.transform import (
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
 from pyxalign.data_structures.volume import Volume
+from pyxalign.io.utils import load_list_of_arrays
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
 from pyxalign.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
@@ -411,7 +413,10 @@ class Projections:
         if isinstance(remove_scans, np.ndarray):
             remove_scans = list(remove_scans)
         keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan not in remove_scans]
-        self.dropped_scan_numbers += remove_scans
+        # self.dropped_scan_numbers += remove_scans
+        self.dropped_scan_numbers += [
+            scan for scan in remove_scans if scan in self.scan_numbers
+        ]
 
         def return_modified_array(arr, repin_array: bool):
             if gpu_utils.is_pinned(self.data) and repin_array:
@@ -642,15 +647,15 @@ class Projections:
 
     def save_projections_object(
         self,
-        file_path: Optional[str] = None,
+        save_path: Optional[str] = None,
         h5_obj: Optional[Union[h5py.Group, h5py.File]] = None,
     ):
-        if file_path is None and h5_obj is None:
+        if save_path is None and h5_obj is None:
             raise ValueError("Error: you must pass in either file_path or h5_obj.")
-        elif file_path is not None and h5_obj is not None:
+        elif save_path is not None and h5_obj is not None:
             raise ValueError("Error: you must pass in only file_path OR h5_obj, not both.")
-        elif file_path is not None:
-            h5_obj = h5py.File(file_path, "w")
+        elif save_path is not None:
+            h5_obj = h5py.File(save_path, "w")
 
         # Specify the data to save
         if self.probe_positions is not None:
@@ -686,7 +691,10 @@ class Projections:
 
         if isinstance(h5_obj, h5py.File):
             h5_obj.close()
-        print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
+        if save_path is None:
+            print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
+        else:
+            print(f"projections saved to {save_path}")
 
     def launch_viewer(
         self,
@@ -696,6 +704,49 @@ class Projections:
         self.gui = launch_projection_viewer(
             self, options, enable_dropping=True, wait_until_closed=wait_until_closed
         )
+
+    def load_and_stage_shift(
+        self,
+        task_file_path: str,
+        staged_function_type: enums.ShiftType = enums.ShiftType.FFT,
+        update_center_of_rotation: bool = True,
+    ):
+        # Load data
+        with h5py.File(task_file_path, "r") as F:
+            if "phase_projections" in F.keys():
+                group = "phase_projections"
+            elif "complex_projections" in F.keys():
+                group = "complex_projections"
+            past_shifts = load_list_of_arrays(F[group], "applied_shifts")
+            reference_scan_numbers = np.array(F[group]["scan_numbers"][()], dtype=int)
+            reference_pixel_size = F[group]["pixel_size"][()]
+            reference_center_of_rotation = F[group]["center_of_rotation"][()]
+            reference_shape = F[group]["data"].shape
+        reference_shift = np.sum(past_shifts, 0).astype(r_type)
+        # get new shift and scan numbers to drop
+        new_scan_numbers, new_shift = get_shift_from_different_resolution_alignment(
+            reference_shift,
+            reference_scan_numbers,
+            reference_pixel_size,
+            self.scan_numbers,
+            self.pixel_size,
+        )
+        # remove scans that were not in reference data
+        remove_scans = [scan for scan in self.scan_numbers if scan not in new_scan_numbers]
+        self.drop_projections(remove_scans) 
+        # stage shift            
+        self.shift_manager.stage_shift(new_shift, staged_function_type)
+        # Update center of rotation
+        if update_center_of_rotation:
+            self.center_of_rotation[:] = get_center_of_rotation_from_different_resolution_alignment(
+                reference_shape=reference_shape[1:],
+                reference_center_of_rotation=reference_center_of_rotation,
+                current_shape=self.data.shape[1:],
+                reference_pixel_size=reference_pixel_size,
+                current_pixel_size=self.pixel_size,
+            )
+
+        return new_shift
 
 
 class ComplexProjections(Projections):

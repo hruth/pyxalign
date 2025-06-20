@@ -97,6 +97,7 @@ class ArrayViewer(MultiThreadedWidget):
         sort_idx: Optional[Sequence] = None,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
+        process_func: Optional[Callable] = None,
         parent=None,
     ):
         super().__init__(
@@ -104,6 +105,10 @@ class ArrayViewer(MultiThreadedWidget):
             parent=parent,
         )
         self.extra_title_strings_list = extra_title_strings_list
+        if process_func is None:
+            self.process_func = lambda x: x
+        else:
+            self.process_func = process_func
 
         if cp.get_array_module(array3d) == cp:
             self.array3d = array3d.get()
@@ -125,9 +130,11 @@ class ArrayViewer(MultiThreadedWidget):
         self.toolbar.setFixedHeight(30)
         self.ax = self.figure.add_subplot(111)
         self.im = self.ax.imshow(
-            self.array3d.take(
-                indices=self.options.start_index,
-                axis=self.options.slider_axis,
+            self.process_func(
+                self.array3d.take(
+                    indices=self.options.start_index,
+                    axis=self.options.slider_axis,
+                )
             ),
             cmap="bone",
         )
@@ -186,6 +193,7 @@ class ArrayViewer(MultiThreadedWidget):
         image = self.array3d.take(indices=plot_index, axis=self.options.slider_axis)
         if cp.get_array_module(image) == cp:
             image = image.get()
+        image = self.process_func(image)
         self.im.set_data(image)  # faster than the clear() and imshow() method
         title = f"Index {index}"
         if self.extra_title_strings_list is not None:
