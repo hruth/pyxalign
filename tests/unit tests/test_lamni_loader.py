@@ -28,7 +28,7 @@ def test_lamni_loader(pytestconfig: Config, overwrite_results=False, check_resul
     test_name = "test_lamni_loader"
 
     options = pyxalign.io.loaders.lamni.utils.LamniLoadOptions(
-        selected_experiment_name="unlabeled",
+        selected_experiment_name="",
         selected_sequences=[3],
         selected_ptycho_strings=["512x512_b0_MLc_Niter500_recons"],
         scan_start=2720,

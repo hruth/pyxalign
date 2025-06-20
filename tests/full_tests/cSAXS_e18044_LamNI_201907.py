@@ -67,10 +67,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         # Define options for loading ptycho reconstructions
         base_load_options = BaseLoadOptions(
             loader_type=LoaderType.LAMNI_V1,
-            selected_experiment_name="unlabeled",
-            selected_sequences=[3, 4, 5],
             file_pattern=r"*_512x512_b0_MLc_Niter500_recons.h5",
-            # selected_ptycho_strings=["512x512_b0_MLc_Niter500_recons.h5"],
             scan_start=2714,
             scan_end=3465,
             select_all_by_default=True,
@@ -78,6 +75,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         options = LamniLoadOptions(
             dat_file_path=dat_file_path,
             base=base_load_options,
+            selected_sequences=[3, 4, 5],
         )
 
         # Load data
@@ -102,6 +100,8 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         ci_test_helper.save_or_compare_results(
             lamni_data.probe_positions[2730], "probe_positions_2730"
         )
+
+        dfsdfs
 
         # define projection options
         projection_options = opts.ProjectionOptions(

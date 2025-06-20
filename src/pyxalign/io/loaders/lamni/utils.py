@@ -112,7 +112,7 @@ def extract_info_from_lamni_dat_file(
         "experiment_name",
     ]
     dat_file_contents = pd.read_csv(dat_file_path, names=column_names, delimiter=" ", header=None)
-    dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("unlabeled")
+    dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("")
     if scan_start is not None:
         idx = dat_file_contents["scan_number"] > scan_start
         dat_file_contents = dat_file_contents[idx]
@@ -155,10 +155,19 @@ def load_experiment(
     Load an experiment that is saved with the lamni structure.
     """
     scan_numbers, angles, experiment_names, sequences = extract_experiment_info(options)
+    # If there is only one experiment name found, automatically select that one
     if len(np.unique(experiment_names)) == 1:
-        options.base.selected_experiment_name = experiment_names[0]
+        # options.base.selected_experiment_name = experiment_names[0]
+        selected_experiment_name = experiment_names[0]
+    else:
+        selected_experiment_name = options.selected_experiment_name
+    # If there is only one sequence found, automatically select that one
     if len(np.unique(sequences)) == 1:
-        options.base.selected_sequences = [sequences[0]]
+        selected_sequences = [sequences[0]]
+    else:
+        selected_sequences = options.selected_sequences
+        # options.base.selected_sequences = [sequences[0]]
+
     if isinstance(options, LamniLoadOptions):
         is_tile_scan = options.is_tile_scan
         selected_tile = options.selected_tile
@@ -173,8 +182,10 @@ def load_experiment(
         experiment_names,
         sequences,
         options.base.loader_type,
-        use_experiment_name=options.base.selected_experiment_name,
-        use_sequence=options.base.selected_sequences,
+        use_experiment_name=selected_experiment_name,
+        use_sequence=selected_sequences,
+        # use_experiment_name=options.base.selected_experiment_name,
+        # use_sequence=options.base.selected_sequences,
         is_tile_scan=is_tile_scan,
         selected_tile=selected_tile,
     )

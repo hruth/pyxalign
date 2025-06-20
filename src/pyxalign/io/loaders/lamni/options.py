@@ -14,23 +14,11 @@ class BaseLoadOptions:
         if self.loader_type is None:  # Check if the variable is missing
             self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
 
-    selected_experiment_name: Optional[str] = None
-    """Name of the experiment to load. Use "unlabeled" to refer to
-    experiments that do not have a name specified in the dat file."""
-
     selected_ptycho_strings: Optional[list[str]] = None
     """        
     List of ptycho file strings that are allowed to be loaded, 
     in prioritized order. The ptycho file strings are strings
-    extracted from the projection file names. They will be something
-    like 
-    """
-
-    selected_sequences: Optional[list[int]] = None
-    """
-    List of sequence numbers to load in. Each sequence corresponds
-    to a set of measurements taken sequentially over a 360 degree range.
-    The sequence number of a projection comes from the dat file.
+    extracted from the projection file names. 
     """
 
     scan_start: Optional[int] = None
@@ -62,11 +50,23 @@ class BaseLoadOptions:
                 if v is not None:
                     print(f"  {k}: {v}", flush=True)
 
+
 @dataclasses.dataclass
 class LamniLoadOptions:
     dat_file_path: str
 
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
+
+    selected_experiment_name: Optional[str] = None
+    """Name of the experiment to load. Use "unlabeled" to refer to
+    experiments that do not have a name specified in the dat file."""
+
+    selected_sequences: Optional[list[int]] = None
+    """
+    List of sequence numbers to load in. Each sequence corresponds
+    to a set of measurements taken sequentially over a 360 degree range.
+    The sequence number of a projection comes from the dat file.
+    """
 
     is_tile_scan: bool = False
 
