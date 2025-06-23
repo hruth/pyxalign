@@ -1,6 +1,8 @@
+from functools import wraps
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
+from tkinter import filedialog
 from typing import Optional, Union, TypeVar, get_origin, get_args, Any
 import cupy as cp
 import numpy as np
@@ -26,10 +28,14 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QSpacerItem,
     QFrame,
+    QFileDialog,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 
-OptionsClass = TypeVar("OptionsClass")
+from pyxalign.io.utils import OptionsClass
+from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
+
+# OptionsClass = TypeVar("OptionsClass")
 
 
 class NoScrollSpinBox(QSpinBox):
@@ -49,6 +55,105 @@ class MinimalDecimalSpinBox(NoScrollDoubleSpinBox):
         if text == "-0":  # Optional: fix "-0" to "0"
             text = "0"
         return text
+
+
+class IntTupleInputWidget(QWidget):
+    def __init__(self, field_value, field_name: str, data_obj: OptionsClass):
+        super().__init__()
+
+        checkbox_layout = QHBoxLayout()
+        self.setLayout(checkbox_layout)
+        self.setContentsMargins(0, 0, 0, 0)
+
+        active_indices = set(field_value or ())
+
+        checkboxes = []
+
+        def update_tuple():
+            new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
+            setattr(data_obj, field_name, tuple(new_indices))
+
+        n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(field_name)
+
+        if n_boxes is not None:
+            for i in range(n_boxes):
+                cb = QCheckBox(box_labels[i])
+                cb.setChecked(corresponding_values[i] in active_indices)
+                cb.toggled.connect(update_tuple)
+                checkboxes.append(cb)
+                checkbox_layout.addWidget(cb)
+        else:
+            # Fallback: freeform string => parse as tuple
+            self.line = QLineEdit()
+            self.line.setText(str(field_value) if field_value is not None else "")
+
+            @update_options_error_handler
+            def on_text_changed(txt: str):
+                setattr(data_obj, field_name, string_to_tuple(txt))
+
+            self.line.textChanged.connect(on_text_changed)
+            checkbox_layout.addWidget(self.line)
+
+    ########################################################################
+    # GPU and direction checkboxes
+    ########################################################################
+    def get_n_boxes_and_labels(
+        self, field_name: str
+    ) -> tuple[Optional[int], Optional[list[str]], Optional[list[int]]]:
+        """
+        Determines if we can display a fixed number of checkboxes
+        for the current field. Returns (n_boxes, box_labels, corresponding_values).
+        """
+        gpu_list_field_names = [
+            "gpu_indices",
+            "back_project_gpu_indices",
+            "forward_project_gpu_indices",
+        ]
+        if field_name in gpu_list_field_names:
+            n_boxes = cp.cuda.runtime.getDeviceCount()
+            box_labels = [str(i) for i in range(n_boxes)]
+            corresponding_values = [i for i in range(n_boxes)]
+        elif (
+            field_name == "filter_directions"
+            # hasattr(opts, "ProjectionMatchingOptions")
+            # and isinstance(data_obj, opts.ProjectionMatchingOptions)
+            # and field_name == "filter_directions"
+        ):
+            n_boxes = 2
+            box_labels = ["x", "y"]
+            # For "filter_directions", the values are 1 for x and 2 for y
+            corresponding_values = [i + 1 for i in range(n_boxes)]
+        else:
+            n_boxes = None
+            box_labels = None
+            corresponding_values = None
+
+        return n_boxes, box_labels, corresponding_values
+
+
+class CustomFileDialog(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        layout = QVBoxLayout()
+
+        self.input_bar = QLineEdit(self)
+        self.input_bar.setPlaceholderText("Type or paste file path here...")
+        layout.addWidget(self.input_bar)
+
+        self.open_file_button = QPushButton("Open File Dialog", self)
+        self.open_file_button.clicked.connect(self.open_file_dialog)
+        layout.addWidget(self.open_file_button)
+
+        self.setLayout(layout)
+        self.setWindowTitle("File Dialog Example")
+
+    def open_file_dialog(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select a File")
+        if file_path:
+            self.input_bar.setText(file_path)
 
 
 class CollapsiblePanel(QWidget):
@@ -96,10 +201,6 @@ class CollapsiblePanel(QWidget):
             self.content_area.setMaximumHeight(0)
 
     def setContentLayout(self, content_layout: QLayout):
-        """
-        Set the layout containing the actual child widgets that we will
-        expand or collapse.
-        """
         self.content_area.setLayout(content_layout)
 
 
@@ -118,6 +219,9 @@ class SingleOptionEditor(QWidget):
     A widget for editing a single field in the parent dataclass.
     It determines the field type, creates an appropriate editor,
     and updates the parent dataclass field value whenever changes occur.
+    If the field is Optional[...] type, an extra checkbox is shown on the right:
+       - if checked, the widget is enabled, and updates the field
+       - if unchecked, the field is set to None and the widget is disabled
     """
 
     def __init__(
@@ -125,72 +229,163 @@ class SingleOptionEditor(QWidget):
         data_obj,
         field_name: str,
         skip_fields: Optional[list[str]] = None,
+        use_file_dialog: bool = False,
         parent=None,
     ):
-        """
-        :param data_obj: Parent dataclass instance (the 'options' object).
-        :param field_name: Name of the field to edit.
-        :param skip_fields: List of fully qualified field names to skip.
-        :param parent: Optional parent QWidget.
-        """
         super().__init__(parent)
         self.data_obj = data_obj
         self.field_name = field_name
         self.skip_fields = skip_fields
+        self.use_file_dialog = use_file_dialog
 
-        # Find the field's declared type (from the dataclass fields)
+        # Find the field's declared type
         self.field_type = None
         for f in fields(type(data_obj)):
             if f.name == field_name:
                 self.field_type = f.type
                 break
-
-        # If we couldn't find a declared field type, fall back to value-based
+        # Fall back if not found
         if not self.field_type:
             self.field_type = type(getattr(data_obj, field_name, None))
 
-        # Main layout for this widget
+        # Main layout
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        # Build and add the core input widget
-        input_widget = self._create_editor_widget()
-        layout.addWidget(input_widget)
+        # Create the editor (or "wrapped" editor if optional)
+        editor_widget = self._create_editor_widget()
+        layout.addWidget(editor_widget)
 
         # Add a spacer to push the input widget to the left
         layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-    def value(self) -> Any:
-        return getattr(self.data_obj, self.field_name)
-
+    ########################################################################
+    # Main Editor Creation
+    ########################################################################
     def _create_editor_widget(self) -> QWidget:
         """
-        Creates and returns the actual input widget for this single field
-        based on the type of the field.
+        Decides whether the field is optional or not. If optional, we wrap
+        the 'real' editor in a container that includes a checkbox. If not,
+        we return the 'real' editor directly.
         """
         field_value = getattr(self.data_obj, self.field_name, None)
 
-        # Handle booleans
-        if self._is_bool_type(self.field_type):
+        # Check if it's optional (Union[..., None])
+        if self._is_optional_type(self.field_type):
+            # extract the underlying type (the real type without None)
+            underlying_type = self._extract_non_none_type(self.field_type)
+            real_editor = self._create_nonoptional_editor_widget(underlying_type, field_value)
+            return self._wrap_optional(real_editor, field_value)
+        else:
+            # Non-optional field, just create the editor
+            return self._create_nonoptional_editor_widget(self.field_type, field_value)
+
+    def _wrap_optional(self, real_editor: QWidget, field_value: Any) -> QWidget:
+        """
+        Wraps the given editor widget in another widget that has a
+        checkbox on the right. If the checkbox is unchecked => None,
+        else => the editor's value is used.
+        """
+        container = QWidget()
+        container_layout = QHBoxLayout()
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container.setLayout(container_layout)
+
+        container_layout.addWidget(real_editor)
+
+        optional_cb = QCheckBox()
+        container_layout.addWidget(optional_cb)
+
+        # Initialize checkbox state: checked if not None
+        is_non_none = field_value is not None
+        optional_cb.setChecked(is_non_none)
+        real_editor.setEnabled(is_non_none)
+
+        # If toggled OFF => set to None, disable editor
+        # If toggled ON  => set to current editor value, enable editor
+        def on_cb_toggled(checked: bool):
+            real_editor.setEnabled(checked)
+            if not checked:
+                setattr(self.data_obj, self.field_name, None)
+            else:
+                # Force an initial update from the real_editor's current value
+                self._force_editor_value_update(real_editor)
+
+        optional_cb.toggled.connect(on_cb_toggled)
+
+        return container
+
+    def _force_editor_value_update(self, editor_widget: QWidget):
+        """
+        Reads the editor_widget's current value and assigns it to data_obj[field_name].
+        This is invoked when the optional checkbox is turned on.
+        """
+        # This part mirrors the data-updating logic from each widget's connect(...).
+        # We'll do a quick check to handle the known widget types:
+        if isinstance(editor_widget, QCheckBox):
+            setattr(self.data_obj, self.field_name, editor_widget.isChecked())
+        elif isinstance(editor_widget, QComboBox):
+            idx = editor_widget.currentIndex()
+            setattr(self.data_obj, self.field_name, editor_widget.itemData(idx))
+        elif isinstance(editor_widget, QLineEdit):
+            setattr(self.data_obj, self.field_name, editor_widget.text())
+        elif isinstance(editor_widget, QSpinBox) or isinstance(editor_widget, QDoubleSpinBox):
+            setattr(self.data_obj, self.field_name, editor_widget.value())
+        elif isinstance(editor_widget, QWidget) and hasattr(editor_widget, "input_bar"):
+            # Possibly it's the CustomFileDialog
+            setattr(self.data_obj, self.field_name, editor_widget.input_bar.text())
+        elif isinstance(editor_widget, IntTupleInputWidget):
+            setattr(self.data_obj, self.field_name, string_to_tuple(editor_widget.line.text()))
+        else:
+            # Fallback: do nothing
+            pass
+
+    def _create_nonoptional_editor_widget(self, t, field_value: Any) -> QWidget:
+        """
+        Creates an editor for a non-optional field of type t and sets up signals
+        that immediately store changes to self.data_obj[self.field_name].
+        """
+        if self.use_file_dialog:
+            # File path input
+            file_dialog_widget = CustomFileDialog()
+            if field_value:
+                file_dialog_widget.input_bar.setText(str(field_value))
+
+            def on_text_changed(txt: str):
+                setattr(self.data_obj, self.field_name, txt)
+
+            file_dialog_widget.input_bar.textChanged.connect(on_text_changed)
+            return file_dialog_widget
+
+        # Handle bool
+        if self._is_bool_type(t):
             cb = QCheckBox()
             cb.setChecked(bool(field_value))
-            cb.toggled.connect(lambda checked: setattr(self.data_obj, self.field_name, checked))
+
+            def on_toggled(checked):
+                setattr(self.data_obj, self.field_name, checked)
+
+            cb.toggled.connect(on_toggled)
             return cb
 
-        # Handle ints
-        elif self._is_int_type(self.field_type):
+        # Handle int
+        elif self._is_int_type(t):
             spin = NoScrollSpinBox()
             spin.setRange(-999999, 999999)
             try:
                 spin.setValue(int(field_value))
             except (ValueError, TypeError):
                 spin.setValue(0)
-            spin.valueChanged.connect(lambda val: setattr(self.data_obj, self.field_name, val))
+
+            def on_value_changed(val):
+                setattr(self.data_obj, self.field_name, val)
+
+            spin.valueChanged.connect(on_value_changed)
             return spin
 
-        # Handle floats
-        elif self._is_float_type(self.field_type):
+        # Handle float
+        elif self._is_float_type(t):
             dspin = MinimalDecimalSpinBox()
             dspin.setRange(-999999.0, 999999.0)
             dspin.setDecimals(20)
@@ -198,95 +393,155 @@ class SingleOptionEditor(QWidget):
                 dspin.setValue(float(field_value))
             except (ValueError, TypeError):
                 dspin.setValue(0.0)
-            dspin.valueChanged.connect(lambda val: setattr(self.data_obj, self.field_name, val))
+
+            def on_value_changed(val):
+                setattr(self.data_obj, self.field_name, val)
+
+            dspin.valueChanged.connect(on_value_changed)
             return dspin
 
         # Handle Enums
-        elif self._is_enum_type(self.field_type):
+        elif self._is_enum_type(t):
             combo = QComboBox()
-            enum_cls = self._extract_enum_class(self.field_type)
+            enum_cls = self._extract_enum_class(t)
             current_index = 0
             for i, e_val in enumerate(enum_cls):
                 combo.addItem(e_val.value, e_val)
                 if field_value == e_val:
                     current_index = i
             combo.setCurrentIndex(current_index)
-            combo.currentIndexChanged.connect(
-                lambda idx: setattr(self.data_obj, self.field_name, combo.itemData(idx))
-            )
+
+            def on_index_changed(idx):
+                setattr(self.data_obj, self.field_name, combo.itemData(idx))
+
+            combo.currentIndexChanged.connect(on_index_changed)
             return combo
 
         # Handle tuple of int
-        elif self._is_tuple_of_int(self.field_type):
+        elif self._is_tuple_of_int(t):
             return self._create_tuple_of_int_widget(field_value)
+
+        # Handle list of str
+        elif self._is_list_of_str(t):
+            list_widget = QLineEdit()
+            if field_value is not None:
+                list_widget.setText(", ".join(field_value))
+
+            def on_text_changed(txt: str):
+                setattr(self.data_obj, self.field_name, [s.strip() for s in txt.split(",")])
+
+            list_widget.textChanged.connect(on_text_changed)
+            return list_widget
 
         # Otherwise, treat as string
         else:
+            # Unrecognized => string fallback
             line = QLineEdit()
             if field_value is not None:
                 line.setText(str(field_value))
-            line.textChanged.connect(lambda txt: setattr(self.data_obj, self.field_name, txt))
+
+            @update_options_error_handler
+            def on_text_changed(txt: str):
+                setattr(self.data_obj, self.field_name, txt)
+
+            line.textChanged.connect(on_text_changed)
             return line
 
+    ########################################################################
+    # Helper editors
+    ########################################################################
     def _create_tuple_of_int_widget(self, field_value):
         """
         Creates a widget of checkboxes for a tuple of ints (e.g., GPU device indices).
         If the number of boxes can't be determined, it reverts to a freeform string.
         """
-        container = QWidget()
-        checkbox_layout = QHBoxLayout()
-        container.setLayout(checkbox_layout)
-        container.setContentsMargins(0, 0, 0, 0)
+        return IntTupleInputWidget(field_value, self.field_name, self.data_obj)
+        # container = IntTupleInputWidget()
+        # checkbox_layout = QHBoxLayout()
+        # container.setLayout(checkbox_layout)
+        # container.setContentsMargins(0, 0, 0, 0)
 
-        active_indices = set(field_value)
+        # active_indices = set(field_value or ())
 
-        checkboxes = []
+        # checkboxes = []
 
-        def update_tuple():
-            new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
-            setattr(self.data_obj, self.field_name, tuple(new_indices))
+        # def update_tuple():
+        #     new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
+        #     setattr(self.data_obj, self.field_name, tuple(new_indices))
 
-        n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
-            self.data_obj, self.field_name
-        )
+        # n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
+        #     self.data_obj, self.field_name
+        # )
 
-        if n_boxes is not None:
-            for i in range(n_boxes):
-                cb = QCheckBox(box_labels[i])
-                cb.setChecked(corresponding_values[i] in active_indices)
-                cb.toggled.connect(update_tuple)
-                checkboxes.append(cb)
-                checkbox_layout.addWidget(cb)
-        else:
-            # Fallback: let user type a string => parse as tuple
-            line = QLineEdit()
-            line.setText(str(field_value) if field_value is not None else "")
-            line.textChanged.connect(
-                lambda txt: setattr(self.data_obj, self.field_name, string_to_tuple(txt))
-            )
-            checkbox_layout.addWidget(line)
+        # if n_boxes is not None:
+        #     for i in range(n_boxes):
+        #         cb = QCheckBox(box_labels[i])
+        #         cb.setChecked(corresponding_values[i] in active_indices)
+        #         cb.toggled.connect(update_tuple)
+        #         checkboxes.append(cb)
+        #         checkbox_layout.addWidget(cb)
+        # else:
+        #     # Fallback: freeform string => parse as tuple
+        #     container.line = QLineEdit()
+        #     container.line.setText(str(field_value) if field_value is not None else "")
 
-        return container
+        #     @update_options_error_handler
+        #     def on_text_changed(txt: str):
+        #         setattr(self.data_obj, self.field_name, string_to_tuple(txt))
+
+        #     container.line.textChanged.connect(on_text_changed)
+        #     checkbox_layout.addWidget(container.line)
+
+        # return container
+
+    # ########################################################################
+    # # GPU and direction checkboxes
+    # ########################################################################
+    # def get_n_boxes_and_labels(
+    #     self, data_obj: OptionsClass, field_name: str
+    # ) -> tuple[Optional[int], Optional[list[str]], Optional[list[int]]]:
+    #     """
+    #     Determines if we can display a fixed number of checkboxes
+    #     for the current field. Returns (n_boxes, box_labels, corresponding_values).
+    #     """
+    #     gpu_list_field_names = [
+    #         "gpu_indices",
+    #         "back_project_gpu_indices",
+    #         "forward_project_gpu_indices",
+    #     ]
+    #     if field_name in gpu_list_field_names:
+    #         n_boxes = cp.cuda.runtime.getDeviceCount()
+    #         box_labels = [str(i) for i in range(n_boxes)]
+    #         corresponding_values = [i for i in range(n_boxes)]
+    #     elif (
+    #         hasattr(opts, "ProjectionMatchingOptions")
+    #         and isinstance(data_obj, opts.ProjectionMatchingOptions)
+    #         and field_name == "filter_directions"
+    #     ):
+    #         n_boxes = 2
+    #         box_labels = ["x", "y"]
+    #         # For "filter_directions", the values are 1 for x and 2 for y
+    #         corresponding_values = [i + 1 for i in range(n_boxes)]
+    #     else:
+    #         n_boxes = None
+    #         box_labels = None
+    #         corresponding_values = None
+
+    #     return n_boxes, box_labels, corresponding_values
 
     ########################################################################
-    # Helper methods for type checking
+    # Type-checking Helpers
     ########################################################################
-
     def _is_bool_type(self, t):
-        if t == bool:
-            return True
-        if get_origin(t) is Union:
-            args = get_args(t)
-            if len(args) == 2 and bool in args and type(None) in args:
-                return True
-        return False
+        # covers both bool and Optional[bool] in the union check
+        return t == bool or (get_origin(t) is Union and bool in get_args(t))
 
     def _is_int_type(self, t):
         if t == int:
             return True
         if get_origin(t) is Union:
             args = get_args(t)
-            if len(args) == 2 and int in args and type(None) in args:
+            if int in args:
                 return True
         return False
 
@@ -295,7 +550,7 @@ class SingleOptionEditor(QWidget):
             return True
         if get_origin(t) is Union:
             args = get_args(t)
-            if len(args) == 2 and float in args and type(None) in args:
+            if float in args:
                 return True
         return False
 
@@ -309,6 +564,7 @@ class SingleOptionEditor(QWidget):
         return False
 
     def _extract_enum_class(self, t):
+        """If t is Union[SomeEnum, None], return SomeEnum; else return t."""
         if self._safe_issubclass(t, Enum):
             return t
         if get_origin(t) is Union:
@@ -331,43 +587,82 @@ class SingleOptionEditor(QWidget):
                         return True
         return False
 
+    def _is_list_of_str(self, t):
+        origin = get_origin(t)
+        if origin is list:
+            args = get_args(t)
+            if len(args) > 0 and args[0] == str:
+                return True
+        if origin is Union:
+            for arg in get_args(t):
+                if get_origin(arg) is list:
+                    a = get_args(arg)
+                    if len(a) > 0 and a[0] == str:
+                        return True
+        return False
+
     def _safe_issubclass(self, cls, base):
         try:
             return issubclass(cls, base)
         except TypeError:
             return False
 
-    def get_n_boxes_and_labels(
-        self, data_obj: OptionsClass, field_name: str
-    ) -> tuple[Optional[int], Optional[list[str]], Optional[list[int]]]:
-        """
-        Determines if we can display a fixed number of checkboxes
-        for the current field. Returns (n_boxes, box_labels, corresponding_values).
-        """
-        gpu_list_field_names = [
-            "gpu_indices",
-            "back_project_gpu_indices",
-            "forward_project_gpu_indices",
-        ]
-        if field_name in gpu_list_field_names:
-            n_boxes = cp.cuda.runtime.getDeviceCount()
-            box_labels = [str(i) for i in range(n_boxes)]
-            corresponding_values = [i for i in range(n_boxes)]
-        elif (
-            hasattr(opts, "ProjectionMatchingOptions")
-            and isinstance(data_obj, opts.ProjectionMatchingOptions)
-            and field_name == "filter_directions"
-        ):
-            n_boxes = 2
-            box_labels = ["x", "y"]
-            # For "filter_directions", the values are 1 for x and 2 for y
-            corresponding_values = [i + 1 for i in range(n_boxes)]
-        else:
-            n_boxes = None
-            box_labels = None
-            corresponding_values = None
+    def _is_optional_type(self, t) -> bool:
+        """Return True if t is Union[..., None]."""
+        origin = get_origin(t)
+        if origin is Union:
+            args = get_args(t)
+            if type(None) in args:
+                return True
+        return False
 
-        return n_boxes, box_labels, corresponding_values
+    def _extract_non_none_type(self, t):
+        """
+        Given a type t that is Union[S, None], return S.
+        If we can't determine a unique non-None, return t as-is.
+        """
+        if get_origin(t) is Union:
+            args = get_args(t)
+            # Filter out NoneType
+            non_none_args = [a for a in args if a is not type(None)]
+            if len(non_none_args) == 1:
+                return non_none_args[0]
+        return t
+
+    # ########################################################################
+    # # GPU and direction checkboxes
+    # ########################################################################
+    # def get_n_boxes_and_labels(
+    #     self, data_obj: OptionsClass, field_name: str
+    # ) -> tuple[Optional[int], Optional[list[str]], Optional[list[int]]]:
+    #     """
+    #     Determines if we can display a fixed number of checkboxes
+    #     for the current field. Returns (n_boxes, box_labels, corresponding_values).
+    #     """
+    #     gpu_list_field_names = [
+    #         "gpu_indices",
+    #         "back_project_gpu_indices",
+    #         "forward_project_gpu_indices",
+    #     ]
+    #     if field_name in gpu_list_field_names:
+    #         n_boxes = cp.cuda.runtime.getDeviceCount()
+    #         box_labels = [str(i) for i in range(n_boxes)]
+    #         corresponding_values = [i for i in range(n_boxes)]
+    #     elif (
+    #         hasattr(opts, "ProjectionMatchingOptions")
+    #         and isinstance(data_obj, opts.ProjectionMatchingOptions)
+    #         and field_name == "filter_directions"
+    #     ):
+    #         n_boxes = 2
+    #         box_labels = ["x", "y"]
+    #         # For "filter_directions", the values are 1 for x and 2 for y
+    #         corresponding_values = [i + 1 for i in range(n_boxes)]
+    #     else:
+    #         n_boxes = None
+    #         box_labels = None
+    #         corresponding_values = None
+
+    #     return n_boxes, box_labels, corresponding_values
 
 
 class BasicOptionsEditor(QWidget):
@@ -376,20 +671,25 @@ class BasicOptionsEditor(QWidget):
     Updates to widgets immediately update the fields in the dataclass.
     """
 
-    def __init__(self, data: OptionsClass, skip_fields: list[str]=[], parent=None):
+    def __init__(
+        self,
+        data: OptionsClass,
+        skip_fields: list[str] = [],
+        file_dialog_fields: list[str] = [],
+        parent=None,
+    ):
         super().__init__(parent)
-        self._data = data  # The root dataclass instance
+        self._data = data
         self.skip_fields = skip_fields
+        self.options_display = None
 
-        # Top-level layout
         main_layout = QVBoxLayout()
+        # tab_widget
         self.setLayout(main_layout)
 
-        # Create a QScrollArea so that form expansions do not resize the window
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
-        # Container widget that will hold the form
         scroll_widget = QWidget()
         self.form_layout = QFormLayout()
         self.form_layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
@@ -397,30 +697,30 @@ class BasicOptionsEditor(QWidget):
         self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         scroll_widget.setLayout(self.form_layout)
 
-        # Put that container inside the scroll area
         scroll_area.setWidget(scroll_widget)
         title = QLabel("Options Editor")
         title.setStyleSheet("QLabel {font-size: 16px;}")
 
+        self.open_display_button = QPushButton("view selections")
+        self.open_display_button.clicked.connect(self.open_options_display_window)
+
         main_layout.addWidget(title)
         main_layout.addWidget(scroll_area)
+        main_layout.addWidget(self.open_display_button)
 
-        # Populate the form
-        self._add_dataclass_fields(data, self.form_layout)
-
-        # Optionally, set a default window size for the editor
-        # self.resize(600, 400)
+        self.initialize_viewer()
+        self._add_dataclass_fields(data, self.form_layout, file_dialog_fields=file_dialog_fields)
 
     def _add_dataclass_fields(
         self,
         data_obj: OptionsClass,
         form_layout: QFormLayout,
         parent_name: str = "",
+        file_dialog_fields: Optional[list[str]] = None,
         level: int = 0,
     ):
-        """Add editors for each field of the given dataclass object into form_layout."""
         if not is_dataclass(data_obj):
-            return  # Not a dataclass, do nothing
+            return
 
         for f in fields(data_obj):
             field_name = f.name
@@ -428,54 +728,61 @@ class BasicOptionsEditor(QWidget):
 
             full_field_name = parent_name + field_name
 
-            # Skip fields if instructed
             if self._check_if_skipped_field(full_field_name):
                 continue
 
-            # If this is a nested dataclass, create a collapsible panel
+            # If nested dataclass => collapsible panel
             if is_dataclass(field_value):
                 panel = CollapsiblePanel(title=field_name)
                 nested_layout = QFormLayout()
                 panel.setContentLayout(nested_layout)
 
-                # Recursively add items to nested_layout
                 self._add_dataclass_fields(
                     field_value,
                     nested_layout,
                     parent_name=parent_name + field_name + ".",
                     level=level + 1,
+                    file_dialog_fields=file_dialog_fields,
                 )
 
                 if level == 0:
                     form_layout.addRow(field_name, self.wrap_in_frame(panel))
                 else:
                     form_layout.addRow(field_name, panel)
-                continue
 
-            # Otherwise, make a row for this field by adding a SingleOptionEditor
-            editor = SingleOptionEditor(data_obj, field_name, self.skip_fields, self)
-            if level == 0:
-                form_layout.addRow(field_name, self.wrap_in_frame(editor))
             else:
-                form_layout.addRow(field_name, editor)
+                # Check if file-dialog
+                use_file_dialog = file_dialog_fields and (full_field_name in file_dialog_fields)
+                editor = SingleOptionEditor(
+                    data_obj, field_name, self.skip_fields, use_file_dialog, self
+                )
+                if level == 0:
+                    form_layout.addRow(field_name, self.wrap_in_frame(editor))
+                else:
+                    form_layout.addRow(field_name, editor)
 
     def wrap_in_frame(self, widget: QWidget) -> QFrame:
-        # Create a frame to wrap the panel
         frame = QFrame()
-        # frame.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         frame.setFrameShape(QFrame.Panel)
-        frame.setLineWidth(1)  # optional: adjust thickness
-        frame.setMidLineWidth(0)  # optional
+        frame.setLineWidth(1)
         frame.setStyleSheet("QFrame { background-color:lightGray; border:lightGray}")
 
-        # Add the panel to the frame's layout
         frame_layout = QVBoxLayout(frame)
-        frame_layout.setContentsMargins(4, 4, 4, 4)  # optional: remove padding
+        frame_layout.setContentsMargins(4, 4, 4, 4)
         frame_layout.addWidget(widget)
         return frame
 
     def _check_if_skipped_field(self, current_full_field_name: str) -> bool:
         return current_full_field_name in self.skip_fields
+
+    def initialize_viewer(self):
+        self.options_display = OptionsDisplayWidget(self._data)
+        self.update_display_timer = QTimer(self)
+        self.update_display_timer.start(100)  # .5 seconds
+        self.update_display_timer.timeout.connect(self.options_display.update_display)
+
+    def open_options_display_window(self):
+        self.options_display.show()
 
 
 def return_parent_option(options: OptionsClass, field_path: str) -> OptionsClass:
@@ -497,35 +804,34 @@ def set_option_from_field_path(options: OptionsClass, field_path: str, value: An
     parent_options = return_parent_option(options, field_path)
     field_name = field_path.split(".")[-1]
     setattr(parent_options, field_name, value)
-    # return parent_options
     return options
 
 
-if __name__ == "__main__":
-    # p = opts.ProjectionMatchingOptions()
-    # set_option_from_field_path(p, "device.gpu.gpu_indices", (1, 2, 4))
-    # print(p)
-    # print("\n")
-    # print(p.device)
+def update_options_error_handler(func):
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ValueError as ex:
+            print("Incorrect value entered for option.")
+            print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+            # traceback.print_exc()
+        finally:
+            pass
 
+    return wrapped
+
+
+if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    # Use your own dataclass or any nested structure from opts
+    # Example using PyxAlign's ProjectionMatchingOptions:
     config_instance = opts.ProjectionMatchingOptions()
 
     editor = BasicOptionsEditor(
         config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
     )
-    editor.setWindowTitle("Nested Dataclass Editor with Scroll and Hidden Borders")
-
-    # Use the left half of the screen
-    screen_geometry = app.desktop().availableGeometry(editor)
-    # editor.setGeometry(
-    #     screen_geometry.x(),
-    #     screen_geometry.y(),
-    #     int(screen_geometry.width() / 2),
-    #     int(screen_geometry.height() * 0.9),
-    # )
+    editor.setWindowTitle("Nested Dataclass Editor with Optional Fields")
 
     editor.show()
     sys.exit(app.exec_())
