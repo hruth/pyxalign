@@ -629,41 +629,6 @@ class SingleOptionEditor(QWidget):
                 return non_none_args[0]
         return t
 
-    # ########################################################################
-    # # GPU and direction checkboxes
-    # ########################################################################
-    # def get_n_boxes_and_labels(
-    #     self, data_obj: OptionsClass, field_name: str
-    # ) -> tuple[Optional[int], Optional[list[str]], Optional[list[int]]]:
-    #     """
-    #     Determines if we can display a fixed number of checkboxes
-    #     for the current field. Returns (n_boxes, box_labels, corresponding_values).
-    #     """
-    #     gpu_list_field_names = [
-    #         "gpu_indices",
-    #         "back_project_gpu_indices",
-    #         "forward_project_gpu_indices",
-    #     ]
-    #     if field_name in gpu_list_field_names:
-    #         n_boxes = cp.cuda.runtime.getDeviceCount()
-    #         box_labels = [str(i) for i in range(n_boxes)]
-    #         corresponding_values = [i for i in range(n_boxes)]
-    #     elif (
-    #         hasattr(opts, "ProjectionMatchingOptions")
-    #         and isinstance(data_obj, opts.ProjectionMatchingOptions)
-    #         and field_name == "filter_directions"
-    #     ):
-    #         n_boxes = 2
-    #         box_labels = ["x", "y"]
-    #         # For "filter_directions", the values are 1 for x and 2 for y
-    #         corresponding_values = [i + 1 for i in range(n_boxes)]
-    #     else:
-    #         n_boxes = None
-    #         box_labels = None
-    #         corresponding_values = None
-
-    #     return n_boxes, box_labels, corresponding_values
-
 
 class BasicOptionsEditor(QWidget):
     """

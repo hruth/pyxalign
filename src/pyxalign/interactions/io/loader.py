@@ -27,8 +27,10 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QSpacerItem,
     QFrame,
+    QTabWidget,
 )
 from PyQt5.QtCore import Qt
+from pyxalign.api.options_utils import get_all_attribute_names
 
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.io.loaders.lamni.options import (
@@ -37,6 +39,22 @@ from pyxalign.io.loaders.lamni.options import (
     BaseLoadOptions,
 )
 from pyxalign.io.utils import OptionsClass
+from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
+
+advanced_options_list = [
+    "base.only_include_files_with",
+    "base.exclude_files_with",
+    "base.selected_ptycho_strings",
+    "base.ask_for_backup_files",
+    "base.select_all_by_default",
+    "is_tile_scan",
+    "n_tiles",
+    "selected_tile",
+    "selected_sequences",
+    "selected_experiment_name",
+]
+
+file_dialog_fields = ["mda_folder", "dat_file_path"]
 
 
 class ExperimentType(StrEnum):
@@ -45,55 +63,82 @@ class ExperimentType(StrEnum):
     BEAMLINE_2IDE_XRF = auto()
 
 
+class BasicLoadingOptions(QWidget):
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+
+
 class InteractiveLoadingWidget(QWidget):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.options_editor = None
+        self.options = None
 
         # self.layout
         self.layout = QVBoxLayout()
+        self.tabs = QTabWidget()
+        self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
         self.add_options_selector_combo_box()
-        # self.options_editor = BasicOptionsEditor(default_options, file_dialog_fields=["dat_file_path"])
-        # layout.addWidget()
 
     def add_options_selector_combo_box(self):
+        self.select_options_widget = QWidget()
+        layout = QVBoxLayout()
+        self.select_options_widget.setLayout(layout)
         self.experiment_type_combo = QComboBox()
+        layout.addWidget(self.experiment_type_combo)
         experiment_options = {
             "LYNX": ExperimentType.LYNX,
             "2IDE: ptycho": ExperimentType.BEAMLINE_2IDE_PTYCHO,
-            "2IDE: XRF-maps": ExperimentType.BEAMLINE_2IDE_XRF,
+            # "2IDE: XRF-maps": ExperimentType.BEAMLINE_2IDE_XRF,
         }
         for key, val in experiment_options.items():
             self.experiment_type_combo.addItem(key, val)
 
         # On changing the index, the displayed options should change between
         # LYNXLoadOptions, Beamline2IDELoadOptions, and the xrf maps options!
-
-        # def on_index_changed(idx):
-        # setattr(self.data_obj, self.field_name, combo.itemData(idx))
         self.experiment_type_combo.currentIndexChanged.connect(self.change_selected_options_editor)
-        self.layout.addWidget(self.experiment_type_combo)
+
+        self.tabs.addTab(self.select_options_widget, "Select Options")
+
+        self.advanced_options_widget = QWidget()
+        self.advanced_options_widget.setLayout(QVBoxLayout())
+        self.tabs.addTab(self.advanced_options_widget, "Advanced Options")
 
         # initialize the options
         self.change_selected_options_editor(idx=self.experiment_type_combo.currentIndex())
 
     def change_selected_options_editor(self, idx: int):
         selected_experiment = self.experiment_type_combo.itemData(idx)
-        
+        # Delete existing widget from layout
         if self.options_editor is not None:
-            self.layout.removeWidget(self.options_editor)
+            self.select_options_widget.layout().removeWidget(self.options_editor)
             self.options_editor.deleteLater()
-
+            self.advanced_options_widget.layout().removeWidget(self.options_editor)
+            self.advanced_options_editor.deleteLater()
+        # Initialize the selected option type
         if selected_experiment is ExperimentType.LYNX:
-            self.options_editor = BasicOptionsEditor(
-                LYNXLoadOptions(dat_file_path=None), file_dialog_fields=["dat_file_path"]
-            )
+            self.options = LYNXLoadOptions(dat_file_path=None)
         elif selected_experiment is ExperimentType.BEAMLINE_2IDE_PTYCHO:
-            self.options_editor = BasicOptionsEditor(
-                Beamline2IDELoadOptions(mda_folder=None), file_dialog_fields=["mda_folder"]
-            )
-        self.layout.addWidget(self.options_editor)
+            self.options = Beamline2IDELoadOptions(mda_folder=None)
+        # Update the options editor
+        self.options_editor = BasicOptionsEditor(
+            self.options,
+            file_dialog_fields=file_dialog_fields,
+            skip_fields=advanced_options_list,
+        )
+        # Add widget to layout
+        self.select_options_widget.layout().addWidget(self.options_editor)
+        # Update advanced options
+        self.advanced_options_editor = BasicOptionsEditor(
+            self.options,
+            file_dialog_fields=file_dialog_fields,
+            skip_fields=np.setdiff1d(
+                get_all_attribute_names(self.options),
+                advanced_options_list,
+            ),
+        )
+        self.advanced_options_widget.layout().addWidget(self.advanced_options_editor)
 
 
 if __name__ == "__main__":

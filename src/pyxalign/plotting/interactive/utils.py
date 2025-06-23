@@ -90,6 +90,7 @@ class OptionsDisplayWidget(QWidget):
     def __init__(self, options: Optional[OptionsClass] = None):
         super().__init__()
         self.setWindowTitle("Options")
+        self.options = options
 
         # Create layout
         layout = QVBoxLayout(self)
@@ -108,8 +109,8 @@ class OptionsDisplayWidget(QWidget):
         # Add the tree to our layout
         layout.addWidget(self.tree_widget)
 
-    def update_options(self, options):
-        populate_tree_widget(self.tree_widget, options)
+    def update_display(self):#, options):
+        populate_tree_widget(self.tree_widget, self.options)
 
 
 def sync_checkboxes(*checkboxes):

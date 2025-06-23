@@ -61,7 +61,7 @@ class LYNXLoadOptions:
     """Name of the experiment to load. Use "unlabeled" to refer to
     experiments that do not have a name specified in the dat file."""
 
-    selected_sequences: Optional[list[int]] = None
+    selected_sequences: Optional[tuple[int]] = None
     """
     List of sequence numbers to load in. Each sequence corresponds
     to a set of measurements taken sequentially over a 360 degree range.
