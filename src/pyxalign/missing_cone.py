@@ -7,12 +7,12 @@ from pyxalign.gpu_utils import memory_releasing_error_handler
 import matplotlib.pyplot as plt
 from pyxalign.regularization import chambolleLocalTV3D
 from IPython.display import clear_output
-
-timerOn = True
+from pyxalign.timing.timer_utils import timer, InlineTimer
 
 
 @memory_releasing_error_handler
-def fillMissingCone(
+@timer()
+def fill_missing_cone(
     rec,
     p,
     laminoAngle,
@@ -26,9 +26,6 @@ def fillMissingCone(
     #### CHANGE TO USER-SET VARIABLES LATER ####
     # maskRelax = np.float32(0.05)  # 0.15
     # Process the reconstruction using multiscale approach, start at 0.5^max_scale
-    # maxScale = 16
-    # Number of iterations in each step for filling the missing cone
-    # Niter = 10
     deltaBackground = np.float32(deltaBackground)  # 0
     deltaMaximal = np.float32(deltaMaximal)  # 2.5e-5
     TV_lambda = np.float32(TV_lambda)
@@ -45,21 +42,16 @@ def fillMissingCone(
     maskVert = np.mean(np.abs(rec), axis=(1, 2))
     maskVert = 1 - maskRelax + maskRelax * maskVert / np.max(maskVert)
 
-    # NpixFull = rec.shape
-    # maxBlockSize = [512, 512]
-
     borderSize = np.array([32, 32], dtype=int)
     blockSize = np.array([512, 512], dtype=int) - 2 * borderSize
 
     # borderSize = np.array([32, 32], dtype=int)
     # blockSize = np.array([1024, 1024], dtype=int) - 2 * borderSize
 
-    # blockSize = [1024, 1024]
-    # blockSize = [128, 128]
-
     scales = (2 ** np.arange(np.log2(maxScale), -1, -1)).astype(int)
-    for scale in scales:
-        # for scale in [16]:
+    for scale in tqdm(scales):
+        inline_timer = InlineTimer(f"scale_{scale}")
+        inline_timer.start()
         print("Running scale", scale, "...")
 
         if scale > 1:
@@ -94,6 +86,7 @@ def fillMissingCone(
         # plt.show()
 
         del recRegularized, recSmall
+        inline_timer.end()
 
     return rec
 
@@ -122,6 +115,7 @@ def blockProc(func):
 
 
 @memory_releasing_error_handler
+@timer()
 def padInputs(func):
     """Decorator for padding the input volume before a function call and
     removing the padding after the function call"""
@@ -149,6 +143,7 @@ def padInputs(func):
 @memory_releasing_error_handler
 @blockProc
 @padInputs
+@timer()
 def applyLaminoConstraints(
     volume,
     mask,
@@ -215,10 +210,10 @@ def applyLaminoConstraints(
 
         volume = volumeNew
 
-        clear_output(wait=True)
-        plt.title(i)
-        plt.imshow(volumeNew[int(volumeNew.shape[0] / 2)].get(), cmap="bone")
-        plt.show()
+        # clear_output(wait=True)
+        # plt.title(i)
+        # plt.imshow(volumeNew[int(volumeNew.shape[0] / 2)].get(), cmap="bone")
+        # plt.show()
 
     volumeNew = volumeNew.get()
 
@@ -226,6 +221,7 @@ def applyLaminoConstraints(
 
 
 @memory_releasing_error_handler
+@timer()
 def getLaminoFourierMask(Npix, laminoAngle, keepOnGPU=False):
     grid = []
     for i in range(3):
@@ -236,6 +232,7 @@ def getLaminoFourierMask(Npix, laminoAngle, keepOnGPU=False):
 
 
 @memory_releasing_error_handler
+@timer()
 def getMask(xGrid, yGrid, zGrid, laminoAngle):
     fftMask = (
         np.ceil(180 / np.pi * np.arctan(np.abs(zGrid) / np.sqrt(xGrid**2 + yGrid**2))) > laminoAngle
@@ -248,6 +245,7 @@ def getMask(xGrid, yGrid, zGrid, laminoAngle):
 
 
 @memory_releasing_error_handler
+@timer()
 def interpFT_3D(img, Nout):
     # Functionality is questionable -- needs to be tested
 
@@ -266,6 +264,7 @@ def interpFT_3D(img, Nout):
 
 
 @memory_releasing_error_handler
+@timer()
 def cropPad3D(img, Nout):
     # Functionality is questionable -- needs to be tested
 
