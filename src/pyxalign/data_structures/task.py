@@ -16,7 +16,9 @@ from pyxalign.alignment.projection_matching import ProjectionMatchingAligner
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
+from pyxalign.io.load import load_projections
 from pyxalign.io.save import save_generic_data_structure_to_h5
+from pyxalign.io.utils import load_options
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
 from pyxalign.timing.timer_utils import clear_timer_globals
 
@@ -191,3 +193,22 @@ def run_projection_matching(
         shift = pma_object.total_shift * pma_object.scale
     finally:
         return pma_object, shift
+
+
+def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
+    print("Loading task from", file_path, "...")
+
+    with h5py.File(file_path, "r") as h5_obj:
+        # Load projections
+        loaded_projections = load_projections(h5_obj, exclude)
+
+        # Insert projections into task along with saved task options
+        task = LaminographyAlignmentTask(
+            options=load_options(h5_obj["options"], AlignmentTaskOptions),
+            complex_projections=loaded_projections["complex_projections"],
+            phase_projections=loaded_projections["phase_projections"],
+        )
+
+        print("Loading complete")
+
+    return task

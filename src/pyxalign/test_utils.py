@@ -6,7 +6,7 @@ from pyxalign.api.options.projections import ProjectionOptions
 
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
-from pyxalign.io import load
+from pyxalign.data_structures import task
 
 
 class ResultType(StrEnum):
@@ -60,7 +60,7 @@ def load_input_projection_data(file_name: str) -> tuple[np.ndarray, np.ndarray]:
 
 def load_task(file_name: str) -> LaminographyAlignmentTask:
     file_path = os.path.join(get_ci_input_data_dir(), file_name)
-    task = load.load_task(file_path, exclude="complex_projections")
+    task = task.load_task(file_path, exclude="complex_projections")
     return task
 
 

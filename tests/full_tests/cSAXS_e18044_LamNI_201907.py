@@ -8,7 +8,7 @@ import pyxalign
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
-from pyxalign.io.load import load_task
+from pyxalign.data_structures.task import load_task
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
@@ -62,10 +62,11 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         dat_file_path = os.path.join(
             parent_folder, "specES1", "dat-files", "tomography_scannumbers.txt"
         )
-        parent_projection_folder = os.path.join(parent_folder, "analysis")
+        # parent_projection_folder = os.path.join(parent_folder, "analysis")
 
         # Define options for loading ptycho reconstructions
         base_load_options = BaseLoadOptions(
+            parent_projections_folder=os.path.join(parent_folder, "analysis"),
             loader_type=LoaderType.LAMNI_V1,
             file_pattern=r"*_512x512_b0_MLc_Niter500_recons.h5",
             scan_start=2714,
@@ -80,7 +81,6 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
 
         # Load data
         lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
-            parent_projections_folder=parent_projection_folder,
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )
@@ -100,8 +100,6 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         ci_test_helper.save_or_compare_results(
             lamni_data.probe_positions[2730], "probe_positions_2730"
         )
-
-        dfsdfs
 
         # define projection options
         projection_options = opts.ProjectionOptions(

@@ -8,11 +8,13 @@ from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 
 @dataclasses.dataclass
 class BaseLoadOptions:
+    parent_projections_folder: str
+
     loader_type: LoaderType = LoaderType.PEAR_V1
 
-    def __post_init__(self):
-        if self.loader_type is None:  # Check if the variable is missing
-            self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
+    # def __post_init__(self):
+    #     if self.loader_type is None:  # Check if the variable is missing
+    #         self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
 
     file_pattern: str = None
     "pattern used by re to identify matching folder strings"

@@ -118,9 +118,13 @@ class InteractiveLoadingWidget(QWidget):
             self.advanced_options_editor.deleteLater()
         # Initialize the selected option type
         if selected_experiment is ExperimentType.LYNX:
-            self.options = LYNXLoadOptions(dat_file_path=None)
+            self.options = LYNXLoadOptions(
+                base=BaseLoadOptions(parent_projections_folder=None), dat_file_path=None
+            )
         elif selected_experiment is ExperimentType.BEAMLINE_2IDE_PTYCHO:
-            self.options = Beamline2IDELoadOptions(mda_folder=None)
+            self.options = Beamline2IDELoadOptions(
+                base=BaseLoadOptions(parent_projections_folder=None), mda_folder=None
+            )
         # Update the options editor
         self.options_editor = BasicOptionsEditor(
             self.options,

@@ -9,7 +9,7 @@ import pyxalign
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
-from pyxalign.io.load import load_task
+from pyxalign.data_structures.task import load_task
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, Beamline2IDELoadOptions
@@ -57,6 +57,7 @@ def run_full_test_xrf_ptycho_1(
 
         # Define options for loading ptycho reconstructions
         base_load_options = BaseLoadOptions(
+            parent_projections_folder=os.path.join(ci_test_helper.inputs_folder, "ptychi_recons"),
             loader_type=LoaderType.PEAR_V1,
             file_pattern="Ndp64_LSQML_c*_m0.5_gaussian_p10_mm_ic_pc*ul0.1/recon_Niter5000.h5",
             select_all_by_default=True,
@@ -70,7 +71,6 @@ def run_full_test_xrf_ptycho_1(
 
         # Load data
         standard_data = pyxalign.io.loaders.load_data_from_lamni_format(
-            parent_projections_folder=os.path.join(ci_test_helper.inputs_folder, "ptychi_recons"),
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )

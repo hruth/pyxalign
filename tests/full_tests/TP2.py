@@ -59,10 +59,10 @@ def run_full_test_TP2(
         dat_file_path = os.path.join(
             parent_folder, "specES1", "dat-files", "tomography_scannumbers.txt"
         )
-        parent_projection_folder = os.path.join(parent_folder, "ptycho_recon", "TP_2")
 
         # Define options for loading ptycho reconstructions
         base_load_options = BaseLoadOptions(
+            parent_projections_folder=os.path.join(parent_folder, "ptycho_recon", "TP_2"),
             loader_type=LoaderType.LAMNI_V2,
             file_pattern=r"roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat",
             select_all_by_default=True,
@@ -76,8 +76,6 @@ def run_full_test_TP2(
 
         # Load ptycho reconstructions, probe positions, measurement angles, and scan numbers
         lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
-            # dat_file_path=dat_file_path,
-            parent_projections_folder=parent_projection_folder,
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )
