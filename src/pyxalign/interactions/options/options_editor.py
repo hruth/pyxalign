@@ -170,7 +170,7 @@ class CollapsiblePanel(QWidget):
     Clicking the toggle button shows or hides the panel's contents.
     """
 
-    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
+    def __init__(self, title: str = "", keep_open: bool = False, parent: Optional[QWidget] = None):
         super().__init__(parent)
 
         self.toggle_button = QToolButton(text=title, checkable=True, checked=False)
@@ -191,6 +191,9 @@ class CollapsiblePanel(QWidget):
 
         self.content_area = QWidget()
         self.content_area.setMaximumHeight(0)  # fully collapse
+        if keep_open:
+            self.toggle_button.setChecked(True)
+            self.on_toggle()
 
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(self.toggle_button)
@@ -468,78 +471,6 @@ class SingleOptionEditor(QWidget):
         If the number of boxes can't be determined, it reverts to a freeform string.
         """
         return IntTupleInputWidget(field_value, self.field_name, self.data_obj)
-        # container = IntTupleInputWidget()
-        # checkbox_layout = QHBoxLayout()
-        # container.setLayout(checkbox_layout)
-        # container.setContentsMargins(0, 0, 0, 0)
-
-        # active_indices = set(field_value or ())
-
-        # checkboxes = []
-
-        # def update_tuple():
-        #     new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
-        #     setattr(self.data_obj, self.field_name, tuple(new_indices))
-
-        # n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
-        #     self.data_obj, self.field_name
-        # )
-
-        # if n_boxes is not None:
-        #     for i in range(n_boxes):
-        #         cb = QCheckBox(box_labels[i])
-        #         cb.setChecked(corresponding_values[i] in active_indices)
-        #         cb.toggled.connect(update_tuple)
-        #         checkboxes.append(cb)
-        #         checkbox_layout.addWidget(cb)
-        # else:
-        #     # Fallback: freeform string => parse as tuple
-        #     container.line = QLineEdit()
-        #     container.line.setText(str(field_value) if field_value is not None else "")
-
-        #     @update_options_error_handler
-        #     def on_text_changed(txt: str):
-        #         setattr(self.data_obj, self.field_name, string_to_tuple(txt))
-
-        #     container.line.textChanged.connect(on_text_changed)
-        #     checkbox_layout.addWidget(container.line)
-
-        # return container
-
-    # ########################################################################
-    # # GPU and direction checkboxes
-    # ########################################################################
-    # def get_n_boxes_and_labels(
-    #     self, data_obj: OptionsClass, field_name: str
-    # ) -> tuple[Optional[int], Optional[list[str]], Optional[list[int]]]:
-    #     """
-    #     Determines if we can display a fixed number of checkboxes
-    #     for the current field. Returns (n_boxes, box_labels, corresponding_values).
-    #     """
-    #     gpu_list_field_names = [
-    #         "gpu_indices",
-    #         "back_project_gpu_indices",
-    #         "forward_project_gpu_indices",
-    #     ]
-    #     if field_name in gpu_list_field_names:
-    #         n_boxes = cp.cuda.runtime.getDeviceCount()
-    #         box_labels = [str(i) for i in range(n_boxes)]
-    #         corresponding_values = [i for i in range(n_boxes)]
-    #     elif (
-    #         hasattr(opts, "ProjectionMatchingOptions")
-    #         and isinstance(data_obj, opts.ProjectionMatchingOptions)
-    #         and field_name == "filter_directions"
-    #     ):
-    #         n_boxes = 2
-    #         box_labels = ["x", "y"]
-    #         # For "filter_directions", the values are 1 for x and 2 for y
-    #         corresponding_values = [i + 1 for i in range(n_boxes)]
-    #     else:
-    #         n_boxes = None
-    #         box_labels = None
-    #         corresponding_values = None
-
-    #     return n_boxes, box_labels, corresponding_values
 
     ########################################################################
     # Type-checking Helpers
@@ -654,6 +585,7 @@ class BasicOptionsEditor(QWidget):
         skip_fields: list[str] = [],
         file_dialog_fields: list[str] = [],
         folder_dialog_fields: list[str] = [],
+        open_panels_list: list[str] = [],
         parent=None,
     ):
         super().__init__(parent)
@@ -692,6 +624,7 @@ class BasicOptionsEditor(QWidget):
             self.form_layout,
             file_dialog_fields=file_dialog_fields,
             folder_dialog_fields=folder_dialog_fields,
+            open_panels_list=open_panels_list,
         )
 
     def _add_dataclass_fields(
@@ -701,6 +634,7 @@ class BasicOptionsEditor(QWidget):
         parent_name: str = "",
         file_dialog_fields: Optional[list[str]] = None,
         folder_dialog_fields: Optional[list[str]] = None,
+        open_panels_list: list[str] = [],
         level: int = 0,
     ):
         if not is_dataclass(data_obj):
@@ -717,7 +651,11 @@ class BasicOptionsEditor(QWidget):
 
             # If nested dataclass => collapsible panel
             if is_dataclass(field_value):
-                panel = CollapsiblePanel(title=field_name)
+                if field_name in open_panels_list:
+                    keep_open = True
+                else:
+                    keep_open = False
+                panel = CollapsiblePanel(title=field_name, keep_open=keep_open)
                 nested_layout = QFormLayout()
                 panel.setContentLayout(nested_layout)
 

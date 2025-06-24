@@ -56,6 +56,7 @@ advanced_options_list = [
 
 file_dialog_fields = ["dat_file_path"]
 folder_dialog_fields = ["base.parent_projections_folder", "mda_folder"]
+open_panels_list = ["base"]
 
 
 class ExperimentType(StrEnum):
@@ -131,6 +132,7 @@ class InteractiveLoadingWidget(QWidget):
             self.options,
             file_dialog_fields=file_dialog_fields,
             folder_dialog_fields=folder_dialog_fields,
+            open_panels_list=open_panels_list,
             skip_fields=advanced_options_list,
         )
         # Add widget to layout
@@ -140,6 +142,7 @@ class InteractiveLoadingWidget(QWidget):
             self.options,
             file_dialog_fields=file_dialog_fields,
             folder_dialog_fields=folder_dialog_fields,
+            open_panels_list=open_panels_list,
             skip_fields=np.setdiff1d(
                 get_all_attribute_names(self.options),
                 advanced_options_list,
