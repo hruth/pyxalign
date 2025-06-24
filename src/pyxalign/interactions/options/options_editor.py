@@ -141,6 +141,8 @@ class CustomFileDialog(QWidget):
         layout = QVBoxLayout()
 
         self.input_bar = QLineEdit(self)
+        self.input_bar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.input_bar.setMinimumWidth(300)
         self.input_bar.setPlaceholderText("Type or paste file path here...")
         layout.addWidget(self.input_bar)
 
@@ -149,6 +151,7 @@ class CustomFileDialog(QWidget):
         else:
             self.open_dialog_button = QPushButton("Open File Dialog", self)
         self.open_dialog_button.clicked.connect(self.open_file_dialog)
+        self.open_dialog_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         layout.addWidget(self.open_dialog_button)
 
         self.setLayout(layout)
@@ -612,6 +615,7 @@ class BasicOptionsEditor(QWidget):
         title.setStyleSheet("QLabel {font-size: 16px;}")
 
         self.open_display_button = QPushButton("view selections")
+        self.open_display_button.setSizePolicy(QSizePolicy.Fixed,  QSizePolicy.Preferred)
         self.open_display_button.clicked.connect(self.open_options_display_window)
 
         main_layout.addWidget(title)
@@ -715,6 +719,7 @@ class BasicOptionsEditor(QWidget):
         self.update_display_timer.timeout.connect(self.options_display.update_display)
 
     def open_options_display_window(self):
+        self.options_display.resize(550, 700)
         self.options_display.show()
 
 

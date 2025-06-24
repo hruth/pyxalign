@@ -75,6 +75,7 @@ class InteractiveLoadingWidget(QWidget):
         super().__init__(parent)
         self.options_editor = None
         self.options = None
+        self.resize(600, 1000)
 
         # self.layout
         self.layout = QVBoxLayout()
@@ -88,6 +89,7 @@ class InteractiveLoadingWidget(QWidget):
         layout = QVBoxLayout()
         self.select_options_widget.setLayout(layout)
         self.experiment_type_combo = QComboBox()
+        self.experiment_type_combo.setSizePolicy(QSizePolicy.Fixed,  QSizePolicy.Preferred)
         layout.addWidget(self.experiment_type_combo)
         experiment_options = {
             "LYNX": ExperimentType.LYNX,
