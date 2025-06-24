@@ -132,8 +132,9 @@ class IntTupleInputWidget(QWidget):
 
 
 class CustomFileDialog(QWidget):
-    def __init__(self):
+    def __init__(self, use_folder_dialog: bool = False):
         super().__init__()
+        self.use_folder_dialog = use_folder_dialog
         self.initUI()
 
     def initUI(self):
@@ -143,17 +144,24 @@ class CustomFileDialog(QWidget):
         self.input_bar.setPlaceholderText("Type or paste file path here...")
         layout.addWidget(self.input_bar)
 
-        self.open_file_button = QPushButton("Open File Dialog", self)
-        self.open_file_button.clicked.connect(self.open_file_dialog)
-        layout.addWidget(self.open_file_button)
+        if self.use_folder_dialog:
+            self.open_dialog_button = QPushButton("Open Folder Dialog", self)
+        else:
+            self.open_dialog_button = QPushButton("Open File Dialog", self)
+        self.open_dialog_button.clicked.connect(self.open_file_dialog)
+        layout.addWidget(self.open_dialog_button)
 
         self.setLayout(layout)
         self.setWindowTitle("File Dialog Example")
 
     def open_file_dialog(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select a File")
-        if file_path:
-            self.input_bar.setText(file_path)
+        if self.use_folder_dialog:
+            path = QFileDialog.getExistingDirectory(self, "Select a Folder")
+        else:
+            path, _ = QFileDialog.getOpenFileName(self, "Select a File")
+
+        if path:
+            self.input_bar.setText(path)
 
 
 class CollapsiblePanel(QWidget):
@@ -230,6 +238,7 @@ class SingleOptionEditor(QWidget):
         field_name: str,
         skip_fields: Optional[list[str]] = None,
         use_file_dialog: bool = False,
+        use_folder_dialog: bool = False,
         parent=None,
     ):
         super().__init__(parent)
@@ -237,6 +246,9 @@ class SingleOptionEditor(QWidget):
         self.field_name = field_name
         self.skip_fields = skip_fields
         self.use_file_dialog = use_file_dialog
+        self.use_folder_dialog = use_folder_dialog
+        if use_file_dialog and use_folder_dialog:
+            raise Exception("use_file_dialog and use_folder_dialog cannot both be true!")
 
         # Find the field's declared type
         self.field_type = None
@@ -346,9 +358,9 @@ class SingleOptionEditor(QWidget):
         Creates an editor for a non-optional field of type t and sets up signals
         that immediately store changes to self.data_obj[self.field_name].
         """
-        if self.use_file_dialog:
+        if self.use_file_dialog or self.use_folder_dialog:
             # File path input
-            file_dialog_widget = CustomFileDialog()
+            file_dialog_widget = CustomFileDialog(self.use_folder_dialog)
             if field_value:
                 file_dialog_widget.input_bar.setText(str(field_value))
 
@@ -641,6 +653,7 @@ class BasicOptionsEditor(QWidget):
         data: OptionsClass,
         skip_fields: list[str] = [],
         file_dialog_fields: list[str] = [],
+        folder_dialog_fields: list[str] = [],
         parent=None,
     ):
         super().__init__(parent)
@@ -674,7 +687,12 @@ class BasicOptionsEditor(QWidget):
         main_layout.addWidget(self.open_display_button)
 
         self.initialize_viewer()
-        self._add_dataclass_fields(data, self.form_layout, file_dialog_fields=file_dialog_fields)
+        self._add_dataclass_fields(
+            data,
+            self.form_layout,
+            file_dialog_fields=file_dialog_fields,
+            folder_dialog_fields=folder_dialog_fields,
+        )
 
     def _add_dataclass_fields(
         self,
@@ -682,6 +700,7 @@ class BasicOptionsEditor(QWidget):
         form_layout: QFormLayout,
         parent_name: str = "",
         file_dialog_fields: Optional[list[str]] = None,
+        folder_dialog_fields: Optional[list[str]] = None,
         level: int = 0,
     ):
         if not is_dataclass(data_obj):
@@ -708,6 +727,7 @@ class BasicOptionsEditor(QWidget):
                     parent_name=parent_name + field_name + ".",
                     level=level + 1,
                     file_dialog_fields=file_dialog_fields,
+                    folder_dialog_fields=folder_dialog_fields,
                 )
 
                 if level == 0:
@@ -716,10 +736,20 @@ class BasicOptionsEditor(QWidget):
                     form_layout.addRow(field_name, panel)
 
             else:
-                # Check if file-dialog
-                use_file_dialog = file_dialog_fields and (full_field_name in file_dialog_fields)
+                # Check if file-dialog or folder-dialog
+                use_file_dialog = file_dialog_fields is not None and (
+                    full_field_name in file_dialog_fields
+                )
+                use_folder_dialog = folder_dialog_fields is not None and (
+                    full_field_name in folder_dialog_fields
+                )
                 editor = SingleOptionEditor(
-                    data_obj, field_name, self.skip_fields, use_file_dialog, self
+                    data_obj,
+                    field_name,
+                    self.skip_fields,
+                    use_file_dialog=use_file_dialog,
+                    use_folder_dialog=use_folder_dialog,
+                    parent=self,
                 )
                 if level == 0:
                     form_layout.addRow(field_name, self.wrap_in_frame(editor))

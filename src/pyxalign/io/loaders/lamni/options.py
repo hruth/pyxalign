@@ -16,7 +16,7 @@ class BaseLoadOptions:
     #     if self.loader_type is None:  # Check if the variable is missing
     #         self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
 
-    file_pattern: str = None
+    file_pattern: Optional[str] = None
     "pattern used by re to identify matching folder strings"
 
     scan_start: Optional[int] = None
