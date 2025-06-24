@@ -1,4 +1,5 @@
 from email.charset import QP
+import traceback
 import matplotlib
 import sys
 from dataclasses import fields, is_dataclass
@@ -179,13 +180,17 @@ class SelectLoadSettingsWidget(QWidget):
         self.layout().addWidget(self.load_data_button)
 
     def load_data(self):
-        if isinstance(self.options, Union[LYNXLoadOptions, Beamline2IDELoadOptions]):
-            self.standard_data = load_data_from_lamni_format(
-                options=self.options,
-                n_processes=int(mp.cpu_count() * 0.8),
-            )
-        elif isinstance(self.options, XRFLoadOptions):
-            pass
+        try:
+            if isinstance(self.options, Union[LYNXLoadOptions, Beamline2IDELoadOptions]):
+                self.standard_data = load_data_from_lamni_format(
+                    options=self.options,
+                    n_processes=int(mp.cpu_count() * 0.8),
+                )
+            elif isinstance(self.options, XRFLoadOptions):
+                pass
+            print("Data loading completed!")
+        except Exception as ex:
+            print(f"An error occurred during data loading: {type(ex).__name__}: {str(ex)}")
 
 
 class MainLoadingWidget(QWidget):
