@@ -18,6 +18,7 @@ class XRFLoadOptions:
     lamino_angle_PV_string: str = "2xfm:m12.VAL"
 
     file_pattern: str = r"2xfm_(\d+)\.mda.h5"
+
     ends_with: str = ""
 
     scan_start: Optional[int] = None
