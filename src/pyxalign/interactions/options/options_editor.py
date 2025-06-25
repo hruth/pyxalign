@@ -31,31 +31,10 @@ from PyQt5.QtWidgets import (
     QFileDialog,
 )
 from PyQt5.QtCore import Qt, QTimer
+from pyxalign.interactions.custom import NoScrollSpinBox, MinimalDecimalSpinBox
 
 from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
-
-# OptionsClass = TypeVar("OptionsClass")
-
-
-class NoScrollSpinBox(QSpinBox):
-    def wheelEvent(self, event):
-        event.ignore()  # Prevent changing value on scroll
-
-
-class NoScrollDoubleSpinBox(QDoubleSpinBox):
-    def wheelEvent(self, event):
-        event.ignore()  # Prevent changing value on scroll
-
-
-class MinimalDecimalSpinBox(NoScrollDoubleSpinBox):
-    def textFromValue(self, value):
-        # Format to suppress trailing zeros, but respect min/max decimals
-        text = f"{value:.10f}".rstrip("0").rstrip(".")
-        if text == "-0":  # Optional: fix "-0" to "0"
-            text = "0"
-        return text
-
 
 class IntTupleInputWidget(QWidget):
     def __init__(self, field_value, field_name: str, data_obj: OptionsClass):

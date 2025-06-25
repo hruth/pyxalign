@@ -11,12 +11,15 @@ from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.transform import DownsampleOptions
+from pyxalign.interactions.initialize_projections import ProjectionObjectInitializerWidget
 from pyxalign.interactions.io.loader import MainLoadingWidget
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sequencer import SequencerWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 import pyxalign.io.load as load
+from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
+from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.base import MultiThreadedWidget
 import pyxalign.data_structures.task as t
 
@@ -55,7 +58,7 @@ from PyQt5.QtGui import QIcon
 
 
 class MasterWidget(QWidget):
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, input_options: OptionsClass, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)
 
         # Create a vertical layout for the entire widget
@@ -64,16 +67,36 @@ class MasterWidget(QWidget):
         self.navigator = SidebarNavigator()
         main_layout.addWidget(self.navigator)
 
-        self.initialize_loading_widget_page()
+        self.create_loading_widget_page(input_options)
+        self.create_projection_initializer_page()
 
-    def initialize_loading_widget_page(self):
-        self.loading_widget = MainLoadingWidget()
-        self.navigator.addPage(self.loading_widget, "Load")
+        self.loading_widget.select_load_settings_widget.data_loaded_signal.connect(
+            self.projection_initializer_widget.set_standard_data
+        )
+
+    def create_loading_widget_page(self, input_options: OptionsClass):
+        self.loading_widget = MainLoadingWidget(input_options)
+        self.navigator.addPage(self.loading_widget, "Load Data")
+
+    def create_projection_initializer_page(self):
+        self.projection_initializer_widget = ProjectionObjectInitializerWidget()
+        self.navigator.addPage(self.projection_initializer_widget, "Initialize Projections")
 
 
 if __name__ == "__main__":
+    options = LYNXLoadOptions(
+        dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
+        selected_sequences=(2,),
+        selected_experiment_name="APS-D_3D",
+        base=BaseLoadOptions(
+            parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
+            file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
+            select_all_by_default=True,
+        ),
+    )
+
     app = QApplication(sys.argv)
-    window = MasterWidget()
+    window = MasterWidget(input_options=options)
     screen_geometry = app.desktop().availableGeometry(window)
     window.setGeometry(
         screen_geometry.x(),
