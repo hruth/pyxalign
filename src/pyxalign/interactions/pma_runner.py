@@ -336,7 +336,8 @@ if __name__ == "__main__":
     )
     dummy_task.options.projection_matching.iterations = 3
     dummy_task.options.projection_matching.downsample = ProjectionMatchingOptions().downsample
-    dummy_task.options.projection_matching.interactive_viewer.update.enabled = False
+    dummy_task.options.projection_matching.downsample.enabled = False
+    dummy_task.options.projection_matching.interactive_viewer.update.enabled = True
     app = QApplication(sys.argv)
     master_widget = PMAMasterWidget(dummy_task)
 
