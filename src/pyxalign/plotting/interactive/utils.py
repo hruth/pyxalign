@@ -109,6 +109,9 @@ class OptionsDisplayWidget(QWidget):
         # Add the tree to our layout
         layout.addWidget(self.tree_widget)
 
+    def update_options(self, options):
+        self.options = options
+
     def update_display(self):#, options):
         populate_tree_widget(self.tree_widget, self.options)
 

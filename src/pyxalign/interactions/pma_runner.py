@@ -184,6 +184,7 @@ class AlignmentResultsCollection(QWidget):
 
     def change_options_display_index(self, row: int):
         self.options_display.update_options(self.alignment_results_list[row].pma_options)
+        self.options_display.update_display()
 
     # def go_next(self):
     #     """
@@ -330,7 +331,7 @@ class PMAMasterWidget(MultiThreadedWidget):
 
 if __name__ == "__main__":
     # dummy_task = t.LaminographyAlignmentTask(options=AlignmentTaskOptions(), phase_projections=1)
-    dummy_task = load.load_task(
+    dummy_task = t.load_task(
         "/gpfs/dfnt1/test/hruth/pyxalign_ci_test_data/dummy_inputs/cSAXS_e18044_LamNI_201907_16x_downsampled_pre_pma_task.h5"
     )
     dummy_task.options.projection_matching.iterations = 3
