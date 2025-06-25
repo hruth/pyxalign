@@ -22,12 +22,11 @@ from PyQt5.QtWidgets import (
     QLabel,
     QWidget,
     QScrollArea,
+    QApplication,
 )
 from PyQt5.QtCore import Qt
 
 border = 60 * "-"
-
-run_from_gui = True  # temporary
 
 
 def load_h5_group(file_path, group_path="/"):
@@ -101,7 +100,7 @@ def get_user_input(
     prompt: str,
     allow_multiple_selections: bool,
 ) -> tuple[Union[int, list[int]], ...]:
-    if run_from_gui:
+    if QApplication.instance() is not None:
         return get_user_input_gui(options_list, prompt, allow_multiple_selections)
     else:
         return get_user_input_terminal(options_list, prompt, allow_multiple_selections)
@@ -143,9 +142,7 @@ def get_user_input_gui(
     else:
         # Show a single-select dialog using QInputDialog
         items = [f"{i+1}. {option}" for i, option in enumerate(options_list)]
-        item_str, ok = QInputDialog.getItem(
-            None, "Select One Option", prompt, items, 0, False
-        )
+        item_str, ok = QInputDialog.getItem(None, "Select One Option", prompt, items, 0, False)
         if ok and item_str:
             # The user picked e.g. "2. Some Value"; parse out the index
             index_str = item_str.split(".")[0]
@@ -202,9 +199,7 @@ class MultipleSelectionDialog(QDialog):
         self.layout.addWidget(self.scroll_area)
 
         # Add standard dialog buttons (OK/Cancel)
-        self.button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        )
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         self.layout.addWidget(self.button_box)
@@ -231,12 +226,7 @@ class MultipleSelectionDialog(QDialog):
         if self.cb_select_all.isChecked():
             return list(range(len(self.option_checkboxes)))
         else:
-            return [
-                idx
-                for idx, cb in enumerate(self.option_checkboxes)
-                if cb.isChecked()
-            ]
-
+            return [idx for idx, cb in enumerate(self.option_checkboxes) if cb.isChecked()]
 
 
 def get_user_input_terminal(
@@ -315,13 +305,13 @@ def generate_input_user_prompt(
 
     # Generate the user prompt
     if allow_multiple_selections:
-        prompt = (
-            f"Select the {load_object_type_string} to load\n"
-        )
+        prompt = f"Select the {load_object_type_string} to load\n"
+        if QApplication.instance() is None:
+            prompt += "Enter inputs as a series of integers seperated by spaces:\n"
     else:
         prompt = f"Select the {load_object_type_string} to load:\n"
 
-    if allow_multiple_selections:
+    if allow_multiple_selections and QApplication.instance() is None:
         options_list = [select_all_string] + options_list
         options_info_list = [""] + options_info_list
 
@@ -341,7 +331,7 @@ def generate_input_user_prompt(
         prompt,
         allow_multiple_selections=allow_multiple_selections,
     )
-    if allow_multiple_selections:
+    if allow_multiple_selections and QApplication.instance() is None:
         # Remove "select all" entry from options list
         options_list = options_list[1:]
         # Check if "select all" in selection
@@ -374,7 +364,7 @@ def parse_space_delimited_integers(input_string: str):
 
 
 def get_boolean_user_input(prompt: str) -> bool:
-    if run_from_gui:
+    if QApplication.instance() is not None:
         return get_boolean_user_input_gui(prompt)
     else:
         return get_boolean_user_input_terminal(prompt)
@@ -410,7 +400,7 @@ def get_boolean_user_input_gui(prompt: str) -> bool:
     msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
     result = msg.exec_()
 
-    return (result == QMessageBox.Yes)
+    return result == QMessageBox.Yes
 
 
 def convert_projection_dict_to_array(
