@@ -36,6 +36,7 @@ from pyxalign.interactions.custom import NoScrollSpinBox, MinimalDecimalSpinBox
 from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 
+
 class IntTupleInputWidget(QWidget):
     def __init__(self, field_value, field_name: str, data_obj: OptionsClass):
         super().__init__()
@@ -257,9 +258,9 @@ class SingleOptionEditor(QWidget):
         # Add a spacer to push the input widget to the left
         layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-    ########################################################################
-    # Main Editor Creation
-    ########################################################################
+    def value(self) -> Any:
+        return getattr(self.data_obj, self.field_name)
+
     def _create_editor_widget(self) -> QWidget:
         """
         Decides whether the field is optional or not. If optional, we wrap
@@ -594,7 +595,7 @@ class BasicOptionsEditor(QWidget):
         title.setStyleSheet("QLabel {font-size: 16px;}")
 
         self.open_display_button = QPushButton("view selections")
-        self.open_display_button.setSizePolicy(QSizePolicy.Fixed,  QSizePolicy.Preferred)
+        self.open_display_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         self.open_display_button.clicked.connect(self.open_options_display_window)
 
         main_layout.addWidget(title)
