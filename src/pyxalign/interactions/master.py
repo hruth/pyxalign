@@ -54,28 +54,33 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 
 
-class MasterWidget(QMainWindow):
+class MasterWidget(QWidget):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)
-        
+
         # Create a vertical layout for the entire widget
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
-
         self.navigator = SidebarNavigator()
+        main_layout.addWidget(self.navigator)
+
         self.initialize_loading_widget_page()
 
     def initialize_loading_widget_page(self):
-        loading_page_widget = QWidget()
-        loading_page_widget.setLayout(QHBoxLayout())
         self.loading_widget = MainLoadingWidget()
+        self.navigator.addPage(self.loading_widget, "Load")
 
-        self.navigator.addPage(self.loading_widget)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MasterWidget()
-    window.setWindowTitle("QToolBar in a QWidget Demo")
-    window.resize(400, 200)
+    screen_geometry = app.desktop().availableGeometry(window)
+    window.setGeometry(
+        screen_geometry.x(),
+        screen_geometry.y(),
+        int(screen_geometry.width() * 0.75),
+        int(screen_geometry.height() * 0.9),
+    )
+
     window.show()
     sys.exit(app.exec_())
