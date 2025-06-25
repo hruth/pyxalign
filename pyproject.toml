@@ -17,6 +17,7 @@ dependencies = [
     "tifffile",
     "PyQt5",
     "mda-xdrlib",
+    "pyqtgraph",
 ]
 requires-python = ">=3.0"
 

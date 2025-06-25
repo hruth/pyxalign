@@ -11,6 +11,7 @@ from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.transform import DownsampleOptions
+from pyxalign.interactions.io.loader import MainLoadingWidget
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sequencer import SequencerWidget
@@ -62,7 +63,14 @@ class MasterWidget(QMainWindow):
         self.setLayout(main_layout)
 
         self.navigator = SidebarNavigator()
-        self.navigator
+        self.initialize_loading_widget_page()
+
+    def initialize_loading_widget_page(self):
+        loading_page_widget = QWidget()
+        loading_page_widget.setLayout(QHBoxLayout())
+        self.loading_widget = MainLoadingWidget()
+
+        self.navigator.addPage(self.loading_widget)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -32,8 +32,10 @@ from PyQt5.QtWidgets import (
     QFrame,
     QTabWidget,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from pyxalign.api.options_utils import get_all_attribute_names
+from pyxalign.interactions.io.input_data_viewer import StandardDataViewer
+from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.enums import ExperimentType
 from pyxalign.io.loaders.lamni.api import load_data_from_lamni_format
 from pyxalign.io.loaders.maps import (
@@ -71,6 +73,7 @@ open_panels_list = ["base"]
 
 
 class SelectLoadSettingsWidget(QWidget):
+    data_loaded_signal = pyqtSignal(StandardData)
     def __init__(
         self, input_options: Optional[OptionsClass] = None, parent: Optional[QWidget] = None
     ):
@@ -182,52 +185,90 @@ class SelectLoadSettingsWidget(QWidget):
     def load_data(self):
         try:
             if isinstance(self.options, Union[LYNXLoadOptions, Beamline2IDELoadOptions]):
-                self.standard_data = load_data_from_lamni_format(
+                standard_data = load_data_from_lamni_format(
                     options=self.options,
                     n_processes=int(mp.cpu_count() * 0.8),
                 )
             elif isinstance(self.options, XRFLoadOptions):
                 pass
             print("Data loading completed!")
+            self.data_loaded_signal.emit(standard_data)
         except Exception as ex:
             print(f"An error occurred during data loading: {type(ex).__name__}: {str(ex)}")
 
 
 class MainLoadingWidget(QWidget):
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, input_options: Optional[OptionsClass] = None, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.select_load_settings_widget = None
-        self.resize(800, 800)
+        # self.resize(800, 800)
 
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        main_layout = QHBoxLayout()
+        self.setLayout(main_layout)
 
-        self.open_file_loader_button = QPushButton("Load Projections")
-        self.open_file_loader_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.open_file_loader_button.clicked.connect(self.open_file_loader_window)
-        layout.addWidget(self.open_file_loader_button)
+        # self.open_file_loader_button = QPushButton("Load Projections")
+        # self.open_file_loader_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # self.open_file_loader_button.clicked.connect(self.open_file_loader_window)
 
-    def open_file_loader_window(self):
-        if self.select_load_settings_widget is None or sip.isdeleted(
-            self.select_load_settings_widget
-        ):
-            self.select_load_settings_widget = SelectLoadSettingsWidget()
-        self.select_load_settings_widget.setAttribute(Qt.WA_DeleteOnClose)
-        self.select_load_settings_widget.show()
+        self.select_load_settings_widget = SelectLoadSettingsWidget(input_options) # need way to save and load options
+
+        self.standard_data_viewer = StandardDataViewer()
+        self.select_load_settings_widget.data_loaded_signal.connect(self.on_data_loaded)
+
+        main_layout.addWidget(self.select_load_settings_widget)
+        main_layout.addWidget(self.standard_data_viewer)
+
+    def on_data_loaded(self, input_data: StandardData):
+        self.standard_data_viewer.setStandardData(input_data)
+
+
+    # def open_file_loader_window(self):
+    #     if self.select_load_settings_widget is None or sip.isdeleted(
+    #         self.select_load_settings_widget
+    #     ):
+    #         self.select_load_settings_widget = SelectLoadSettingsWidget()
+    #     self.select_load_settings_widget.setAttribute(Qt.WA_DeleteOnClose)
+    #     self.select_load_settings_widget.show()
+
+
+# class MainLoadingWidget(QWidget):
+#     def __init__(self, parent: Optional[QWidget] = None):
+#         super().__init__(parent)
+#         self.select_load_settings_widget = None
+#         self.resize(800, 800)
+
+#         layout = QVBoxLayout()
+#         self.setLayout(layout)
+
+#         self.open_file_loader_button = QPushButton("Load Projections")
+#         self.open_file_loader_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+#         self.open_file_loader_button.clicked.connect(self.open_file_loader_window)
+#         layout.addWidget(self.open_file_loader_button)
+
+#     def open_file_loader_window(self):
+#         if self.select_load_settings_widget is None or sip.isdeleted(
+#             self.select_load_settings_widget
+#         ):
+#             self.select_load_settings_widget = SelectLoadSettingsWidget()
+#         self.select_load_settings_widget.setAttribute(Qt.WA_DeleteOnClose)
+#         self.select_load_settings_widget.show()
 
 
 if __name__ == "__main__":
     options = LYNXLoadOptions(
         dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
+        selected_sequences=(2,),
+        selected_experiment_name="APS-D_3D",
         base=BaseLoadOptions(
             parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
             file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
+            select_all_by_default=True,
         ),
     )
 
     app = QApplication([])
-    load_widget = SelectLoadSettingsWidget(options)
-    # load_widget = MainLoadingWidget()
+    # load_widget = SelectLoadSettingsWidget(options)
+    load_widget = MainLoadingWidget(options)
     screen_geometry = app.desktop().availableGeometry(load_widget)
     load_widget.show()
     sys.exit(app.exec_())
