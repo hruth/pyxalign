@@ -145,7 +145,6 @@ class ProjectionViewer(MultiThreadedWidget):
         else:
             sort_idx = None
         self.array_viewer = ArrayViewer(
-            # array3d=self.process_func(projections.data),
             array3d=projections.data,
             sort_idx=sort_idx,
             extra_title_strings_list=[f"\nScan {scan}" for scan in self.projections.scan_numbers],

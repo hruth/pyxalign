@@ -93,9 +93,10 @@ class MultiThreadedWidget(QWidget):
 
 
 class ArrayViewer(MultiThreadedWidget):
+    # Make array3d optional with a default of None
     def __init__(
         self,
-        array3d: np.ndarray,
+        array3d: Optional[np.ndarray] = None,  # changed to Optional and given a default value
         options: Optional[ArrayViewerOptions] = None,
         sort_idx: Optional[Sequence] = None,
         multi_thread_func: Optional[Callable] = None,
@@ -113,11 +114,15 @@ class ArrayViewer(MultiThreadedWidget):
         else:
             self.process_func = process_func
 
-        # Convert cupy array to numpy array if needed
-        if cp.get_array_module(array3d) == cp:
-            self.array3d = array3d.get()
+        # Only convert array if array3d is provided
+        if array3d is not None:
+            if cp.get_array_module(array3d) == cp:
+                self.array3d = array3d.get()
+            else:
+                self.array3d = array3d
         else:
-            self.array3d = array3d
+            # If no array is given, store None
+            self.array3d = None
 
         self.sort_idx = sort_idx
         if options is None:
@@ -125,7 +130,12 @@ class ArrayViewer(MultiThreadedWidget):
         else:
             self.options = options
 
-        self.num_frames = self.array3d.shape[self.options.slider_axis]
+        # If array is given, use its shape. Otherwise, default to 1 to avoid errors.
+        if self.array3d is not None:
+            self.num_frames = self.array3d.shape[self.options.slider_axis]
+        else:
+            self.num_frames = 1
+
         self.playing = False
 
         # Create a pyqtgraph GraphicsLayoutWidget to hold the image
@@ -177,30 +187,34 @@ class ArrayViewer(MultiThreadedWidget):
         """
         self.setStyleSheet(small_style)
 
-        # Show the initial image
-        self.display_frame(index=self.options.start_index)
-        # force scaling
-        self.image_item.setImage(autoLevels=True)
+        # If array3d was provided, show the initial image
+        if self.array3d is not None:
+            self.display_frame(index=self.options.start_index)
+            # force scaling
+            self.image_item.setImage(autoLevels=True)
 
-    def display_frame(self, index=0):
+    def display_frame(self, index=0, force_autolim: bool = False):
         """Display a given slice (frame) from array3d."""
+        # Only display if we have an array
+        if self.array3d is None:
+            self.plot_item.setTitle("No data loaded")
+            return
+
         if self.sort_idx is not None:
             plot_index = self.sort_idx[index]
         else:
             plot_index = index
+
         image = self.array3d.take(indices=plot_index, axis=self.options.slider_axis)
         if cp.get_array_module(image) == cp:
             image = image.get()
         image = self.process_func(image)
 
         # Update pyqtgraph image
-        # If auto scaling is enabled, let pyqtgraph handle levels automatically
-        if self.auto_clim_check_box.isChecked():
+        if self.auto_clim_check_box.isChecked() or force_autolim:
             self.image_item.setImage(np.transpose(image), autoLevels=True)
         else:
-            # Manually set levels from min/max of current frame
             self.image_item.setImage(np.transpose(image), autoLevels=False)
-            # self.image_item.setLevels([image.min(), image.max()])
 
         # Update title
         title = f"Index {index}"
@@ -208,8 +222,8 @@ class ArrayViewer(MultiThreadedWidget):
             title += self.extra_title_strings_list[plot_index]
         self.plot_item.setTitle(title)
 
-    def update_frame(self, value):
-        self.display_frame(index=value)
+    def update_frame(self, value, force_autolim: bool = False):
+        self.display_frame(index=value, force_autolim=force_autolim)
 
     def toggle_play(self):
         if self.playing:
@@ -225,26 +239,28 @@ class ArrayViewer(MultiThreadedWidget):
         next_idx = (current + 1) % self.num_frames
         self.slider.setValue(next_idx)
 
-    def refresh_frame(self):
-        self.update_frame(self.slider.value())
+    def refresh_frame(self, force_autolim: bool = False):
+        self.update_frame(self.slider.value(), force_autolim=force_autolim)
 
     def update_index_externally(self, index: int):
         self.slider.setValue(index)
 
     def reinitialize_all(
         self,
-        array3d: np.ndarray,
+        array3d: Optional[np.ndarray] = None,
         sort_idx: Optional[Sequence] = None,
         extra_title_strings_list: Optional[Sequence] = None,
     ):
         """Re-initialize the viewer with a new array or sort indices."""
-        self.array3d = array3d
-        self.sort_idx = sort_idx
-        self.extra_title_strings_list = extra_title_strings_list
-        self.num_frames = self.array3d.shape[self.options.slider_axis]
-        self.slider.setMaximum(self.num_frames - 1)
-        self.spinbox.setMaximum(self.num_frames - 1)
-        self.refresh_frame()
+        # Only process the new array if provided
+        if array3d is not None:
+            self.array3d = array3d
+            self.sort_idx = sort_idx
+            self.extra_title_strings_list = extra_title_strings_list
+            self.num_frames = self.array3d.shape[self.options.slider_axis]
+            self.slider.setMaximum(self.num_frames - 1)
+            self.spinbox.setMaximum(self.num_frames - 1)
+            self.refresh_frame(force_autolim=True)
 
     def start(self):
         """Show the widget."""
@@ -333,4 +349,3 @@ class IndexSelectorWidget(QWidget):
 
     def _on_playback_speed_changed(self, value: int):
         self.play_timer.setInterval(value)
-

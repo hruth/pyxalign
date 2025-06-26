@@ -268,7 +268,7 @@ class StandardDataViewer(QWidget):
         else:
             data_to_show = proj
 
-        self.image_view.setImage(data_to_show, autoLevels=True)
+        self.image_view.setImage(np.transpose(data_to_show), autoLevels=True)
 
     def _update_probe_positions(self, scan_num: int):
         """
@@ -279,8 +279,8 @@ class StandardDataViewer(QWidget):
         if self.data and self.data.probe_positions and scan_num in self.data.probe_positions:
             pos_array = self.data.probe_positions[scan_num]
             self.probe_pos_plot.plot(
-                pos_array[:, 0],
                 pos_array[:, 1],
+                pos_array[:, 0],
                 pen=None,
                 symbol="o",
                 symbolSize=5,

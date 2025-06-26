@@ -31,7 +31,7 @@ def is_any_dataclass_instance(obj):
     return is_dataclass(obj) and not isinstance(obj, type)
 
 
-def get_all_attribute_names(obj, parent_prefix=None):
+def get_all_attribute_names(obj, parent_prefix=None, level=0, max_level=999):
     """
     Recursively collect all attribute names of a nested dataclass object.
 
@@ -53,9 +53,9 @@ def get_all_attribute_names(obj, parent_prefix=None):
 
         value = getattr(obj, field_name)
         # If the value is another dataclass instance, recurse
-        if value is not None and is_dataclass(value):
+        if value is not None and is_dataclass(value) and level < max_level:
             # Add this field name itself, then all nested names
-            paths.extend(get_all_attribute_names(value, dotted_name))
+            paths.extend(get_all_attribute_names(value, dotted_name, level=level + 1))
         else:
             # It's a regular field (or None) => just add
             paths.append(dotted_name)

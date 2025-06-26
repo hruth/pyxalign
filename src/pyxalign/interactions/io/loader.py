@@ -245,10 +245,6 @@ class MainLoadingWidget(QWidget):
         self.options_display.update_display()
 
     def open_file_loader_window(self):
-        # if sip.isdeleted(self.select_load_settings_widget):
-        #     self.select_load_settings_widget = SelectLoadSettingsWidget(self.input_options)
-        #     self.select_load_settings_widget.data_loaded_signal.connect(self.on_data_loaded)
-        self.select_load_settings_widget.setAttribute(Qt.WA_DeleteOnClose)
         self.select_load_settings_widget.show()
 
 

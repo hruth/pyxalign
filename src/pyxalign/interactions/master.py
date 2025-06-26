@@ -11,7 +11,10 @@ from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.transform import DownsampleOptions
-from pyxalign.interactions.initialize_projections import ProjectionObjectInitializerWidget
+from pyxalign.interactions.initialize_projections import (
+    CreateProjectionArrayWidget,
+    ProjectionInitializerWidget,
+)
 from pyxalign.interactions.io.loader import MainLoadingWidget
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.pma_runner import PMAMasterWidget
@@ -60,6 +63,7 @@ from PyQt5.QtGui import QIcon
 class MasterWidget(QWidget):
     def __init__(self, input_options: OptionsClass, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)
+        self.task = None
 
         # Create a vertical layout for the entire widget
         main_layout = QVBoxLayout()
@@ -70,16 +74,25 @@ class MasterWidget(QWidget):
         self.create_loading_widget_page(input_options)
         self.create_projection_initializer_page()
 
-        self.loading_widget.select_load_settings_widget.data_loaded_signal.connect(
-            self.projection_initializer_widget.set_standard_data
+        # connect the signals related to loading input data
+        data_loaded_signal = self.loading_widget.select_load_settings_widget.data_loaded_signal
+        data_loaded_signal.connect(self.projection_initializer_widget.on_standard_data_loaded)
+
+        # connect signal so that task is received here once it has been created
+        task_initialized_signal = (
+            self.projection_initializer_widget.object_created_signal
         )
+        task_initialized_signal.connect(self.receive_task)
+    
+    def receive_task(self, task: t.LaminographyAlignmentTask):
+        self.task = task
 
     def create_loading_widget_page(self, input_options: OptionsClass):
         self.loading_widget = MainLoadingWidget(input_options)
         self.navigator.addPage(self.loading_widget, "Load Data")
 
     def create_projection_initializer_page(self):
-        self.projection_initializer_widget = ProjectionObjectInitializerWidget()
+        self.projection_initializer_widget = ProjectionInitializerWidget()
         self.navigator.addPage(self.projection_initializer_widget, "Initialize Projections")
 
 

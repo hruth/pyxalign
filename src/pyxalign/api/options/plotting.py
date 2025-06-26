@@ -53,6 +53,6 @@ class ArrayViewerOptions:
 class ProjectionViewerOptions:
     show_mask: bool = False
 
-    process_func: enums.ProcessFunc = enums.ProcessFunc.NONE
+    process_func: Optional[enums.ProcessFunc] = None
 
     sort: bool = True
