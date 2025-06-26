@@ -296,10 +296,6 @@ class ProjectionInitializerWidget(QWidget):
         self.open_initializer_button.setDisabled(True)
         main_layout.addWidget(self.open_initializer_button, alignment=Qt.AlignTop | Qt.AlignLeft)
 
-
-    def on_projection_object_initialized(self, projections: Projections):
-        self.projection_viewer = ProjectionViewer(projections)
-
     def on_standard_data_loaded(self, standard_data: StandardData):
         """
         This method can be called externally once the StandardData is ready/loaded.
@@ -333,7 +329,7 @@ class ProjectionInitializerWidget(QWidget):
     def insert_projection_viewer(self, task: LaminographyAlignmentTask):
         if self.projections_viewer is not None:
             sip.delete(self.projections_viewer)
-        self.projections_viewer = ProjectionViewer(task.complex_projections)
+        self.projections_viewer = ProjectionViewer(task.complex_projections,  enable_dropping=True)
         self.layout().addWidget(self.projections_viewer)
 
     @pyqtSlot(LaminographyAlignmentTask)
