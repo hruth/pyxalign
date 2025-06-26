@@ -343,9 +343,10 @@ class IndexSelectorWidget(QWidget):
         )
         self.setLayout(index_selection_layout)
 
-        # Timer for playback
-        self.play_timer = QTimer(parent)
-        self.play_timer.setInterval(self.playback_speed_spin.value())  # milliseconds per frame
+        if include_play_button:
+            # Timer for playback
+            self.play_timer = QTimer(parent)
+            self.play_timer.setInterval(self.playback_speed_spin.value())  # milliseconds per frame
 
     def _on_playback_speed_changed(self, value: int):
         self.play_timer.setInterval(value)
