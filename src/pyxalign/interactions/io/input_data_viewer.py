@@ -1,3 +1,4 @@
+from turtle import title
 import matplotlib
 from pyxalign.io.loaders.base import StandardData
 
@@ -16,9 +17,11 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QTabWidget
+    QTabWidget,
 )
 import pyqtgraph as pg
+
+from pyxalign.plotting.interactive.base import IndexSelectorWidget
 
 
 class StandardDataViewer(QWidget):
@@ -46,15 +49,22 @@ class StandardDataViewer(QWidget):
         # Main layout
         self.main_layout = QVBoxLayout(self)
         self.setLayout(self.main_layout)
+        title_label = QLabel("Loaded Data")
+        title_label.setStyleSheet("""
+            QLabel {
+                font-size: 14pt; 
+            }
+            """)
+        self.main_layout.addWidget(title_label, alignment=Qt.AlignHCenter)
 
-        # Timer and play control
-        self.play_timer = QTimer()
-        self.play_timer.timeout.connect(self._advance_frame)
+        # # Timer and play control
+        # self.play_timer = QTimer()
+        # self.play_timer.timeout.connect(self._advance_frame)
         self.is_playing = False
 
         # Build UI
-        self._create_slider_controls()
         self._create_tabbed_display()
+        self._create_slider_controls()
         self._create_additional_data_panel()
 
         # If data is provided, populate now
@@ -77,39 +87,21 @@ class StandardDataViewer(QWidget):
           - A Play/Pause button
           - A Playback Speed spin box (in ms).
         """
-        controls_layout = QHBoxLayout()
+        # controls_layout = QVBoxLayout()
 
-        # Slider
-        self.frame_slider = QSlider(Qt.Horizontal)
-        self.frame_slider.setMinimum(0)
-        self.frame_slider.setValue(0)
-        self.frame_slider.valueChanged.connect(self._on_index_changed)
-        controls_layout.addWidget(self.frame_slider)
-
-        # SpinBox
-        self.frame_spin = QSpinBox()
-        self.frame_spin.setMinimum(0)
-        self.frame_spin.valueChanged.connect(self._on_index_changed)
-        controls_layout.addWidget(self.frame_spin)
-
-        # Play/Pause button
-        self.play_button = QPushButton("Play")
+        self.indexing_widget = IndexSelectorWidget(0, 0)
+        self.slider, self.spinbox, self.play_button, self.play_timer = (
+            self.indexing_widget.slider,
+            self.indexing_widget.spinbox,
+            self.indexing_widget.play_button,
+            self.indexing_widget.play_timer,
+        )
+        self.slider.valueChanged.connect(self._on_index_changed)
+        self.spinbox.valueChanged.connect(self._on_index_changed)
         self.play_button.clicked.connect(self._on_play_clicked)
-        controls_layout.addWidget(self.play_button)
+        self.play_timer.timeout.connect(self._advance_frame)
 
-        # Playback Speed label
-        self.playback_speed_label = QLabel("Playback Speed (ms):")
-        controls_layout.addWidget(self.playback_speed_label)
-
-        # Playback Speed spin box
-        self.playback_speed_spin = QSpinBox()
-        self.playback_speed_spin.setRange(10, 2000)  # Set a reasonable range
-        self.playback_speed_spin.setValue(500)       # Default interval = 500ms
-        self.playback_speed_spin.valueChanged.connect(self._on_playback_speed_changed)
-        controls_layout.addWidget(self.playback_speed_spin)
-
-        # Add this controls layout to the main layout
-        self.main_layout.addLayout(controls_layout)
+        self.main_layout.addWidget(self.indexing_widget)
 
     def _create_tabbed_display(self):
         """
@@ -127,10 +119,10 @@ class StandardDataViewer(QWidget):
         # Show axes for x/y ticks
         view = self.image_view.getView()
         view.invertY(False)
-        view.showAxis('left', True)
-        view.showAxis('bottom', True)
-        view.setLabel('left', 'Y')
-        view.setLabel('bottom', 'X')
+        view.showAxis("left", True)
+        view.showAxis("bottom", True)
+        view.setLabel("left", "Y")
+        view.setLabel("bottom", "X")
 
         proj_widget = QWidget()
         proj_layout = QVBoxLayout(proj_widget)
@@ -140,8 +132,8 @@ class StandardDataViewer(QWidget):
         # -- Tab 2: Probe positions --
         self.probe_pos_plot = pg.PlotWidget()
         self.probe_pos_plot.showGrid(x=True, y=True)
-        self.probe_pos_plot.setLabel('left', 'Probe Y')
-        self.probe_pos_plot.setLabel('bottom', 'Probe X')
+        self.probe_pos_plot.setLabel("left", "Probe Y")
+        self.probe_pos_plot.setLabel("bottom", "Probe X")
         self.probe_pos_plot.setAspectLocked(True)
 
         probe_pos_widget = QWidget()
@@ -192,14 +184,14 @@ class StandardDataViewer(QWidget):
         """
         if not self.data or len(self.data.scan_numbers) == 0:
             # No data to show
-            self.frame_slider.setMaximum(0)
-            self.frame_spin.setMaximum(0)
+            self.slider.setMaximum(0)
+            self.spinbox.setMaximum(0)
             self.scan_angles_table.setRowCount(0)
             return
 
         num_scans = len(self.data.scan_numbers)
-        self.frame_slider.setMaximum(num_scans - 1)
-        self.frame_spin.setMaximum(num_scans - 1)
+        self.slider.setMaximum(num_scans - 1)
+        self.spinbox.setMaximum(num_scans - 1)
 
         # Fill table with [Scan #, Angle]
         self.scan_angles_table.setRowCount(num_scans)
@@ -226,8 +218,8 @@ class StandardDataViewer(QWidget):
         self.probe_shape_label.setText(probe_text)
 
         # Show the first projection
-        self.frame_slider.setValue(0)
-        self.frame_spin.setValue(0)
+        self.slider.setValue(0)
+        self.spinbox.setValue(0)
         self._update_display(0)
 
     def _on_index_changed(self, value: int):
@@ -235,14 +227,14 @@ class StandardDataViewer(QWidget):
         Callback for both the slider and spinbox. Keeps them synchronized and updates the display.
         """
         # Prevent signals from looping
-        if self.sender() == self.frame_slider:
-            self.frame_spin.blockSignals(True)
-            self.frame_spin.setValue(value)
-            self.frame_spin.blockSignals(False)
-        elif self.sender() == self.frame_spin:
-            self.frame_slider.blockSignals(True)
-            self.frame_slider.setValue(value)
-            self.frame_slider.blockSignals(False)
+        if self.sender() == self.slider:
+            self.spinbox.blockSignals(True)
+            self.spinbox.setValue(value)
+            self.spinbox.blockSignals(False)
+        elif self.sender() == self.spinbox:
+            self.slider.blockSignals(True)
+            self.slider.setValue(value)
+            self.slider.blockSignals(False)
 
         self._update_display(value)
 
@@ -284,19 +276,15 @@ class StandardDataViewer(QWidget):
         """
         self.probe_pos_plot.clear()
 
-        if (
-            self.data
-            and self.data.probe_positions
-            and scan_num in self.data.probe_positions
-        ):
+        if self.data and self.data.probe_positions and scan_num in self.data.probe_positions:
             pos_array = self.data.probe_positions[scan_num]
             self.probe_pos_plot.plot(
                 pos_array[:, 0],
                 pos_array[:, 1],
                 pen=None,
-                symbol='o',
+                symbol="o",
                 symbolSize=5,
-                symbolBrush='r'
+                symbolBrush="r",
             )
 
     # ---------------------------
@@ -313,7 +301,7 @@ class StandardDataViewer(QWidget):
             self.is_playing = True
             self.play_button.setText("Pause")
             # Use the current playback speed
-            self.play_timer.start(self.playback_speed_spin.value())
+            self.play_timer.start()
         else:
             # Pause
             self.is_playing = False
@@ -332,13 +320,13 @@ class StandardDataViewer(QWidget):
         """
         Timer callback: step the slider forward by 1, looping back at the end.
         """
-        current_val = self.frame_slider.value()
-        max_val = self.frame_slider.maximum()
+        current_val = self.slider.value()
+        max_val = self.slider.maximum()
         if current_val < max_val:
-            self.frame_slider.setValue(current_val + 1)
+            self.slider.setValue(current_val + 1)
         else:
             # Loop to the beginning
-            self.frame_slider.setValue(0)
+            self.slider.setValue(0)
 
 
 if __name__ == "__main__":

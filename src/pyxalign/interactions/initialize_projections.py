@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (
 import pyqtgraph as pg
 
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
+from pyxalign.plotting.interactive.base import ArrayViewer
 
 
 class ProjectionObjectInitializerWidget(QWidget):
@@ -30,6 +31,7 @@ class ProjectionObjectInitializerWidget(QWidget):
         super().__init__(parent)
         self.standard_data = None
         self.projection_array = None
+        self.array_viewer = None
 
         # Main layout (horizontal).
         # Set smaller margins and spacing, and align top-left so that
@@ -89,6 +91,26 @@ class ProjectionObjectInitializerWidget(QWidget):
             pad_with_mode=True,
             new_shape=new_shape,
         )
+
+        # show array_viewer of result
+        sort_idx = np.argsort(self.standard_data.angles)
+        title_strings = [f"scan {x}" for x in self.standard_data.scan_numbers]
+        if np.iscomplexobj(self.projection_array):
+            process_func = np.angle
+        else:
+            process_func = None
+        if self.array_viewer is None:
+            self.array_viewer = ArrayViewer(
+                self.projection_array,
+                sort_idx=sort_idx,
+                extra_title_strings_list=title_strings,
+                process_func=process_func,
+            )
+            self.layout().addWidget(self.array_viewer)
+        else:
+            self.array_viewer.reinitialize_all(
+                self.projection_array, sort_idx=sort_idx, extra_title_strings_list=title_strings
+            )
 
 
 def main():

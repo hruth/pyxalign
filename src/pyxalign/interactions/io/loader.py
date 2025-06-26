@@ -74,6 +74,7 @@ open_panels_list = ["base"]
 
 class SelectLoadSettingsWidget(QWidget):
     data_loaded_signal = pyqtSignal(StandardData)
+
     def __init__(
         self, input_options: Optional[OptionsClass] = None, parent: Optional[QWidget] = None
     ):
@@ -198,37 +199,57 @@ class SelectLoadSettingsWidget(QWidget):
 
 
 class MainLoadingWidget(QWidget):
-    def __init__(self, input_options: Optional[OptionsClass] = None, parent: Optional[QWidget] = None):
+    def __init__(
+        self, input_options: Optional[OptionsClass] = None, parent: Optional[QWidget] = None
+    ):
         super().__init__(parent)
-        self.select_load_settings_widget = None
+        self.input_options = input_options
+        self.select_load_settings_widget = SelectLoadSettingsWidget(input_options)
+        self.select_load_settings_widget.data_loaded_signal.connect(self.on_data_loaded)
         # self.resize(800, 800)
 
         main_layout = QHBoxLayout()
         self.setLayout(main_layout)
 
-        # self.open_file_loader_button = QPushButton("Load Projections")
-        # self.open_file_loader_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        # self.open_file_loader_button.clicked.connect(self.open_file_loader_window)
+        self.open_file_loader_button = QPushButton("Load Projections")
+        self.open_file_loader_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.open_file_loader_button.setStyleSheet("""
+            QPushButton {
+                font-size: 12pt; 
+                padding: 4px 6px;
+            }
+            """)
+        self.open_file_loader_button.clicked.connect(self.open_file_loader_window)
 
-        self.select_load_settings_widget = SelectLoadSettingsWidget(input_options) # need way to save and load options
+        self.options_display = OptionsDisplayWidget()
+
+        # self.select_load_settings_widget = SelectLoadSettingsWidget(input_options) # need way to save and load options
+
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(self.open_file_loader_button)#, alignment=Qt.AlignHCenter)
+        left_layout.addWidget(self.options_display)
+        main_layout.addLayout(left_layout)
 
         self.standard_data_viewer = StandardDataViewer()
-        self.select_load_settings_widget.data_loaded_signal.connect(self.on_data_loaded)
-
-        main_layout.addWidget(self.select_load_settings_widget)
         main_layout.addWidget(self.standard_data_viewer)
 
+        self.standard_data_viewer.setDisabled(True)
+        self.options_display.setDisabled(True)
+
     def on_data_loaded(self, input_data: StandardData):
+        self.standard_data_viewer.setDisabled(False)
+        self.options_display.setDisabled(False)
+    
         self.standard_data_viewer.setStandardData(input_data)
+        self.options_display.update_options(self.select_load_settings_widget.options)
+        self.options_display.update_display()
 
-
-    # def open_file_loader_window(self):
-    #     if self.select_load_settings_widget is None or sip.isdeleted(
-    #         self.select_load_settings_widget
-    #     ):
-    #         self.select_load_settings_widget = SelectLoadSettingsWidget()
-    #     self.select_load_settings_widget.setAttribute(Qt.WA_DeleteOnClose)
-    #     self.select_load_settings_widget.show()
+    def open_file_loader_window(self):
+        # if sip.isdeleted(self.select_load_settings_widget):
+        #     self.select_load_settings_widget = SelectLoadSettingsWidget(self.input_options)
+        #     self.select_load_settings_widget.data_loaded_signal.connect(self.on_data_loaded)
+        self.select_load_settings_widget.setAttribute(Qt.WA_DeleteOnClose)
+        self.select_load_settings_widget.show()
 
 
 # class MainLoadingWidget(QWidget):

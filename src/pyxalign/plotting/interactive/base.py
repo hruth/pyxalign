@@ -148,7 +148,7 @@ class ArrayViewer(MultiThreadedWidget):
             self.indexing_widget.slider,
             self.indexing_widget.spinbox,
             self.indexing_widget.play_button,
-            self.indexing_widget.timer,
+            self.indexing_widget.play_timer,
         )
         self.slider.valueChanged.connect(self.update_frame)
         self.spinbox.valueChanged.connect(self.update_frame)
@@ -298,6 +298,11 @@ class IndexSelectorWidget(QWidget):
                 text-align: center;  /* Text alignment */
             }
             """)
+            self.play_timer = QTimer()
+            self.playback_speed_spin = QSpinBox()
+            self.playback_speed_spin.setRange(10, 2000)  # Set a reasonable range
+            self.playback_speed_spin.setValue(500)       # Default interval = 500ms
+            self.playback_speed_spin.valueChanged.connect(self._on_playback_speed_changed)
         else:
             self.play_button = QPushButton("Play")
             self.play_button.hide()
@@ -310,6 +315,8 @@ class IndexSelectorWidget(QWidget):
         self.spin_play_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
         )
+        if include_play_button:
+            self.spin_play_layout.addWidget(self.playback_speed_spin, alignment=Qt.AlignRight)
 
         # Main layout for the index selector
         index_selection_layout = QVBoxLayout()
@@ -321,5 +328,9 @@ class IndexSelectorWidget(QWidget):
         self.setLayout(index_selection_layout)
 
         # Timer for playback
-        self.timer = QTimer(parent)
-        self.timer.setInterval(100)  # milliseconds per frame
+        self.play_timer = QTimer(parent)
+        self.play_timer.setInterval(self.playback_speed_spin.value())  # milliseconds per frame
+
+    def _on_playback_speed_changed(self, value: int):
+        self.play_timer.setInterval(value)
+
