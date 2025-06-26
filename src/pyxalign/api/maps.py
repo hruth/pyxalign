@@ -66,7 +66,9 @@ def get_process_func_by_enum(key: Union[None, ProcessFunc]) -> Callable:
         ProcessFunc.ANGLE: np.angle,
         ProcessFunc.ABS: np.abs,
         ProcessFunc.NONE: lambda x: x,
+        None: lambda x: x,  # bandaid fix, this really shouldn't be in here!
     }[key]
+
 
 # Functions with enum outputs
 def get_memory_config_enum(keep_on_gpu: bool, device_type: DeviceType):

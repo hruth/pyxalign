@@ -74,7 +74,7 @@ class MasterWidget(QWidget):
         self.create_loading_widget_page(input_options)
         self.create_projection_initializer_page()
 
-        # connect the signals related to loading input data
+        # connect the signals related to loading "raw" input data
         data_loaded_signal = self.loading_widget.select_load_settings_widget.data_loaded_signal
         data_loaded_signal.connect(self.projection_initializer_widget.on_standard_data_loaded)
 
@@ -93,7 +93,7 @@ class MasterWidget(QWidget):
 
     def create_projection_initializer_page(self):
         self.projection_initializer_widget = ProjectionInitializerWidget()
-        self.navigator.addPage(self.projection_initializer_widget, "Initialize Projections")
+        self.navigator.addPage(self.projection_initializer_widget, "Projections View")
 
 
 if __name__ == "__main__":
@@ -105,6 +105,8 @@ if __name__ == "__main__":
             parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
             file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
             select_all_by_default=True,
+            scan_start=252,
+            scan_end=270,
         ),
     )
 

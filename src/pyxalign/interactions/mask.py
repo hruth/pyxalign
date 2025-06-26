@@ -18,7 +18,9 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QLabel,
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+
+from pyxalign.mask import place_patches_fourier_batch
 
 
 class PlotCanvas(FigureCanvas):
@@ -83,8 +85,18 @@ class ThresholdSelector(QWidget):
     - An embedded matplotlib plot (PlotCanvas)
     """
 
-    def __init__(self, masks: np.ndarray, projections: np.ndarray, init_thresh: float = 0.0):
+    masks_created = pyqtSignal(np.ndarray)
+
+    def __init__(
+        self,
+        projections: np.ndarray,
+        probe: np.ndarray,
+        positions: list[np.ndarray],
+        init_thresh: float = 0.01,
+    ):
         super().__init__()
+
+        masks = place_patches_fourier_batch(projections.shape, probe, positions)
 
         self.masks = masks
         self.projections = projections
@@ -203,44 +215,24 @@ class ThresholdSelector(QWidget):
         self.play_button.setEnabled(False)
         self.stop_button.setEnabled(False)
 
-        
-
         # Here you could do additional cleanup if desired
         print(f"Final threshold value: {self.threshold}")
 
+        self.masks = clip_masks(self.masks, self.threshold)
+        self.masks_created.emit(self.masks)
         self.close()
 
 
-def illum_map_threshold_plotter(
-    masks: np.ndarray, projections: np.ndarray, init_thresh: float = 0.0
-) -> ThresholdSelector:
-    """
-    Creates and returns a ThresholdSelector PyQt5 widget.
-    """
-    selector_widget = ThresholdSelector(masks, projections, init_thresh)
-    return selector_widget
+def build_masks_from_threshold(
+    shape: tuple[int], probe: np.ndarray, positions: list[np.ndarray], threshold: float
+) -> np.ndarray:
+    masks = place_patches_fourier_batch(shape, probe, positions)
+    masks = clip_masks(masks, threshold)
+    return masks
 
 
-# def main():
-#     """
-#     Demo usage, showing how one might run the widget in a standalone PyQt application.
-#     """
-#     app = QApplication(sys.argv)
-
-#     # Generate dummy data for demonstration
-#     # masks: a 3D array of shape (num_frames, height, width)
-#     # projections: a 3D array of shape (num_frames, height, width)
-#     num_frames = 20
-#     height, width = 50, 50
-#     dummy_masks = np.random.rand(num_frames, height, width)
-#     dummy_projections = np.random.rand(num_frames, height, width) * np.exp(1j * np.random.rand(num_frames, height, width))
-
-#     # Create the selector widget
-#     selector = illum_map_threshold_plotter(dummy_masks, dummy_projections, init_thresh=0.5)
-#     selector.show()
-
-#     sys.exit(app.exec_())
-
-
-# if __name__ == "__main__":
-#     main()
+def clip_masks(masks: np.ndarray, threshold: float) -> np.ndarray:
+    clip_idx = masks > threshold
+    masks[:] = 0
+    masks[clip_idx] = 1
+    return masks
