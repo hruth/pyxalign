@@ -24,12 +24,16 @@ def get_available_gpus() -> tuple[int]:
     return tuple(range(cp.cuda.runtime.getDeviceCount()))
 
 
-def turn_off_fft_cache(gpu_indices: Optional[List[int]] = None):
+# def turn_off_fft_cache(gpu_indices: Optional[List[int]] = None):
+def toggle_fft_cache(enabled: bool = True, gpu_indices: Optional[List[int]] = None):
     if gpu_indices is None:
         gpu_indices = get_available_gpus()
     for gpu in gpu_indices:
         with cp.cuda.Device(gpu):
-            cp.fft.config.get_plan_cache().set_size(0)
+            if enabled:
+                cp.fft.config.get_plan_cache().set_size(16)
+            else:
+                cp.fft.config.get_plan_cache().set_size(0)
 
 
 def free_blocks_on_all_gpus(gpu_indices: Optional[List[int]] = None, show_info: bool = False):
