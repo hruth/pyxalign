@@ -290,10 +290,10 @@ class MainProjectionTab(QWidget):
         self.setLayout(main_layout)
 
         # Create buttons layout
-        buttons_layout = QHBoxLayout()
+        buttons_layout = QVBoxLayout()
 
         # Create initialize projections object button
-        self.open_initializer_button = QPushButton("Initialize Projections")
+        self.open_initializer_button = QPushButton("Initialize Projections Object")
         self.open_initializer_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.open_initializer_button.clicked.connect(self.open_interactive_window)
         self.open_initializer_button.setDisabled(True)
@@ -360,6 +360,10 @@ class MainProjectionTab(QWidget):
             self.task.complex_projections, enable_dropping=True
         )
         self.layout().addWidget(self.complex_projections_viewer)
+        # connect masks created signal to disabling of phase unwrap button
+        self.complex_projections_viewer.masks_created.connect(
+            self.set_phase_unwrapping_button_state
+        )
 
     def insert_phase_projections_viewer(self):
         if self.phase_projections_viewer is not None:
@@ -372,13 +376,18 @@ class MainProjectionTab(QWidget):
     @pyqtSlot(LaminographyAlignmentTask)
     def on_task_loaded(self, task: LaminographyAlignmentTask):
         self.task = task
-        # Enable phase unwrap button when task is available
-        if task.complex_projections is not None:
-            self.open_phase_unwrap_button.setEnabled(True)
         self.insert_complex_projections_viewer()
         self.insert_phase_projections_viewer()
+        self.set_phase_unwrapping_button_state()
         # emit signal meant for external widgets
         self.object_created_signal.emit(task)
+
+    def set_phase_unwrapping_button_state(self):
+        if (
+            self.task.complex_projections is not None
+            and self.task.complex_projections.masks is not None
+        ):
+            self.open_phase_unwrap_button.setEnabled(True)
 
     def open_interactive_window(self):
         self.init_window.show()
@@ -391,11 +400,7 @@ class MainProjectionTab(QWidget):
             print("No task available for phase unwrapping.")
             return
 
-        # # If there's an existing window, close it to refresh
-        # if self.phase_unwrap_window:
-        #     sip.delete(self.phase_unwrap_window)
         if self.phase_unwrap_window is None or sip.isdeleted(self.phase_unwrap_window):
-            # Create a new phase unwrap window
             self.phase_unwrap_window = PhaseUnwrapWidget(task=self.task)
         self.phase_unwrap_window.phase_unwrapped.connect(self.insert_phase_projections_viewer)
         self.phase_unwrap_window.show()

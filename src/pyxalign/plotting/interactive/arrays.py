@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QLabel,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar,
@@ -114,6 +114,7 @@ class VolumeViewer(MultiThreadedWidget):
 
 class ProjectionViewer(MultiThreadedWidget):
     """Widget for viewing projections"""
+    masks_created = pyqtSignal(np.ndarray)
 
     def __init__(
         self,
@@ -219,6 +220,7 @@ class ProjectionViewer(MultiThreadedWidget):
         else:
             self.projections.masks[:] = masks
         self.array_viewer.refresh_frame()
+        self.masks_created.emit(self.projections.masks)
 
     def update_array_selector(self):
         add_masks = self.projections.masks is not None and (self.masks_name not in self.array_names)
