@@ -1,238 +1,319 @@
-import sys
+from __future__ import annotations
+
+"""
+Interactive mask threshold selector based on pyqtgraph and the shared
+IndexSelectorWidget used elsewhere in pyxalign.
+
+This file replaces the previous Matplotlib-based implementation with a fast
+Qt/pyqtgraph GUI and removes the bespoke slider / play logic in favour of the
+centralised IndexSelectorWidget (see plotting/interactive/base.py).
+"""
+
+from typing import Optional, List
+
 import numpy as np
-import matplotlib
-# Use the Qt5Agg backend for embedding in PyQt5
-# matplotlib.use("Qt5Agg")
-
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
+import pyqtgraph as pg
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
-    QApplication,
-    QMainWindow,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QSlider,
+    QLabel,
     QDoubleSpinBox,
     QPushButton,
-    QLabel,
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 
 from pyxalign.mask import place_patches_fourier_batch
+from pyxalign.plotting.interactive.base import IndexSelectorWidget
 
 
-class PlotCanvas(FigureCanvas):
+# ------------------------------------------------------------------------------
+# Utility helpers (kept from original file)
+# ------------------------------------------------------------------------------
+
+
+def clip_masks(masks: np.ndarray, threshold: float) -> np.ndarray:
+    """Binarise mask stack at *threshold* (in-place) and return it."""
+    clip_idx = masks > threshold
+    masks[:] = 0
+    masks[clip_idx] = 1
+    return masks
+
+
+def build_masks_from_threshold(
+    shape: tuple[int, int, int],
+    probe: np.ndarray,
+    positions: List[np.ndarray],
+    threshold: float,
+) -> np.ndarray:
+    masks = place_patches_fourier_batch(shape, probe, positions)
+    return clip_masks(masks, threshold)
+
+
+# ------------------------------------------------------------------------------
+# Pyqtgraph canvas helper
+# ------------------------------------------------------------------------------
+
+
+class PGCanvas(QWidget):
     """
-    A custom FigureCanvas class to embed a matplotlib plot in a PyQt5 widget.
+    Lightweight container holding three pyqtgraph ImageItems for:
+
+      1. The binary mask
+      2. mask * projection
+      3. (1 - mask) * projection
+
+    update_mask_plot(...) populates the images.
     """
 
-    def __init__(self, parent=None):
-        # Create a figure and a set of subplots (1 row, 3 columns)
-        self.fig, self.axes = plt.subplots(1, 3, figsize=(9, 3))
-        super().__init__(self.fig)
-        self.setParent(parent)
-        self.fig.tight_layout()
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent=parent)
 
-    def update_mask_plot(self, masks, projections, idx, threshold):
-        """
-        Update the figure with the mask, the masked projection,
-        and (1 - mask) * projection, based on the given index and threshold.
-        """
-        # Clear all subplots before plotting
-        for ax in self.axes:
-            ax.clear()
+        self.graphics_layout = pg.GraphicsLayoutWidget()
+        # 3 columns in a single row
+        self.plot_mask = self.graphics_layout.addPlot(0, 0)
+        self.plot_masked = self.graphics_layout.addPlot(0, 1)
+        self.plot_inv = self.graphics_layout.addPlot(0, 2)
 
-        # Create a binary mask clip based on the threshold
+        for p in (self.plot_mask, self.plot_masked, self.plot_inv):
+            p.setAspectLocked(True)
+
+        self.img_mask = pg.ImageItem()
+        self.img_masked = pg.ImageItem()
+        self.img_inv = pg.ImageItem()
+
+        self.plot_mask.addItem(self.img_mask)
+        self.plot_masked.addItem(self.img_masked)
+        self.plot_inv.addItem(self.img_inv)
+
+        # Layout wrapper
+        layout = QVBoxLayout()
+        layout.addWidget(self.graphics_layout)
+        self.setLayout(layout)
+
+    # --------------------------------------------------------------------- #
+    # Public API called from ThresholdSelector
+    # --------------------------------------------------------------------- #
+
+    def update_mask_plot(
+        self,
+        masks: np.ndarray,
+        projections: np.ndarray,
+        idx: int,
+        threshold: float,
+    ) -> None:
+        """
+        Update displayed images for frame *idx* and *threshold*.
+        The logic matches the former Matplotlib implementation.
+        """
+        # build binary mask clip
         clipped_masks = (masks[idx] * 1).copy()
         clip_idx = clipped_masks > threshold
         clipped_masks[:] = 0
         clipped_masks[clip_idx] = 1
 
-        # Plot data
-        ax0, ax1, ax2 = self.axes
-
-        # 1) Mask
-        ax0.imshow(clipped_masks, cmap="gray", vmin=0, vmax=1)
-        ax0.set_title("Mask")
-
-        # 2) Mask × Projection (angle)
+        # projection processing: amplitude or angle
         if np.isrealobj(projections[0, 0, 0]):
 
             def process_func(x):
                 return x
         else:
             process_func = np.angle
-        ax1.imshow(clipped_masks * process_func(projections[idx]), cmap="gray")
-        ax1.set_title(r"Mask $\times$ Projection")
 
-        # 3) (1 - Mask) × Projection (angle)
-        ax2.imshow((1 - clipped_masks) * process_func(projections[idx]), cmap="gray")
-        ax2.set_title(r"(1 - Mask) $\times$ Projection")
+        img_mask = clipped_masks
+        img_masked = clipped_masks * process_func(projections[idx])
+        img_inv = (1 - clipped_masks) * process_func(projections[idx])
 
-        self.fig.tight_layout()
-        self.draw()
+        # pyqtgraph wants shape (rows, cols) – our arrays already comply
+        self.img_mask.setImage(img_mask.T, autoLevels=True)
+        self.img_masked.setImage(img_masked.T, autoLevels=True)
+        self.img_inv.setImage(img_inv.T, autoLevels=True)
+
+        # Titles
+        self.plot_mask.setTitle("Mask")
+        self.plot_masked.setTitle("Mask × Projection")
+        self.plot_inv.setTitle("(1 - Mask) × Projection")
+
+
+# ------------------------------------------------------------------------------
+# Main interactive widget
+# ------------------------------------------------------------------------------
 
 
 class ThresholdSelector(QWidget):
     """
-    A PyQt5 widget that encapsulates:
-    - A slider for frame index
-    - A spin box for threshold
-    - A 'Play' button to iterate through frames
-    - A 'Stop' button that finalizes the threshold
-    - An embedded matplotlib plot (PlotCanvas)
+    Interactive tool to choose a binary-threshold for automatically
+    generated “probe-patch” masks.
+
+    Signals
+    -------
+    masks_created : np.ndarray
+        Emitted once the user presses *Select and Finish*, containing the
+        clipped/binary masks.
     """
 
     masks_created = pyqtSignal(np.ndarray)
+
+    # ------------------------------------------------------------------ #
+    # Construction
+    # ------------------------------------------------------------------ #
 
     def __init__(
         self,
         projections: np.ndarray,
         probe: np.ndarray,
-        positions: list[np.ndarray],
+        positions: List[np.ndarray],
         init_thresh: float = 0.01,
+        parent: Optional[QWidget] = None,
     ):
-        super().__init__()
+        super().__init__(parent=parent)
 
+        # Precompute masks (floating-point values)
         masks = place_patches_fourier_batch(projections.shape, probe, positions)
 
+        # Basic state
         self.masks = masks
         self.projections = projections
         self.num_frames = len(masks)
-        self.is_final_value = False
         self.threshold = init_thresh
+        self._playing = False
 
-        # Main layout
-        main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
+        # -------------------------------------------------------------- #
+        # Visual components
+        # -------------------------------------------------------------- #
 
-        # Plot canvas
-        self.plot_canvas = PlotCanvas(self)
-        main_layout.addWidget(self.plot_canvas)
+        # Pyqtgraph canvas
+        self.pg_canvas = PGCanvas(self)
 
-        # --- Controls Layout ---
-        controls_layout = QHBoxLayout()
+        # Index selector (slider + spinbox + optional play)
+        self.index_selector = IndexSelectorWidget(self.num_frames, 0, parent=self)
+        self.slider = self.index_selector.slider
+        self.spinbox = self.index_selector.spinbox
+        self.play_button = self.index_selector.play_button
+        self.timer = self.index_selector.play_timer  # QTimer from widget
 
-        # 1) Frame index slider
-        self.index_slider = QSlider(Qt.Horizontal)
-        self.index_slider.setRange(0, self.num_frames - 1)
-        self.index_slider.setValue(0)
-        self.index_slider.valueChanged.connect(self.on_slider_changed)
-        controls_layout.addWidget(QLabel("Index"))
-        controls_layout.addWidget(self.index_slider)
-
-        # 2) Threshold spin box
+        # Threshold spinbox
         self.threshold_spin = QDoubleSpinBox()
-        self.threshold_spin.setRange(0, 1e9)
-        self.threshold_spin.setValue(init_thresh)
+        self.threshold_spin.setRange(0.0, 1e9)
         self.threshold_spin.setDecimals(3)
-        self.threshold_spin.valueChanged.connect(self.on_threshold_changed)
-        controls_layout.addWidget(QLabel("Threshold"))
-        controls_layout.addWidget(self.threshold_spin)
+        self.threshold_spin.setValue(init_thresh)
+        self.threshold_spin.valueChanged.connect(self._on_threshold_changed)
 
-        # 3) Play button
-        self.play_button = QPushButton("Play")
-        self.play_button.clicked.connect(self.start_playing)
-        controls_layout.addWidget(self.play_button)
+        # Finish / accept button
+        self.finish_button = QPushButton("Select and Finish")
+        self.finish_button.setStyleSheet("background-color: blue; color: white;")
+        self.finish_button.clicked.connect(self._finish)
 
-        # 4) Stop button
-        self.stop_button = QPushButton("Select and Finish")
-        self.stop_button.setStyleSheet("background-color: blue; color: white;")
-        self.stop_button.clicked.connect(self.stop_interaction)
-        controls_layout.addWidget(self.stop_button)
+        # -------------------------------------------------------------- #
+        # Layout
+        # -------------------------------------------------------------- #
 
-        main_layout.addLayout(controls_layout)
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(self.pg_canvas)
 
-        # Timer for auto-play
-        self.timer = QTimer()
-        self.timer.setInterval(500)  # milliseconds per frame
-        self.timer.timeout.connect(self.advance_frame)
+        # threshold controls layout
+        thresh_layout = QHBoxLayout()
+        thresh_layout.addWidget(QLabel("Threshold"))
+        thresh_layout.addWidget(self.threshold_spin)
+        thresh_layout.addStretch()
+        thresh_layout.addWidget(self.finish_button)
+        main_layout.addLayout(thresh_layout)
 
-        # Initial Plot
-        self.update_plot()
+        main_layout.addWidget(self.index_selector)
 
-        # Widget title/size
-        self.setWindowTitle("Threshold Selector (PyQt5)")
-        self.resize(900, 600)
+        # -------------------------------------------------------------- #
+        # Signal wiring
+        # -------------------------------------------------------------- #
 
-    def start_playing(self):
+        self.slider.valueChanged.connect(self._update_plot)
+        self.spinbox.valueChanged.connect(self._update_plot)
+        self.play_button.clicked.connect(self._toggle_play)
+        self.timer.timeout.connect(self._next_frame)
+
+        # Initial draw
+        self._update_plot(initial=True)
+
+        # Window properties
+        self.setWindowTitle("Threshold Selector")
+        self.resize(1000, 650)
+
+    # ------------------------------------------------------------------ #
+    # Internal helpers
+    # ------------------------------------------------------------------ #
+
+    def _on_threshold_changed(self) -> None:
+        self.threshold = self.threshold_spin.value()
+        self._update_plot()
+
+    def _update_plot(self, value: int | None = None, *, initial: bool = False) -> None:
         """
-        Start the timer to auto-increment the slider (similar to 'Play').
+        Refresh pyqtgraph images. Called when slider/spinbox changes or
+        threshold changes.
         """
-        if not self.timer.isActive():
-            self.timer.start()
-            self.play_button.setText("Pause")
-        else:
-            # Pause if it's already running
+        if value is None:  # called from threshold change
+            value = self.slider.value()
+        self.pg_canvas.update_mask_plot(
+            self.masks,
+            self.projections,
+            idx=value,
+            threshold=self.threshold,
+        )
+        # Force initial autoscale to avoid first-frame low contrast
+        if initial:
+            for img in (self.pg_canvas.img_mask, self.pg_canvas.img_masked, self.pg_canvas.img_inv):
+                img.setImage(img.image, autoLevels=True)
+
+    # ------------------------------------------------------------------ #
+    # Playback helpers
+    # ------------------------------------------------------------------ #
+
+    def _toggle_play(self) -> None:
+        if self._playing:
             self.timer.stop()
             self.play_button.setText("Play")
-
-    def advance_frame(self):
-        """
-        Auto-increment the slider's current value if possible.
-        """
-        current_value = self.index_slider.value()
-        if current_value < self.num_frames - 1:
-            self.index_slider.setValue(current_value + 1)
         else:
-            # If we're at the last frame, wrap around or stop
-            self.index_slider.setValue(0)
+            self.timer.start()
+            self.play_button.setText("Pause")
+        self._playing = not self._playing
 
-    def on_slider_changed(self):
-        """
-        Called whenever the frame slider value changes.
-        """
-        self.update_plot()
+    def _next_frame(self) -> None:
+        current = self.slider.value()
+        next_idx = (current + 1) % self.num_frames
+        self.slider.setValue(next_idx)
 
-    def on_threshold_changed(self):
-        """
-        Called whenever the threshold spin box value changes.
-        """
-        self.threshold = self.threshold_spin.value()
-        self.update_plot()
+    # ------------------------------------------------------------------ #
+    # Finish & emit
+    # ------------------------------------------------------------------ #
 
-    def update_plot(self):
-        """
-        Update the embedded plot given the current index and threshold.
-        """
-        idx = self.index_slider.value()
-        self.threshold = self.threshold_spin.value()
-        self.plot_canvas.update_mask_plot(self.masks, self.projections, idx, self.threshold)
-
-    def stop_interaction(self):
-        """
-        Disable all interactivity and set the final threshold.
-        """
-        self.is_final_value = True
+    def _finish(self) -> None:
+        """Disable UI, clip masks, emit signal, close window."""
+        # Stop any playback
         self.timer.stop()
-        plt.close(self.plot_canvas.fig)
 
-        # Disable widgets
-        self.index_slider.setEnabled(False)
-        self.threshold_spin.setEnabled(False)
-        self.play_button.setEnabled(False)
-        self.stop_button.setEnabled(False)
-
-        # Here you could do additional cleanup if desired
-        print(f"Final threshold value: {self.threshold}")
-
+        # Convert masks to binary using final threshold
         self.masks = clip_masks(self.masks, self.threshold)
+
+        # Emit and close
         self.masks_created.emit(self.masks)
         self.close()
 
+    # ------------------------------------------------------------------ #
+    # Public convenience API
+    # ------------------------------------------------------------------ #
 
-def build_masks_from_threshold(
-    shape: tuple[int], probe: np.ndarray, positions: list[np.ndarray], threshold: float
-) -> np.ndarray:
-    masks = place_patches_fourier_batch(shape, probe, positions)
-    masks = clip_masks(masks, threshold)
-    return masks
+    def get_final_masks_blocking(self) -> np.ndarray:
+        """
+        Utility for scripts – exec_() the widget and return masks once user
+        finishes.
+        """
+        # Blocking: show(), exec_() handled externally (depends on event-loop);
+        # We therefore provide a simple signal-to-property mechanism.
+        self._final_masks: Optional[np.ndarray] = None
 
+        def _receive(m):
+            self._final_masks = m
 
-def clip_masks(masks: np.ndarray, threshold: float) -> np.ndarray:
-    clip_idx = masks > threshold
-    masks[:] = 0
-    masks[clip_idx] = 1
-    return masks
+        self.masks_created.connect(_receive)
+        self.show()  # non-modal; caller must start QApplication exec
+        # busy-wait loop could be added, but left out intentionally.
+        return self._final_masks

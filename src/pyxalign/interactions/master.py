@@ -97,18 +97,31 @@ class MasterWidget(QWidget):
 
 
 if __name__ == "__main__":
+    # options = LYNXLoadOptions(
+    #     dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
+    #     selected_sequences=(2,),
+    #     selected_experiment_name="APS-D_3D",
+    #     base=BaseLoadOptions(
+    #         parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
+    #         file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
+    #         select_all_by_default=True,
+    #         scan_start=252,
+    #         scan_end=270,
+    #     ),
+    # )
     options = LYNXLoadOptions(
-        dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
+        dat_file_path="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
         selected_sequences=(2,),
         selected_experiment_name="APS-D_3D",
         base=BaseLoadOptions(
-            parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
-            file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
+            parent_projections_folder="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
+            file_pattern="Ndp128_LSQML_c*_m0.5_p15_cp_mm_opr2_ic/recon_Niter3000.h5",
             select_all_by_default=True,
             scan_start=252,
             scan_end=270,
         ),
     )
+    
 
     app = QApplication(sys.argv)
     window = MasterWidget(input_options=options)
