@@ -14,55 +14,18 @@ from typing import Callable, Optional, Union
 import cupy as cp
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
-    QAbstractItemView,
-    QAction,
     QApplication,
-    QCheckBox,
-    QComboBox,
-    QDialogButtonBox,
-    QDoubleSpinBox,
-    QFormLayout,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QLayout,
-    QLineEdit,
-    QMainWindow,
-    QPushButton,
-    QScrollArea,
-    QSizePolicy,
-    QSpacerItem,
-    QSpinBox,
-    QStackedWidget,
-    QTabBar,
-    QTableWidget,
-    QTableWidgetItem,
-    QTabWidget,
-    QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 import pyxalign.data_structures.task as t
-import pyxalign.io.load as load
-from pyxalign.api.options.alignment import ProjectionMatchingOptions
-from pyxalign.api.options.projections import ProjectionOptions
-from pyxalign.api.options.task import AlignmentTaskOptions
-from pyxalign.api.options.transform import DownsampleOptions
 from pyxalign.interactions.initialize_projections import (
-    CreateProjectionArrayWidget,
-    ProjectionInitializerWidget,
+    MainProjectionTab,
 )
 from pyxalign.interactions.io.loader import MainLoadingWidget
-from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.interactions.pma_runner import PMAMasterWidget
-from pyxalign.interactions.sequencer import SequencerWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.utils import OptionsClass
@@ -72,12 +35,12 @@ from pyxalign.plotting.interactive.base import MultiThreadedWidget
 class MasterWidget(QWidget):
     """
     Main application widget that coordinates the pyxalign GUI workflow.
-    
+
     This widget provides a sidebar navigation interface for managing the complete
     alignment workflow, from data loading through projection initialization to
     alignment execution. It uses a SidebarNavigator to organize different stages
     and manages signal connections between components.
-    
+
     Parameters
     ----------
     input_options : OptionsClass
@@ -85,7 +48,7 @@ class MasterWidget(QWidget):
     parent : Optional[QWidget], default=None
         Parent widget
     """
-    
+
     def __init__(self, input_options: OptionsClass, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)
         self.task = None
@@ -104,11 +67,14 @@ class MasterWidget(QWidget):
         data_loaded_signal.connect(self.projection_initializer_widget.on_standard_data_loaded)
 
         # connect signal so that task is received here once it has been created
-        task_initialized_signal = (
-            self.projection_initializer_widget.object_created_signal
-        )
+        task_initialized_signal = self.projection_initializer_widget.object_created_signal
         task_initialized_signal.connect(self.receive_task)
-    
+        # task_initialized_signal.connect(self.phase_unwrap_widget.set_task)
+
+    def load_standard_data(self):
+        # shortcut to loading data directly without using any io
+        self.loading_widget.select_load_settings_widget.load_data()
+
     def receive_task(self, task: t.LaminographyAlignmentTask):
         self.task = task
 
@@ -117,7 +83,7 @@ class MasterWidget(QWidget):
         self.navigator.addPage(self.loading_widget, "Load Data")
 
     def create_projection_initializer_page(self):
-        self.projection_initializer_widget = ProjectionInitializerWidget()
+        self.projection_initializer_widget = MainProjectionTab()
         self.navigator.addPage(self.projection_initializer_widget, "Projections View")
 
 
@@ -146,10 +112,10 @@ if __name__ == "__main__":
             scan_end=270,
         ),
     )
-    
 
     app = QApplication(sys.argv)
     window = MasterWidget(input_options=options)
+    window.loading_widget.select_load_settings_widget.load_data()
     screen_geometry = app.desktop().availableGeometry(window)
     window.setGeometry(
         screen_geometry.x(),

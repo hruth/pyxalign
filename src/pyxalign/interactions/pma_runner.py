@@ -61,6 +61,7 @@ from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.transform import DownsampleOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.sequencer import SequencerWidget
+from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.plotting.interactive.base import MultiThreadedWidget
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
@@ -313,9 +314,8 @@ class PMAMasterWidget(MultiThreadedWidget):
         button_layout.addWidget(self.stop_sequence_button)
         button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
 
-        self.button_widget.setStyleSheet(
-            "QPushButton { font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
-        )
+        # "QPushButton { font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
+        self.button_widget.setStyleSheet(action_button_style_sheet)
 
     def start_alignment_sequence(self):
         options_sequence = self.sequencer.generate_options_sequence(

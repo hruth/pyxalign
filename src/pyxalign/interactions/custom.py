@@ -2,6 +2,8 @@ from PyQt5.QtWidgets import QDoubleSpinBox, QSpinBox
 from PyQt5.QtGui import QValidator
 from pyxalign.api.constants import divisor
 
+action_button_style_sheet = "QPushButton { background-color: green; font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px;}"
+
 class NoScrollSpinBox(QSpinBox):
     def wheelEvent(self, event):
         self.setMinimum(0)

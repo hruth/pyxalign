@@ -6,8 +6,9 @@ from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.data_structures.projections import ComplexProjections, Projections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.gpu_utils import pin_memory
-from pyxalign.interactions.custom import MultipleOfDivisorSpinBox
+from pyxalign.interactions.custom import MultipleOfDivisorSpinBox, action_button_style_sheet
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
+from pyxalign.interactions.phase_unwrap import PhaseUnwrapWidget
 from pyxalign.io.loaders.base import StandardData
 import matplotlib
 
@@ -267,34 +268,58 @@ class ProjectionPagesWidget(QWidget):
             self.forward_button.setDisabled(True)
 
 
-class ProjectionInitializerWidget(QWidget):
+class MainProjectionTab(QWidget):
     """
     Main widget that just shows a button. When that button is clicked,
     it opens a separate window (or dialog) with the two-page widget.
     """
+
     object_created_signal = pyqtSignal(LaminographyAlignmentTask)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.standard_data = None
+        self.task = None
         self.init_window = None  # the top-level or separate window for the pages
-        self.projections_viewer = None
+        self.complex_projections_viewer = None
+        self.phase_projections_viewer = None
+        self.phase_unwrap_window = None  # window for phase unwrapping
 
         # Main layout for this widget
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
+        # Create buttons layout
+        buttons_layout = QHBoxLayout()
+
+        # Create initialize projections object button
         self.open_initializer_button = QPushButton("Initialize Projections")
         self.open_initializer_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.open_initializer_button.setStyleSheet("""
+        self.open_initializer_button.clicked.connect(self.open_interactive_window)
+        self.open_initializer_button.setDisabled(True)
+
+        # Create phase unwrap button
+        self.open_phase_unwrap_button = QPushButton("Unwrap Phase")
+        self.open_phase_unwrap_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.open_phase_unwrap_button.clicked.connect(self.open_phase_unwrap_window)
+        self.open_phase_unwrap_button.setDisabled(True)
+
+        # add buttons to layout
+        buttons_layout.addWidget(self.open_initializer_button, alignment=Qt.AlignTop | Qt.AlignLeft)
+        buttons_layout.addWidget(
+            self.open_phase_unwrap_button, alignment=Qt.AlignTop | Qt.AlignLeft
+        )
+        main_layout.addLayout(buttons_layout)
+
+        # update button style
+        style_sheet = """
             QPushButton {
                 font-size: 12pt; 
                 padding: 4px 6px;
             }
-            """)
-        self.open_initializer_button.clicked.connect(self.open_interactive_window)
-        self.open_initializer_button.setDisabled(True)
-        main_layout.addWidget(self.open_initializer_button, alignment=Qt.AlignTop | Qt.AlignLeft)
+            """
+        self.open_initializer_button.setStyleSheet(style_sheet)
+        self.open_phase_unwrap_button.setStyleSheet(style_sheet)
 
     def on_standard_data_loaded(self, standard_data: StandardData):
         """
@@ -321,54 +346,63 @@ class ProjectionInitializerWidget(QWidget):
         self.create_array_widget.array_created_signal.connect(
             self.create_object_widget.set_projection_array
         )
-        # connect signal so that projections viewer is created after the object is loaded
-        self.create_object_widget.object_created_signal.connect(self.insert_projection_viewer)
+        # # connect signal so that projections viewer is created after the object is loaded
+        # self.create_object_widget.object_created_signal.connect(
+        #     self.insert_complex_projections_viewer
+        # )
         # connect the signal to the main projection initializer widget
-        self.create_object_widget.object_created_signal.connect(self.pass_along_task_signal)
+        self.create_object_widget.object_created_signal.connect(self.on_task_loaded)
 
-    def insert_projection_viewer(self, task: LaminographyAlignmentTask):
-        if self.projections_viewer is not None:
-            sip.delete(self.projections_viewer)
-        self.projections_viewer = ProjectionViewer(task.complex_projections,  enable_dropping=True)
-        self.layout().addWidget(self.projections_viewer)
+    def insert_complex_projections_viewer(self):
+        if self.complex_projections_viewer is not None:
+            sip.delete(self.complex_projections_viewer)
+        self.complex_projections_viewer = ProjectionViewer(
+            self.task.complex_projections, enable_dropping=True
+        )
+        self.layout().addWidget(self.complex_projections_viewer)
+
+    def insert_phase_projections_viewer(self):
+        if self.phase_projections_viewer is not None:
+            sip.delete(self.phase_projections_viewer)
+        self.phase_projections_viewer = ProjectionViewer(
+            self.task.phase_projections, enable_dropping=True
+        )
+        self.layout().addWidget(self.phase_projections_viewer)
 
     @pyqtSlot(LaminographyAlignmentTask)
-    def pass_along_task_signal(self, task: LaminographyAlignmentTask):
+    def on_task_loaded(self, task: LaminographyAlignmentTask):
+        self.task = task
+        # Enable phase unwrap button when task is available
+        if task.complex_projections is not None:
+            self.open_phase_unwrap_button.setEnabled(True)
+        self.insert_complex_projections_viewer()
+        self.insert_phase_projections_viewer()
+        # emit signal meant for external widgets
         self.object_created_signal.emit(task)
 
     def open_interactive_window(self):
         self.init_window.show()
 
-    # def open_array_creator_window(self):
-    #     """
-    #     Creates and shows the 2-page widget in a separate window, passing the StandardData.
-    #     """
-    #     if not self.standard_data:
-    #         print("No StandardData available in ProjectionInitializerWidget.")
-    #         return
+    def open_phase_unwrap_window(self):
+        """
+        Creates and shows the phase unwrapping widget in a separate window.
+        """
+        if self.task is None:
+            print("No task available for phase unwrapping.")
+            return
 
-    #     # If there's an existing window, close it to refresh
-    #     if self.init_window:
-    #         sip.delete(self.init_window)
-
-    #     # Create a new top-level widget containing our stacked pages
-    #     self.init_window = QWidget()
-    #     self.init_window.setWindowTitle("Projection Initialization")
-
-    #     layout = QVBoxLayout()
-    #     self.init_window.setLayout(layout)
-
-    #     # Instantiate the two-page widget with the latest standard_data
-    #     pages_widget = ProjectionPagesWidget(self.standard_data)
-    #     layout.addWidget(pages_widget)
-    #     self.create_array_widget = pages_widget.create_array_widget
-    #     self.create_object_widget = pages_widget.create_object_widget
-
-    #     self.init_window.show()
+        # # If there's an existing window, close it to refresh
+        # if self.phase_unwrap_window:
+        #     sip.delete(self.phase_unwrap_window)
+        if self.phase_unwrap_window is None or sip.isdeleted(self.phase_unwrap_window):
+            # Create a new phase unwrap window
+            self.phase_unwrap_window = PhaseUnwrapWidget(task=self.task)
+        self.phase_unwrap_window.phase_unwrapped.connect(self.insert_phase_projections_viewer)
+        self.phase_unwrap_window.show()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    widget = ProjectionInitializerWidget()
+    widget = MainProjectionTab()
     widget.show()
     sys.exit(app.exec_())
