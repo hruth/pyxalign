@@ -1,12 +1,56 @@
+"""
+Master widget for the pyxalign GUI application.
+
+This module provides the main application window that coordinates data loading,
+projection initialization, and alignment workflows. It uses a sidebar navigation
+pattern to organize different stages of the alignment process.
+"""
+
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from typing import Optional, Union, Callable
+from typing import Callable, Optional, Union
+
 import cupy as cp
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (
+    QAbstractItemView,
+    QAction,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QLineEdit,
+    QMainWindow,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpacerItem,
+    QSpinBox,
+    QStackedWidget,
+    QTabBar,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+import pyxalign.data_structures.task as t
+import pyxalign.io.load as load
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
@@ -20,47 +64,28 @@ from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sequencer import SequencerWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
-import pyxalign.io.load as load
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.base import MultiThreadedWidget
-import pyxalign.data_structures.task as t
-
-from PyQt5.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-    QFormLayout,
-    QLabel,
-    QToolButton,
-    QSpinBox,
-    QDoubleSpinBox,
-    QCheckBox,
-    QLineEdit,
-    QComboBox,
-    QPushButton,
-    QDialogButtonBox,
-    QSizePolicy,
-    QHBoxLayout,
-    QLayout,
-    QScrollArea,
-    QSpacerItem,
-    QTabWidget,
-    QGridLayout,
-    QTableWidget,
-    QTabBar,
-    QAbstractItemView,
-    QTableWidgetItem,
-    QStackedWidget,
-    QToolBar,
-    QAction,
-    QMainWindow,
-)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
 
 
 class MasterWidget(QWidget):
+    """
+    Main application widget that coordinates the pyxalign GUI workflow.
+    
+    This widget provides a sidebar navigation interface for managing the complete
+    alignment workflow, from data loading through projection initialization to
+    alignment execution. It uses a SidebarNavigator to organize different stages
+    and manages signal connections between components.
+    
+    Parameters
+    ----------
+    input_options : OptionsClass
+        Configuration options for data loading and processing
+    parent : Optional[QWidget], default=None
+        Parent widget
+    """
+    
     def __init__(self, input_options: OptionsClass, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)
         self.task = None

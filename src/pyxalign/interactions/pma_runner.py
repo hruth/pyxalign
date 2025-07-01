@@ -1,56 +1,93 @@
+"""
+Interactive projection matching alignment (PMA) runner with multi-resolution capabilities.
+
+This module provides a comprehensive GUI for running projection matching alignment
+algorithms with multi-resolution scanning, real-time visualization, and results
+collection. The interface integrates options editing, alignment sequencing management, 
+and plotting capabilities into a unified tabbed workflow.
+
+Key Components:
+- PMAMasterWidget: Main interface for projection matching alignment workflows
+- AlignmentResults: Data structure for storing alignment results and parameters
+- AlignmentResultsCollection: Widget for visualizing and comparing multiple alignment results
+- Multi-resolution alignment sequence support with progress monitoring
+- Integration with ProjectionMatchingViewer for real-time visualization
+"""
+
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from typing import Optional, Union, Callable
+from typing import Callable, Optional, Union
+
 import cupy as cp
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QLineEdit,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpacerItem,
+    QSpinBox,
+    QStackedWidget,
+    QTabBar,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+import pyxalign.data_structures.task as t
+import pyxalign.io.load as load
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.transform import DownsampleOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.sequencer import SequencerWidget
-import pyxalign.io.load as load
 from pyxalign.plotting.interactive.base import MultiThreadedWidget
-import pyxalign.data_structures.task as t
-
-from PyQt5.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-    QFormLayout,
-    QLabel,
-    QToolButton,
-    QSpinBox,
-    QDoubleSpinBox,
-    QCheckBox,
-    QLineEdit,
-    QComboBox,
-    QPushButton,
-    QDialogButtonBox,
-    QSizePolicy,
-    QHBoxLayout,
-    QLayout,
-    QScrollArea,
-    QSpacerItem,
-    QTabWidget,
-    QGridLayout,
-    QTableWidget,
-    QTabBar,
-    QAbstractItemView,
-    QTableWidgetItem,
-    QStackedWidget,
-)
-from PyQt5.QtCore import Qt
-
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 
 
 class AlignmentResults:
+    """
+    Data structure for storing projection matching alignment results.
+    
+    This class encapsulates the results from a single projection matching
+    alignment run, including the computed shifts, initial conditions, and
+    the options used for the alignment.
+    
+    Parameters
+    ----------
+    shift : np.ndarray
+        Final computed alignment shifts for each projection.
+    initial_shift : np.ndarray
+        Initial shift values used as starting point for alignment.
+    angles : np.ndarray
+        Projection angles corresponding to the alignment results.
+    pma_options : ProjectionMatchingOptions
+        Projection matching options used for this alignment run.
+    projection_options : ProjectionOptions
+        Projection configuration options used for this alignment run.
+    """
+    
     def __init__(
         self,
         shift: np.ndarray,
@@ -67,6 +104,22 @@ class AlignmentResults:
 
 
 class AlignmentResultsCollection(QWidget):
+    """
+    Widget for visualizing and comparing multiple alignment results.
+    
+    This widget provides an interface for browsing through multiple alignment
+    results, displaying shift plots and alignment options for comparison.
+    Users can select different results from a table and view the corresponding
+    shift data and configuration parameters.
+    
+    Parameters
+    ----------
+    alignment_results_list : list[AlignmentResults]
+        List of alignment results to display and compare.
+    parent : QWidget, optional
+        Parent widget for this interface.
+    """
+    
     def __init__(
         self, alignment_results_list: list[AlignmentResults], parent: Optional[QWidget] = None
     ):
