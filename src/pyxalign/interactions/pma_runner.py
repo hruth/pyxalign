@@ -3,7 +3,7 @@ Interactive projection matching alignment (PMA) runner with multi-resolution cap
 
 This module provides a comprehensive GUI for running projection matching alignment
 algorithms with multi-resolution scanning, real-time visualization, and results
-collection. The interface integrates options editing, alignment sequencing management, 
+collection. The interface integrates options editing, alignment sequencing management,
 and plotting capabilities into a unified tabbed workflow.
 
 Key Components:
@@ -53,6 +53,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.task as t
 import pyxalign.io.load as load
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
@@ -70,11 +71,11 @@ from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 class AlignmentResults:
     """
     Data structure for storing projection matching alignment results.
-    
+
     This class encapsulates the results from a single projection matching
     alignment run, including the computed shifts, initial conditions, and
     the options used for the alignment.
-    
+
     Parameters
     ----------
     shift : np.ndarray
@@ -88,7 +89,7 @@ class AlignmentResults:
     projection_options : ProjectionOptions
         Projection configuration options used for this alignment run.
     """
-    
+
     def __init__(
         self,
         shift: np.ndarray,
@@ -107,12 +108,12 @@ class AlignmentResults:
 class AlignmentResultsCollection(QWidget):
     """
     Widget for visualizing and comparing multiple alignment results.
-    
+
     This widget provides an interface for browsing through multiple alignment
     results, displaying shift plots and alignment options for comparison.
     Users can select different results from a table and view the corresponding
     shift data and configuration parameters.
-    
+
     Parameters
     ----------
     alignment_results_list : list[AlignmentResults]
@@ -120,7 +121,7 @@ class AlignmentResultsCollection(QWidget):
     parent : QWidget, optional
         Parent widget for this interface.
     """
-    
+
     def __init__(
         self, alignment_results_list: list[AlignmentResults], parent: Optional[QWidget] = None
     ):
@@ -203,7 +204,7 @@ class AlignmentResultsCollection(QWidget):
                 self.results_table.insertRow(i)
                 item = QTableWidgetItem(str(i))
                 self.results_table.setItem(i, 0, item)
-                
+
     def on_table_cell_changed(self, row: int, column: int):
         self.change_shift_plot_index(row)
         self.change_options_display_index(row)
@@ -255,7 +256,6 @@ class AlignmentResultsCollection(QWidget):
     #     current_index = self.stacked_widget.currentIndex()
     #     prev_index = (current_index - 1) % self.stacked_widget.count()
     #     self.stacked_widget.setCurrentIndex(prev_index)
-
 
 
 class PMAMasterWidget(MultiThreadedWidget):
@@ -337,8 +337,10 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.update_results_collection_tab()
 
     def generate_options_selection_widget(self):
+        # create options editor
         self.options_editor = BasicOptionsEditor(
-            self.task.options.projection_matching, skip_fields=["plot"]
+            self.task.options.projection_matching,
+            skip_fields=["plot"],
         )
 
     def generate_sequencer(self):
@@ -383,14 +385,17 @@ class PMAMasterWidget(MultiThreadedWidget):
 
 
 if __name__ == "__main__":
-    # dummy_task = t.LaminographyAlignmentTask(options=AlignmentTaskOptions(), phase_projections=1)
-    dummy_task = t.load_task(
-        "/gpfs/dfnt1/test/hruth/pyxalign_ci_test_data/dummy_inputs/cSAXS_e18044_LamNI_201907_16x_downsampled_pre_pma_task.h5"
-    )
+    import os
+
+    base_folder = os.environ["PYXALIGN_CI_TEST_DATA_DIR"]
+    rel_path = "dummy_inputs/cSAXS_e18044_LamNI_201907_16x_downsampled_pre_pma_task.h5"
+    task_path = os.path.join(base_folder, rel_path)
+    dummy_task = t.load_task(task_path)
     dummy_task.options.projection_matching.iterations = 3
     dummy_task.options.projection_matching.downsample = ProjectionMatchingOptions().downsample
-    dummy_task.options.projection_matching.downsample.enabled = False
+    dummy_task.options.projection_matching.downsample.enabled = True
     dummy_task.options.projection_matching.interactive_viewer.update.enabled = True
+
     app = QApplication(sys.argv)
     master_widget = PMAMasterWidget(dummy_task)
 

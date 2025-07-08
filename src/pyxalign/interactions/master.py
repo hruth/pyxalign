@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     window = MasterWidget(input_options=options)
-    window.loading_widget.select_load_settings_widget.load_data()
+    # window.loading_widget.select_load_settings_widget.load_data()
     screen_geometry = app.desktop().availableGeometry(window)
     window.setGeometry(
         screen_geometry.x(),
