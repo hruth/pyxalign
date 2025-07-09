@@ -342,16 +342,20 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.task.options.projection_matching,
             skip_fields=["plot"],
             enable_advanced_tab=True,
-            advanced_options_list=self.define_advanced_options(),
+            basic_options_list=self.define_basic_options(),
+            open_panels_list=["downsample"]
         )
     
-    def define_advanced_options(self) -> list[str]:
-        # easier to just list the ones you want to keep
-        basic_pma_settings = ["high_pass_filter", "iterations", "keep_on_gpu", "downsample", "downsample.scale"]
-        all_setting_names = get_all_attribute_names(self.task.options.projection_matching)
-        # get list of fields to put in the advanced tab by taking difference
-        advanced_options_list = list(np.setdiff1d(all_setting_names, basic_pma_settings))
-        return advanced_options_list
+    def define_basic_options(self) -> list[str]:
+        # List the fields you want to keep in the basic tab
+        basic_pma_settings = [
+            "high_pass_filter",
+            "iterations",
+            "keep_on_gpu",
+            "downsample",
+            "downsample.scale",
+        ]
+        return basic_pma_settings
 
     def generate_sequencer(self):
         self.sequencer = SequencerWidget(self.task.options.projection_matching, parent=self)
