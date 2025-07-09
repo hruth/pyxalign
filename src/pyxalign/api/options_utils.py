@@ -55,6 +55,7 @@ def get_all_attribute_names(obj, parent_prefix=None, level=0, max_level=999):
         # If the value is another dataclass instance, recurse
         if value is not None and is_dataclass(value) and level < max_level:
             # Add this field name itself, then all nested names
+            # paths.append(dotted_name)
             paths.extend(get_all_attribute_names(value, dotted_name, level=level + 1))
         else:
             # It's a regular field (or None) => just add

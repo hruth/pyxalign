@@ -29,10 +29,12 @@ from PyQt5.QtWidgets import (
     QSpacerItem,
     QFrame,
     QFileDialog,
+    QTabWidget,
 )
 from PyQt5.QtCore import Qt, QTimer
 from pyxalign.interactions.custom import NoScrollSpinBox, MinimalDecimalSpinBox
 
+from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 
@@ -569,17 +571,143 @@ class BasicOptionsEditor(QWidget):
         file_dialog_fields: list[str] = [],
         folder_dialog_fields: list[str] = [],
         open_panels_list: list[str] = [],
+        advanced_options_list: Optional[list[str]] = None,
+        enable_advanced_tab: bool = False,
         parent=None,
     ):
         super().__init__(parent)
         self._data = data
         self.skip_fields = skip_fields
+        self.advanced_options_list = advanced_options_list or []
+        self.enable_advanced_tab = enable_advanced_tab
         self.options_display = None
 
         main_layout = QVBoxLayout()
-        # tab_widget
         self.setLayout(main_layout)
 
+        title = QLabel("Options Editor")
+        title.setStyleSheet("QLabel {font-size: 16px;}")
+        main_layout.addWidget(title)
+
+        if self.enable_advanced_tab and self.advanced_options_list:
+            # Create tabbed interface
+            self.tab_widget = QTabWidget()
+            main_layout.addWidget(self.tab_widget)
+            
+            # Create basic options tab
+            self._create_basic_options_tab(
+                file_dialog_fields=file_dialog_fields,
+                folder_dialog_fields=folder_dialog_fields,
+                open_panels_list=open_panels_list,
+            )
+            
+            # Create advanced options tab
+            self._create_advanced_options_tab(
+                file_dialog_fields=file_dialog_fields,
+                folder_dialog_fields=folder_dialog_fields,
+                open_panels_list=open_panels_list,
+            )
+        else:
+            # Create single interface (original behavior)
+            self._create_single_options_interface(
+                main_layout,
+                file_dialog_fields=file_dialog_fields,
+                folder_dialog_fields=folder_dialog_fields,
+                open_panels_list=open_panels_list,
+            )
+
+        self.open_display_button = QPushButton("view selections")
+        self.open_display_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.open_display_button.clicked.connect(self.open_options_display_window)
+        main_layout.addWidget(self.open_display_button)
+
+        self.initialize_viewer()
+
+    def _create_basic_options_tab(
+        self,
+        file_dialog_fields: Optional[list[str]] = None,
+        folder_dialog_fields: Optional[list[str]] = None,
+        open_panels_list: list[str] = [],
+    ):
+        """Create the basic options tab with fields excluding advanced options."""
+        basic_tab = QWidget()
+        basic_layout = QVBoxLayout()
+        basic_tab.setLayout(basic_layout)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        scroll_widget = QWidget()
+        form_layout = QFormLayout()
+        form_layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
+        scroll_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        scroll_widget.setLayout(form_layout)
+
+        scroll_area.setWidget(scroll_widget)
+        basic_layout.addWidget(scroll_area)
+
+        # Add fields excluding advanced options
+        combined_skip_fields = list(self.skip_fields) + list(self.advanced_options_list)
+        self._add_dataclass_fields(
+            self._data,
+            form_layout,
+            file_dialog_fields=file_dialog_fields,
+            folder_dialog_fields=folder_dialog_fields,
+            open_panels_list=open_panels_list,
+            skip_fields_override=combined_skip_fields,
+        )
+
+        self.tab_widget.addTab(basic_tab, "Basic Options")
+
+    def _create_advanced_options_tab(
+        self,
+        file_dialog_fields: Optional[list[str]] = None,
+        folder_dialog_fields: Optional[list[str]] = None,
+        open_panels_list: list[str] = [],
+    ):
+        """Create the advanced options tab with only advanced options fields."""
+        advanced_tab = QWidget()
+        advanced_layout = QVBoxLayout()
+        advanced_tab.setLayout(advanced_layout)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        scroll_widget = QWidget()
+        form_layout = QFormLayout()
+        form_layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
+        scroll_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        scroll_widget.setLayout(form_layout)
+
+        scroll_area.setWidget(scroll_widget)
+        advanced_layout.addWidget(scroll_area)
+
+        # Add only advanced options fields
+        all_attribute_names = get_all_attribute_names(self._data)
+        advanced_skip_fields = list(self.skip_fields) + list(
+            set(all_attribute_names) - set(self.advanced_options_list)
+        )
+        self._add_dataclass_fields(
+            self._data,
+            form_layout,
+            file_dialog_fields=file_dialog_fields,
+            folder_dialog_fields=folder_dialog_fields,
+            open_panels_list=open_panels_list,
+            skip_fields_override=advanced_skip_fields,
+        )
+
+        self.tab_widget.addTab(advanced_tab, "Advanced Options")
+
+    def _create_single_options_interface(
+        self,
+        main_layout: QVBoxLayout,
+        file_dialog_fields: Optional[list[str]] = None,
+        folder_dialog_fields: Optional[list[str]] = None,
+        open_panels_list: list[str] = [],
+    ):
+        """Create the original single-interface layout."""
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -591,20 +719,10 @@ class BasicOptionsEditor(QWidget):
         scroll_widget.setLayout(self.form_layout)
 
         scroll_area.setWidget(scroll_widget)
-        title = QLabel("Options Editor")
-        title.setStyleSheet("QLabel {font-size: 16px;}")
-
-        self.open_display_button = QPushButton("view selections")
-        self.open_display_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        self.open_display_button.clicked.connect(self.open_options_display_window)
-
-        main_layout.addWidget(title)
         main_layout.addWidget(scroll_area)
-        main_layout.addWidget(self.open_display_button)
 
-        self.initialize_viewer()
         self._add_dataclass_fields(
-            data,
+            self._data,
             self.form_layout,
             file_dialog_fields=file_dialog_fields,
             folder_dialog_fields=folder_dialog_fields,
@@ -620,6 +738,7 @@ class BasicOptionsEditor(QWidget):
         folder_dialog_fields: Optional[list[str]] = None,
         open_panels_list: list[str] = [],
         level: int = 0,
+        skip_fields_override: Optional[list[str]] = None,
     ):
         if not is_dataclass(data_obj):
             return
@@ -630,7 +749,9 @@ class BasicOptionsEditor(QWidget):
 
             full_field_name = parent_name + field_name
 
-            if self._check_if_skipped_field(full_field_name):
+            # Use override skip fields if provided, otherwise use instance skip fields
+            skip_fields_to_use = skip_fields_override if skip_fields_override is not None else self.skip_fields
+            if self._check_if_skipped_field(full_field_name, skip_fields_to_use):
                 continue
 
             # If nested dataclass => collapsible panel
@@ -650,6 +771,7 @@ class BasicOptionsEditor(QWidget):
                     level=level + 1,
                     file_dialog_fields=file_dialog_fields,
                     folder_dialog_fields=folder_dialog_fields,
+                    skip_fields_override=skip_fields_override,
                 )
 
                 if level == 0:
@@ -689,8 +811,9 @@ class BasicOptionsEditor(QWidget):
         frame_layout.addWidget(widget)
         return frame
 
-    def _check_if_skipped_field(self, current_full_field_name: str) -> bool:
-        return current_full_field_name in self.skip_fields
+    def _check_if_skipped_field(self, current_full_field_name: str, skip_fields: Optional[list[str]] = None) -> bool:
+        fields_to_check = skip_fields if skip_fields is not None else self.skip_fields
+        return current_full_field_name in fields_to_check
 
     def initialize_viewer(self):
         self.options_display = OptionsDisplayWidget(self._data)

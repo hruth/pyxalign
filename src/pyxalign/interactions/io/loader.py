@@ -112,10 +112,6 @@ class SelectLoadSettingsWidget(QWidget):
 
         self.tabs.addTab(self.select_options_widget, "Select Options")
 
-        self.advanced_options_widget = QWidget()
-        self.advanced_options_widget.setLayout(QVBoxLayout())
-        self.tabs.addTab(self.advanced_options_widget, "Advanced Options")
-
         # initialize the options
         if self.options is not None:
             self.insert_options_externally(self.options)
@@ -148,30 +144,18 @@ class SelectLoadSettingsWidget(QWidget):
         if self.options_editor is not None:
             self.select_options_widget.layout().removeWidget(self.options_editor)
             self.options_editor.deleteLater()
-            self.advanced_options_widget.layout().removeWidget(self.options_editor)
-            self.advanced_options_editor.deleteLater()
-        # Update the options editor
+        
+        # Update the options editor with advanced tab functionality
         self.options_editor = BasicOptionsEditor(
             options,
             file_dialog_fields=file_dialog_fields,
             folder_dialog_fields=folder_dialog_fields,
             open_panels_list=open_panels_list,
-            skip_fields=advanced_options_list,
+            advanced_options_list=advanced_options_list,
+            enable_advanced_tab=True,
         )
         # Add widget to layout
         self.select_options_widget.layout().addWidget(self.options_editor)
-        # Update advanced options
-        self.advanced_options_editor = BasicOptionsEditor(
-            options,
-            file_dialog_fields=file_dialog_fields,
-            folder_dialog_fields=folder_dialog_fields,
-            open_panels_list=open_panels_list,
-            skip_fields=np.setdiff1d(
-                get_all_attribute_names(options),
-                advanced_options_list,
-            ),
-        )
-        self.advanced_options_widget.layout().addWidget(self.advanced_options_editor)
         # add code for preventing the "view selections" widget from opening a second window
 
     def add_load_data_button(self):
