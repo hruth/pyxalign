@@ -259,7 +259,7 @@ class Projections:
     ):
         # Note: the fourier rotation that is used for masks will likely
         # be an issue. A new method needs to be implemented.
-        if options.enabled:
+        if options.enabled and options.angle != 0:
             center_pixel = np.array(self.data.shape[1:]) / 2
             data_aspect_ratio_changes = will_rotation_flip_aspect_ratio(options.angle)
             if not data_aspect_ratio_changes:
@@ -324,7 +324,7 @@ class Projections:
 
     @timer()
     def shear_projections(self, options: ShearOptions, apply_to_center_of_rotation: bool = True):
-        if options.enabled:
+        if options.enabled and options.angle != 0:
             Shearer(options).run(self.data, pinned_results=self.data)
             if self.masks is not None:
                 # Will probably be wrong without fixes

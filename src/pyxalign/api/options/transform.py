@@ -32,7 +32,7 @@ class ShiftOptions(TransformOptions):
 class RotationOptions(TransformOptions):
     type: RotationType = RotationType.FFT
 
-    enabled: bool = False
+    enabled: bool = True
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
@@ -43,7 +43,7 @@ class RotationOptions(TransformOptions):
 class ShearOptions(TransformOptions):
     type: ShearType = ShearType.FFT
 
-    enabled: bool = False
+    enabled: bool = True
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
