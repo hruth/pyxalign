@@ -293,7 +293,8 @@ class PMAMasterWidget(MultiThreadedWidget):
     def initialize_page(self, task: "t.LaminographyAlignmentTask"):
         self.task = task
         tabs = QTabWidget()
-        tabs.setStyleSheet("QTabBar{font-size: 20px;}")
+        tabs.setObjectName("main_tabs")
+        tabs.setStyleSheet("#main_tabs > QTabBar{font-size: 20px;}")
         layout = QHBoxLayout()
         layout.addWidget(tabs)
         self.setLayout(layout)
@@ -355,6 +356,7 @@ class PMAMasterWidget(MultiThreadedWidget):
             enable_advanced_tab=True,
             basic_options_list=basic_pma_settings,
             open_panels_list=["downsample"],
+            label="Projection Matching Alignment Options"
         )
 
     def generate_sequencer(self):
@@ -386,20 +388,20 @@ class PMAMasterWidget(MultiThreadedWidget):
         layout.addWidget(self.button_widget, 1, 0, 1, 2)
 
         alignment_setup_widget.setLayout(layout)
-        tabs.addTab(alignment_setup_widget, "Options")
+        tabs.addTab(alignment_setup_widget, "Configure && Start")
 
     def make_second_tab_layout(self, tabs: QTabWidget):
         empty_widget = QWidget()
         self._pma_viewer_layout = QVBoxLayout()
         empty_widget.setLayout(self._pma_viewer_layout)
-        tabs.addTab(empty_widget, "PMA Results")
+        tabs.addTab(empty_widget, "Detailed Results")
 
     def make_third_tab_layout(self, tabs: QTabWidget):
         self.results_collection_widget = AlignmentResultsCollection(self.alignment_results_list)
         empty_widget = QWidget()
         self._results_collection_layout = QVBoxLayout()
         empty_widget.setLayout(self._results_collection_layout)
-        tabs.addTab(self.results_collection_widget, "Results Collection")
+        tabs.addTab(self.results_collection_widget, "Collected Results")
 
 
 if __name__ == "__main__":

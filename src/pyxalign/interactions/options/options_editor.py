@@ -55,7 +55,9 @@ class IntTupleInputWidget(QWidget):
             new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
             setattr(data_obj, field_name, tuple(new_indices))
 
-        n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(field_name)
+        n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
+            field_name
+        )
 
         if n_boxes is not None:
             for i in range(n_boxes):
@@ -155,7 +157,9 @@ class CollapsiblePanel(QWidget):
     Clicking the toggle button shows or hides the panel's contents.
     """
 
-    def __init__(self, title: str = "", keep_open: bool = False, parent: Optional[QWidget] = None):
+    def __init__(
+        self, title: str = "", keep_open: bool = False, parent: Optional[QWidget] = None
+    ):
         super().__init__(parent)
 
         self.toggle_button = QToolButton(text=title, checkable=True, checked=False)
@@ -236,7 +240,9 @@ class SingleOptionEditor(QWidget):
         self.use_file_dialog = use_file_dialog
         self.use_folder_dialog = use_folder_dialog
         if use_file_dialog and use_folder_dialog:
-            raise Exception("use_file_dialog and use_folder_dialog cannot both be true!")
+            raise Exception(
+                "use_file_dialog and use_folder_dialog cannot both be true!"
+            )
 
         # Find the field's declared type
         self.field_type = None
@@ -258,7 +264,9 @@ class SingleOptionEditor(QWidget):
         layout.addWidget(editor_widget)
 
         # Add a spacer to push the input widget to the left
-        layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        )
 
     def value(self) -> Any:
         return getattr(self.data_obj, self.field_name)
@@ -275,7 +283,9 @@ class SingleOptionEditor(QWidget):
         if self._is_optional_type(self.field_type):
             # extract the underlying type (the real type without None)
             underlying_type = self._extract_non_none_type(self.field_type)
-            real_editor = self._create_nonoptional_editor_widget(underlying_type, field_value)
+            real_editor = self._create_nonoptional_editor_widget(
+                underlying_type, field_value
+            )
             return self._wrap_optional(real_editor, field_value)
         else:
             # Non-optional field, just create the editor
@@ -330,13 +340,19 @@ class SingleOptionEditor(QWidget):
             setattr(self.data_obj, self.field_name, editor_widget.itemData(idx))
         elif isinstance(editor_widget, QLineEdit):
             setattr(self.data_obj, self.field_name, editor_widget.text())
-        elif isinstance(editor_widget, QSpinBox) or isinstance(editor_widget, QDoubleSpinBox):
+        elif isinstance(editor_widget, QSpinBox) or isinstance(
+            editor_widget, QDoubleSpinBox
+        ):
             setattr(self.data_obj, self.field_name, editor_widget.value())
         elif isinstance(editor_widget, QWidget) and hasattr(editor_widget, "input_bar"):
             # Possibly it's the CustomFileDialog
             setattr(self.data_obj, self.field_name, editor_widget.input_bar.text())
         elif isinstance(editor_widget, IntTupleInputWidget):
-            setattr(self.data_obj, self.field_name, string_to_tuple(editor_widget.line.text()))
+            setattr(
+                self.data_obj,
+                self.field_name,
+                string_to_tuple(editor_widget.line.text()),
+            )
         else:
             # Fallback: do nothing
             pass
@@ -428,7 +444,9 @@ class SingleOptionEditor(QWidget):
                 list_widget.setText(", ".join(field_value))
 
             def on_text_changed(txt: str):
-                setattr(self.data_obj, self.field_name, [s.strip() for s in txt.split(",")])
+                setattr(
+                    self.data_obj, self.field_name, [s.strip() for s in txt.split(",")]
+                )
 
             list_widget.textChanged.connect(on_text_changed)
             return list_widget
@@ -574,6 +592,7 @@ class BasicOptionsEditor(QWidget):
         advanced_options_list: Optional[list[str]] = None,
         basic_options_list: Optional[list[str]] = None,
         enable_advanced_tab: bool = False,
+        label: Optional[bool] = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -583,26 +602,30 @@ class BasicOptionsEditor(QWidget):
         self.basic_options_list = basic_options_list or []
         self.enable_advanced_tab = enable_advanced_tab
         self.options_display = None
+        if label is None:
+            label = "Options Editor"
 
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
-        title = QLabel("Options Editor")
+        title = QLabel(label)
         title.setStyleSheet("QLabel {font-size: 16px;}")
         main_layout.addWidget(title)
 
-        if self.enable_advanced_tab and (self.advanced_options_list or self.basic_options_list):
+        if self.enable_advanced_tab and (
+            self.advanced_options_list or self.basic_options_list
+        ):
             # Create tabbed interface
             self.tab_widget = QTabWidget()
             main_layout.addWidget(self.tab_widget)
-            
+
             # Create basic options tab
             self._create_basic_options_tab(
                 file_dialog_fields=file_dialog_fields,
                 folder_dialog_fields=folder_dialog_fields,
                 open_panels_list=open_panels_list,
             )
-            
+
             # Create advanced options tab
             self._create_advanced_options_tab(
                 file_dialog_fields=file_dialog_fields,
@@ -628,11 +651,11 @@ class BasicOptionsEditor(QWidget):
     def _should_include_field_in_tab(self, full_field_path: str, tab_type: str) -> bool:
         """
         Determine if a specific field should be included in the given tab.
-        
+
         Args:
             full_field_path: Full dotted path of the field (e.g., "input_processing.rotation.angle")
             tab_type: Either "basic" or "advanced"
-            
+
         Returns:
             True if field should be included in the specified tab
         """
@@ -643,16 +666,18 @@ class BasicOptionsEditor(QWidget):
             # For advanced tab: include fields NOT in basic_options_list
             return full_field_path not in self.basic_options_list
 
-    def _should_include_nested_dataclass_in_tab(self, full_field_path: str, tab_type: str, all_fields: list[str]) -> bool:
+    def _should_include_nested_dataclass_in_tab(
+        self, full_field_path: str, tab_type: str, all_fields: list[str]
+    ) -> bool:
         """
         Determine if a nested dataclass should be included in the given tab.
         A nested dataclass should be included if any of its children should be in that tab.
-        
+
         Args:
             full_field_path: Full dotted path of the nested dataclass field
             tab_type: Either "basic" or "advanced"
             all_fields: List of all possible field paths in the dataclass
-            
+
         Returns:
             True if the nested dataclass should be included in the specified tab
         """
@@ -662,7 +687,7 @@ class BasicOptionsEditor(QWidget):
             if field.startswith(prefix):
                 if self._should_include_field_in_tab(field, tab_type):
                     return True
-        
+
         # Also check if the nested dataclass itself is explicitly listed
         return self._should_include_field_in_tab(full_field_path, tab_type)
 
@@ -792,7 +817,11 @@ class BasicOptionsEditor(QWidget):
             full_field_name = parent_name + field_name
 
             # Use legacy skip fields logic for backward compatibility
-            skip_fields_to_use = skip_fields_override if skip_fields_override is not None else self.skip_fields
+            skip_fields_to_use = (
+                skip_fields_override
+                if skip_fields_override is not None
+                else self.skip_fields
+            )
             if self._check_if_skipped_field(full_field_name, skip_fields_to_use):
                 continue
 
@@ -800,17 +829,19 @@ class BasicOptionsEditor(QWidget):
             if tab_type and self.basic_options_list:
                 # For nested dataclasses, check if this dataclass should be included in this tab
                 if is_dataclass(field_value):
-                    if not self._should_include_nested_dataclass_in_tab(full_field_name, tab_type, all_fields):
+                    if not self._should_include_nested_dataclass_in_tab(
+                        full_field_name, tab_type, all_fields
+                    ):
                         continue
                 else:
                     # For regular fields, check if this field should be in this tab
                     if not self._should_include_field_in_tab(full_field_name, tab_type):
                         continue
             # else:
-                # # Use legacy skip fields logic for backward compatibility
-                # skip_fields_to_use = skip_fields_override if skip_fields_override is not None else self.skip_fields
-                # if self._check_if_skipped_field(full_field_name, skip_fields_to_use):
-                #     continue
+            # # Use legacy skip fields logic for backward compatibility
+            # skip_fields_to_use = skip_fields_override if skip_fields_override is not None else self.skip_fields
+            # if self._check_if_skipped_field(full_field_name, skip_fields_to_use):
+            #     continue
 
             # If nested dataclass => collapsible panel
             if is_dataclass(field_value):
@@ -872,7 +903,9 @@ class BasicOptionsEditor(QWidget):
         frame_layout.addWidget(widget)
         return frame
 
-    def _check_if_skipped_field(self, current_full_field_name: str, skip_fields: Optional[list[str]] = None) -> bool:
+    def _check_if_skipped_field(
+        self, current_full_field_name: str, skip_fields: Optional[list[str]] = None
+    ) -> bool:
         fields_to_check = skip_fields if skip_fields is not None else self.skip_fields
         return current_full_field_name in fields_to_check
 
@@ -902,7 +935,9 @@ def get_option_from_field_path(options: OptionsClass, field_path: str) -> Any:
     return getattr(parent_options, field_name)
 
 
-def set_option_from_field_path(options: OptionsClass, field_path: str, value: Any) -> OptionsClass:
+def set_option_from_field_path(
+    options: OptionsClass, field_path: str, value: Any
+) -> OptionsClass:
     parent_options = return_parent_option(options, field_path)
     field_name = field_path.split(".")[-1]
     setattr(parent_options, field_name, value)

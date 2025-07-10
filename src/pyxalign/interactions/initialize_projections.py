@@ -331,7 +331,7 @@ class MainProjectionTab(QWidget):
         self.viewer_selection_label = QLabel("select viewer")
         self.viewer_selection_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.viewer_selection_label.setDisabled(True)
-        
+
         self.viewer_selection_combo = QComboBox()
         self.viewer_selection_combo.addItem(self.WRAPPED_PHASE_TEXT)
         self.viewer_selection_combo.addItem(self.UNWRAPPED_PHASE_TEXT)
@@ -355,7 +355,7 @@ class MainProjectionTab(QWidget):
         buttons_layout.addWidget(self.open_phase_unwrap_button, alignment=Qt.AlignLeft)
         buttons_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         buttons_layout.addWidget(viewer_selection_widget, alignment=Qt.AlignRight)
-        
+
         main_layout.addLayout(buttons_layout)
 
         # Update button and combo box style
@@ -442,7 +442,7 @@ class MainProjectionTab(QWidget):
         """Handle combo box selection changes to toggle viewer visibility."""
         if self.complex_projections_viewer is not None:
             self.complex_projections_viewer.setVisible(selection_text == self.WRAPPED_PHASE_TEXT)
-        
+
         if self.phase_projections_viewer is not None:
             self.phase_projections_viewer.setVisible(selection_text == self.UNWRAPPED_PHASE_TEXT)
 
