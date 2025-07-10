@@ -584,24 +584,6 @@ class BasicOptionsEditor(QWidget):
         self.enable_advanced_tab = enable_advanced_tab
         self.options_display = None
 
-        # Classify fields for tab distribution if advanced tab is enabled
-        if self.enable_advanced_tab and (self.advanced_options_list or self.basic_options_list):
-            all_fields = get_all_attribute_names(self._data)
-            
-            # Determine basic and advanced fields
-            if self.basic_options_list:
-                # If basic_options_list is provided, use it directly
-                basic_fields = self.basic_options_list
-                # Store the advanced fields for backward compatibility
-                self.advanced_options_list = list(set(all_fields) - set(basic_fields))
-            else:
-                # Otherwise, basic fields are everything not in advanced_options_list
-                basic_fields = list(set(all_fields) - set(self.advanced_options_list))
-            
-            self.field_classification = self._classify_fields_for_tabs(all_fields, basic_fields)
-        else:
-            self.field_classification = None
-
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
@@ -609,7 +591,7 @@ class BasicOptionsEditor(QWidget):
         title.setStyleSheet("QLabel {font-size: 16px;}")
         main_layout.addWidget(title)
 
-        if self.enable_advanced_tab and self.advanced_options_list:
+        if self.enable_advanced_tab and (self.advanced_options_list or self.basic_options_list):
             # Create tabbed interface
             self.tab_widget = QTabWidget()
             main_layout.addWidget(self.tab_widget)
@@ -643,130 +625,46 @@ class BasicOptionsEditor(QWidget):
 
         self.initialize_viewer()
 
-    def _classify_fields_for_tabs(self, all_fields: list[str], basic_fields: list[str]) -> dict:
-        """
-        Classify all fields into basic_only, advanced_only, and split_parent categories.
-        
-        This method analyzes the relationship between parent and child fields to determine
-        how to distribute them across basic and advanced tabs.
-        
-        Args:
-            all_fields: Complete list of all field paths in the dataclass
-            basic_fields: List of field paths that should appear in basic tab
-            
-        Returns:
-            Dictionary with classification:
-            {
-                'basic_only': [...],           # Fields that appear only in basic
-                'advanced_only': [...],        # Fields that appear only in advanced  
-                'split_parents': {             # Parents that appear in both tabs
-                    'parent_name': {
-                        'basic_children': [...],
-                        'advanced_children': [...]
-                    }
-                }
-            }
-        """
-        basic_set = set(basic_fields)
-        advanced_set = set(all_fields) - basic_set
-        
-        # Find parent-child relationships
-        parent_children_map = {}
-        for field in all_fields:
-            if '.' in field:
-                parent = self._get_parent_field_name(field)
-                child = field.split('.')[-1]
-                if parent not in parent_children_map:
-                    parent_children_map[parent] = []
-                parent_children_map[parent].append(child)
-        
-        # Classify fields
-        classification = {
-            'basic_only': [],
-            'advanced_only': [],
-            'split_parents': {}
-        }
-        
-        # Check for split parents - cases where parent is in basic but children are distributed
-        for parent, children in parent_children_map.items():
-            parent_in_basic = parent in basic_set
-            child_paths = [f"{parent}.{child}" for child in children]
-            
-            basic_children = [child for child in children if f"{parent}.{child}" in basic_set]
-            advanced_children = [child for child in children if f"{parent}.{child}" in advanced_set]
-            
-            # A parent is "split" if:
-            # 1. The parent itself is in basic_fields AND
-            # 2. Some (but not all) of its children are explicitly listed in basic_fields
-            if parent_in_basic and basic_children:
-                # This is a split parent case - parent appears in both tabs with different children
-                classification['split_parents'][parent] = {
-                    'basic_children': basic_children,
-                    'advanced_children': advanced_children
-                }
-                # Remove the parent and its children from basic/advanced only lists
-                basic_set.discard(parent)
-                for child_path in child_paths:
-                    basic_set.discard(child_path)
-                    advanced_set.discard(child_path)
-        
-        # Remaining fields go to basic_only or advanced_only
-        classification['basic_only'] = list(basic_set)
-        classification['advanced_only'] = list(advanced_set)
-        
-        return classification
-
-    def _get_parent_field_name(self, field_path: str) -> str:
-        """
-        Extract parent field name from a dotted path.
-        
-        Args:
-            field_path: Dotted field path like "downsample.scale"
-            
-        Returns:
-            Parent field name like "downsample"
-        """
-        return field_path.split('.')[0]
-
-    def _should_include_field_in_tab(self, field_path: str, tab_type: str, parent_name: str = "") -> bool:
+    def _should_include_field_in_tab(self, full_field_path: str, tab_type: str) -> bool:
         """
         Determine if a specific field should be included in the given tab.
         
         Args:
-            field_path: Full dotted path of the field
+            full_field_path: Full dotted path of the field (e.g., "input_processing.rotation.angle")
             tab_type: Either "basic" or "advanced"
-            parent_name: Name of the parent field (for nested fields)
             
         Returns:
             True if field should be included in the specified tab
         """
-        if not self.field_classification:
-            return True
-            
-        # Build the full field path considering parent context
-        full_field_path = f"{parent_name}.{field_path}" if parent_name else field_path
-        
-        # Check basic_only and advanced_only lists
         if tab_type == "basic":
-            if full_field_path in self.field_classification['basic_only']:
-                return True
+            # For basic tab: only include fields explicitly listed in basic_options_list
+            return full_field_path in self.basic_options_list
         else:  # advanced
-            if full_field_path in self.field_classification['advanced_only']:
-                return True
+            # For advanced tab: include fields NOT in basic_options_list
+            return full_field_path not in self.basic_options_list
+
+    def _should_include_nested_dataclass_in_tab(self, full_field_path: str, tab_type: str, all_fields: list[str]) -> bool:
+        """
+        Determine if a nested dataclass should be included in the given tab.
+        A nested dataclass should be included if any of its children should be in that tab.
         
-        # Check split_parents
-        if parent_name in self.field_classification['split_parents']:
-            split_info = self.field_classification['split_parents'][parent_name]
-            if tab_type == "basic":
-                return field_path in split_info['basic_children']
-            else:  # advanced
-                return field_path in split_info['advanced_children']
-        
-        # If parent is in split_parents but this field isn't explicitly listed, exclude it
-        if any(parent_name == sp for sp in self.field_classification['split_parents'].keys()):
-            return False
+        Args:
+            full_field_path: Full dotted path of the nested dataclass field
+            tab_type: Either "basic" or "advanced"
+            all_fields: List of all possible field paths in the dataclass
             
-        return False
+        Returns:
+            True if the nested dataclass should be included in the specified tab
+        """
+        # Check if any child fields of this nested dataclass should be in this tab
+        prefix = full_field_path + "."
+        for field in all_fields:
+            if field.startswith(prefix):
+                if self._should_include_field_in_tab(field, tab_type):
+                    return True
+        
+        # Also check if the nested dataclass itself is explicitly listed
+        return self._should_include_field_in_tab(full_field_path, tab_type)
 
     def _create_basic_options_tab(
         self,
@@ -792,7 +690,7 @@ class BasicOptionsEditor(QWidget):
         scroll_area.setWidget(scroll_widget)
         basic_layout.addWidget(scroll_area)
 
-        # Add fields using the new classification system
+        # Add fields using the new filtering system
         self._add_dataclass_fields(
             self._data,
             form_layout,
@@ -828,7 +726,7 @@ class BasicOptionsEditor(QWidget):
         scroll_area.setWidget(scroll_widget)
         advanced_layout.addWidget(scroll_area)
 
-        # Add fields using the new classification system
+        # Add fields using the new filtering system
         self._add_dataclass_fields(
             self._data,
             form_layout,
@@ -884,36 +782,35 @@ class BasicOptionsEditor(QWidget):
         if not is_dataclass(data_obj):
             return
 
+        # Get all possible field paths for nested dataclass filtering
+        all_fields = get_all_attribute_names(self._data) if tab_type else []
+
         for f in fields(data_obj):
             field_name = f.name
             field_value = getattr(data_obj, field_name)
 
             full_field_name = parent_name + field_name
 
+            # Use legacy skip fields logic for backward compatibility
+            skip_fields_to_use = skip_fields_override if skip_fields_override is not None else self.skip_fields
+            if self._check_if_skipped_field(full_field_name, skip_fields_to_use):
+                continue
+
             # Handle tab-aware filtering if we're in advanced tab mode
-            if tab_type and self.field_classification:
-                # For top-level fields, check if this field should be in this tab
-                if level == 0:
-                    # Check if this is a split parent
-                    if field_name in self.field_classification['split_parents']:
-                        # This parent should appear in both tabs, continue processing
-                        pass
-                    elif tab_type == "basic":
-                        if full_field_name not in self.field_classification['basic_only']:
-                            continue
-                    else:  # advanced
-                        if full_field_name not in self.field_classification['advanced_only']:
-                            continue
-                else:
-                    # For nested fields, check against the parent context
-                    parent_field = parent_name.rstrip('.')
-                    if not self._should_include_field_in_tab(field_name, tab_type, parent_field):
+            if tab_type and self.basic_options_list:
+                # For nested dataclasses, check if this dataclass should be included in this tab
+                if is_dataclass(field_value):
+                    if not self._should_include_nested_dataclass_in_tab(full_field_name, tab_type, all_fields):
                         continue
-            else:
-                # Use legacy skip fields logic for backward compatibility
-                skip_fields_to_use = skip_fields_override if skip_fields_override is not None else self.skip_fields
-                if self._check_if_skipped_field(full_field_name, skip_fields_to_use):
-                    continue
+                else:
+                    # For regular fields, check if this field should be in this tab
+                    if not self._should_include_field_in_tab(full_field_name, tab_type):
+                        continue
+            # else:
+                # # Use legacy skip fields logic for backward compatibility
+                # skip_fields_to_use = skip_fields_override if skip_fields_override is not None else self.skip_fields
+                # if self._check_if_skipped_field(full_field_name, skip_fields_to_use):
+                #     continue
 
             # If nested dataclass => collapsible panel
             if is_dataclass(field_value):
@@ -925,50 +822,23 @@ class BasicOptionsEditor(QWidget):
                 nested_layout = QFormLayout()
                 panel.setContentLayout(nested_layout)
 
-                # For split parents, we need to check if any children should be visible in this tab
-                if tab_type and self.field_classification and field_name in self.field_classification['split_parents']:
-                    split_info = self.field_classification['split_parents'][field_name]
-                    children_for_this_tab = split_info.get(f'{tab_type}_children', [])
-                    
-                    # Only add the panel if there are children to show in this tab
-                    if children_for_this_tab:
-                        # Create a custom skip list that includes all children NOT meant for this tab
-                        all_children = split_info.get('basic_children', []) + split_info.get('advanced_children', [])
-                        children_to_skip = [child for child in all_children if child not in children_for_this_tab]
-                        skip_fields_for_nested = [f"{parent_name}{field_name}.{child}" for child in children_to_skip]
-                        
-                        self._add_dataclass_fields(
-                            field_value,
-                            nested_layout,
-                            parent_name=parent_name + field_name + ".",
-                            level=level + 1,
-                            file_dialog_fields=file_dialog_fields,
-                            folder_dialog_fields=folder_dialog_fields,
-                            skip_fields_override=skip_fields_for_nested,
-                            tab_type=None,  # Disable tab filtering for nested calls when using skip_fields_override
-                        )
+                # Recursively add nested fields
+                self._add_dataclass_fields(
+                    field_value,
+                    nested_layout,
+                    parent_name=parent_name + field_name + ".",
+                    level=level + 1,
+                    file_dialog_fields=file_dialog_fields,
+                    folder_dialog_fields=folder_dialog_fields,
+                    open_panels_list=open_panels_list,
+                    skip_fields_override=skip_fields_override,
+                    tab_type=tab_type,
+                )
 
-                        if level == 0:
-                            form_layout.addRow(field_name, self.wrap_in_frame(panel))
-                        else:
-                            form_layout.addRow(field_name, panel)
+                if level == 0:
+                    form_layout.addRow(field_name, self.wrap_in_frame(panel))
                 else:
-                    # Normal nested dataclass processing
-                    self._add_dataclass_fields(
-                        field_value,
-                        nested_layout,
-                        parent_name=parent_name + field_name + ".",
-                        level=level + 1,
-                        file_dialog_fields=file_dialog_fields,
-                        folder_dialog_fields=folder_dialog_fields,
-                        skip_fields_override=skip_fields_override,
-                        tab_type=tab_type,
-                    )
-
-                    if level == 0:
-                        form_layout.addRow(field_name, self.wrap_in_frame(panel))
-                    else:
-                        form_layout.addRow(field_name, panel)
+                    form_layout.addRow(field_name, panel)
 
             else:
                 # Check if file-dialog or folder-dialog

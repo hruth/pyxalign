@@ -144,14 +144,22 @@ class SelectLoadSettingsWidget(QWidget):
         if self.options_editor is not None:
             self.select_options_widget.layout().removeWidget(self.options_editor)
             self.options_editor.deleteLater()
-        
+
+        basic_options_list = list(
+            np.setdiff1d(
+                get_all_attribute_names(options),
+                advanced_options_list,
+            )
+        )
+
         # Update the options editor with advanced tab functionality
         self.options_editor = BasicOptionsEditor(
             options,
             file_dialog_fields=file_dialog_fields,
             folder_dialog_fields=folder_dialog_fields,
             open_panels_list=open_panels_list,
-            advanced_options_list=advanced_options_list,
+            # advanced_options_list=advanced_options_list,
+            basic_options_list=basic_options_list,
             enable_advanced_tab=True,
         )
         # Add widget to layout

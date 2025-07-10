@@ -185,15 +185,31 @@ class InitializeProjectionsObjectWidget(QWidget):
             "input_processing.mask_downsample_type",
             "mask_downsample_use_gaussian_filter",
         ]
+
         open_panels_list = [
             "experiment",
             "input_processing",
             "input_processing.rotation",
             "input_processing.shear",
         ]
+        basic_options_list = [
+            "input_processing",
+            "input_processing.rotation",
+            "input_processing.rotation.angle",
+            "input_processing.shear",
+            "input_processing.shear.angle",
+            "experiment",
+            "experiment.laminography_angle",
+            "experiment.sample_thickness",
+            "experiment.pixel_size",
+        ]
 
         self.options_editor = BasicOptionsEditor(
-            default_projection_options, skip_fields=skip_fields, open_panels_list=open_panels_list
+            default_projection_options,
+            skip_fields=skip_fields,
+            open_panels_list=open_panels_list,
+            enable_advanced_tab=True,
+            basic_options_list=basic_options_list,
         )
         self.layout().addWidget(self.options_editor)
 
