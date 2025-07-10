@@ -19,11 +19,11 @@ def launch_volume_viewer(array_3d: np.ndarray) -> VolumeViewer:
 def launch_projection_viewer(
     projections: "p.Projections",
     options: Optional[ProjectionViewerOptions] = None,
-    enable_dropping: bool = True,
+    display_only: bool = False,
     wait_until_closed: bool = False,
 ) -> ProjectionViewer:
     app = QApplication.instance() or QApplication([])
-    gui = ProjectionViewer(projections, options, enable_dropping=enable_dropping)
+    gui = ProjectionViewer(projections, options, display_only=display_only)
     gui.show()
     if wait_until_closed:
         app.exec_()

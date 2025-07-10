@@ -123,7 +123,7 @@ class ProjectionViewer(MultiThreadedWidget):
         multi_thread_func: Optional[Callable] = None,
         include_options: bool = True,
         include_shifts: bool = True,
-        enable_dropping: bool = False,
+        display_only: bool = True,
         parent=None,
     ):
         super().__init__(
@@ -157,13 +157,13 @@ class ProjectionViewer(MultiThreadedWidget):
         # build the array selection widget
         self.build_array_selector()
         # create button for launch the scan removal tool
-        if enable_dropping:
+        if not display_only:
             open_scan_removal_button = QPushButton("Open Scan Removal Window")
             open_scan_removal_button.clicked.connect(self.open_scan_removal_window)
 
-        # create button for the mask creation tol
-        open_mask_creation_button = QPushButton("Open Mask Creation Window")
-        open_mask_creation_button.clicked.connect(self.open_mask_creation_window)
+            # create button for the mask creation tol
+            open_mask_creation_button = QPushButton("Open Mask Creation Window")
+            open_mask_creation_button.clicked.connect(self.open_mask_creation_window)
 
         # setup tabs and layout
         tabs = QTabWidget()
@@ -179,9 +179,9 @@ class ProjectionViewer(MultiThreadedWidget):
         left_panel.setLayout(left_panel_layout)
         array_view_layout.addWidget(left_panel)
         left_panel_layout.addWidget(self.button_group_box)
-        if enable_dropping:
+        if not display_only:
             left_panel_layout.addWidget(open_scan_removal_button)
-        left_panel_layout.addWidget(open_mask_creation_button)
+            left_panel_layout.addWidget(open_mask_creation_button)
         left_panel_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )

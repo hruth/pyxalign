@@ -373,7 +373,7 @@ class MainProjectionTab(QWidget):
         if self.complex_projections_viewer is not None:
             sip.delete(self.complex_projections_viewer)
         self.complex_projections_viewer = ProjectionViewer(
-            self.task.complex_projections, enable_dropping=True
+            self.task.complex_projections, display_only=False
         )
         self.layout().addWidget(self.complex_projections_viewer)
         # connect masks created signal to disabling of phase unwrap button
@@ -385,7 +385,7 @@ class MainProjectionTab(QWidget):
         if self.phase_projections_viewer is not None:
             sip.delete(self.phase_projections_viewer)
         self.phase_projections_viewer = ProjectionViewer(
-            self.task.phase_projections, enable_dropping=True
+            self.task.phase_projections, display_only=False
         )
         self.layout().addWidget(self.phase_projections_viewer)
 

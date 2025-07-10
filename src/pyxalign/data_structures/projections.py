@@ -726,7 +726,7 @@ class Projections:
         wait_until_closed: Optional[bool] = False,
     ):
         self.gui = launch_projection_viewer(
-            self, options, enable_dropping=True, wait_until_closed=wait_until_closed
+            self, options, display_only=False, wait_until_closed=wait_until_closed
         )
 
     def load_and_stage_shift(

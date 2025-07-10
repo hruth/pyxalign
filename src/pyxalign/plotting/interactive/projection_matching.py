@@ -82,6 +82,7 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
                 self.pma_object.aligned_projections,
                 include_options=False,
                 include_shifts=False,
+                display_only=True,
             )
             # volume viewer
             self.volume_viewer = VolumeViewer(self.pma_object.aligned_projections.volume.data)
