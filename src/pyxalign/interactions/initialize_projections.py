@@ -26,6 +26,8 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QStackedWidget,
     QFrame,
+    QComboBox,
+    QSpacerItem,
 )
 from pyxalign.plotting.interactive.arrays import ProjectionViewer
 import sip
@@ -293,6 +295,10 @@ class MainProjectionTab(QWidget):
     object_created_signal = pyqtSignal(LaminographyAlignmentTask)
     phase_unwrapped_signal = pyqtSignal()
 
+    # Viewer selection constants
+    WRAPPED_PHASE_TEXT = "wrapped phase"
+    UNWRAPPED_PHASE_TEXT = "unwrapped phase"
+
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.standard_data = None
@@ -306,8 +312,8 @@ class MainProjectionTab(QWidget):
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
-        # Create buttons layout
-        buttons_layout = QVBoxLayout()
+        # Create buttons layout (horizontal to accommodate combo box)
+        buttons_layout = QHBoxLayout()
 
         # Create initialize projections object button
         self.open_initializer_button = QPushButton("Initialize Projections Object")
@@ -321,22 +327,54 @@ class MainProjectionTab(QWidget):
         self.open_phase_unwrap_button.clicked.connect(self.open_phase_unwrap_window)
         self.open_phase_unwrap_button.setDisabled(True)
 
-        # add buttons to layout
-        buttons_layout.addWidget(self.open_initializer_button, alignment=Qt.AlignTop | Qt.AlignLeft)
-        buttons_layout.addWidget(
-            self.open_phase_unwrap_button, alignment=Qt.AlignTop | Qt.AlignLeft
-        )
+        # Create viewer selection label and combo box
+        self.viewer_selection_label = QLabel("select viewer")
+        self.viewer_selection_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.viewer_selection_label.setDisabled(True)
+        
+        self.viewer_selection_combo = QComboBox()
+        self.viewer_selection_combo.addItem(self.WRAPPED_PHASE_TEXT)
+        self.viewer_selection_combo.addItem(self.UNWRAPPED_PHASE_TEXT)
+        self.viewer_selection_combo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.viewer_selection_combo.currentTextChanged.connect(self.on_viewer_selection_changed)
+        self.viewer_selection_combo.setDisabled(True)
+
+        # Create a vertical layout for the label and combo box
+        viewer_selection_layout = QVBoxLayout()
+        viewer_selection_layout.setSpacing(2)
+        viewer_selection_layout.addWidget(self.viewer_selection_label, alignment=Qt.AlignCenter)
+        viewer_selection_layout.addWidget(self.viewer_selection_combo, alignment=Qt.AlignCenter)
+
+        # Create a widget to contain the label and combo box
+        viewer_selection_widget = QWidget()
+        viewer_selection_widget.setLayout(viewer_selection_layout)
+        viewer_selection_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+
+        # Add widgets to buttons layout
+        buttons_layout.addWidget(self.open_initializer_button, alignment=Qt.AlignLeft)
+        buttons_layout.addWidget(self.open_phase_unwrap_button, alignment=Qt.AlignLeft)
+        buttons_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        buttons_layout.addWidget(viewer_selection_widget, alignment=Qt.AlignRight)
+        
         main_layout.addLayout(buttons_layout)
 
-        # update button style
+        # Update button and combo box style
         style_sheet = """
             QPushButton {
                 font-size: 12pt; 
                 padding: 4px 6px;
             }
             """
+        combo_style_sheet = """
+            QComboBox {
+                font-size: 12pt;
+                padding: 4px 6px;
+                min-width: 120px;
+            }
+            """
         self.open_initializer_button.setStyleSheet(style_sheet)
         self.open_phase_unwrap_button.setStyleSheet(style_sheet)
+        self.viewer_selection_combo.setStyleSheet(combo_style_sheet)
 
     def on_standard_data_loaded(self, standard_data: StandardData):
         """
@@ -377,6 +415,9 @@ class MainProjectionTab(QWidget):
             self.task.complex_projections, display_only=False
         )
         self.layout().addWidget(self.complex_projections_viewer)
+        # Set initial visibility based on combo box selection
+        is_wrapped_selected = self.viewer_selection_combo.currentText() == self.WRAPPED_PHASE_TEXT
+        self.complex_projections_viewer.setVisible(is_wrapped_selected)
         # connect masks created signal to disabling of phase unwrap button
         self.complex_projections_viewer.masks_created.connect(
             self.set_phase_unwrapping_button_state
@@ -391,6 +432,19 @@ class MainProjectionTab(QWidget):
             self.task.phase_projections, display_only=False
         )
         self.layout().addWidget(self.phase_projections_viewer)
+        # Enable the viewer selection combo box and label
+        self.viewer_selection_combo.setEnabled(True)
+        self.viewer_selection_label.setEnabled(True)
+        # Change combo box to unwrapped phase
+        self.viewer_selection_combo.setCurrentText(self.UNWRAPPED_PHASE_TEXT)
+
+    def on_viewer_selection_changed(self, selection_text: str):
+        """Handle combo box selection changes to toggle viewer visibility."""
+        if self.complex_projections_viewer is not None:
+            self.complex_projections_viewer.setVisible(selection_text == self.WRAPPED_PHASE_TEXT)
+        
+        if self.phase_projections_viewer is not None:
+            self.phase_projections_viewer.setVisible(selection_text == self.UNWRAPPED_PHASE_TEXT)
 
     @pyqtSlot(LaminographyAlignmentTask)
     def on_task_loaded(self, task: LaminographyAlignmentTask):
@@ -404,6 +458,8 @@ class MainProjectionTab(QWidget):
     @pyqtSlot()
     def on_phase_unwrapped(self):
         self.insert_phase_projections_viewer()
+        # Update viewer visibility after phase unwrapping
+        self.on_viewer_selection_changed(self.viewer_selection_combo.currentText())
         # emit signal meant for external widgets
         self.phase_unwrapped_signal.emit()
 
