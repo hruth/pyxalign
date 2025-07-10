@@ -1,6 +1,7 @@
 import sys
 import matplotlib
 import copy
+from typing import Optional
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
@@ -25,9 +26,12 @@ from pyxalign.interactions.sequencer_item import SequencerItem
 
 
 class SequencerWidget(QWidget):
-    def __init__(self, options: OptionsClass, parent=None):
+    def __init__(
+        self, options: OptionsClass, basic_options_list: Optional[list[str]] = None, parent=None
+    ):
         super().__init__(parent)
         self.options = options
+        self.basic_options_list = basic_options_list or []
 
         # Main layout
         self.main_layout = QVBoxLayout()
@@ -41,7 +45,9 @@ class SequencerWidget(QWidget):
         scroll_widget.setLayout(self.sequencer_list_layout)
         scroll_area.setWidget(scroll_widget)
 
-        self.sequencer_items = [SequencerItem(self.options)]
+        self.sequencer_items = [
+            SequencerItem(self.options, basic_options_list=self.basic_options_list)
+        ]
         self.sequencer_list_layout.addWidget(self.sequencer_items[0])
         self.sequencer_list_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Preferred, QSizePolicy.Expanding)
@@ -67,15 +73,19 @@ class SequencerWidget(QWidget):
         self.main_layout.addLayout(button_layout)
 
     def add_new_sequencer(self):
-        new_item = SequencerItem(self.options)
+        new_item = SequencerItem(self.options, basic_options_list=self.basic_options_list)
         self.sequencer_items += [new_item]
         self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
-    
+
     def duplicate_last_sequence(self):
         initial_field = self.sequencer_items[-1].full_field_path()
         initial_value = self.sequencer_items[-1].value()
         checkbox_state = self.sequencer_items[-1].checkbox_state()
-        new_item = SequencerItem(self.options, initial_state=(initial_field, initial_value, checkbox_state))
+        new_item = SequencerItem(
+            self.options,
+            initial_state=(initial_field, initial_value, checkbox_state),
+            basic_options_list=self.basic_options_list,
+        )
         self.sequencer_items += [new_item]
         self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
 
@@ -99,6 +109,7 @@ class SequencerWidget(QWidget):
             options_sequence += [options_item]
 
         return options_sequence
+
 
 # For demonstration purposes only:
 if __name__ == "__main__":

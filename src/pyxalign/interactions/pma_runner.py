@@ -67,6 +67,13 @@ from pyxalign.plotting.interactive.base import MultiThreadedWidget
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 
+basic_pma_settings = [
+    "iterations",
+    "high_pass_filter",
+    "downsample",
+    "downsample.scale",
+]
+
 
 class AlignmentResults:
     """
@@ -342,23 +349,16 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.task.options.projection_matching,
             skip_fields=["plot"],
             enable_advanced_tab=True,
-            basic_options_list=self.define_basic_options(),
-            open_panels_list=["downsample"]
+            basic_options_list=basic_pma_settings,
+            open_panels_list=["downsample"],
         )
-    
-    def define_basic_options(self) -> list[str]:
-        # List the fields you want to keep in the basic tab
-        basic_pma_settings = [
-            "high_pass_filter",
-            "iterations",
-            "keep_on_gpu",
-            "downsample",
-            "downsample.scale",
-        ]
-        return basic_pma_settings
 
     def generate_sequencer(self):
-        self.sequencer = SequencerWidget(self.task.options.projection_matching, parent=self)
+        self.sequencer = SequencerWidget(
+            self.task.options.projection_matching,
+            basic_options_list=basic_pma_settings,
+            parent=self,
+        )
 
     def update_pma_viewer_tab(self):
         if self.pma_viewer is not None:

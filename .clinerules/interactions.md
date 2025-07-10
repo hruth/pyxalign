@@ -157,6 +157,40 @@ except ValueError as e:
 - Implement proper field validation and error handling
 - Provide clear visual feedback for invalid inputs
 
+### Sequencer Widgets
+- `SequencerWidget` manages multiple `SequencerItem` instances for creating option sequences
+- `SequencerItem` provides nested dataclass exploration with categorized combo boxes
+- Both widgets support basic/advanced field categorization using `basic_options_list`
+
+#### SequencerItem Implementation Details
+- **Field Categorization**: Use `_get_categorized_fields()` to separate basic/advanced fields based on full dotted paths
+- **Path Context Tracking**: Use `_build_current_path_prefix()` to maintain nested path context for proper categorization
+- **Combo Box Population**: Create categorized sections with bold headers: `<b>---BASIC---</b>` and `<b>---ADVANCED---</b>`
+- **Section Header Handling**: Make section headers non-selectable in `on_combo_box_changed()`
+- **Nested Support**: Categorization works at all nesting levels (e.g., "downsample.scale" categorized under downsample combo box)
+
+#### SequencerWidget Integration
+- Pass `basic_options_list` parameter to constructor and propagate to all SequencerItem instances
+- Ensure all SequencerItem creation methods (`add_new_sequencer`, `duplicate_last_sequence`) include categorization settings
+- Maintain consistency with `BasicOptionsEditor` by using the same basic options list (e.g., `basic_pma_settings`)
+
+#### Field Categorization Logic
+```python
+# Example basic options list for PMA settings
+basic_pma_settings = [
+    "high_pass_filter",    # Top-level basic field
+    "iterations",          # Top-level basic field
+    "keep_on_gpu",        # Top-level basic field
+    "downsample",         # Parent dataclass (basic)
+    "downsample.scale",   # Nested field (basic)
+]
+
+# Categorization uses full dotted paths:
+# - "downsample" appears in basic section of top-level combo
+# - "scale" appears in basic section of downsample combo
+# - "enabled" appears in advanced section of downsample combo
+```
+
 ### Data Viewers
 - Implement consistent navigation patterns (play/pause/step)
 - Use `IndexSelectorWidget` for array navigation

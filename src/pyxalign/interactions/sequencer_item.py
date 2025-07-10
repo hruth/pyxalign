@@ -17,17 +17,40 @@ from PyQt5.QtWidgets import (
     QFrame,
     QCheckBox,
     QSizePolicy,
+    QStyledItemDelegate,
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
 from pyxalign.interactions.options.options_editor import OptionsClass, SingleOptionEditor
 
 T = TypeVar("T")
 
 
+class BoldHeaderDelegate(QStyledItemDelegate):
+    """Custom delegate to make section headers bold in combo boxes."""
+
+    def paint(self, painter, option, index):
+        # Get the text for this item
+        text = index.data()
+        # Create a copy of the option to avoid modifying the original
+        option_copy = option
+        font = QFont(option.font)
+
+        # Check if this is a section header
+        if text and text.startswith("---") and text.endswith("---"):
+            font.setBold(True)
+        else:
+            font.setBold(False)
+        option_copy.font = font
+        # Call the parent paint method with modified option
+        super().paint(painter, option_copy, index)
+
+
 class NoScrollComboBox(QComboBox):
     def wheelEvent(self, event):
         event.ignore()  # Prevent changing value on scroll
+
 
 class SequencerItem(QWidget):
     """
@@ -36,11 +59,17 @@ class SequencerItem(QWidget):
     contains further nested dataclasses.
     """
 
-    def __init__(self, options, initial_state: Optional[tuple[str, T, bool]] = None):
+    def __init__(
+        self,
+        options,
+        initial_state: Optional[tuple[str, T, bool]] = None,
+        basic_options_list: Optional[list[str]] = None,
+    ):
         super().__init__()
         self.options = copy.deepcopy(options)
         self.options_editor = None
         self.run_alignment_after_checkbox = None
+        self.basic_options_list = basic_options_list or []
 
         # Top-level layout for this widget
         self.main_layout = QVBoxLayout()
@@ -89,7 +118,6 @@ class SequencerItem(QWidget):
             if self.run_alignment_after_checkbox is not None:
                 self.run_alignment_after_checkbox.setChecked(checkbox_state)
 
-
     def value(self) -> T:
         if self.options_editor is not None:
             return self.options_editor.value()
@@ -126,6 +154,14 @@ class SequencerItem(QWidget):
 
         # Figure out the new selection inside this combo box
         attr_name = combo_box.currentText()
+
+        # Skip section headers (they are not selectable)
+        if attr_name.startswith("---") and attr_name.endswith("---"):
+            # Reset to placeholder and return
+            combo_box.setCurrentIndex(0)
+            self.update_selected_label(ignore_tail=True)
+            return
+
         parent_obj = self.combo_boxes[combo_index][1]
 
         # Get the selected object (could be a nested dataclass or leaf)
@@ -149,24 +185,38 @@ class SequencerItem(QWidget):
     def add_combo_box(self, obj):
         """
         Adds a new combo box for the provided dataclass object,
-        allowing selection of its fields/attributes.
+        allowing selection of its fields/attributes with basic/advanced categorization.
         """
         combo_box = NoScrollComboBox()
         combo_box.setEditable(False)
 
         # Insert a placeholder entry so the drop-down appears empty initially
         combo_box.addItem("--Select an attribute--")
-        # Populate with attributes from 'obj'
-        for f in fields(obj):
-            combo_box.addItem(f.name)
+
+        # Get the current path prefix for categorization
+        current_path = self._build_current_path_prefix()
+
+        # Categorize fields into basic and advanced
+        basic_fields, advanced_fields = self._get_categorized_fields(obj, current_path)
+
+        # Add basic fields section if there are any
+        if basic_fields:
+            combo_box.addItem("---BASIC---")
+            for field_name in sorted(basic_fields):
+                combo_box.addItem(field_name)
+
+        # Add advanced fields section if there are any
+        if advanced_fields:
+            combo_box.addItem("---ADVANCED---")
+            for field_name in sorted(advanced_fields):
+                combo_box.addItem(field_name)
+
+        # Set custom delegate to make section headers bold
+        combo_box.setItemDelegate(BoldHeaderDelegate())
 
         # Keep track of this combo in our list, along with the associated objects
-
         self.combo_boxes.append((combo_box, obj))
         combo_box.currentIndexChanged.connect(self.on_combo_box_changed)
-
-        # turn off mouse wheel scrolling
-
 
         # Insert in the frame layout
         combo_box.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
@@ -232,6 +282,57 @@ class SequencerItem(QWidget):
             self.selected_label.setText("")
 
         return path_str
+
+    def _get_categorized_fields(
+        self, dataclass_obj, path_prefix: str = ""
+    ) -> tuple[list[str], list[str]]:
+        """
+        Categorize fields of a dataclass into basic and advanced based on their full dotted path.
+
+        Args:
+            dataclass_obj: The dataclass instance to categorize fields for
+            path_prefix: The current path prefix (e.g., "downsample" for nested fields)
+
+        Returns:
+            Tuple of (basic_fields, advanced_fields) containing field names
+        """
+        basic_fields = []
+        advanced_fields = []
+
+        for field in fields(dataclass_obj):
+            field_name = field.name
+            # Build the full dotted path for this field
+            full_path = f"{path_prefix}.{field_name}" if path_prefix else field_name
+
+            # Check if this full path is in the basic options list
+            if full_path in self.basic_options_list:
+                basic_fields.append(field_name)
+            else:
+                advanced_fields.append(field_name)
+
+        return basic_fields, advanced_fields
+
+    def _build_current_path_prefix(self) -> str:
+        """
+        Build the current path prefix based on selected combo box values.
+
+        Returns:
+            String representing the current nested path (e.g., "downsample")
+        """
+        path_parts = []
+
+        for combo_box, obj in self.combo_boxes:
+            idx = combo_box.currentIndex()
+            if idx == 0:  # Placeholder selected
+                break
+
+            attr_name = combo_box.currentText()
+            if attr_name.startswith("--"):  # Skip section headers
+                break
+
+            path_parts.append(attr_name)
+
+        return ".".join(path_parts)
 
 
 def main():
