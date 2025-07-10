@@ -26,6 +26,7 @@ from pyxalign.interactions.initialize_projections import (
     MainProjectionTab,
 )
 from pyxalign.interactions.io.loader import MainLoadingWidget
+from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.utils import OptionsClass
@@ -61,6 +62,7 @@ class MasterWidget(QWidget):
 
         self.create_loading_widget_page(input_options)
         self.create_projection_initializer_page()
+        self.create_pma_page()
 
         # connect the signals related to loading "raw" input data
         data_loaded_signal = self.loading_widget.select_load_settings_widget.data_loaded_signal
@@ -71,11 +73,16 @@ class MasterWidget(QWidget):
         task_initialized_signal.connect(self.receive_task)
         # task_initialized_signal.connect(self.phase_unwrap_widget.set_task)
 
+        # connect signal indicating unwrapped phase is now available in the task
+        phase_unwrapped_signal = self.projection_initializer_widget.phase_unwrapped_signal
+        phase_unwrapped_signal.connect(self.update_pma_page)
+
     def load_standard_data(self):
         # shortcut to loading data directly without using any io
         self.loading_widget.select_load_settings_widget.load_data()
 
     def receive_task(self, task: t.LaminographyAlignmentTask):
+        print("task received")
         self.task = task
 
     def create_loading_widget_page(self, input_options: OptionsClass):
@@ -85,6 +92,16 @@ class MasterWidget(QWidget):
     def create_projection_initializer_page(self):
         self.projection_initializer_widget = MainProjectionTab()
         self.navigator.addPage(self.projection_initializer_widget, "Projections View")
+
+    def create_pma_page(self):
+        # the page contents should only be loaded once phase projections are available
+        self.pma_widget = PMAMasterWidget()
+        self.navigator.addPage(self.pma_widget, "Projection Matching Alignment")
+
+    def update_pma_page(self):
+        # PMAMasterWidget can only be created once unwrapped phase is loaded
+        print("Creating PMA page")
+        self.pma_widget.initialize_page(self.task)
 
 
 if __name__ == "__main__":
@@ -102,14 +119,14 @@ if __name__ == "__main__":
     # )
     options = LYNXLoadOptions(
         dat_file_path="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
-        selected_sequences=(2,),
+        # selected_sequences=(2,),
         selected_experiment_name="APS-D_3D",
         base=BaseLoadOptions(
             parent_projections_folder="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
             file_pattern="Ndp128_LSQML_c*_m0.5_p15_cp_mm_opr2_ic/recon_Niter3000.h5",
             select_all_by_default=True,
-            scan_start=252,
-            scan_end=270,
+            # scan_start=252,
+            # scan_end=270,
         ),
     )
 

@@ -291,6 +291,7 @@ class MainProjectionTab(QWidget):
     """
 
     object_created_signal = pyqtSignal(LaminographyAlignmentTask)
+    phase_unwrapped_signal = pyqtSignal()
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -382,6 +383,8 @@ class MainProjectionTab(QWidget):
         )
 
     def insert_phase_projections_viewer(self):
+        if self.task.phase_projections is None:
+            return
         if self.phase_projections_viewer is not None:
             sip.delete(self.phase_projections_viewer)
         self.phase_projections_viewer = ProjectionViewer(
@@ -397,6 +400,12 @@ class MainProjectionTab(QWidget):
         self.set_phase_unwrapping_button_state()
         # emit signal meant for external widgets
         self.object_created_signal.emit(task)
+
+    @pyqtSlot()
+    def on_phase_unwrapped(self):
+        self.insert_phase_projections_viewer()
+        # emit signal meant for external widgets
+        self.phase_unwrapped_signal.emit()
 
     def set_phase_unwrapping_button_state(self):
         if (
@@ -418,7 +427,8 @@ class MainProjectionTab(QWidget):
 
         if self.phase_unwrap_window is None or sip.isdeleted(self.phase_unwrap_window):
             self.phase_unwrap_window = PhaseUnwrapWidget(task=self.task)
-        self.phase_unwrap_window.phase_unwrapped.connect(self.insert_phase_projections_viewer)
+        # self.phase_unwrap_window.phase_unwrapped.connect(self.insert_phase_projections_viewer)
+        self.phase_unwrap_window.phase_unwrapped.connect(self.on_phase_unwrapped)
         self.phase_unwrap_window.show()
 
 

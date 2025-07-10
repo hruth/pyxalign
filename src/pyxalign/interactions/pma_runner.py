@@ -275,7 +275,7 @@ class PMAMasterWidget(MultiThreadedWidget):
     # keep it simple by making all resolutions run with the same options.
     def __init__(
         self,
-        task: Optional["t.LaminographyAlignmentTask"] = None,  # temporarily equal to none
+        task: Optional["t.LaminographyAlignmentTask"] = None,
         multi_thread_func: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -283,11 +283,15 @@ class PMAMasterWidget(MultiThreadedWidget):
             multi_thread_func=multi_thread_func,
             parent=parent,
         )
-        self.task = task
         self.alignment_results_list: list[AlignmentResults] = []
         self.pma_viewer = None
         self.results_collection_widget = None
 
+        if task is not None:
+            self.initialize_page(task)
+
+    def initialize_page(self, task: "t.LaminographyAlignmentTask"):
+        self.task = task
         tabs = QTabWidget()
         tabs.setStyleSheet("QTabBar{font-size: 20px;}")
         layout = QHBoxLayout()
@@ -409,6 +413,8 @@ if __name__ == "__main__":
     dummy_task.options.projection_matching.downsample = ProjectionMatchingOptions().downsample
     dummy_task.options.projection_matching.downsample.enabled = True
     dummy_task.options.projection_matching.interactive_viewer.update.enabled = True
+
+    # dummy_task = None
 
     app = QApplication(sys.argv)
     master_widget = PMAMasterWidget(dummy_task)
