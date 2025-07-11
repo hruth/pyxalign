@@ -334,8 +334,8 @@ class Volume:
         with h5py.File(file_path, "w") as F:
             F.create_dataset(name="volume", data=self.data)
 
-    def launch_viewer(self):
-        self.gui = launch_volume_viewer(self.data)
+    def launch_viewer(self, wait_until_closed: bool = False):
+        self.gui = launch_volume_viewer(self.data, wait_until_closed=wait_until_closed)
 
 
 def get_tomogram_rotation_angles(
