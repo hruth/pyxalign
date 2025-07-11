@@ -139,7 +139,7 @@ class InitializeProjectionsObjectWidget(QWidget):
 
     def __init__(
         self,
-        standard_data: Optional[StandardData] = None,
+        standard_data: StandardData,
         default_projection_options: Optional[ProjectionOptions] = None,
         parent=None,
     ):
@@ -175,6 +175,21 @@ class InitializeProjectionsObjectWidget(QWidget):
     def add_options_editor(self, default_projection_options: Optional[ProjectionOptions] = None):
         if default_projection_options is None:
             default_projection_options = ProjectionOptions()
+        if self.standard_data.pixel_size is not None:
+            # Tell the user if the pixel size from the loaded options
+            # does not match the pixel size found in the loaded dataset
+            default_pixel_size = ProjectionOptions().experiment.pixel_size
+            new_pixel_size = self.standard_data.pixel_size
+            if new_pixel_size != default_pixel_size:
+                input_options_pixel_size = default_projection_options.experiment.pixel_size
+                print(
+                    "Overriding pixel size from loaded options with pixel size found in loaded data...",
+                    f"\nPixel size from input options: {input_options_pixel_size} m",
+                    f"\nPixel size from loaded dataset: {new_pixel_size} m",
+                    f"\nUsing pixel size {new_pixel_size} m",
+                )
+            # update pixel size with value from dataset
+            default_projection_options.experiment.pixel_size = self.standard_data.pixel_size
 
         keep_fields = ["input_processing", "experiment"]
         skip_fields = list(
