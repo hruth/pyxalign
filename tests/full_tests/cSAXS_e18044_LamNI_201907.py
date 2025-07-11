@@ -8,13 +8,15 @@ import pyxalign
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
-from pyxalign.data_structures.task import load_task
+from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
+from pyxalign.io.loaders.lamni.api import load_data_from_lamni_format
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
+from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
-import pyxalign.io.loaders
 
 
 def run_full_test_cSAXS_e18044_LamNi_201907(
@@ -80,13 +82,13 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         # Load data
-        lamni_data = pyxalign.io.loaders.load_data_from_lamni_format(
+        lamni_data = load_data_from_lamni_format(
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )
 
         new_shape = (2368, 1600)
-        projection_array = pyxalign.io.loaders.utils.convert_projection_dict_to_array(
+        projection_array = convert_projection_dict_to_array(
             lamni_data.projections,
             delete_projection_dict=False,
             pad_with_mode=True,
@@ -120,8 +122,8 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             ),
         )
         # Pin the projections to speed up GPU calculations
-        projection_array = pyxalign.gpu_utils.pin_memory(projection_array)
-        complex_projections = pyxalign.ComplexProjections(
+        projection_array = gpu_utils.pin_memory(projection_array)
+        complex_projections = ComplexProjections(
             projections=projection_array,
             angles=lamni_data.angles,
             scan_numbers=lamni_data.scan_numbers,
@@ -130,7 +132,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             probe=lamni_data.probe,
             skip_pre_processing=False,
         )
-        task = pyxalign.LaminographyAlignmentTask(
+        task = LaminographyAlignmentTask(
             options=opts.AlignmentTaskOptions(),
             complex_projections=complex_projections,
         )

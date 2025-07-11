@@ -12,10 +12,10 @@ from pyxalign.api.types import r_type
 from pyxalign.data_structures.task import load_task
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
+from pyxalign.io.loaders.lamni.api import load_data_from_lamni_format
 from pyxalign.io.loaders.lamni.options import BaseLoadOptions, Beamline2IDELoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
-import pyxalign.io.loaders
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
@@ -70,7 +70,7 @@ def run_full_test_xrf_ptycho_1(
         )
 
         # Load data
-        standard_data = pyxalign.io.loaders.load_data_from_lamni_format(
+        standard_data = load_data_from_lamni_format(
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )
