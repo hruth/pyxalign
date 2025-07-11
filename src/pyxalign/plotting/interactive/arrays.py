@@ -2,10 +2,13 @@ from operator import le
 from typing import Callable, Optional
 import cupy as cp
 from pyxalign.api.maps import get_process_func_by_enum
+from pyxalign.api.options.options import ExperimentOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
+from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.mask import ThresholdSelector
+from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.plotting.interactive.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QWidget,
@@ -136,6 +139,7 @@ class ProjectionViewer(MultiThreadedWidget):
             options = ProjectionViewerOptions()
         self.options = options
         self.projection_dropping_widget = None
+        self.options_editor = None
         self.resize(1300, 900)
 
         if np.iscomplexobj(projections.data) and options.process_func is None:
@@ -158,12 +162,15 @@ class ProjectionViewer(MultiThreadedWidget):
         self.build_array_selector()
         # create button for launch the scan removal tool
         if not display_only:
+            # create button for scan removal tool
             open_scan_removal_button = QPushButton("Open Scan Removal Window")
             open_scan_removal_button.clicked.connect(self.open_scan_removal_window)
-
             # create button for the mask creation tol
             open_mask_creation_button = QPushButton("Open Mask Creation Window")
             open_mask_creation_button.clicked.connect(self.open_mask_creation_window)
+            # create button for editing properties
+            open_options_editor_button = QPushButton("Edit Projection Parameters")
+            open_options_editor_button.clicked.connect(self.open_options_editor)
 
         # setup tabs and layout
         tabs = QTabWidget()
@@ -182,6 +189,7 @@ class ProjectionViewer(MultiThreadedWidget):
         if not display_only:
             left_panel_layout.addWidget(open_scan_removal_button)
             left_panel_layout.addWidget(open_mask_creation_button)
+            left_panel_layout.addWidget(open_options_editor_button)
         left_panel_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
@@ -198,6 +206,23 @@ class ProjectionViewer(MultiThreadedWidget):
             # create options viewer
             self.options_display = OptionsDisplayWidget(projections.options)
             tabs.addTab(self.options_display, "Projection Options")
+
+    def open_options_editor(self):
+        if self.options_editor is None:
+            all_attributes = get_all_attribute_names(self.projections.options)
+            # include only experiment attributes
+            basic_options_list = [x for x in all_attributes if "experiment" in x]
+            # skip all other attributes
+            skip_fields = [x for x in all_attributes if "experiment" not in x]
+            # create options editor widget
+            self.options_editor = BasicOptionsEditor(
+                self.projections.options,
+                basic_options_list=basic_options_list,
+                skip_fields=skip_fields,
+                open_panels_list=["experiment"],
+                label="Projections Options Editor",
+            )
+        self.options_editor.show()
 
     def open_scan_removal_window(self):
         if self.projection_dropping_widget is None:

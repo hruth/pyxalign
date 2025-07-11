@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import (
     QTabWidget,
 )
 from PyQt5.QtCore import Qt, QTimer
-from pyxalign.interactions.custom import NoScrollSpinBox, MinimalDecimalSpinBox
+from pyxalign.interactions.custom import NoScrollSpinBox, CustomDoubleSpinBox
 
 from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.io.utils import OptionsClass
@@ -402,7 +402,7 @@ class SingleOptionEditor(QWidget):
 
         # Handle float
         elif self._is_float_type(t):
-            dspin = MinimalDecimalSpinBox()
+            dspin = CustomDoubleSpinBox()
             dspin.setRange(-999999.0, 999999.0)
             dspin.setDecimals(20)
             try:
