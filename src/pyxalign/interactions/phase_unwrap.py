@@ -64,7 +64,10 @@ class PhaseUnwrapWidget(QWidget):
         left_panel.setMaximumWidth(400)
 
         # Create options editor for PhaseUnwrapOptions
-        self.options_editor = BasicOptionsEditor(self.task.complex_projections.options.phase_unwrap)
+        self.options_editor = BasicOptionsEditor(
+            self.task.complex_projections.options.phase_unwrap,
+            basic_options_list=["iterations"],
+        )
         left_panel_layout.addWidget(self.options_editor)
 
         # Create unwrap phase button

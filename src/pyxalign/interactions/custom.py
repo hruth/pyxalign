@@ -27,7 +27,7 @@ class CustomDoubleSpinBox(NoScrollDoubleSpinBox):
         self.lineEdit().setValidator(validator)
 
     def textFromValue(self, value):
-        # Return scientific notation if less than 1e-3
+        # Return scientific notation if less than 1e-3 or greater than 1e4
         if (abs(value) < 0.001 or abs(value) > 10000) and value != 0:
             # Use more precision in scientific notation, then strip trailing zeros
             sci_text = f"{value:.10e}"
