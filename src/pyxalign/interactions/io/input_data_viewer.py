@@ -141,6 +141,9 @@ class StandardDataViewer(QWidget):
         probe_pos_layout.addWidget(self.probe_pos_plot)
         self.tab_widget.addTab(probe_pos_widget, "Probe Positions")
 
+        # Connect tab change signal to handle synchronization
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+
         self.main_layout.addWidget(self.tab_widget, stretch=1)
 
     def _create_additional_data_panel(self):
@@ -240,14 +243,17 @@ class StandardDataViewer(QWidget):
 
     def _update_display(self, idx: int):
         """
-        Update both the projection view and the probe positions tab based on the selected index.
+        Update the projection view and conditionally update probe positions based on current tab.
         """
         if not self.data or idx >= len(self.data.scan_numbers):
             return
 
         scan_num = self.data.scan_numbers[idx]
         self._set_projection_in_viewer(scan_num)
-        self._update_probe_positions(scan_num)
+        
+        # Only update probe positions if that tab is currently visible
+        if self.tab_widget.currentIndex() == 1:  # Probe positions tab index
+            self._update_probe_positions(scan_num)
 
     def _set_projection_in_viewer(self, scan_num: int):
         """
@@ -286,6 +292,17 @@ class StandardDataViewer(QWidget):
                 symbolSize=5,
                 symbolBrush="r",
             )
+
+    def _on_tab_changed(self, index: int):
+        """
+        Handle tab changes to synchronize probe positions when switching to that tab.
+        """
+        if index == 1:  # Probe positions tab
+            # Update probe positions to match current projection index
+            current_idx = self.slider.value()
+            if self.data and current_idx < len(self.data.scan_numbers):
+                scan_num = self.data.scan_numbers[current_idx]
+                self._update_probe_positions(scan_num)
 
     # ---------------------------
     # PLAYBACK LOGIC
