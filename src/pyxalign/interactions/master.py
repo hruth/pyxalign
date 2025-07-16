@@ -114,12 +114,12 @@ if __name__ == "__main__":
             parent_projections_folder="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
             file_pattern="Ndp128_LSQML_c*_m0.5_p15_cp_mm_opr2_ic/recon_Niter3000.h5",
             select_all_by_default=True,
-            scan_start=252,
-            scan_end=270,
+            # scan_start=252,
+            # scan_end=270,
         ),
     )
 
-    # # Pre-load with 2IDE options
+    # Pre-load with 2IDE options
     # import os
     # folder_name = "2ide/2025-1_Lamni-6"
     # inputs_folder = os.path.join(

@@ -125,7 +125,7 @@ class CustomFileDialog(QWidget):
         layout = QVBoxLayout()
 
         self.input_bar = QLineEdit(self)
-        self.input_bar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.input_bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.input_bar.setMinimumWidth(300)
         self.input_bar.setPlaceholderText("Type or paste file path here...")
         layout.addWidget(self.input_bar)

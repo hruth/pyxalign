@@ -63,6 +63,7 @@ from pyxalign.api.options.transform import DownsampleOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.sequencer import SequencerWidget
 from pyxalign.interactions.custom import action_button_style_sheet
+from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.base import MultiThreadedWidget
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
@@ -102,13 +103,13 @@ class AlignmentResults:
         shift: np.ndarray,
         initial_shift: np.ndarray,
         angles: np.ndarray,
-        pma_options: ProjectionMatchingOptions,
+        options: OptionsClass,
         projection_options: ProjectionOptions,
     ):
         self.shift = shift
         self.initial_shift = initial_shift
         self.angles = angles
-        self.pma_options = pma_options
+        self.pma_options = options
         self.projection_options = projection_options
 
 
@@ -341,7 +342,7 @@ class PMAMasterWidget(MultiThreadedWidget):
                     shift,
                     self.task.pma_object.initial_shift,
                     self.task.pma_object.aligned_projections.angles,
-                    pma_options=options,
+                    options=options,
                     projection_options=self.task.phase_projections.options,
                 )
             ]

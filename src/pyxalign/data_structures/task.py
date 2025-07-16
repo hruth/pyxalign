@@ -50,7 +50,7 @@ class LaminographyAlignmentTask:
         projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
         illum_sum: np.ndarray = None,
         plot_results: bool = True,
-    ):
+    ) -> np.ndarray:
         clear_timer_globals()
         # Only for complex projections for now
         # Does this really need to be saved as an attribute?
@@ -75,6 +75,7 @@ class LaminographyAlignmentTask:
         if plot_results:
             projections.plot_staged_shift("Cross-correlation Shift")
         print("Cross-correlation shift stored in shift_manager")
+        return shift
 
     def get_projection_matching_shift(
         self,
