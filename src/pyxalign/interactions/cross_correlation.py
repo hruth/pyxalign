@@ -56,14 +56,15 @@ from pyxalign.plotting.interactive.projection_matching import ProjectionMatching
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 from pyxalign.transformations.classes import Cropper, Shifter
 
-# temporary
-projection_type = enums.ProjectionType.PHASE
+# # temporary
+# projection_type = enums.ProjectionType.PHASE
 
 
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
     def __init__(
         self,
         task: Optional["t.LaminographyAlignmentTask"] = None,
+        projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
         multi_thread_func: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -71,6 +72,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             multi_thread_func=multi_thread_func,
             parent=parent,
         )
+        self.projection_type = projection_type
         self.crop_viewer = None
         self.alignment_results_list: list[AlignmentResults] = []
         self.results_collection_widget = None
@@ -80,7 +82,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
 
     @property
     def projections(self) -> "p.Projections":
-        if projection_type == enums.ProjectionType.PHASE:
+        if self.projection_type == enums.ProjectionType.PHASE:
             return self.task.phase_projections
         else:
             return self.task.complex_projections
@@ -103,7 +105,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
 
     def start_alignment(self):
         shift = self.task.get_cross_correlation_shift(
-            projection_type=projection_type,  # should perhaps move the type into "options"
+            projection_type=self.projection_type,  # should perhaps move the type into "options"
             plot_results=False,
         )
         # update the main plot
@@ -143,10 +145,10 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
     def make_options_setup_and_results_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
 
-        if projection_type == enums.ProjectionType.PHASE:
+        if self.projection_type == enums.ProjectionType.PHASE:
             proj = self.task.phase_projections
         else:
-            proj = self.task.phase_projections
+            proj = self.task.complex_projections # fixed
 
         # Make options editor
         basic_options_list = ["binning", "filter_position", "filter_data", "crop"]
