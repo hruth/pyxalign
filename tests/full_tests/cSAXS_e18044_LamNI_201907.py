@@ -101,8 +101,6 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             lamni_data.probe_positions[2730], "probe_positions_2730"
         )
 
-        dfsdfs
-
         # define projection options
         projection_options = opts.ProjectionOptions(
             experiment=opts.ExperimentOptions(

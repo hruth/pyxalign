@@ -20,7 +20,7 @@ from pyxalign.api.options.transform import (
 
 from pyxalign.api.types import ArrayType
 from pyxalign.gpu_wrapper import device_handling_wrapper
-from pyxalign.transformations.functions import image_crop, image_crop_pad
+from pyxalign.transformations.functions import eliminate_wrapping_from_shift, image_crop, image_crop_pad
 from pyxalign.timing.timer_utils import timer
 
 
@@ -136,8 +136,11 @@ class Shifter(Transformation):
 
             if self.options.type == ShiftType.LINEAR:
                 images = images * 1
-
-            images = self.function(images, shift)
+                images = self.function(images, shift)
+            else:
+                images = self.function(
+                    images, shift, eliminate_wrapping=self.options.eliminate_wrapping,
+                )
 
             if is_binary_mask and self.options.type == ShiftType.FFT:
                 idx = images > 0.5

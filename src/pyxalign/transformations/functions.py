@@ -1,5 +1,5 @@
 from types import ModuleType
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 import cupy as cp
 import scipy
@@ -107,7 +107,9 @@ def image_crop_pad(
 
 @timer(enable_timing)
 @preserve_complexity_or_realness()
-def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True) -> ArrayType:
+def image_shift_fft(
+    images: ArrayType, shift: ArrayType, apply_FFT: bool = True, eliminate_wrapping: bool = True
+) -> ArrayType:
     xp = cp.get_array_module(images)
     scipy_module: scipy = get_scipy_module(images)
 
@@ -135,11 +137,16 @@ def image_shift_fft(images: ArrayType, shift: ArrayType, apply_FFT: bool = True)
     if apply_FFT:
         images = scipy_module.fft.ifft2(images)
 
+    if eliminate_wrapping:
+        images = eliminate_wrapping_from_shift(images, shift, xp)
+
     return images
 
 
 @timer(enable_timing)
-def image_shift_circ(images: ArrayType, shift: ArrayType, in_place=False) -> ArrayType:
+def image_shift_circ(
+    images: ArrayType, shift: ArrayType, in_place: bool = False, eliminate_wrapping: bool = True
+) -> ArrayType:
     xp = cp.get_array_module(images)
 
     if not in_place:
@@ -159,6 +166,36 @@ def image_shift_circ(images: ArrayType, shift: ArrayType, in_place=False) -> Arr
         idx_1 = xp.roll(X, shift_1)
         idx_2 = xp.roll(Y, shift_2)
         images[proj_idx] = images[proj_idx, idx_1[:, None], idx_2[None]]
+
+    if eliminate_wrapping:
+        images = eliminate_wrapping_from_shift(images, shift, xp)
+
+    return images
+
+
+def eliminate_wrapping_from_shift(
+    images: np.ndarray, shift: np.ndarray, xp: ModuleType
+) -> np.ndarray:
+    # Create masks to zero out wrapped regions
+    n_images, height, width = images.shape
+
+    # Create coordinate grids for masking
+    y_coords, x_coords = xp.meshgrid(xp.arange(height), xp.arange(width), indexing="ij")
+
+    # Apply masks for each image to zero out wrapped regions
+    for i in range(n_images):
+        shift_x = shift[i, 0]
+        shift_y = shift[i, 1]
+
+        # Calculate original coordinates before shifting
+        orig_x = x_coords - shift_x
+        orig_y = y_coords - shift_y
+
+        # Create mask for pixels that were originally within bounds
+        mask = (orig_x >= 0) & (orig_x < width) & (orig_y >= 0) & (orig_y < height)
+
+        # Apply mask to zero out wrapped regions
+        images[i] = images[i] * mask
 
     return images
 
@@ -236,7 +273,10 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
     images = scipy_module.fft.fft2(images)
     # apply +/-0.5 px shift
     images = image_shift_fft(
-        images, interp_sign * xp.array([[-0.5, -0.5]], dtype=r_type), apply_FFT=False
+        images,
+        interp_sign * xp.array([[-0.5, -0.5]], dtype=r_type),
+        apply_FFT=False,
+        eliminate_wrapping=False,
     )
     # crop in the Fourier space
     images = scipy_module.fft.ifftshift(
@@ -249,7 +289,10 @@ def image_downsample_fft(images: ArrayType, scale: int, use_gaussian_filter=Fals
     )
     # apply -/+0.5 px shift in the cropped space
     images = image_shift_fft(
-        images, interp_sign * xp.array([[0.5, 0.5]], dtype=r_type), apply_FFT=False
+        images,
+        interp_sign * xp.array([[0.5, 0.5]], dtype=r_type),
+        apply_FFT=False,
+        eliminate_wrapping=False,
     )
     images = scipy_module.fft.ifft2(images)
     # scale to keep the average constant
