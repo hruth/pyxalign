@@ -70,7 +70,7 @@ class Volume:
     @timer()
     def generate_volume(
         self,
-        filter_inputs: bool = False,
+        filter_inputs: bool = True,
         pinned_filtered_sinogram: Optional[np.ndarray] = None,
         reinitialize_astra: bool = True,
         n_pix: Optional[Sequence[int]] = None,
