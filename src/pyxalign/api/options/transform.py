@@ -27,7 +27,7 @@ class ShiftOptions(TransformOptions):
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    eliminate_wrapping: bool = True
+    eliminate_wrapping: bool = False
 
 
 @dataclasses.dataclass
