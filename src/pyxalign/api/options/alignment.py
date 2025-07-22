@@ -130,6 +130,8 @@ class ProjectionMatchingOptions(AlignmentOptions):
 
     mask_shift_type: enums.ShiftType = enums.ShiftType.CIRC
 
+    prevent_wrapping_from_shift: bool = False
+
     filter_directions: tuple[int] = (2,)
 
     momentum: StepMomentum = field(default_factory=StepMomentum)

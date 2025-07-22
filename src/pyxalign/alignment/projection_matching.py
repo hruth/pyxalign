@@ -560,11 +560,13 @@ class ProjectionMatchingAligner(Aligner):
             enabled=True,
             type=self.options.projection_shift_type,
             device=device_options,
+            eliminate_wrapping=self.options.prevent_wrapping_from_shift,
         )
         mask_shift_options = ShiftOptions(
             enabled=True,
             type=self.options.mask_shift_type,
             device=device_options,
+            eliminate_wrapping=self.options.prevent_wrapping_from_shift,
         )
 
         self.projection_shifter = Shifter(projections_shift_options)
