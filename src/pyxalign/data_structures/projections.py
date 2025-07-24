@@ -451,9 +451,12 @@ class Projections:
     def reconstructed_object_dimensions(self) -> np.ndarray:
         laminography_angle = self.options.experiment.laminography_angle
         sample_thickness = self.options.experiment.sample_thickness
-        n_lateral_pixels = np.ceil(
-            0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
-        )
+        # n_lateral_pixels = np.ceil(
+        #     0.5 * self.data.shape[2] / np.cos(np.pi / 180 * (laminography_angle - 0.01))
+        # )
+        # n_lateral_pixels = np.ceil(self.data.shape[2] / np.sin(laminography_angle * np.pi/180))
+        # calculate volume size
+        n_lateral_pixels = self.data.shape[2]/np.sqrt(2)
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
         # n_pix = round_to_divisor(n_pix, "ceil", divisor)
         return np.ceil(n_pix).astype(int)
