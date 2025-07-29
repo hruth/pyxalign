@@ -14,10 +14,6 @@ from functools import partial
 class ExperimentOptions:
     laminography_angle: float = 61.1
 
-    # tilt_angle: float = 0
-
-    # skew_angle: float = 0
-
     sample_thickness: float = 7e-6
 
     pixel_size: float = 1.0

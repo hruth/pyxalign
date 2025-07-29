@@ -65,6 +65,12 @@ class ProjectionTransformOptions:
 
     shear: RotationOptions = field(default_factory=RotationOptions)
 
+@dataclasses.dataclass
+class VolumeWidthOptions:
+    use_custom_width: bool = False
+
+    width: int = 0
+
 
 @dataclasses.dataclass
 class ProjectionOptions:
@@ -81,12 +87,4 @@ class ProjectionOptions:
 
     input_processing: ProjectionTransformOptions = field(default_factory=ProjectionTransformOptions)
 
-    # crop: CropOptions = field(default_factory=CropOptions)
-
-    # downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
-
-    # mask_downsample_type: enums.DownsampleType = enums.DownsampleType.LINEAR
-
-    # mask_downsample_use_gaussian_filter: bool = False
-
-    # phase_ramp_removal: PhaseRampRemovalOptions = field(default_factory=PhaseRampRemovalOptions)
+    volume_width: VolumeWidthOptions = field(default_factory=VolumeWidthOptions)
