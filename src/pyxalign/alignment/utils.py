@@ -13,7 +13,7 @@ def get_shift_from_different_resolution_alignment(
     idx = [i for i, scan in enumerate(reference_scan_numbers) if scan in new_scan_numbers]
     new_shift = reference_shift[idx] * (reference_pixel_size / current_pixel_size)
 
-    return new_scan_numbers, new_shift
+    return new_scan_numbers, new_shift.astype(r_type)
 
 
 def get_center_of_rotation_from_different_resolution_alignment(
@@ -29,4 +29,4 @@ def get_center_of_rotation_from_different_resolution_alignment(
     new_center = center_of_current_array + reference_offset * (
         reference_pixel_size / current_pixel_size
     )
-    return new_center
+    return new_center.astype(r_type)
