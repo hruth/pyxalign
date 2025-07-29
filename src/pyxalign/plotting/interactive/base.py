@@ -110,7 +110,10 @@ class ArrayViewer(MultiThreadedWidget):
         )
         self.extra_title_strings_list = extra_title_strings_list
         if process_func is None:
-            self.process_func = lambda x: x
+            if np.iscomplexobj(array3d):
+                self.process_func = np.angle
+            else:
+                self.process_func = lambda x: x
         else:
             self.process_func = process_func
 
@@ -250,10 +253,19 @@ class ArrayViewer(MultiThreadedWidget):
         array3d: Optional[np.ndarray] = None,
         sort_idx: Optional[Sequence] = None,
         extra_title_strings_list: Optional[Sequence] = None,
+        process_func: Optional[Callable] = None,
     ):
         """Re-initialize the viewer with a new array or sort indices."""
         # Only process the new array if provided
         if array3d is not None:
+            if process_func is None:
+                if np.iscomplexobj(array3d):
+                    self.process_func = np.angle
+                else:
+                    self.process_func = lambda x: x
+            else:
+                self.process_func = process_func
+        
             self.array3d = array3d
             self.sort_idx = sort_idx
             self.extra_title_strings_list = extra_title_strings_list
