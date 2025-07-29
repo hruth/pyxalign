@@ -8,8 +8,6 @@ from pyxalign.data_structures.projections import (
     ShiftManager,
     TransformTracker,
 )
-from pyxalign.data_structures.task import LaminographyAlignmentTask
-from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.enums import ShiftType
 from pyxalign.api.types import c_type, r_type
@@ -23,25 +21,6 @@ from pyxalign.io.utils import (
     load_list_of_arrays,
     load_options,
 )
-
-
-def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
-    print("Loading task from", file_path, "...")
-
-    with h5py.File(file_path, "r") as h5_obj:
-        # Load projections
-        loaded_projections = load_projections(h5_obj, exclude)
-
-        # Insert projections into task along with saved task options
-        task = LaminographyAlignmentTask(
-            options=load_options(h5_obj["options"], AlignmentTaskOptions),
-            complex_projections=loaded_projections["complex_projections"],
-            phase_projections=loaded_projections["phase_projections"],
-        )
-
-        print("Loading complete")
-
-    return task
 
 
 def load_projections(

@@ -12,7 +12,7 @@ from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.io.save import save_array_as_tiff
 from pyxalign.style.text import text_colors
 from pyxalign.test_utils import print_comparison_stats
-from pyxalign.io.load import load_task
+from pyxalign.data_structures.task import load_task
 from pyxalign.api.options.tests import CITestOptions
 from pyxalign.timing.io import get_timestamp_for_timing_files
 from pyxalign.api.enums import TestStartPoints
