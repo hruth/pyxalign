@@ -8,13 +8,15 @@ from pyxalign.io.loaders.utils import select_loader_type_from_prompt
 
 @dataclasses.dataclass
 class BaseLoadOptions:
+    parent_projections_folder: str
+
     loader_type: LoaderType = LoaderType.PEAR_V1
 
-    def __post_init__(self):
-        if self.loader_type is None:  # Check if the variable is missing
-            self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
+    # def __post_init__(self):
+    #     if self.loader_type is None:  # Check if the variable is missing
+    #         self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
 
-    file_pattern: str = None
+    file_pattern: Optional[str] = None
     "pattern used by re to identify matching folder strings"
 
     scan_start: Optional[int] = None
@@ -61,7 +63,7 @@ class LYNXLoadOptions:
     """Name of the experiment to load. Use "unlabeled" to refer to
     experiments that do not have a name specified in the dat file."""
 
-    selected_sequences: Optional[list[int]] = None
+    selected_sequences: Optional[tuple[int]] = None
     """
     List of sequence numbers to load in. Each sequence corresponds
     to a set of measurements taken sequentially over a 360 degree range.

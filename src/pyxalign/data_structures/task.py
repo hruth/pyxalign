@@ -16,10 +16,12 @@ from pyxalign.alignment.projection_matching import ProjectionMatchingAligner
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
+from pyxalign.io.load import load_projections
 from pyxalign.io.save import save_generic_data_structure_to_h5
+from pyxalign.io.utils import load_options
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
-from pyxalign.plotting.interactive.task import TaskViewer
 from pyxalign.timing.timer_utils import clear_timer_globals
+# from pyxalign.plotting.interactive.task import TaskViewer # causes circular imports
 
 
 class LaminographyAlignmentTask:
@@ -155,11 +157,11 @@ class LaminographyAlignmentTask:
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
 
-    def launch_viewer(self) -> QApplication:
-        app = QApplication.instance() or QApplication([])
-        self.gui = TaskViewer(self)
-        self.gui.show()
-        return app
+    # def launch_viewer(self) -> QApplication:
+    #     app = QApplication.instance() or QApplication([])
+    #     self.gui = TaskViewer(self)
+    #     self.gui.show()
+    #     return app
 
 
 def run_projection_matching(
@@ -180,3 +182,21 @@ def run_projection_matching(
         shift = pma_object.total_shift * pma_object.scale
     finally:
         return pma_object, shift
+
+def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
+    print("Loading task from", file_path, "...")
+
+    with h5py.File(file_path, "r") as h5_obj:
+        # Load projections
+        loaded_projections = load_projections(h5_obj, exclude)
+
+        # Insert projections into task along with saved task options
+        task = LaminographyAlignmentTask(
+            options=load_options(h5_obj["options"], AlignmentTaskOptions),
+            complex_projections=loaded_projections["complex_projections"],
+            phase_projections=loaded_projections["phase_projections"],
+        )
+
+        print("Loading complete")
+
+    return task

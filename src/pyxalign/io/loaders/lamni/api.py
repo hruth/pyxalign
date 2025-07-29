@@ -2,27 +2,25 @@ from typing import Optional, Union
 
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.lamni.base_loader import BaseLoader
-from pyxalign.io.loaders.lamni.options import LYNXLoadOptions
+from pyxalign.io.loaders.lamni.options import LYNXLoadOptions, Beamline2IDELoadOptions
 from pyxalign.io.loaders.lamni.utils import load_experiment
 
 
 # This loads 2IDE data as well now, so I need to rename it somehow
 def load_data_from_lamni_format(
-    parent_projections_folder: str,
+    # parent_projections_folder: str,
+    options: Union[LYNXLoadOptions, Beamline2IDELoadOptions],
     n_processes: int = 1,
-    options: Optional[LYNXLoadOptions] = None,
     return_loader_object: bool = False,
 ) -> Union[StandardData, tuple[StandardData, BaseLoader]]:
     """
     Function for loading lamni-formatted projection data and returning
     it in the standardized format.
     """
-    if options is None:
-        options = LYNXLoadOptions()
     options.base.print_selections()
     # Load lamni-formatted projection data
     lamni_loader = load_experiment(
-        parent_projections_folder=parent_projections_folder,
+        parent_projections_folder=options.base.parent_projections_folder,
         n_processes=n_processes,
         options=options,
     )
