@@ -441,7 +441,7 @@ class Projections:
         # Update the past shifts and staged shift
         self.shift_manager.staged_shift = self.shift_manager.staged_shift[keep_idx]
         for i, shift in enumerate(self.shift_manager.past_shifts):
-            self.shift_manager.past_shifts
+            self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][keep_idx]
 
     @property
     def n_projections(self) -> int:
