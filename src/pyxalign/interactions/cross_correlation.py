@@ -8,6 +8,7 @@ import cupy as cp
 import numpy as np
 import copy
 import pyqtgraph as pg
+import time
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
@@ -40,8 +41,10 @@ from PyQt5.QtWidgets import (
 
 from pyxalign.api import enums
 from pyxalign.api.options_utils import get_all_attribute_names
+from pyxalign.api.types import r_type
 import pyxalign.data_structures.task as t
 import pyxalign.data_structures.projections as p
+from pyxalign.gpu_utils import create_empty_pinned_array_like
 from pyxalign.interactions.pma_runner import AlignmentResults, AlignmentResultsCollection
 import pyxalign.io.load as load
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
@@ -89,6 +92,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
 
     def initialize_page(self, task: "t.LaminographyAlignmentTask"):
         self.task = task
+        self.pinned_array = create_empty_pinned_array_like(self.projections.data)
         tabs = QTabWidget()
         tabs.setObjectName("main_tabs")
         tabs.setStyleSheet("#main_tabs > QTabBar{font-size: 20px;}")
@@ -123,11 +127,16 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         ]
         self.results_collection_widget.update_table()
         # get shifted projections (use circ always)
-        shift_func = Shifter(ShiftOptions(type=enums.ShiftType.CIRC, enabled=True))
-        aligned_array = shift_func.run(
-            images=self.projections.data * 1,
-            shift=shift,
+        # shift_func = Shifter(ShiftOptions(type=enums.ShiftType.CIRC, enabled=True))
+        print("fft")
+        t = time.time()
+        shift_func = Shifter(ShiftOptions(type=enums.ShiftType.FFT, enabled=True))
+        self.pinned_array = shift_func.run(
+            images=self.projections.data,
+            shift=shift.astype(r_type),
+            pinned_results=self.pinned_array,
         )
+        print(time.time() - t)
 
         sort_idx = np.argsort(self.projections.angles)
         title_strings = [
@@ -135,7 +144,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             for scan, angle in zip(self.projections.scan_numbers, self.projections.angles)
         ]
         self.post_alignment_viewer.reinitialize_all(
-            aligned_array,
+            self.pinned_array,
             sort_idx=sort_idx,
             extra_title_strings_list=title_strings,
         )
