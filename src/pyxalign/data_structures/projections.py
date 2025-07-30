@@ -485,6 +485,9 @@ class Projections:
         )
 
     def undo_last_shift(self, device_options: Optional[DeviceOptions] = None):
+        if len(self.shift_manager.past_shifts) == 0:
+            print("There is no shift to undo!")
+            return
         if self.probe_positions is not None:
             self.probe_positions.shift_positions(-self.shift_manager.past_shifts[-1])
         self.shift_manager.undo_last_shift(
@@ -899,6 +902,9 @@ class ShiftManager:
             print("There is no shift to apply!")
 
     def undo_last_shift(self, images: np.ndarray, masks: np.ndarray, device_options: DeviceOptions):
+        if len(self.past_shifts) == 0:
+            print("There is no shift to undo!")
+            return
         self.shift_arrays(
             shift=-self.past_shifts[-1],
             images=images,

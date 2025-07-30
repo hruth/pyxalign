@@ -1,5 +1,6 @@
 from typing import Optional
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class StandardData:
@@ -31,10 +32,23 @@ class StandardData:
                 del self.probe_positions[scan_number]
             if self.file_paths is not None:
                 del self.file_paths[scan_number]
-        keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan not in scan_numbers_to_drop]
+        keep_idx = [
+            i for i, scan in enumerate(self.scan_numbers) if scan not in scan_numbers_to_drop
+        ]
         # Update arrays
         self.scan_numbers = self.scan_numbers[keep_idx]
         self.angles = self.angles[keep_idx]
 
+    def plot_sample_projection(self, index: int = 0):
+        scan_number = list(self.scan_numbers)[index]
+        plt.title(f"Scan {scan_number}")
+        plt.imshow(np.angle(self.projections[scan_number]), cmap="bone")
+        plt.show()
 
-        
+    def get_minimum_size_for_projection_array(self) -> np.ndarray:
+        return np.array(
+            (
+                np.max([v.shape[0] for v in self.projections.values()]),
+                np.max([v.shape[1] for v in self.projections.values()]),
+            )
+        ).astype(int)
