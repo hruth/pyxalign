@@ -33,11 +33,14 @@ from PyQt5.QtCore import (
     QThread,
 )
 from PyQt5.QtGui import QPalette, QColor
+
+# Matplotlib imports remain here, but are not used in ArrayViewer anymore
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
-
 from matplotlib.figure import Figure
-import threading
+
+# New import for using pyqtgraph
+import pyqtgraph as pg
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -90,9 +93,10 @@ class MultiThreadedWidget(QWidget):
 
 
 class ArrayViewer(MultiThreadedWidget):
+    # Make array3d optional with a default of None
     def __init__(
         self,
-        array3d: np.ndarray,
+        array3d: Optional[np.ndarray] = None,  # changed to Optional and given a default value
         options: Optional[ArrayViewerOptions] = None,
         sort_idx: Optional[Sequence] = None,
         multi_thread_func: Optional[Callable] = None,
@@ -106,40 +110,50 @@ class ArrayViewer(MultiThreadedWidget):
         )
         self.extra_title_strings_list = extra_title_strings_list
         if process_func is None:
-            self.process_func = lambda x: x
+            if np.iscomplexobj(array3d):
+                self.process_func = np.angle
+            else:
+                self.process_func = lambda x: x
         else:
             self.process_func = process_func
 
-        if cp.get_array_module(array3d) == cp:
-            self.array3d = array3d.get()
+        # Only convert array if array3d is provided
+        if array3d is not None:
+            if cp.get_array_module(array3d) == cp:
+                self.array3d = array3d.get()
+            else:
+                self.array3d = array3d
         else:
-            self.array3d = array3d
+            # If no array is given, store None
+            self.array3d = None
 
         self.sort_idx = sort_idx
         if options is None:
             self.options = ArrayViewerOptions()
         else:
             self.options = options
-        self.num_frames = array3d.shape[self.options.slider_axis]
+
+        # If array is given, use its shape. Otherwise, default to 1 to avoid errors.
+        if self.array3d is not None:
+            self.num_frames = self.array3d.shape[self.options.slider_axis]
+        else:
+            self.num_frames = 1
+
         self.playing = False
 
-        # Create the figure, canvas, and initial image
-        self.figure = Figure(layout="compressed")
-        self.canvas = FigureCanvas(self.figure)
-        self.toolbar = NavigationToolbar(self.canvas, self)
-        self.toolbar.setFixedHeight(30)
-        self.ax = self.figure.add_subplot(111)
-        self.im = self.ax.imshow(
-            self.process_func(
-                self.array3d.take(
-                    indices=self.options.start_index,
-                    axis=self.options.slider_axis,
-                )
-            ),
-            cmap="bone",
-        )
-        self.canvas.draw()
+        # Create a pyqtgraph GraphicsLayoutWidget to hold the image
+        self.graphics_layout = pg.GraphicsLayoutWidget()
+        self.plot_item = self.graphics_layout.addPlot()
+        self.image_item = pg.ImageItem()
+        self.plot_item.addItem(self.image_item)
+        self.plot_item.setAspectLocked(True)
 
+        # Create a checkbox for auto scaling the image intensities
+        self.auto_clim_check_box = QCheckBox("Enable amplitude rescaling")
+        self.auto_clim_check_box.setStyleSheet("QCheckBox {font-size: 15px;}")
+        self.auto_clim_check_box.stateChanged.connect(self.refresh_frame)
+
+        # Create index selection widget (slider, spinbox, play button, etc.)
         self.indexing_widget = IndexSelectorWidget(
             self.num_frames, self.options.start_index, parent=parent
         )
@@ -147,28 +161,22 @@ class ArrayViewer(MultiThreadedWidget):
             self.indexing_widget.slider,
             self.indexing_widget.spinbox,
             self.indexing_widget.play_button,
-            self.indexing_widget.timer,
+            self.indexing_widget.play_timer,
         )
         self.slider.valueChanged.connect(self.update_frame)
         self.spinbox.valueChanged.connect(self.update_frame)
         self.play_button.clicked.connect(self.toggle_play)
         self.timer.timeout.connect(self.next_frame)
 
-        # Radio button for toggling auto clim adjustment
-        self.auto_clim_check_box = QCheckBox("Enable amplitude rescaling")
-        self.auto_clim_check_box.stateChanged.connect(self.refresh_frame)
-        self.auto_clim_check_box.setStyleSheet("QCheckBox {font-size: 15px;}")
-
-        # Layout
+        # Main layout
         layout = QVBoxLayout()
-        layout.addWidget(self.toolbar)
+        # In the original code, a matplotlib toolbar was added, but we omit it for pyqtgraph usage
         layout.addWidget(self.auto_clim_check_box)
-        layout.addWidget(self.canvas)
-        # layout.addLayout(index_selection_layout)
+        layout.addWidget(self.graphics_layout)
         layout.addWidget(self.indexing_widget)
         self.setLayout(layout)
 
-        # was 10
+        # Font and style adjustments
         small_style = """
             QWidget {
                 font-size: 14px;
@@ -182,30 +190,43 @@ class ArrayViewer(MultiThreadedWidget):
         """
         self.setStyleSheet(small_style)
 
-        # Refresh the display at the end of the window initialization
-        self.display_frame(index=self.options.start_index)
+        # If array3d was provided, show the initial image
+        if self.array3d is not None:
+            self.display_frame(index=self.options.start_index)
+            # force scaling
+            self.image_item.setImage(autoLevels=True)
 
-    def display_frame(self, index=0):
+    def display_frame(self, index=0, force_autolim: bool = False):
+        """Display a given slice (frame) from array3d."""
+        # Only display if we have an array
+        if self.array3d is None:
+            self.plot_item.setTitle("No data loaded")
+            return
+
         if self.sort_idx is not None:
             plot_index = self.sort_idx[index]
         else:
             plot_index = index
+
         image = self.array3d.take(indices=plot_index, axis=self.options.slider_axis)
         if cp.get_array_module(image) == cp:
             image = image.get()
         image = self.process_func(image)
-        self.im.set_data(image)  # faster than the clear() and imshow() method
+
+        # Update pyqtgraph image
+        if self.auto_clim_check_box.isChecked() or force_autolim:
+            self.image_item.setImage(np.transpose(image), autoLevels=True)
+        else:
+            self.image_item.setImage(np.transpose(image), autoLevels=False)
+
+        # Update title
         title = f"Index {index}"
         if self.extra_title_strings_list is not None:
             title += self.extra_title_strings_list[plot_index]
-        self.ax.set_title(title)
-        if self.auto_clim_check_box.isChecked():
-            self.im.autoscale()
-        self.canvas.draw_idle()  # faster than the draw() method
+        self.plot_item.setTitle(title)
 
-    def update_frame(self, value):
-        # self.label.setText(f"Frame: {value}")
-        self.display_frame(index=value)
+    def update_frame(self, value, force_autolim: bool = False):
+        self.display_frame(index=value, force_autolim=force_autolim)
 
     def toggle_play(self):
         if self.playing:
@@ -221,27 +242,40 @@ class ArrayViewer(MultiThreadedWidget):
         next_idx = (current + 1) % self.num_frames
         self.slider.setValue(next_idx)
 
-    def refresh_frame(self):
-        self.update_frame(self.slider.value())
+    def refresh_frame(self, force_autolim: bool = False):
+        self.update_frame(self.slider.value(), force_autolim=force_autolim)
 
     def update_index_externally(self, index: int):
         self.slider.setValue(index)
 
     def reinitialize_all(
         self,
-        array3d: np.ndarray,
+        array3d: Optional[np.ndarray] = None,
         sort_idx: Optional[Sequence] = None,
         extra_title_strings_list: Optional[Sequence] = None,
+        process_func: Optional[Callable] = None,
     ):
-        self.array3d = array3d
-        self.sort_idx = sort_idx
-        self.extra_title_strings_list = extra_title_strings_list
-        self.num_frames = self.array3d.shape[self.options.slider_axis]
-        self.slider.setMaximum(self.num_frames - 1)
-        self.spinbox.setMaximum(self.num_frames - 1)
-        self.refresh_frame()
+        """Re-initialize the viewer with a new array or sort indices."""
+        # Only process the new array if provided
+        if array3d is not None:
+            if process_func is None:
+                if np.iscomplexobj(array3d):
+                    self.process_func = np.angle
+                else:
+                    self.process_func = lambda x: x
+            else:
+                self.process_func = process_func
+
+            self.array3d = array3d
+            self.sort_idx = sort_idx
+            self.extra_title_strings_list = extra_title_strings_list
+            self.num_frames = self.array3d.shape[self.options.slider_axis]
+            self.slider.setMaximum(self.num_frames - 1)
+            self.spinbox.setMaximum(self.num_frames - 1)
+            self.refresh_frame(force_autolim=True)
 
     def start(self):
+        """Show the widget."""
         self.show()
 
 
@@ -262,7 +296,6 @@ class IndexSelectorWidget(QWidget):
         self.slider.setMinimum(0)
         self.slider.setMaximum(num_frames - 1)
         self.slider.setValue(start_index)
-        # slider.valueChanged.connect(update_frame)
 
         # SpinBox (editable + arrows)
         self.spinbox = QSpinBox()
@@ -271,31 +304,38 @@ class IndexSelectorWidget(QWidget):
         self.spinbox.setValue(start_index)
         self.slider.valueChanged.connect(self.spinbox.setValue)
         self.spinbox.valueChanged.connect(self.slider.setValue)
-        # self.spinbox.valueChanged.connect(update_frame)
         self.spinbox.setStyleSheet("""
         QSpinBox {
             font-size: 14px;
-            padding: 3px 6px;                /* Inner spacing (top/bottom, left/right) */
-            min-width: 60px;                  /* Minimum width */
-            min-height: 20px;                 /* Minimum height */
-            text-align: center;              /* Text alignment */
-        }                           
+            padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
+            min-width: 60px;     /* Minimum width */
+            min-height: 20px;    /* Minimum height */
+            text-align: center;  /* Text alignment */
+        }
         """)
 
         # Play button
         if include_play_button:
             self.play_button = QPushButton("Play")
-            # self.play_button.clicked.connect(toggle_play)
             self.play_button.setStyleSheet("""
             QPushButton {
                 font-size: 14px;
-                padding: 3px 6px;                /* Inner spacing (top/bottom, left/right) */
-                min-width: 60px;                  /* Minimum width */
-                min-height: 20px;                 /* Minimum height */
-                text-align: center;              /* Text alignment */
+                padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
+                min-width: 60px;     /* Minimum width */
+                min-height: 20px;    /* Minimum height */
+                text-align: center;  /* Text alignment */
             }
             """)
-        # Package play button, and spin box
+            self.play_timer = QTimer()
+            self.playback_speed_spin = QSpinBox()
+            self.playback_speed_spin.setRange(10, 2000)  # Set a reasonable range
+            self.playback_speed_spin.setValue(500)  # Default interval = 500ms
+            self.playback_speed_spin.valueChanged.connect(self._on_playback_speed_changed)
+        else:
+            self.play_button = QPushButton("Play")
+            self.play_button.hide()
+
+        # Layout for spinbox and optional play button
         self.spin_play_layout = QHBoxLayout()
         if include_play_button:
             self.spin_play_layout.addWidget(self.play_button)
@@ -303,6 +343,10 @@ class IndexSelectorWidget(QWidget):
         self.spin_play_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
         )
+        if include_play_button:
+            self.spin_play_layout.addWidget(self.playback_speed_spin, alignment=Qt.AlignRight)
+
+        # Main layout for the index selector
         index_selection_layout = QVBoxLayout()
         index_selection_layout.addWidget(self.slider)
         index_selection_layout.addLayout(self.spin_play_layout)
@@ -311,6 +355,10 @@ class IndexSelectorWidget(QWidget):
         )
         self.setLayout(index_selection_layout)
 
-        # Timer for playback
-        self.timer = QTimer(parent)
-        self.timer.setInterval(100)  # milliseconds per frame
+        if include_play_button:
+            # Timer for playback
+            self.play_timer = QTimer(parent)
+            self.play_timer.setInterval(self.playback_speed_spin.value())  # milliseconds per frame
+
+    def _on_playback_speed_changed(self, value: int):
+        self.play_timer.setInterval(value)
