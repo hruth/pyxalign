@@ -156,7 +156,6 @@ def run_full_test_TP2(
             binning=4,
             filter_position=9,
             filter_data=0.005,
-            precision=0.01,
             remove_slow_variation=True,
             crop=opts.CropOptions(enabled=True, horizontal_range=width, vertical_range=width),
             device=multi_gpu_device_options,

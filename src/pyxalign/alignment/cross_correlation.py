@@ -5,8 +5,9 @@ import statsmodels.robust
 from scipy.signal import savgol_filter
 import pandas as pd
 from tqdm import tqdm
-from pyxalign import gpu_utils
+import functools
 
+from pyxalign import gpu_utils
 from pyxalign.alignment.base import Aligner
 from pyxalign.gpu_wrapper import device_handling_wrapper
 import pyxalign.image_processing as ip
@@ -48,14 +49,23 @@ class CrossCorrelationAligner(Aligner):
         variation_shape = (
             projections.shape / np.array([1, self.options.binning, self.options.binning])
         ).astype(int)
+
+        # get the GPU chunked version of self.get_variation
         variation = pin_memory(np.empty(variation_shape, dtype=r_type))
+        get_variation_func = functools.partial(
+            self.get_variation,
+            use_boundary_correction=self.options.use_boundary_corrections,
+            remove_ramp_artifacts=self.options.remove_ramp_artifacts,
+        )
         get_variation_wrapped = device_handling_wrapper(
-            func=self.get_variation,
+            # func=self.get_variation,
+            func=get_variation_func,
             options=self.options.device,
             chunkable_inputs_for_gpu_idx=[0],
             common_inputs_for_gpu_idx=[1],
             pinned_results=variation,
         )
+        # run the function
         variation = get_variation_wrapped(projections, weights, self.options.binning)
 
         # Ensure the array is on a single device for the rest of the calculations
@@ -94,23 +104,26 @@ class CrossCorrelationAligner(Aligner):
             # Remove smoothed shift
             if self.options.remove_slow_variation:
                 cumulative_shift = self.subtract_slow_variation(cumulative_shift)
-            # Add a linear correction to the shift, in order to
-            # remove the discontinuity between the first and last
-            # frame
-            offset = ip.get_cross_correlation_shift(
-                image=variation_fft[idx_sort[:1]],
-                image_ref=variation_fft[idx_sort[-1]],
-            )[0]
-            if self.options.device.device_type == enums.DeviceType.GPU:
-                offset = offset.get()
-            m1 = offset / n_angles
-            m2 = (cumulative_shift[0] - cumulative_shift[-1]) / n_angles
-            x = np.arange(0, n_angles)[:, None]
-            y = m1 * x + m2 * x
-            cumulative_shift = cumulative_shift + y - y.mean(0)
+            if self.options.use_end_corrections:
+                # Add a linear correction to the shift, in order to
+                # remove the discontinuity between the first and last
+                # frame
+                offset = ip.get_cross_correlation_shift(
+                    image=variation_fft[idx_sort[:1]],
+                    image_ref=variation_fft[idx_sort[-1]],
+                )[0]
+                if self.options.device.device_type == enums.DeviceType.GPU:
+                    offset = offset.get()
+                m1 = offset / n_angles
+                m2 = (cumulative_shift[0] - cumulative_shift[-1]) / n_angles
+                # m2 = (cumulative_shift[:10].mean(0) - cumulative_shift[-10:].mean(0)) / n_angles
+                x = np.arange(0, n_angles)[:, None]
+                y = m1 * x + m2 * x
+                cumulative_shift = cumulative_shift + y - y.mean(0)
 
             shift_total = shift_total + cumulative_shift[idx_sort_inverse, :]
-            shift_total = self.clamp_shift(shift_total, 6)
+            if self.options.apply_optional_clamp:
+                shift_total = self.clamp_shift(shift_total, 6)
 
         shift_total = np.round(shift_total * self.options.binning)
 
@@ -143,7 +156,11 @@ class CrossCorrelationAligner(Aligner):
     @staticmethod
     @timer()
     def get_variation(
-        projections: ArrayType, weights: ArrayType, binning: int
+        projections: ArrayType,
+        weights: ArrayType,
+        binning: int,
+        use_boundary_correction: bool = False,
+        remove_ramp_artifacts: bool = False,
     ) -> ArrayType:  # pick a more clear name later
         xp = cp.get_array_module(projections)
         scipy_module: scipy = get_scipy_module(projections)
@@ -161,6 +178,10 @@ class CrossCorrelationAligner(Aligner):
         variation = xp.sqrt(xp.abs(dX) ** 2 + xp.abs(dY) ** 2)
         # Ignore regions with low amplitude
         variation = variation * xp.abs(projections)
+        # phase ramp artefact removal
+        if remove_ramp_artifacts:
+            variation[:, (0, -1)] = variation[:, (1,-2)]
+            variation[:, :, (0, -1)] = variation[:, :, (1,-2)]
         # Remove high values in the noisy areas
         variation_mean = xp.mean(variation * weights, axis=(1, 2)) / xp.mean(weights)
         # This could probably be replaced with a simpler calculation.
@@ -171,16 +192,14 @@ class CrossCorrelationAligner(Aligner):
             )
             / xp.mean(weights)
         )
+        if use_boundary_correction:
+            boundary_correction = gaussian_filter_conv_n(xp.ones_like(projections[0], dtype=r_type), 2 * binning)
         for i in range(len(variation_mean)):
             cutoff = variation_mean[i] + variation_std[i]
             variation[i, (variation[i, :, :] > cutoff)] = cutoff  # gives complex warning
-            # variation[i, :, :] = scipy_module.ndimage.gaussian_filter(
-            #     variation[i, :, :], 2 * binning
-            # )
             variation[i, :, :] = gaussian_filter_conv_n(variation[i, :, :], 2 * binning)
-            # variation = utils.imgaussfilt3_conv(variation, [2*binning,2*binning,0]);
-            # boundary_correction = utils.imgaussfilt3_conv(ones(size(object,1), size(object,2), 'like', object), ...
-            #   [2*binning,2*binning,0]);
+            if use_boundary_correction:
+                variation[i, :, :] /= boundary_correction
 
         variation = xp.real(variation[:, 0::binning, 0::binning])
 

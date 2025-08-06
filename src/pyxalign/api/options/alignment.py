@@ -17,7 +17,7 @@ class AlignmentOptions(ABC):
 
 @dataclasses.dataclass
 class CrossCorrelationOptions(AlignmentOptions):
-    iterations: int = 100
+    iterations: int = 10
 
     binning: int = 4
 
@@ -25,13 +25,15 @@ class CrossCorrelationOptions(AlignmentOptions):
 
     filter_data: float = 0.005
 
-    precision: float = 0.01
-
     remove_slow_variation: bool = False
 
-    use_end_corrections: bool = False
+    use_end_corrections: bool = True
 
     apply_optional_clamp: bool = True
+
+    remove_ramp_artifacts: bool = False
+
+    use_boundary_corrections: bool = False
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
