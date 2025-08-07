@@ -368,12 +368,19 @@ class IlluminationMapMaskBuilder:
                 get_illumination_map(self.masks[i], probe, positions[i])
 
     def set_mask_threshold_interactively(self, projections: np.ndarray) -> float:
-        # Use interactivity to decide mask threshold
+        # temporary bugfix: all windows need to be closed or else app.exec_() will 
+        # hang indefinitely. I am putting this temporary solution (which I don't like
+        # very much) in place, because any changes will be overwritten once merged with
+        # interactive_pma_gui anyway.
         app = QApplication.instance() or QApplication([])
+        app.closeAllWindows()
+
+        # Use interactivity to decide mask threshold"
         self.threshold_selector = illum_map_threshold_plotter(
             self.masks, projections, init_thresh=0.01
         )
         self.threshold_selector.show()
+
         app.exec_()
         threshold = self.threshold_selector.threshold
         return threshold
