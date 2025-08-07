@@ -1,4 +1,4 @@
-from .lamni.options import LYNXLoadOptions
+from .pear.options import LYNXLoadOptions
 from .xrf.options import XRFLoadOptions
-from .lamni.api import load_data_from_lamni_format
+from .pear.api import load_data_from_pear_format
 from .xrf.api import load_data_from_xrf_format

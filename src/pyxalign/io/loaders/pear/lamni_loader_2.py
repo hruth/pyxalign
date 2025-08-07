@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io import loadmat
-from pyxalign.io.loaders.lamni.nested_loader import NestedLoader
+from pyxalign.io.loaders.pear.nested_loader import NestedLoader
 from pyxalign.timing.timer_utils import timer
 
 

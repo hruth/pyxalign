@@ -11,11 +11,11 @@ from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
-from pyxalign.io.loaders.lamni.api import load_data_from_lamni_format
+from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
-from pyxalign.io.loaders.lamni.options import LYNXLoadOptions, BaseLoadOptions
+from pyxalign.io.loaders.pear.options import LYNXLoadOptions, BaseLoadOptions
 
 
 def run_full_test_TP2(
@@ -78,7 +78,7 @@ def run_full_test_TP2(
         )
 
         # Load ptycho reconstructions, probe positions, measurement angles, and scan numbers
-        lamni_data = load_data_from_lamni_format(
+        lamni_data = load_data_from_pear_format(
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )

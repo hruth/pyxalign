@@ -2,7 +2,7 @@ import numpy as np
 import os
 import h5py
 from pyxalign.api.types import c_type
-from pyxalign.io.loaders.lamni.nested_loader import NestedLoader
+from pyxalign.io.loaders.pear.nested_loader import NestedLoader
 from pyxalign.timing.timer_utils import timer
 
 

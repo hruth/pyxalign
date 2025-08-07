@@ -1,7 +1,7 @@
 from typing import Union
-from pyxalign.io.loaders.lamni.lamni_loader_2 import LamniLoaderVersion2
-from pyxalign.io.loaders.lamni.lamni_loader_1 import LamniLoaderVersion1
-from pyxalign.io.loaders.lamni.pear_loader_1 import PearLoaderVersion1
+from pyxalign.io.loaders.pear.lamni_loader_2 import LamniLoaderVersion2
+from pyxalign.io.loaders.pear.lamni_loader_1 import LamniLoaderVersion1
+from pyxalign.io.loaders.pear.pear_loader_1 import PearLoaderVersion1
 from pyxalign.io.loaders.enums import LoaderType
 
 LoaderInstanceType = Union[LamniLoaderVersion1, LamniLoaderVersion2, PearLoaderVersion1]

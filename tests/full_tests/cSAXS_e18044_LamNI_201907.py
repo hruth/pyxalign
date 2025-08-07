@@ -12,8 +12,8 @@ from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
-from pyxalign.io.loaders.lamni.api import load_data_from_lamni_format
-from pyxalign.io.loaders.lamni.options import BaseLoadOptions, LYNXLoadOptions
+from pyxalign.io.loaders.pear.api import load_data_from_pear_format
+from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
@@ -82,7 +82,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         # Load data
-        lamni_data = load_data_from_lamni_format(
+        lamni_data = load_data_from_pear_format(
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )

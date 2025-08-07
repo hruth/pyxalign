@@ -12,14 +12,14 @@ from pyxalign.api.types import r_type
 from pyxalign.data_structures.task import load_task
 from pyxalign.io.loaders.enums import LoaderType
 from pyxalign import gpu_utils
-from pyxalign.io.loaders.lamni.api import load_data_from_lamni_format
-from pyxalign.io.loaders.lamni.options import BaseLoadOptions, Beamline2IDELoadOptions
+from pyxalign.io.loaders.pear.api import load_data_from_pear_format
+from pyxalign.io.loaders.pear.options import BaseLoadOptions, Beamline2IDELoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
-def run_full_test_xrf_ptycho_1(
+def run_full_test_xrf_pear(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
@@ -70,7 +70,7 @@ def run_full_test_xrf_ptycho_1(
         )
 
         # Load data
-        standard_data = load_data_from_lamni_format(
+        standard_data = load_data_from_pear_format(
             n_processes=int(mp.cpu_count() * 0.8),
             options=options,
         )
@@ -100,7 +100,7 @@ def run_full_test_xrf_ptycho_1(
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    run_full_test_xrf_ptycho_1(
+    run_full_test_xrf_pear(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
         test_start_point=args.start_point,
