@@ -70,15 +70,20 @@ class LaminographyAlignmentTask:
             alignment_options=self.options.cross_correlation,
         )
         if plot_results:
-            projections.plot_staged_shift("Cross-correlation Shift")
+            projections.plot_shift(
+                shift_type=enums.ShiftManagerMemberType.STAGED_SHIFT,
+                title="Cross-correlation Shift",
+            )
         print("Cross-correlation shift stored in shift_manager")
 
-    def get_projection_matching_shift(self, initial_shift: Optional[np.ndarray] = None) -> np.ndarray:
+    def get_projection_matching_shift(
+        self, initial_shift: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         # clear existing astra objects
         if self.pma_object is not None:
             if hasattr(self.pma_object, "aligned_projections"):
                 self.pma_object.aligned_projections.volume.clear_astra_objects()
-        
+
         # reset timers
         clear_timer_globals()
 
@@ -182,6 +187,7 @@ def run_projection_matching(
         shift = pma_object.total_shift * pma_object.scale
     finally:
         return pma_object, shift
+
 
 def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
     print("Loading task from", file_path, "...")

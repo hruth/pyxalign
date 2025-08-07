@@ -172,7 +172,10 @@ class XRFTask:
                 function_type=enums.ShiftType.CIRC,
                 alignment_options=self.alignment_options.cross_correlation,
             )
-        projections.plot_staged_shift("Cross-correlation Shift")
+        projections.plot_shift(
+            shift_type=enums.ShiftManagerMemberType.STAGED_SHIFT,
+            title="Cross-correlation Shift",
+        )
         print("Cross-correlation shift stored in shift_manager")
 
     # def launch_xrf_projections_viewer(self):

@@ -617,33 +617,42 @@ class Projections:
             show_plot=show_plot,
         )
 
-    def plot_shift(self, shift_type: enums.ShiftManagerMemberType, plot_kwargs: dict = {}):
+    def plot_shift(
+        self,
+        shift_type: enums.ShiftManagerMemberType,
+        title: Optional[str] = None,
+        plot_kwargs: dict = {},
+    ):
         """Plot different kinds of shifts stored in the ShiftManager object.
 
         Args:
             shift_type (ShiftManagerMemberType): The type of shift to plot. Can be entered as the
             strings `"applied_shift_total"`, `"applied_shift_seperate"`, or `"staged_shift"`.
+            title (str): If included, `title` will override the default titling.
 
         """
 
         # Use the shift specified by the user
         shifts_to_plot = []
-        titles = []
+        default_titles = []
         if shift_type == enums.ShiftManagerMemberType.APPLIED_SHIFT_TOTAL:
             shifts_to_plot += [np.sum(self.shift_manager.past_shifts, 0)]
-            titles += ["Total Applied Shift"]
+            default_titles += ["Total Applied Shift"]
         elif shift_type == enums.ShiftManagerMemberType.APPLIED_SHIFT_SEPERATE:
             for i, shift in enumerate(self.shift_manager.past_shifts):
                 shifts_to_plot += [shift]
-                titles += [f"{ordinal(i + 1)} Applied Shift"]
+                default_titles += [f"{ordinal(i + 1)} Applied Shift"]
         elif shift_type == enums.ShiftManagerMemberType.STAGED_SHIFT:
             shifts_to_plot += [self.shift_manager.staged_shift]
-            titles += ["Staged Shift"]
+            default_titles += ["Staged Shift"]
 
         # plot the shift(s)
         for i, shift in enumerate(shifts_to_plot):
             fig, ax = plt.subplots(2, layout="compressed")
-            fig.suptitle(titles[i], fontsize=17)
+            if title is not None:
+                fig.suptitle(title, fontsize=17)
+            else:
+                fig.suptitle(default_titles[i], fontsize=17)
             sort_idx = np.argsort(self.angles)
             plt.sca(ax[0])
             plt.plot(
