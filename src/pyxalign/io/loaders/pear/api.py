@@ -18,23 +18,23 @@ def load_data_from_pear_format(
     """
     options.base.print_selections()
     # Load lamni-formatted projection data
-    lamni_loader = load_experiment(
+    loader = load_experiment(
         parent_projections_folder=options.base.parent_projections_folder,
         n_processes=n_processes,
         options=options,
     )
     # Load data into standard format
     standard_data = StandardData(
-        lamni_loader.projections,
-        lamni_loader.angles,
-        lamni_loader.scan_numbers,
-        lamni_loader.selected_projection_file_paths,
-        lamni_loader.probe_positions,
-        lamni_loader.probe,
-        lamni_loader.pixel_size,
+        loader.projections,
+        loader.angles,
+        loader.scan_numbers,
+        loader.selected_projection_file_paths,
+        loader.probe_positions,
+        loader.probe,
+        loader.pixel_size,
     )
 
-    if return_loader_object:
-        return standard_data, lamni_loader
+    if return_loader_object:  # for debugging purposes
+        return standard_data, loader
     else:
         return standard_data
