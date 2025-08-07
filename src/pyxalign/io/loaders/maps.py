@@ -1,6 +1,6 @@
 from typing import Union
-from pyxalign.io.loaders.pear.lamni_loader_2 import FoldSliceLoaderVersion2
-from pyxalign.io.loaders.pear.lamni_loader_1 import FoldSliceLoaderVersion1
+from pyxalign.io.loaders.pear.fold_slice_loader_2 import FoldSliceLoaderVersion2
+from pyxalign.io.loaders.pear.fold_slice_loader_1 import FoldSliceLoaderVersion1
 from pyxalign.io.loaders.pear.pear_loader_1 import PearLoaderVersion1
 from pyxalign.io.loaders.enums import LoaderType
 
