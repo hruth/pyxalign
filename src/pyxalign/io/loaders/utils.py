@@ -140,6 +140,11 @@ def generate_input_user_prompt(
     select_all_info: Optional[str] = None,
     select_all_by_default: bool = False,
 ) -> tuple[Union[int, list[int]], Union[str, list[str]]]:
+    
+    provided_option = is_valid_option_provided(use_option, options_list, allow_multiple_selections)
+
+    if provided_option is not None:
+        return provided_option
     if select_all_by_default:
         if allow_multiple_selections:
             return [0], list(options_list)
@@ -150,9 +155,6 @@ def generate_input_user_prompt(
     if select_all_info is None:
         select_all_info = ""
 
-    provided_option = is_valid_option_provided(use_option, options_list, allow_multiple_selections)
-    if provided_option is not None:
-        return provided_option
 
     options_list, options_info_list = prompt_input_processing(options_list, options_info_list)
 

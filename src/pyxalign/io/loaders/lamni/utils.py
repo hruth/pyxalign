@@ -52,6 +52,7 @@ def select_experiment_and_sequences(
     use_sequence: Optional[str] = None,
     is_tile_scan: Optional[bool] = False,
     selected_tile: Optional[int] = None,
+    select_all_by_default: bool = False,
 ) -> BaseLoader:
     """
     Select the experiment you want to load.
@@ -81,15 +82,17 @@ def select_experiment_and_sequences(
         scan_start = selected_experiment.scan_numbers[sequence_idx].min()
         scan_end = selected_experiment.scan_numbers[sequence_idx].max()
         options_info_list += [f"scans {scan_start}-{scan_end}, {sum(sequence_idx)} scans"]
-    selected_sequence_idx, _ = generate_input_user_prompt(
+    _, selected_sequences = generate_input_user_prompt(
         load_object_type_string="sequences",
         options_list=unique_sequences,
         allow_multiple_selections=True,
         options_info_list=options_info_list,
         use_option=use_sequence,
         prepend_option_with="Sequence",
+        select_all_by_default=select_all_by_default,
     )
-    selected_experiment.remove_sequences(unique_sequences[selected_sequence_idx])
+    # selected_experiment.remove_sequences(unique_sequences[selected_sequence_idx])
+    selected_experiment.remove_sequences(sequences_to_keep=selected_sequences)
 
     return subsets[selected_experiment_name]
 
@@ -188,6 +191,7 @@ def load_experiment(
         # use_sequence=options.base.selected_sequences,
         is_tile_scan=is_tile_scan,
         selected_tile=selected_tile,
+        select_all_by_default=options.base.select_all_by_default,
     )
     # Get paths to all existing projection files for the given scan numbers
     selected_experiment.get_projections_folders_and_file_names(options.base.file_pattern)
