@@ -75,3 +75,10 @@ class TestStartPoints(StrEnum):
     BEGINNING = auto()
     INITIAL_TASK = auto()
     PRE_PMA = auto()
+
+
+class ShiftManagerMemberType(StrEnum):
+    APPLIED_SHIFT_TOTAL = auto()
+    APPLIED_SHIFT_SEPERATE = auto()
+    STAGED_SHIFT = auto()
+

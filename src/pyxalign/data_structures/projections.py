@@ -5,7 +5,10 @@ import copy
 import h5py
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import QApplication
-from pyxalign.alignment.utils import get_center_of_rotation_from_different_resolution_alignment, get_shift_from_different_resolution_alignment
+from pyxalign.alignment.utils import (
+    get_center_of_rotation_from_different_resolution_alignment,
+    get_shift_from_different_resolution_alignment,
+)
 from pyxalign.api.constants import divisor
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.estimate_center import (
@@ -44,6 +47,7 @@ from pyxalign.model_functions import symmetric_gaussian_2d
 from pyxalign.plotting.interactive.arrays import ProjectionViewer
 from pyxalign.plotting.interactive.launchers import launch_projection_viewer
 import pyxalign.plotting.plotters as plotters
+from pyxalign.style.text import ordinal
 from pyxalign.timing.timer_utils import timer, clear_timer_globals
 from pyxalign.transformations.classes import (
     Downsampler,
@@ -415,9 +419,7 @@ class Projections:
             remove_scans = list(remove_scans)
         keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan not in remove_scans]
         # self.dropped_scan_numbers += remove_scans
-        self.dropped_scan_numbers += [
-            scan for scan in remove_scans if scan in self.scan_numbers
-        ]
+        self.dropped_scan_numbers += [scan for scan in remove_scans if scan in self.scan_numbers]
 
         def return_modified_array(arr, repin_array: bool):
             if gpu_utils.is_pinned(self.data) and repin_array:
@@ -615,35 +617,63 @@ class Projections:
             show_plot=show_plot,
         )
 
-    def plot_staged_shift(self, title: str = "", plot_kwargs: dict = {}):
-        fig, ax = plt.subplots(2, layout="compressed")
-        fig.suptitle(title, fontsize=17)
-        sort_idx = np.argsort(self.angles)
-        plt.sca(ax[0])
-        plt.plot(
-            self.angles[sort_idx],
-            self.shift_manager.staged_shift[sort_idx],
-            **plot_kwargs,
-        )
-        plt.legend(["horizontal", "vertical"], framealpha=0.5)
-        plt.autoscale(enable=True, axis="x", tight=True)
-        plt.grid(linestyle=":")
-        plt.title("Shift vs Angle")
-        plt.xlabel("angle (deg)")
-        plt.ylabel("shift (px)")
-        plt.sca(ax[1])
+    def plot_shift(self, shift_type: enums.ShiftManagerMemberType, plot_kwargs: dict = {}):
+        """Plot different kinds of shifts stored in the ShiftManager object.
 
-        plt.plot(
-            self.scan_numbers,
-            self.shift_manager.staged_shift,
-            **plot_kwargs,
-        )
-        plt.grid(linestyle=":")
-        plt.autoscale(enable=True, axis="x", tight=True)
-        plt.title("shift vs Scan Number")
-        plt.xlabel("scan number")
-        plt.ylabel("shift (px)")
-        plt.show()
+        Args:
+            shift_type (ShiftManagerMemberType): The type of shift to plot. Can be entered as the
+            strings `"applied_shift_total"`, `"applied_shift_seperate"`, or `"staged_shift"`.
+
+        """
+
+        # Use the shift specified by the user
+        shifts_to_plot = []
+        titles = []
+        if shift_type == enums.ShiftManagerMemberType.APPLIED_SHIFT_TOTAL:
+            shifts_to_plot += [np.sum(self.shift_manager.past_shifts, 0)]
+            titles += ["Total Applied Shift"]
+        elif shift_type == enums.ShiftManagerMemberType.APPLIED_SHIFT_SEPERATE:
+            for i, shift in enumerate(self.shift_manager.past_shifts):
+                shifts_to_plot += [shift]
+                titles += [f"{ordinal(i + 1)} Applied Shift"]
+        elif shift_type == enums.ShiftManagerMemberType.STAGED_SHIFT:
+            shifts_to_plot += [self.shift_manager.staged_shift]
+            titles += ["Staged Shift"]
+
+        # plot the shift(s)
+        for i, shift in enumerate(shifts_to_plot):
+            fig, ax = plt.subplots(2, layout="compressed")
+            fig.suptitle(titles[i], fontsize=17)
+            sort_idx = np.argsort(self.angles)
+            plt.sca(ax[0])
+            plt.plot(
+                self.angles[sort_idx],
+                shift[sort_idx],
+                **plot_kwargs,
+            )
+            plt.legend(["horizontal", "vertical"], framealpha=0.5)
+            plt.title("Shift vs Angle")
+            plt.xlabel("angle (deg)")
+            plt.sca(ax[1])
+            plt.plot(
+                self.scan_numbers,
+                shift,
+                **plot_kwargs,
+            )
+            plt.title("Shift vs Scan Number")
+            plt.xlabel("scan number")
+            for j in range(2):
+                plt.sca(ax[j])
+                plt.grid(linestyle=":")
+                plt.autoscale(enable=True, axis="x", tight=True)
+                plt.ylabel("shift (px)")
+            plt.show()
+
+    def plot_shift_summary(self, plot_kwargs: dict = {}):
+        "Show plots summarizing all of the applied shifts and the staged shift"
+        for shift_type in enums.ShiftManagerMemberType:
+            print(shift_type)
+            self.plot_shift(shift_type, plot_kwargs=plot_kwargs)
 
     def replace_probe_with_gaussian(
         self, amplitude: float, sigma: float, shape: Optional[float] = None
@@ -740,8 +770,8 @@ class Projections:
         )
         # remove scans that were not in reference data
         remove_scans = [scan for scan in self.scan_numbers if scan not in new_scan_numbers]
-        self.drop_projections(remove_scans) 
-        # stage shift            
+        self.drop_projections(remove_scans)
+        # stage shift
         self.shift_manager.stage_shift(new_shift, staged_function_type)
         # Update center of rotation
         if update_center_of_rotation:
@@ -946,7 +976,7 @@ def get_kwargs_for_copying_to_new_projections_object(
         "center_of_rotation": projections.center_of_rotation * 1,
         "skip_pre_processing": True,
         "add_center_offset_to_positions": False,
-        "file_paths": copy.deepcopy(projections.file_paths)
+        "file_paths": copy.deepcopy(projections.file_paths),
     }
     if include_projections_copy:
         kwargs["projections"] = projections.data * 1
