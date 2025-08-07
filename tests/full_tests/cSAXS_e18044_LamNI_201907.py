@@ -44,7 +44,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         gpu=opts.GPUOptions(
             n_gpus=n_gpus,
             gpu_indices=gpu_list,
-            chunk_length=20,
+            chunk_length=5,
         )
     )
 
@@ -308,7 +308,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         # Rotate the volume
-        task.phase_projections.volume.rotate_reconstruction()
+        task.phase_projections.volume.rotate_reconstruction(opts.DeviceOptions(gpu=opts.GPUOptions(chunk_length=2)))
 
         # save a tiff stack of the rotated reconstruction
         ci_test_helper.save_tiff(
