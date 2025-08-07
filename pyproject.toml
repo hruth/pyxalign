@@ -19,6 +19,7 @@ dependencies = [
     "mda-xdrlib",
     "pyqtgraph",
     "jupyter",
+    "PyYAML",
 ]
 requires-python = ">=3.0"
 
