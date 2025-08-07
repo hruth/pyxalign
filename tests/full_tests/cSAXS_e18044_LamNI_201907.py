@@ -69,7 +69,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         # Define options for loading ptycho reconstructions
         base_load_options = BaseLoadOptions(
             parent_projections_folder=os.path.join(parent_folder, "analysis"),
-            loader_type=LoaderType.LAMNI_V1,
+            loader_type=LoaderType.FOLD_SLICE_V1,
             file_pattern=r"*_512x512_b0_MLc_Niter500_recons.h5",
             scan_start=2714,
             scan_end=3465,

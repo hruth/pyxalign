@@ -4,7 +4,7 @@ from pyxalign.io.loaders.pear.nested_loader import NestedLoader
 from pyxalign.timing.timer_utils import timer
 
 
-class LamniLoaderVersion2(NestedLoader):
+class FoldSliceLoaderVersion2(NestedLoader):
     @staticmethod
     @timer()
     def check_if_projection_file(file_path: str) -> bool:

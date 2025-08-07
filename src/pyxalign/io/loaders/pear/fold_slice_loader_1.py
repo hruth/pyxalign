@@ -9,7 +9,7 @@ from pyxalign.io.loaders.pear.base_loader import generate_single_projection_sub_
 from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
-class LamniLoaderVersion1(BaseLoader):
+class FoldSliceLoaderVersion1(BaseLoader):
     def get_projection_sub_folder(self, scan_number: int):
         return generate_projection_relative_path(
             scan_number,

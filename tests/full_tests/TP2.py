@@ -66,7 +66,7 @@ def run_full_test_TP2(
         # Define options for loading ptycho reconstructions
         base_load_options = BaseLoadOptions(
             parent_projections_folder=os.path.join(parent_folder, "ptycho_recon", "TP_2"),
-            loader_type=LoaderType.LAMNI_V2,
+            loader_type=LoaderType.FOLD_SLICE_V2,
             file_pattern=r"roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat",
             select_all_by_default=True,
         )

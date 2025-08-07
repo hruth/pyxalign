@@ -2,8 +2,8 @@ from enum import StrEnum, auto
 
 
 class LoaderType(StrEnum):
-    LAMNI_V1 = auto()
-    LAMNI_V2 = auto()
+    FOLD_SLICE_V1 = auto()
+    FOLD_SLICE_V2 = auto()
     PEAR_V1 = auto()
 
 
