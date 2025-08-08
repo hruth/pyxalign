@@ -26,6 +26,10 @@ from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 from pyxalign.timing.timer_utils import timer, InlineTimer
 import cupy as cp
 
+# measuring the timing is not a good idea, it gets all
+# messed up when doing multithreading
+timer_enabled = False
+
 color_list = list(matplotlib.colors.TABLEAU_COLORS.values())
 
 
@@ -151,7 +155,7 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
     def finish_test(self):
         self.disable_stop_button("alignment finished")
 
-    @timer()
+    @timer(enabled=timer_enabled)
     def update_plots(self):
         try:
             self.set_thread_gpu()
@@ -232,7 +236,7 @@ class PMLinePlotWidget(QWidget):
     def x_data(self) -> np.ndarray:
         raise NotImplementedError
 
-    @timer()
+    @timer(enabled=timer_enabled)
     def update_plot(self):
         itimer = InlineTimer("update line data")
         itimer.start()
