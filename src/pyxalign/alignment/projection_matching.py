@@ -618,6 +618,7 @@ class ProjectionMatchingAligner(Aligner):
         self.pinned_lamino_angle_correction = self.pinned_lamino_angle_correction.get()
         self.pinned_tilt_angle_correction = self.pinned_tilt_angle_correction.get()
         self.pinned_skew_angle_correction = self.pinned_skew_angle_correction.get()
+        self.secondary_mask = self.secondary_mask.get()
 
     def get_step_size_update(self) -> float:
         # Check if the step size update is small enough to stop the loop
