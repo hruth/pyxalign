@@ -454,12 +454,14 @@ class Projections:
     def reconstructed_object_dimensions(self) -> np.ndarray:
         sample_thickness = self.options.experiment.sample_thickness
         # calculate volume size
+        # if self.options.volume_width.use_custom_width:
+        #     n_lateral_pixels = self.options.volume_width.width
+        #     if (n_lateral_pixels <= 0) or n_lateral_pixels != int(n_lateral_pixels):
+        #         raise ValueError("User selected volume width is invalid!")
+        # else:
+        n_lateral_pixels = self.data.shape[2]
         if self.options.volume_width.use_custom_width:
-            n_lateral_pixels = self.options.volume_width.width
-            if (n_lateral_pixels <= 0) or n_lateral_pixels != int(n_lateral_pixels):
-                raise ValueError("User selected volume width is invalid!")
-        else:
-            n_lateral_pixels = self.data.shape[2]
+            n_lateral_pixels *= self.options.volume_width.multiplier
         n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
         # n_pix = round_to_divisor(n_pix, "ceil", divisor)
         return np.ceil(n_pix).astype(int)

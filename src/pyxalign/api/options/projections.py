@@ -69,7 +69,7 @@ class ProjectionTransformOptions:
 class VolumeWidthOptions:
     use_custom_width: bool = False
 
-    width: int = 0
+    multiplier: float = 1
 
 
 @dataclasses.dataclass
