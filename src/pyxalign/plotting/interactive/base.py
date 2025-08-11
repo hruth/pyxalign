@@ -328,8 +328,8 @@ class IndexSelectorWidget(QWidget):
             """)
             self.play_timer = QTimer()
             self.playback_speed_spin = QSpinBox()
-            self.playback_speed_spin.setRange(10, 2000)  # Set a reasonable range
-            self.playback_speed_spin.setValue(500)  # Default interval = 500ms
+            self.playback_speed_spin.setRange(1,1000)  # Set a reasonable range
+            self.playback_speed_spin.setValue(20)  # Default speed = 10 Hz
             self.playback_speed_spin.valueChanged.connect(self._on_playback_speed_changed)
         else:
             self.play_button = QPushButton("Play")
@@ -344,7 +344,16 @@ class IndexSelectorWidget(QWidget):
             QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
         )
         if include_play_button:
-            self.spin_play_layout.addWidget(self.playback_speed_spin, alignment=Qt.AlignRight)
+            playback_speed_widget = QWidget()
+            playback_speed_layout = QVBoxLayout()
+            playback_speed_widget.setLayout(playback_speed_layout)
+
+            playback_speed_label = QLabel("Playback Speed (Hz)")
+            playback_speed_label.setStyleSheet("QLabel {font-size: 12px;}")
+            playback_speed_layout.addWidget(playback_speed_label)
+            playback_speed_layout.addWidget(self.playback_speed_spin)
+            # self.spin_play_layout.addWidget(self.playback_speed_spin, alignment=Qt.AlignRight)
+            self.spin_play_layout.addWidget(playback_speed_widget, alignment=Qt.AlignRight)
 
         # Main layout for the index selector
         index_selection_layout = QVBoxLayout()
@@ -361,4 +370,5 @@ class IndexSelectorWidget(QWidget):
             self.play_timer.setInterval(self.playback_speed_spin.value())  # milliseconds per frame
 
     def _on_playback_speed_changed(self, value: int):
-        self.play_timer.setInterval(value)
+        interval = int(1e3 * 1/value)
+        self.play_timer.setInterval(interval)
