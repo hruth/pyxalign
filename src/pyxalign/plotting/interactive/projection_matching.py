@@ -161,32 +161,32 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
             self.set_thread_gpu()
             self.volume_viewer.update_arrays(self.pma_object.aligned_projections.volume.data)
             # self.projection_viewer.update_arrays()#self.pma_object.aligned_projections.data)
-            itimer = InlineTimer("shift_viewer")
+            itimer = InlineTimer("shift_viewer", enabled=timer_enabled)
             itimer.start()
             self.shift_viewer.update_plot()
             itimer.end()
 
-            itimer = InlineTimer("error_viewer")
+            itimer = InlineTimer("error_viewer", enabled=timer_enabled)
             itimer.start()
             self.error_viewer.update_plot()
             itimer.end()
 
-            itimer = InlineTimer("shift_diff_viewer")
+            itimer = InlineTimer("shift_diff_viewer", enabled=timer_enabled)
             itimer.start()
             self.shift_diff_viewer.update_plot()
             itimer.end()
 
-            itimer = InlineTimer("error_v_iter_viewer")
+            itimer = InlineTimer("error_v_iter_viewer", enabled=timer_enabled)
             itimer.start()
             self.error_v_iter_viewer.update_plot()
             itimer.end()
 
-            itimer = InlineTimer("step_size_v_iter_viewer")
+            itimer = InlineTimer("step_size_v_iter_viewer", enabled=timer_enabled)
             itimer.start()
             self.step_size_v_iter_viewer.update_plot()
             itimer.end()
 
-            itimer = InlineTimer("velocity_map_viewer")
+            itimer = InlineTimer("velocity_map_viewer", enabled=timer_enabled)
             itimer.start()
             self.velocity_map_viewer.update_plot()
             itimer.end()
@@ -238,7 +238,7 @@ class PMLinePlotWidget(QWidget):
 
     @timer(enabled=timer_enabled)
     def update_plot(self):
-        itimer = InlineTimer("update line data")
+        itimer = InlineTimer("update line data", enabled=timer_enabled)
         itimer.start()
         for i, line in enumerate(self.lines):
             if self.y_data.ndim == 1:
@@ -248,7 +248,7 @@ class PMLinePlotWidget(QWidget):
             line.set_data(self.x_data, return_cpu_array(new_data))
         itimer.end()
 
-        itimer = InlineTimer("rescale, relim, draw_idle")
+        itimer = InlineTimer("rescale, relim, draw_idle", enabled=timer_enabled)
         itimer.start()
         self.ax.relim()
         self.ax.autoscale_view()
