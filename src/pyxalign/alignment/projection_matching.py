@@ -81,7 +81,9 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.masks = self.aligned_projections.masks * 1
 
         if initial_shift is None:
-            self.initial_shift = np.zeros((self.aligned_projections.n_projections, 2), dtype=r_type)
+            self.initial_shift = np.zeros(
+                (self.aligned_projections.n_projections, 2),
+                dtype=r_type)
         else:
             self.initial_shift = initial_shift
 
@@ -413,8 +415,7 @@ class ProjectionMatchingAligner(Aligner):
 
         self.momentum_update_string = (
             f"{text_colors.OKCYAN}Momentum acceleration: {np.array2string(momentum_acceleration, precision=2, floatmode='fixed')} "
-            + f"{text_colors.OKGREEN}Friction: {friction:.2f}{text_colors.ENDC}"
-        )
+            + f"{text_colors.OKGREEN}Friction: {friction:.2f}{text_colors.ENDC}")
 
     def return_wrapped_get_shift_update(self, debug: bool = False) -> Callable:
         if debug:
@@ -533,7 +534,7 @@ class ProjectionMatchingAligner(Aligner):
             self.xp = np
             self.scipy_module = gutils.get_scipy_module(cp.array(1))
         elif self.memory_config == MemoryConfig.CPU_ONLY:
-            initializer_function = lambda x: (x * 1)  # noqa: E731
+            def initializer_function(x): return (x * 1)  # noqa: E731
             self.xp = np
             self.scipy_module = gutils.get_scipy_module(np.array(1))
 
@@ -632,7 +633,7 @@ class ProjectionMatchingAligner(Aligner):
         return max_shift_step_size
 
     def check_stopping_condition(self, max_shift_step_size: float) -> bool:
-        if max_shift_step_size < self.options.min_step_size and self.iteration > 0:
+        if max_shift_step_size < self.options.min_step_size and self.iteration > 0 and self.iteration >= self.options.min_iterations:
             print("Minimum step size reached, stopping loop...")
             return True
         else:
@@ -1000,13 +1001,15 @@ class ProjectionMatchingAligner(Aligner):
                 -1, 1, dY.shape[2], dtype=r_type
             )
             tilt_angle_correction = (
-                get_gd_update(d_vec, projections_residuals, weights, high_pass_filter) * 180 / xp.pi
-            )
+                get_gd_update(
+                    d_vec, projections_residuals, weights, high_pass_filter) *
+                180 / xp.pi)
             # get skew angle correction
             d_vec = dY * xp.linspace(-1, 1, dY.shape[2], dtype=r_type)
             skew_angle_correction = (
-                get_gd_update(d_vec, projections_residuals, weights, high_pass_filter) * 180 / xp.pi
-            )
+                get_gd_update(
+                    d_vec, projections_residuals, weights, high_pass_filter) *
+                180 / xp.pi)
 
             return lamino_angle_correction, tilt_angle_correction, skew_angle_correction
 
