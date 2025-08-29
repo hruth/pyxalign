@@ -117,10 +117,10 @@ def extract_info_from_lamni_dat_file(
     dat_file_contents = pd.read_csv(dat_file_path, names=column_names, delimiter=" ", header=None)
     dat_file_contents["experiment_name"] = dat_file_contents["experiment_name"].fillna("")
     if scan_start is not None:
-        idx = dat_file_contents["scan_number"] > scan_start
+        idx = dat_file_contents["scan_number"] >= scan_start
         dat_file_contents = dat_file_contents[idx]
     if scan_end is not None:
-        idx = dat_file_contents["scan_number"] < scan_end
+        idx = dat_file_contents["scan_number"] <= scan_end
         dat_file_contents = dat_file_contents[idx]
 
     scan_numbers = dat_file_contents["scan_number"].to_numpy()
