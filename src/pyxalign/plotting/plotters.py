@@ -222,24 +222,37 @@ def plot_slice_of_3D_array(
     return axis_image
 
 
-def add_scalebar(pixel_size: Number, image_width: int, scalebar_fractional_width: float = 0.15):
+def add_scalebar(
+        pixel_size: Number,
+        image_width: int,
+        scalebar_fractional_width: float = 0.15,
+        scale_string: str = r"$\mu m$",
+        display_units: float = 1e-6,
+        color="k",
+        box_alpha: float = 0.5,
+):
     # Update the scalebar to be length in microns with exactly 2 decimals of precision
     round_to = 1e-8
-    display_units = 1e-6
+    # display_units = 1e-6
     m = pixel_size / round_to
-    scale_string = r"$\mu m$"
+    # scale_string = r"$\mu m$"
     scalebar_width_px = scalebar_fractional_width * image_width
     scalebar_width_px = int(scalebar_width_px * m) / m  # Round to round_to
     scalebar_width_si = scalebar_width_px * pixel_size / display_units  # Convert to display_units
+    size_vertical_px = image_width / 100
 
     scalebar = AnchoredSizeBar(
         transform=plt.gca().transData,
         size=scalebar_width_px,
         label=f"{round(scalebar_width_si, 2)} {scale_string}",
         loc="lower right",
-        color="sandybrown",
-        frameon=False,
-        # size_vertical=2,
-        fontproperties=fm.FontProperties(size=10, weight="bold"),
+        color=color,  # "sandybrown",
+        frameon=True,
+        # alpha=.5, # doesn't do anything
+        size_vertical=size_vertical_px,
+        fontproperties=fm.FontProperties(size=10),  # , weight="bold"),
     )
+    scalebar.patch.set_edgecolor("none")
+    scalebar.patch.set_facecolor("white")   # or any color you want
+    scalebar.patch.set_alpha(box_alpha)           # 0 transparent, 1 opaque
     plt.gca().add_artist(scalebar)
