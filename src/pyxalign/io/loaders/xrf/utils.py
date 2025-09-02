@@ -24,6 +24,8 @@ def load_xrf_experiment(
         all_counts_dict[scan_number] = counts_dict
         angles += [angle]
         extra_PVs_dict[scan_number] = extra_PVs
+    if np.all([a == 0 for a in angles]):
+        print("WARNING: no angle data found; enter angle data manually.")
 
     # Make StandardData object for each xrf projection
     channels = all_counts_dict[scan_number].keys()
@@ -59,13 +61,11 @@ def get_scan_file_dict(file_names: list[str], file_pattern: str) -> dict:  # -> 
 
 
 def extract_scan_number(file_name: str, file_pattern: str) -> int:
-    try:
-        match = re.search(file_pattern, file_name)
+    match = re.fullmatch(file_pattern, file_name)
+    if match:
         return int(match.group(1))
-    except Exception:
+    else:
         return None
-
-    # return int(re.search(file_pattern, file_name).group(1))
 
 
 def remove_inconsistent_sizes(standard_data: StandardData):
@@ -91,24 +91,24 @@ def remove_inconsistent_sizes(standard_data: StandardData):
 
 # Use V9 structure
 def get_single_file_data(folder: str, file_name: str, options: XRFLoadOptions) -> tuple:
-    # ) -> tuple(dict[str, np.ndarray], float, float):
     file_path = os.path.join(folder, file_name)
     with h5py.File(file_path) as F:
         counts_per_second = F[options.channel_data_path][()]
         channel_names = F[options.channel_names_path][()]
         channel_names = [name.decode() for name in channel_names]
-        counts_dict = {channel: counts for channel, counts in zip(channel_names, counts_per_second)}
-        # Get angle
+        counts_dict = {channel: counts for channel, counts in zip(
+            channel_names, counts_per_second)}
         PVs = {
             k.decode(): v.decode()
             for k, v in zip(
                 F["MAPS/Scan/Extra_PVs/"]["Names"][()], F["MAPS/Scan/Extra_PVs/"]["Values"][()]
             )
         }
-        angle = float(get_PV_value(PVs, options.angle_PV_string))
-        # lamino_angle = float(get_PV_value(PVs, options.lamino_angle_PV_string))
-
-    # tomo rotation: 2xfm:m60.DESC
+        try:
+            # Get angle if its found correctly
+            angle = float(get_PV_value(PVs, options.angle_PV_string))
+        except Exception:
+            angle = 0
     return counts_dict, angle, PVs
 
 
