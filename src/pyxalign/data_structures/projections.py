@@ -753,6 +753,7 @@ class Projections:
         task_file_path: str,
         staged_function_type: enums.ShiftType = enums.ShiftType.FFT,
         update_center_of_rotation: bool = True,
+        drop_unshared_scans: bool = False,
     ):
         # Load data
         with h5py.File(task_file_path, "r") as F:
@@ -767,16 +768,24 @@ class Projections:
             reference_shape = F[group]["data"].shape
         reference_shift = np.sum(past_shifts, 0).astype(r_type)
         # get new shift and scan numbers to drop
-        new_scan_numbers, new_shift = get_shift_from_different_resolution_alignment(
+        shared_scan_numbers, new_shift = get_shift_from_different_resolution_alignment(
             reference_shift,
             reference_scan_numbers,
             reference_pixel_size,
             self.scan_numbers,
             self.pixel_size,
         )
+        remove_scans = [scan for scan in self.scan_numbers if scan not in shared_scan_numbers]
+        if drop_unshared_scans:
         # remove scans that were not in reference data
-        remove_scans = [scan for scan in self.scan_numbers if scan not in new_scan_numbers]
-        self.drop_projections(remove_scans)
+            keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan in shared_scan_numbers]
+            new_shift = new_shift[keep_idx]
+            self.drop_projections(remove_scans)
+            if remove_scans != []:
+                print(f"Removed scans that were not found in reference data: {[int(x) for x in remove_scans]}")
+        else:
+            if remove_scans != []:
+                print(f"Scans not found in reference data will not be shifted: {[int(x) for x in remove_scans]}")
         # stage shift
         self.shift_manager.stage_shift(new_shift, staged_function_type)
         # Update center of rotation
