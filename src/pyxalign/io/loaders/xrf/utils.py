@@ -76,7 +76,7 @@ def remove_inconsistent_sizes(standard_data: StandardData):
     # Get the count per each shape
     n_arrays_per_shape = []
     for shape in set(shapes):
-        n_arrays_per_shape += [shape == x for x in shapes]
+        n_arrays_per_shape += [np.sum([shape == x for x in shapes])]
     idx = np.argmax(n_arrays_per_shape)
     # Remove data with sizes that don't match
     scan_numbers = np.array(list(standard_data.projections.keys()), dtype=int)
