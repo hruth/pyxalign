@@ -116,6 +116,18 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
             metrics_layout.setRowStretch(1, 1)
             metrics_layout.setRowStretch(2, 1)
 
+            # Geometry refinement viewer
+            if self.pma_object.options.refine_geometry.enabled:
+                geom_refinement_widget = QWidget()
+                geom_refinement_layout = QGridLayout()
+                geom_refinement_widget.setLayout(geom_refinement_layout)
+                self.lamino_angle_viewer = LaminoAngleRefinementWidget(self.pma_object)
+                self.tilt_angle_viewer = TiltAngleRefinementWidget(self.pma_object)
+                self.skew_angle_viewer = SkewAngleRefinementWidget(self.pma_object)
+                geom_refinement_layout.addWidget(self.lamino_angle_viewer, 0, 0)
+                geom_refinement_layout.addWidget(self.tilt_angle_viewer, 1, 0)
+                geom_refinement_layout.addWidget(self.skew_angle_viewer, 2, 0)
+
             # options viewer
             self.options_display = OptionsDisplayWidget(self.pma_object.options)
 
@@ -124,6 +136,8 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
             tabs.addTab(self.volume_viewer, "3D Reconstruction")
             tabs.addTab(self.projection_viewer, "Aligned Projections")
             tabs.addTab(self.options_display, "Options")
+            if self.pma_object.options.refine_geometry.enabled:
+                tabs.addTab(geom_refinement_widget, "Geometry Refinement")
 
             # Setup layout
             layout = QVBoxLayout()
@@ -192,6 +206,11 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
             itimer.end()
 
             self.momentum_v_iter_viewer.update_plot()
+
+            if self.pma_object.options.refine_geometry.enabled:
+                self.lamino_angle_viewer.update_plot()
+                self.tilt_angle_viewer.update_plot()
+                self.skew_angle_viewer.update_plot()
 
             self.last_update_label.setText(f"Last update: iteration {self.pma_object.iteration}")
         except (Exception, KeyboardInterrupt) as ex:
@@ -455,3 +474,61 @@ class PMShiftDiffPlotWidget(PMLinePlotWidget):
         self.add_y_axis_in_microns()
 
 
+class LaminoAngleRefinementWidget(PMLinePlotWidget):
+    def __init__(self, pma_object: "pm.ProjectionMatchingAligner", parent=None):
+        super().__init__(pma_object=pma_object, parent=parent)
+
+    @property
+    def y_data(self):
+        return self.pma_object.all_lamino_angle_updates
+
+    @property
+    def x_data(self):
+        return np.arange(0, len(self.y_data), dtype=int)
+
+    def initialize_plot_formatting(self):
+        self.ax.grid(linestyle=":")
+        self.ax.set_title("Laminography Angle")
+        self.ax.autoscale(enable=True, axis="x", tight=True)
+        self.ax.set_xlabel("Iteration")
+        self.ax.set_ylabel("Angle (deg)")
+
+
+class TiltAngleRefinementWidget(PMLinePlotWidget):
+    def __init__(self, pma_object: "pm.ProjectionMatchingAligner", parent=None):
+        super().__init__(pma_object=pma_object, parent=parent)
+
+    @property
+    def y_data(self):
+        return self.pma_object.all_tilt_angle_updates
+
+    @property
+    def x_data(self):
+        return np.arange(0, len(self.y_data), dtype=int)
+
+    def initialize_plot_formatting(self):
+        self.ax.grid(linestyle=":")
+        self.ax.set_title("Tilt Angle")
+        self.ax.autoscale(enable=True, axis="x", tight=True)
+        self.ax.set_xlabel("Iteration")
+        self.ax.set_ylabel("Angle (deg)")
+
+
+class SkewAngleRefinementWidget(PMLinePlotWidget):
+    def __init__(self, pma_object: "pm.ProjectionMatchingAligner", parent=None):
+        super().__init__(pma_object=pma_object, parent=parent)
+
+    @property
+    def y_data(self):
+        return self.pma_object.all_skew_angle_updates
+
+    @property
+    def x_data(self):
+        return np.arange(0, len(self.y_data), dtype=int)
+
+    def initialize_plot_formatting(self):
+        self.ax.grid(linestyle=":")
+        self.ax.set_title("Skew Angle")
+        self.ax.autoscale(enable=True, axis="x", tight=True)
+        self.ax.set_xlabel("Iteration")
+        self.ax.set_ylabel("Angle (deg)")
