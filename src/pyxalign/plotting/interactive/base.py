@@ -278,6 +278,40 @@ class ArrayViewer(MultiThreadedWidget):
         """Show the widget."""
         self.show()
 
+class LinkedArrayViewer(MultiThreadedWidget):
+    # Make array3d optional with a default of None
+    def __init__(
+        self,
+        array_list: list[np.ndarray],
+        options: Optional[ArrayViewerOptions] = None,
+        sort_idx: Optional[Sequence] = None,
+        multi_thread_func: Optional[Callable] = None,
+        extra_title_strings_list: Optional[list[str]] = None,
+        process_func: Optional[Callable] = None,
+        parent=None,
+    ):
+        super().__init__(
+            multi_thread_func=multi_thread_func,
+            parent=parent,
+        )
+        # main layout
+        layout = QHBoxLayout()
+        # create array viewers
+        self.array_viewer_list = []
+        for i, array3d in enumerate(array_list):
+            array_viewer = ArrayViewer(
+                array3d, options=options, sort_idx=sort_idx,
+                multi_thread_func=multi_thread_func,
+                extra_title_strings_list=extra_title_strings_list,
+                process_func=process_func)
+            self.array_viewer_list += [array_viewer]
+            # connect all sliders
+            if i != 0:
+                array_viewer.slider.valueChanged.connect(self.array_viewer_list[0].slider.setValue)
+                self.array_viewer_list[0].slider.valueChanged.connect(array_viewer.slider.setValue)
+            layout.addWidget(array_viewer)
+        self.setLayout(layout)
+
 
 class IndexSelectorWidget(QWidget):
     def __init__(

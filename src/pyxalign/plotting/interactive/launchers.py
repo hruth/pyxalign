@@ -2,7 +2,7 @@ from typing import Optional, Sequence, Callable
 import numpy as np
 from pyxalign.api.options.plotting import ProjectionViewerOptions
 from pyxalign.plotting.interactive.arrays import ProjectionViewer, VolumeViewer
-from pyxalign.plotting.interactive.base import ArrayViewer
+from pyxalign.plotting.interactive.base import ArrayViewer, LinkedArrayViewer
 import pyxalign.data_structures.projections as p
 from pyxalign.api.options.plotting import ArrayViewerOptions
 
@@ -54,6 +54,30 @@ def launch_array_viewer(
     if wait_until_closed:
         app.exec_()
     return gui
+
+
+def launch_linked_array_viewer(    
+    array_list: list[np.ndarray],
+    options: Optional[ArrayViewerOptions] = None,
+    sort_idx: Optional[Sequence] = None,
+    extra_title_strings_list: Optional[list[str]] = None,
+    process_func: Optional[Callable] = None,
+    wait_until_closed: bool = False,
+):
+    app = QApplication.instance() or QApplication([])
+    gui = LinkedArrayViewer(
+        array_list,
+        options,
+        sort_idx,
+        extra_title_strings_list=extra_title_strings_list,
+        process_func=process_func,
+    )
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
+
 
 
 # def launch_xrf_projections_viewer(xrf_task: "x.xrf_task") -> XRFProjectionsViewer:
