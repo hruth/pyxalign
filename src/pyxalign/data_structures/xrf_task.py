@@ -63,8 +63,19 @@ class XRFTask:
     #     return self.projections_dict[self._primary_channel]
 
     @property
-    def angles(self):
-        return self.projections_dict[self._primary_channel].angles
+    def angles(self) -> np.ndarray:
+        # do not allow the user to try to do inplace editing of angles
+        ro = self.projections_dict[self._primary_channel].angles
+        ro.flags.writeable = False
+        return ro
+    
+    @angles.setter
+    def angles(self, angles: np.ndarray):
+        self._set_all_angles(angles)
+
+    def _set_all_angles(self, angles: np.ndarray):
+        for _, projections in self.projections_dict.items():
+            projections.angles = angles * 1
 
     @property
     def scan_numbers(self):
