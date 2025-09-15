@@ -49,7 +49,7 @@ def remove_scans_from_dict(scan_file_dict: dict, scan_start: int, scan_end: int,
     if scan_end is None:
         scan_end = np.max(list(scan_file_dict.keys()))
     if scan_list is None:
-        scan_list = []
+        scan_list = range(scan_start, scan_end + 1)
     return {k: v for k, v in scan_file_dict.items() if (k >= scan_start and k <= scan_end and k in scan_list)}
 
 
