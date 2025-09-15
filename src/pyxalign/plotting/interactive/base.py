@@ -220,9 +220,10 @@ class ArrayViewer(MultiThreadedWidget):
             self.image_item.setImage(np.transpose(image), autoLevels=False)
 
         # Update title
-        title = f"Index {index}"
+        title = f"<span style='color:#B0E6F7'>Index {index}</span>"
         if self.extra_title_strings_list is not None:
             title += self.extra_title_strings_list[plot_index]
+        title = "<b>" + title + "</b>"
         self.plot_item.setTitle(title)
 
     def update_frame(self, value, force_autolim: bool = False):

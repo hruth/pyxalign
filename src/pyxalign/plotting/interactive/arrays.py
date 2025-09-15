@@ -1,3 +1,4 @@
+from turtle import title
 from typing import Callable, Optional
 import cupy as cp
 from pyxalign.api.maps import get_process_func_by_enum
@@ -148,7 +149,8 @@ class ProjectionViewer(MultiThreadedWidget):
             # array3d=self.process_func(projections.data),
             array3d=projections.data,
             sort_idx=sort_idx,
-            extra_title_strings_list=[f"\nScan {scan}" for scan in self.projections.scan_numbers],
+            extra_title_strings_list=get_projection_title_strings(
+                self.projections.scan_numbers, self.projections.angles),
             process_func=self.process_func
         )
         
@@ -366,9 +368,10 @@ class ScanRemovalTool(QWidget):
         self.mark_for_removal_check_box.blockSignals(False)
         # re-initialize array viewer
         self.array_viewer.reinitialize_all(
-            self.projections.data,
-            np.argsort(self.projections.angles),
-            [f"\nScan {scan}" for scan in self.projections.scan_numbers],
+            array3d=self.projections.data,
+            sort_idx=np.argsort(self.projections.angles),
+            extra_title_strings_list=get_projection_title_strings(
+                self.projections.scan_numbers, self.projections.angles)
         )
 
     def table_item_selected(self, row: int):
@@ -528,3 +531,17 @@ class AllShiftsViewer(MultiThreadedWidget):
 
     def start(self):
         self.show()
+
+
+def get_projection_title_strings(scan_numbers: np.ndarray, angles: np.ndarray) -> list[str]:
+    whitespace = "&nbsp;" * 3
+
+    def return_angle_string(angle):
+        return f"<span style='color:pink'>Angle {angle:.3f}<sup>o</sup></span>"
+
+    def return_scan_string(scan_number):
+        return f"<span style='color:#9FEDB9'>Scan {scan_number}</span>"
+    title_strings = [
+        f"{whitespace}{return_scan_string(scan)}{whitespace}{return_angle_string(angle)}"
+        for scan, angle in zip(scan_numbers, angles)]
+    return title_strings
