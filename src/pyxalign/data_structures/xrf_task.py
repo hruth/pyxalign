@@ -1,5 +1,7 @@
+from ast import Str
 from typing import Optional
 import numpy as np
+import h5py
 from pyxalign import LaminographyAlignmentTask
 from pyxalign.alignment.cross_correlation import CrossCorrelationAligner
 from pyxalign.api import enums
@@ -8,6 +10,7 @@ from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.data_structures.task import run_projection_matching
 from pyxalign.data_structures.xrf_projections import XRFProjections
+from pyxalign.io.save import save_generic_data_structure_to_h5
 from pyxalign.timing.timer_utils import clear_timer_globals
 from pyxalign.api.types import r_type
 
@@ -188,5 +191,31 @@ class XRFTask:
             title="Cross-correlation Shift",
         )
         print("Cross-correlation shift stored in shift_manager")
+
+    def save_task(self, file_path: str, save_channels: Optional[list[str]] = None):
+        if save_channels is None:
+            save_channels = self.channels
+        else:
+            # protect against user error in capitalization
+            lower_case_channels = [x.lower() for x in self.channels]
+            for i, channel in enumerate(save_channels):
+                if channel.lower() in lower_case_channels:
+                    idx = np.where([x == channel.lower() for x in lower_case_channels])[0]
+                    save_channels[idx] = self.channels[idx]
+                else:
+                    print(f"Channel '{channel}' not found")
+            # primary channel must be included
+            if self.primary_channel.lower() not in lower_case_channels:
+                save_channels += [self.primary_channel]
+            print(save_channels)
+
+        with h5py.File(file_path, "w") as h5_obj:
+            proj_channels_group = h5_obj.create_group("projections")
+            for channel in save_channels:
+                self.projections_dict[channel].save_projections_object(h5_obj=proj_channels_group.create_group(channel))
+            save_generic_data_structure_to_h5(self.projection_options, h5_obj.create_group("projection_options"))
+            save_generic_data_structure_to_h5(self.alignment_options, h5_obj.create_group("alignment_options"))
+            h5_obj.create_dataset(name="primary_channel", data=self.primary_channel)
+            print(f"XRF task saved to {h5_obj.file.filename}{h5_obj.name}")
 
     # def launch_xrf_projections_viewer(self):
