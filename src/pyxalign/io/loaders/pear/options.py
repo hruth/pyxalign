@@ -25,6 +25,11 @@ class BaseLoadOptions:
     scan_end: Optional[int] = None
     "Upper bound of scans to include."
 
+    scan_list: Optional[list[int]] = None
+    """List of scans to load. This serves as an extra filter, meaning that 
+    `scan_start`, `scan_end`, `file_pattern`, and all other settings/filters
+    will still be applied."""
+
     only_include_files_with: Optional[list[str]] = None
     "Only include files with these strings in the ptycho file string."
 
@@ -42,6 +47,7 @@ class BaseLoadOptions:
     "Whether or not the UI asks for backup files if a projection file is not found."
 
     select_all_by_default: bool = False
+
 
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):

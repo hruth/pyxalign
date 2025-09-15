@@ -16,7 +16,7 @@ def load_xrf_experiment(
     angles = []
     extra_PVs_dict = {}
     scan_file_dict = get_scan_file_dict(file_names, options.file_pattern)
-    scan_file_dict = remove_scans_from_dict(scan_file_dict, options.scan_start, options.scan_end)
+    scan_file_dict = remove_scans_from_dict(scan_file_dict, options.scan_start, options.scan_end, options.scan_list)
 
     # Load data from each file
     for scan_number, file_name in scan_file_dict.items():
@@ -43,12 +43,14 @@ def load_xrf_experiment(
     return channel_data_objects, extra_PVs_dict
 
 
-def remove_scans_from_dict(scan_file_dict: dict, scan_start: int, scan_end: int):
+def remove_scans_from_dict(scan_file_dict: dict, scan_start: int, scan_end: int, scan_list: list[int]):
     if scan_start is None:
         scan_start = 0
     if scan_end is None:
         scan_end = np.max(list(scan_file_dict.keys()))
-    return {k: v for k, v in scan_file_dict.items() if (k >= scan_start and k <= scan_end)}
+    if scan_list is None:
+        scan_list = []
+    return {k: v for k, v in scan_file_dict.items() if (k >= scan_start and k <= scan_end and k in scan_list)}
 
 
 def get_scan_file_dict(file_names: list[str], file_pattern: str) -> dict:  # -> list[int]:
