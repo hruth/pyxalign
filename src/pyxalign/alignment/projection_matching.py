@@ -670,7 +670,7 @@ class ProjectionMatchingAligner(Aligner):
 
     def check_for_error(self):
         if self.options.interactive_viewer.update.enabled and self.gui.force_stop:
-            self.gui.finish_test()
+            # self.gui.finish_test() # unecessary?
             raise Exception("User manually stopped execution")
 
     def show_GUI(self):

@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QLabel,
 )
 from PyQt5.QtCore import pyqtSignal, QObject, QMutex, QWaitCondition
+from PyQt5.QtGui import QCloseEvent
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar,
@@ -54,6 +55,8 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
         )
         self.pma_object = pma_object
         self.force_stop = False
+        self.test_finished = False
+        self.close_button_clicked = False
         self.setWindowTitle("Projection Matching Alignment Display")
         self.resize(1400, 900)
 
@@ -168,6 +171,20 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
 
     def finish_test(self):
         self.disable_stop_button("alignment finished")
+        self.test_finished = True
+        if self.close_button_clicked:
+            self.close()
+
+    def closeEvent(self, event: QCloseEvent):
+        if self.close_button_clicked:
+            return
+        self.close_button_clicked = True
+        if self.test_finished:
+            event.accept()  # Close the window
+        else:
+            self.stop_alignment_thread()
+            # do not close until the rest is done!
+            event.ignore()
 
     @timer(enabled=timer_enabled)
     def update_plots(self):
