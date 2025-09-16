@@ -1,10 +1,6 @@
-from multiprocessing import dummy
 import sys
-from dataclasses import fields, is_dataclass
-from enum import Enum
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
-import cupy as cp
 import numpy as np
 import copy
 import pyqtgraph as pg
@@ -12,29 +8,12 @@ import time
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QAbstractItemView,
     QApplication,
-    QCheckBox,
-    QComboBox,
-    QDialogButtonBox,
-    QDoubleSpinBox,
-    QFormLayout,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLayout,
-    QLineEdit,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
-    QSpacerItem,
-    QSpinBox,
-    QStackedWidget,
-    QTabBar,
-    QTableWidget,
-    QTableWidgetItem,
     QTabWidget,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -46,21 +25,12 @@ import pyxalign.data_structures.task as t
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import create_empty_pinned_array_like
 from pyxalign.interactions.pma_runner import AlignmentResults, AlignmentResultsCollection
-import pyxalign.io.load as load
-from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
-from pyxalign.api.options.projections import ProjectionOptions
-from pyxalign.api.options.task import AlignmentTaskOptions
-from pyxalign.api.options.transform import CropOptions, DownsampleOptions, ShiftOptions
+from pyxalign.api.options.alignment import CrossCorrelationOptions
+from pyxalign.api.options.transform import CropOptions, ShiftOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.interactions.sequencer import SequencerWidget
 from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.plotting.interactive.base import ArrayViewer, MultiThreadedWidget
-from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
-from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
 from pyxalign.transformations.classes import Cropper, Shifter
-
-# # temporary
-# projection_type = enums.ProjectionType.PHASE
 
 
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
@@ -75,7 +45,15 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             multi_thread_func=multi_thread_func,
             parent=parent,
         )
-        self.projection_type = projection_type
+        self.task = task
+        # If only one type of projection exists, use that type
+        if self.task.phase_projections is None:  # only has complex projections
+            self.projection_type = enums.ProjectionType.COMPLEX
+        elif self.task.complex_projections is None:  # only has phase projections
+            self.projection_type = enums.ProjectionType.PHASE
+        else:  # has both types of projections
+            self.projection_type = projection_type
+
         self.crop_viewer = None
         self.alignment_results_list: list[AlignmentResults] = []
         self.results_collection_widget = None
@@ -91,7 +69,6 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             return self.task.complex_projections
 
     def initialize_page(self, task: "t.LaminographyAlignmentTask"):
-        self.task = task
         self.pinned_array = create_empty_pinned_array_like(self.projections.data)
         tabs = QTabWidget()
         tabs.setObjectName("main_tabs")
@@ -126,17 +103,12 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             )
         ]
         self.results_collection_widget.update_table()
-        # get shifted projections (use circ always)
-        # shift_func = Shifter(ShiftOptions(type=enums.ShiftType.CIRC, enabled=True))
-        print("fft")
-        t = time.time()
         shift_func = Shifter(ShiftOptions(type=enums.ShiftType.FFT, enabled=True))
         self.pinned_array = shift_func.run(
             images=self.projections.data,
             shift=shift.astype(r_type),
             pinned_results=self.pinned_array,
         )
-        print(time.time() - t)
 
         sort_idx = np.argsort(self.projections.angles)
         title_strings = [
@@ -157,7 +129,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         if self.projection_type == enums.ProjectionType.PHASE:
             proj = self.task.phase_projections
         else:
-            proj = self.task.complex_projections # fixed
+            proj = self.task.complex_projections  # fixed
 
         # Make options editor
         basic_options_list = ["binning", "filter_position", "filter_data", "crop"]
@@ -239,24 +211,24 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.canvas = self.graphics_layout  # Keep canvas reference for layout compatibility
         self.plot_item = self.graphics_layout.addPlot()
         self.plot_item.setTitle("Cross Correlation Shift")
-        self.plot_item.setLabel('left', 'shift (px)')
-        self.plot_item.setLabel('bottom', 'angle (deg)')
+        self.plot_item.setLabel("left", "shift (px)")
+        self.plot_item.setLabel("bottom", "angle (deg)")
         self.plot_item.showGrid(x=True, y=True)
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
     def update_shift_results_plot(self, shift: np.ndarray):
         self.plot_item.clear()
         sort_idx = np.argsort(self.projections.angles)
-        
+
         # Plot horizontal and vertical shifts
         angles_sorted = self.projections.angles[sort_idx]
         horizontal_shift = shift[sort_idx, 0]
         vertical_shift = shift[sort_idx, 1]
-        
+
         # Plot with different colors and labels
-        self.plot_item.plot(angles_sorted, horizontal_shift, pen='b', name='Horizontal')
-        self.plot_item.plot(angles_sorted, vertical_shift, pen='r', name='Vertical')
-        
+        self.plot_item.plot(angles_sorted, horizontal_shift, pen="b", name="Horizontal")
+        self.plot_item.plot(angles_sorted, vertical_shift, pen="r", name="Vertical")
+
         # Add legend
         self.plot_item.addLegend()
 
@@ -270,16 +242,23 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
 
 
 if __name__ == "__main__":
-    import os
+    import sys
+    import argparse
 
-    base_folder = os.environ["PYXALIGN_CI_TEST_DATA_DIR"]
-    rel_path = "dummy_inputs/cSAXS_e18044_LamNI_201907_16x_downsampled_pre_pma_task.h5"
-    task_path = os.path.join(base_folder, rel_path)
+    # must enter a path to the task file
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "task_path",
+        help="Path to a task file"
+    )
+    args = parser.parse_args()
+    task_path = args.task_path
+
     dummy_task = t.load_task(task_path)
     dummy_task.options.cross_correlation = CrossCorrelationOptions()
 
     app = QApplication(sys.argv)
-    master_widget = CrossCorrelationMasterWidget(task=dummy_task)
+    master_widget = CrossCorrelationMasterWidget(task=dummy_task, projection_type="PHASE")
 
     # Use the left half of the screen
     screen_geometry = app.desktop().availableGeometry(master_widget)
