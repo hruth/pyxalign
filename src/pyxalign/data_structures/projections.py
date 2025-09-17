@@ -198,6 +198,10 @@ class Projections:
             self.data = Cropper(options).run(self.data)
             if self.masks is not None:
                 self.masks = Cropper(options).run(self.masks)
+            if self.probe_positions is not None:
+                self.probe_positions.crop_positions(
+                    x_max=self.data.shape[2], y_max=self.data.shape[1]
+                )
             self.transform_tracker.update_crop(options)
             # To do: update this to work properly when the
             # center is shifted too!

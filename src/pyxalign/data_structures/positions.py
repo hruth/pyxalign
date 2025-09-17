@@ -28,6 +28,13 @@ class ProbePositions:
             self.data[i][:, 0] += shift[i, 1]
             self.data[i][:, 1] += shift[i, 0]
 
+    def crop_positions(self, x_max: int, y_max: int):
+        for i, positions in enumerate(self.data):
+            in_bounds_idx_y = (positions[:, 0] > 0) * (positions[:, 0] < y_max)
+            in_bounds_idx_x = (positions[:, 1] > 0) * (positions[:, 1] < x_max)
+            in_bounds_idx = in_bounds_idx_x * in_bounds_idx_y
+            self.data[i] = self.data[i][in_bounds_idx]
+
     def plot_positions(self, index: int, color: str = "m", linestyle: str = "-"):
         positions = self.data[index]
         plt.plot(positions[:, 1], positions[:, 0], color=color, linestyle=linestyle)
