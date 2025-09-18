@@ -39,7 +39,7 @@ def load_ptycho_projections(
     }
     for group, projection_type in projections_map.items():
         if group in task_h5_obj.keys() and group not in exclude:
-            loaded_projections[group] = load_projections_object(task_h5_obj, projection_type)
+            loaded_projections[group] = load_projections_object(task_h5_obj[group], projection_type)
     return loaded_projections
 
 
