@@ -89,6 +89,7 @@ class ProjectionMatchingAligner(Aligner):
 
         # Run the PMA algorithm
         self.calculate_alignment_shift()
+        self.update_GUI(force_update=True) # update GUI one last time
 
         if self.memory_config == MemoryConfig.GPU_ONLY:
             self.move_arrays_back_to_cpu()
@@ -123,8 +124,8 @@ class ProjectionMatchingAligner(Aligner):
                     + f"{self.momentum_update_string}{text_colors.ENDC}"
                 )
                 loop_prog_bar.set_description(prog_bar_update_string)
-            is_step_size_below_threshold = self.check_stopping_condition(max_shift_step_size)
-            if is_step_size_below_threshold:
+            stopping_condition_met = self.check_stopping_condition(max_shift_step_size)
+            if stopping_condition_met:
                 break
             self.check_for_error()
 
@@ -651,12 +652,11 @@ class ProjectionMatchingAligner(Aligner):
         return shift
 
     @timer()
-    def update_GUI(self):
+    def update_GUI(self, force_update: bool = False):
         "Update gui plots with data from the last PMA iteration"
-        if (
-            self.options.interactive_viewer.update.enabled
-            and self.iteration % self.options.interactive_viewer.update.stride == 0
-        ):
+        gui_enabled = self.options.interactive_viewer.update.enabled
+        stride_condition_met = self.iteration % self.options.interactive_viewer.update.stride == 0
+        if force_update or (gui_enabled and stride_condition_met):
             # Prevent PMA thread execution until the gui plot update has
             # finished. This is probably unecessary.
             # t0 = time.time()
@@ -670,7 +670,7 @@ class ProjectionMatchingAligner(Aligner):
 
     def check_for_error(self):
         if self.options.interactive_viewer.update.enabled and self.gui.force_stop:
-            self.gui.finish_test()
+            # self.gui.finish_test() # unecessary?
             raise Exception("User manually stopped execution")
 
     def show_GUI(self):

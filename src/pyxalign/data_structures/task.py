@@ -16,7 +16,7 @@ from pyxalign.alignment.projection_matching import ProjectionMatchingAligner
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
-from pyxalign.io.load import load_projections
+from pyxalign.io.load import load_ptycho_projections
 from pyxalign.io.save import save_generic_data_structure_to_h5
 from pyxalign.io.utils import load_options
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
@@ -194,7 +194,7 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
 
     with h5py.File(file_path, "r") as h5_obj:
         # Load projections
-        loaded_projections = load_projections(h5_obj, exclude)
+        loaded_projections = load_ptycho_projections(h5_obj, exclude)
 
         # Insert projections into task along with saved task options
         task = LaminographyAlignmentTask(

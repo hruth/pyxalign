@@ -256,6 +256,14 @@ def extract_experiment_info(options: T) -> tuple[np.ndarray, np.ndarray, list[st
     #         reconstructions_folder
     # )
 
+    # Filter scan numbers
+    if options.base.scan_list is not None:
+        keep_idx = [scan in options.base.scan_list for scan in scan_numbers]
+        scan_numbers = scan_numbers[keep_idx]
+        angles = angles[keep_idx]
+        experiment_names = [name for i, name in enumerate(experiment_names) if keep_idx[i]]
+        sequences = sequences[keep_idx]
+
     return scan_numbers, angles, experiment_names, sequences
 
 

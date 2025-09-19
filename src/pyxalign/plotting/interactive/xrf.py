@@ -64,6 +64,9 @@ class XRFChannelSelectorWidget(QWidget):
             # Set the initially selected channel
             if channel == primary_channel:
                 radio_button.setChecked(True)
+        layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
 
         self.radio_group.buttonClicked.connect(button_clicked_function)
         scroll_area.setWidget(radio_container)
@@ -154,6 +157,7 @@ class XRFVolumeViewer(MultiThreadedWidget):
     def __init__(
         self,
         xrf_task: "x.XRFTask",
+        include_channels: Optional[list[str]] = None,
         multi_thread_func: Optional[Callable] = None,
         parent=None,
     ):
@@ -165,13 +169,37 @@ class XRFVolumeViewer(MultiThreadedWidget):
         self.resize(1460, 850)
         self.xrf_task = xrf_task
 
+        # build list of channels to include on viewer
+        if include_channels is None:
+            include_channels = []
+            for channel, proj in self.xrf_task.projections_dict.items():
+                if proj.volume.data is not None:
+                    include_channels += [channel]
+        else:
+            # remove unbuilt channels or typos
+            new_include_channels = []
+            for channel in include_channels:
+                is_in_dict = channel in self.xrf_task.projections_dict.keys()
+                if is_in_dict:
+                    has_volume = self.xrf_task.projections_dict[channel].volume.data is not None
+                    if has_volume:
+                        new_include_channels += [channel]
+                else:
+                    print(f"skipping '{channel}'")
+            include_channels = new_include_channels
+
+        if self.xrf_task.primary_channel in include_channels:
+            default_channel = self.xrf_task.primary_channel
+        else:
+            default_channel = include_channels[0]
+
         self.volume_viewer = VolumeViewer(
-            self.xrf_task.projections_dict[self.xrf_task.primary_channel].volume.data
+            self.xrf_task.projections_dict[default_channel].volume.data
         )
 
         self.channel_selector_widget = XRFChannelSelectorWidget(
-            self.xrf_task.channels,
-            self.xrf_task.primary_channel,
+            include_channels,
+            default_channel,
             button_clicked_function=self.change_projection_viewer_channel,
             parent=self,
         )
