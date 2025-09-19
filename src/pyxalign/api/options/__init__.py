@@ -18,6 +18,7 @@ from .alignment import (
     SecondaryMaskOptions,
     ReconstructionMaskOptions,
     StepMomentum,
+    RefineGeometryOptions,
 )
 from .projections import (
     CoordinateSearchOptions,

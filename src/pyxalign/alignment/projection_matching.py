@@ -839,7 +839,7 @@ class ProjectionMatchingAligner(Aligner):
 
         proj = self.aligned_projections.data[sort_idx[i]]
         forward_proj = self.aligned_projections.volume.forward_projections.data[sort_idx[i]]
-        mask = self.aligned_projections.masks[sort_idx[i]]
+        mask = self.aligned_projections.masks[sort_idx[i]] * self.secondary_mask
 
         fig, ax = plt.subplots(3, 4, layout="compressed", figsize=(15, 7.5))
         plt.suptitle(f"Arrays for {i}")
