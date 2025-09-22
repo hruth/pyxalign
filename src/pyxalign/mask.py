@@ -303,10 +303,17 @@ def shrink_binary_mask(mask: np.ndarray, shrink_radius: int):
     return shrunken_mask.astype(mask.dtype)
 
 
-def place_patches_fourier_batch(input_shape: tuple, patch: np.ndarray, positions: list[np.ndarray]):
+def place_patches_fourier_batch(
+    input_shape: tuple, patch: np.ndarray, positions: list[np.ndarray], pad_edges: bool = True
+) -> np.ndarray:
     patch = cp.array(patch)
     xp = cp.get_array_module(patch)
     scipy_module = get_scipy_module(patch)
+
+    # pad by the patch size to prevent wrapping
+    if pad_edges:
+        padding = int(patch.shape[1])
+        input_shape = (input_shape[0], input_shape[1] + padding, input_shape[2] + padding)
 
     impulse_mask = xp.zeros(input_shape[1:], dtype=r_type)
     padded_patch = xp.zeros_like(impulse_mask)
@@ -318,6 +325,8 @@ def place_patches_fourier_batch(input_shape: tuple, patch: np.ndarray, positions
 
         # mark impulse locations
         locations = positions[i]
+        if pad_edges:
+            locations += int(padding / 2)
         offset = np.array(patch.shape, dtype=r_type) / 2
         coords = locations - offset
         indices = np.round(coords).astype(int)
@@ -343,6 +352,10 @@ def place_patches_fourier_batch(input_shape: tuple, patch: np.ndarray, positions
         result = xp.real(scipy_module.fft.ifft2(fft_mask * fft_patch))
         result = scipy_module.fft.fftshift(result)
         result.get(out=masks_out[i])
+    # undo initial padding
+    if pad_edges:
+        a = int(padding / 2)
+        masks_out = masks_out[:, a:-a, a:-a]
 
     return masks_out
 
