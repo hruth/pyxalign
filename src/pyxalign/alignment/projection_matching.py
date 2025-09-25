@@ -634,7 +634,11 @@ class ProjectionMatchingAligner(Aligner):
         return max_shift_step_size
 
     def check_stopping_condition(self, max_shift_step_size: float) -> bool:
-        if max_shift_step_size < self.options.min_step_size and self.iteration > 0 and self.iteration >= self.options.min_iterations:
+        if (
+            max_shift_step_size < self.options.min_step_size
+            and self.iteration > 0
+            and self.iteration >= (self.options.min_iterations - 1)
+        ):
             print("Minimum step size reached, stopping loop...")
             return True
         else:

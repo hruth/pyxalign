@@ -142,8 +142,9 @@ def get_object_geometries(scan_geometry_config: dict, vectors: np.ndarray) -> di
 def create_astra_reconstructor_config(
     sinogram: np.ndarray,
     object_geometries: dict,
+    algorithm_type: str = "BP3D_CUDA"
 ) -> tuple[dict, dict]:
-    astra_config = astra.astra_dict("BP3D_CUDA")  # update this for cpu option later
+    astra_config = astra.astra_dict(algorithm_type)
     astra_config["ReconstructionDataId"] = astra.data3d.create(
         "-vol", object_geometries["vol_geom"]
     )

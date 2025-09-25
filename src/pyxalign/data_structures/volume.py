@@ -77,6 +77,10 @@ class Volume:
         update_stored_sinogram: bool = True,
         update_geometries: bool = False,
     ):
+        # reinforce references
+        self.options = self.projections.options.reconstruct
+        self.experiment_options = self.projections.options.experiment
+
         # Copy the settings used at the time of the reconstruction
         # self.options = copy.deepcopy(self.projections.options.reconstruct)
         # self.experiment_options = copy.deepcopy(self.projections.options.experiment)
@@ -119,6 +123,7 @@ class Volume:
             self.astra_config = reconstruct.create_astra_reconstructor_config(
                 sinogram,
                 self.object_geometries,
+                self.options.astra.algorithm_type,
             )
         else:
             if update_stored_sinogram:

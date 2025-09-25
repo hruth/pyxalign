@@ -16,6 +16,8 @@ class AstraOptions:
 
     forward_project_gpu_indices: Sequence[int] = (0,)
 
+    algorithm_type: str = "BP3D_CUDA"
+
 @dataclasses.dataclass
 class GeometryOptions:
     tilt_angle: float = 0.0
