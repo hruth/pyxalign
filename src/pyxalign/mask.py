@@ -324,7 +324,7 @@ def place_patches_fourier_batch(
         padded_patch[:] = 0
 
         # mark impulse locations
-        locations = positions[i]
+        locations = positions[i] * 1
         if pad_edges:
             locations += int(padding / 2)
         offset = np.array(patch.shape, dtype=r_type) / 2
