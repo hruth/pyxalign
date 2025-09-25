@@ -4,37 +4,27 @@ import scipy
 import cupyx.scipy.fft as cufft
 from tqdm import tqdm
 from pyxalign.gpu_utils import memory_releasing_error_handler
-import matplotlib.pyplot as plt
 from pyxalign.regularization import chambolleLocalTV3D
-from IPython.display import clear_output
 from pyxalign.timing.timer_utils import timer, InlineTimer
+from pyxalign.api.types import r_type
 
 
 @memory_releasing_error_handler
 @timer()
 def fill_missing_cone(
-    rec,
-    p,
-    laminoAngle,
-    maskRelax=0.05,
-    maxScale=16,
-    Niter=10,
-    deltaBackground=1.2e-5,
-    deltaMaximal=4.26e-5,
-    TV_lambda=1e-7,
+    rec: np.ndarray,
+    laminoAngle: float,
+    deltaBackground: float,
+    deltaMaximal: float,
+    maskRelax: float = 0.05,
+    maxScale: int = 16,
+    Niter: int = 10,
+    TV_lambda: float = 1e-7,
 ):
-    #### CHANGE TO USER-SET VARIABLES LATER ####
-    # maskRelax = np.float32(0.05)  # 0.15
     # Process the reconstruction using multiscale approach, start at 0.5^max_scale
-    deltaBackground = np.float32(deltaBackground)  # 0
-    deltaMaximal = np.float32(deltaMaximal)  # 2.5e-5
-    TV_lambda = np.float32(TV_lambda)
-    #### #### #### #### #### #### #### ####
-
-    # Initialization
-    factor = np.float32(p["lambda"] / (2 * np.pi * p["dx_spec"][0]))
-    rec = (rec * factor).astype(np.float32)
-    rec = rec - np.median(rec)
+    deltaBackground = r_type(deltaBackground)
+    deltaMaximal = r_type(deltaMaximal)
+    TV_lambda = r_type(TV_lambda)
 
     Npix = np.array(rec.shape, dtype=int)
 
@@ -45,9 +35,6 @@ def fill_missing_cone(
     borderSize = np.array([32, 32], dtype=int)
     blockSize = np.array([512, 512], dtype=int) - 2 * borderSize
 
-    # borderSize = np.array([32, 32], dtype=int)
-    # blockSize = np.array([1024, 1024], dtype=int) - 2 * borderSize
-
     scales = (2 ** np.arange(np.log2(maxScale), -1, -1)).astype(int)
     for scale in tqdm(scales):
         inline_timer = InlineTimer(f"scale_{scale}")
@@ -56,10 +43,10 @@ def fill_missing_cone(
 
         if scale > 1:
             recSmall = interpFT_3D(rec, np.ceil(Npix / scale))
-            maskVertSmall = maskVert[::scale, None, None]
-            # maskVertSmall = interpFT_3D(
-            #     maskVert[:, np.newaxis, np.newaxis], [np.ceil(Npix[0] / scale), 1, 1]
-            # ) # this isn't working properly, probably bc of issues with interpFT_3D
+            # maskVertSmall = maskVert[::scale, None, None]
+            xp = np.arange(0, len(maskVert), dtype=int)
+            x_interp = np.linspace(0, len(maskVert), len(recSmall))
+            maskVertSmall = np.interp(x=x_interp, xp=xp, fp=maskVert)[:, None, None]
         else:
             recSmall = rec
             maskVertSmall = maskVert[:, np.newaxis, np.newaxis]
@@ -79,11 +66,6 @@ def fill_missing_cone(
         )
 
         rec = rec + interpFT_3D(recRegularized - recSmall, Npix)
-        # mid = int(rec.shape[0]/2)
-        # clear_output(wait=True)
-        # plt.title(scale)
-        # plt.imshow(rec[mid], cmap="bone")
-        # plt.show()
 
         del recRegularized, recSmall
         inline_timer.end()
@@ -197,7 +179,7 @@ def applyLaminoConstraints(
 
         # Merge updated and original dataset in the Fourier space
         # Use overrelaxation of the constraint to get faster convergence
-        relax = np.float32(1.5)
+        relax = r_type(1.5)
         regularize = 0
         fftVolume = fftVolume * (1 - relax * fftMask) + fftVolumeNew * relax * fftMask
         fftVolume = fftVolume * (1 - regularize * fftMask).astype(np.float32)
