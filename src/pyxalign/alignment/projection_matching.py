@@ -660,7 +660,7 @@ class ProjectionMatchingAligner(Aligner):
         "Update gui plots with data from the last PMA iteration"
         gui_enabled = self.options.interactive_viewer.update.enabled
         stride_condition_met = self.iteration % self.options.interactive_viewer.update.stride == 0
-        if force_update or (gui_enabled and stride_condition_met):
+        if gui_enabled and (force_update or stride_condition_met):
             # Prevent PMA thread execution until the gui plot update has
             # finished. This is probably unecessary.
             # t0 = time.time()
