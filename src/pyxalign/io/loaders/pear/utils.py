@@ -205,19 +205,19 @@ def load_experiment(
         options.base.ask_for_backup_files,
         options.base.select_all_by_default,
     )
-    # Print data selection settings
-    print("Use these settings to bypass user-selection on next load:")
-    input_settings_string = (
-        f'  selected_experiment_name="{selected_experiment.experiment_name}",\n'
-        + f"  selected_sequences={list(np.unique(selected_experiment.sequences))},\n"
-        + f"  selected_ptycho_strings={insert_new_line_between_list(selected_experiment.selected_ptycho_file_strings)},\n"
-    )
-    if options.base.scan_start is not None:
-        input_settings_string += f"  scan_start={options.base.scan_start},\n"
-    if options.base.scan_end is not None:
-        input_settings_string += f"  scan_end={options.base.scan_end},\n"
-    input_settings_string = input_settings_string[:-1]
-    print(input_settings_string, flush=True)
+    # # Print data selection settings
+    # print("Use these settings to bypass user-selection on next load:")
+    # input_settings_string = (
+    #     f'  selected_experiment_name="{selected_experiment.experiment_name}",\n'
+    #     + f"  selected_sequences={list(np.unique(selected_experiment.sequences))},\n"
+    #     + f"  selected_ptycho_strings={insert_new_line_between_list(selected_experiment.selected_ptycho_file_strings)},\n"
+    # )
+    # if options.base.scan_start is not None:
+    #     input_settings_string += f"  scan_start={options.base.scan_start},\n"
+    # if options.base.scan_end is not None:
+    #     input_settings_string += f"  scan_end={options.base.scan_end},\n"
+    # input_settings_string = input_settings_string[:-1]
+    # print(input_settings_string, flush=True)
 
     # Load probe
     selected_experiment.load_probe()
