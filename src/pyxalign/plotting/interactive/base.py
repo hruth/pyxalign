@@ -287,7 +287,9 @@ class ArrayViewer(MultiThreadedWidget):
             # refresh the frame
             self.refresh_frame(force_autolim=True)
             # update the other boxes
-            new_selected_value_list = [arr[sort_idx[self.spinbox.value()]] for arr in new_additional_spinbox_indexing]
+            new_selected_value_list = [
+                arr[sort_idx[self.spinbox.value()]] for arr in new_additional_spinbox_indexing
+            ]
             print(new_selected_value_list)
             self.indexing_widget.update_additional_spinbox_indexing(
                 new_indexing=new_additional_spinbox_indexing,
@@ -298,6 +300,7 @@ class ArrayViewer(MultiThreadedWidget):
     def start(self):
         """Show the widget."""
         self.show()
+
 
 class LinkedArrayViewer(MultiThreadedWidget):
     # Make array3d optional with a default of None
@@ -321,10 +324,13 @@ class LinkedArrayViewer(MultiThreadedWidget):
         self.array_viewer_list = []
         for i, array3d in enumerate(array_list):
             array_viewer = ArrayViewer(
-                array3d, options=options, sort_idx=sort_idx,
+                array3d,
+                options=options,
+                sort_idx=sort_idx,
                 multi_thread_func=multi_thread_func,
                 extra_title_strings_list=extra_title_strings_list,
-                process_func=process_func)
+                process_func=process_func,
+            )
             self.array_viewer_list += [array_viewer]
             # connect all sliders
             if i != 0:
@@ -368,24 +374,11 @@ class IndexSelectorWidget(QWidget):
         # add spinbox to layout with label
         main_spinbox_widget = QWidget()
         main_spinbox_widget.setLayout(QVBoxLayout())
-        # main_spinbox_widget.layout().setContentsMargins(0, 0, 0, 0)
         main_spinbox_widget.layout().setContentsMargins(
             0, *main_spinbox_widget.layout().getContentsMargins()[1:]
         )
         main_spinbox_widget.layout().addWidget(self.spinbox)
         main_spinbox_widget.layout().addWidget(QLabel("index"))
-        # main_spinbox_widget.layout().addSpacerItem(
-        #     QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        # )
-        # self.spinbox.setStyleSheet("""
-        # QSpinBox {
-        #     font-size: 14px;
-        #     padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
-        #     min-width: 60px;     /* Minimum width */
-        #     min-height: 20px;    /* Minimum height */
-        #     text-align: center;  /* Text alignment */
-        # }
-        # """)
 
         # Play button
         if include_play_button:
@@ -401,8 +394,8 @@ class IndexSelectorWidget(QWidget):
             """)
             self.play_timer = QTimer()
             self.playback_speed_spin = QSpinBox()
-            self.playback_speed_spin.setRange(1,1000)  # Set a reasonable range
-            self.playback_speed_spin.setValue(20)  # Default speed = 10 Hz
+            self.playback_speed_spin.setRange(1, 1000)  # Set a reasonable range
+            self.playback_speed_spin.setValue(20)
             self.playback_speed_spin.valueChanged.connect(self._on_playback_speed_changed)
         else:
             self.play_button = QPushButton("Play")
@@ -423,47 +416,40 @@ class IndexSelectorWidget(QWidget):
             play_button_widget.layout().setContentsMargins(
                 0, *play_button_widget.layout().getContentsMargins()[1:]
             )
-            self.spin_play_layout.addWidget(play_button_widget, alignment=Qt.AlignTop)  
-            # self.spin_play_layout.addWidget(self.play_button, alignment=Qt.AlignTop)
-
-        # self.spin_play_layout.addWidget(self.spinbox)
+            self.spin_play_layout.addWidget(play_button_widget, alignment=Qt.AlignTop)
         self.spin_play_layout.addWidget(main_spinbox_widget, alignment=Qt.AlignLeft | Qt.AlignTop)
 
-        # add more spinboxes, like one for scan numbers in the case 
-        # of the ProjectionViewerr, if specified
+        # add more spinboxes, like one for scan numbers in the case
+        # of the ProjectionViewer, if specified
         if additional_spinbox_indexing is not None:
             for i, indexing in enumerate(additional_spinbox_indexing):
                 sbox = ValidatedSpinBox(allowed_values=indexing[sort_idx])
                 self.extra_spinboxes_list += [sbox]
-                sbox.setValue(indexing[start_index])
+                sbox.setValue(indexing[sort_idx[start_index]])
                 sbox.setMinimum(np.min(indexing))
                 sbox.setMaximum(np.max(indexing))
-                
+
                 # link to primary indexing box
                 def update_extra_from_primary(i: int):
                     sbox.setValue(sbox.allowed_values[i])
+
                 def update_primary_from_extra(i: int):
-                    self.slider.setValue(np.where(np.array(sbox.allowed_values)==i)[0][0])
+                    self.slider.setValue(np.where(np.array(sbox.allowed_values) == i)[0][0])
 
                 self.slider.valueChanged.connect(update_extra_from_primary)
                 sbox.valueChanged.connect(update_primary_from_extra)
 
-                # sbox_label = QLabel(additional_spinbox_title[i])
                 extra_sbox_widget = QWidget()
-                # sbox_layout = QVBoxLayout()
                 extra_sbox_widget.setLayout(QVBoxLayout())
-                # extra_sbox_widget.layout().setContentsMargins(0, 0, 0, 0)
                 extra_sbox_widget.layout().setContentsMargins(
                     0, *extra_sbox_widget.layout().getContentsMargins()[1:]
                 )
                 extra_sbox_widget.layout().addWidget(sbox)
                 extra_sbox_widget.layout().addWidget(QLabel(additional_spinbox_title[i]))
-                # extra_spinboxes_layout.addWidget(extra_sbox_widget)
                 # add to spin-play layout
-                self.spin_play_layout.addWidget(extra_sbox_widget, alignment=Qt.AlignLeft | Qt.AlignTop)
-
-            # # add to spin-play layout
-            # self.spin_play_layout.addWidget(extra_spinboxes_widget)
+                self.spin_play_layout.addWidget(
+                    extra_sbox_widget, alignment=Qt.AlignLeft | Qt.AlignTop
+                )
 
         self.spin_play_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -477,13 +463,13 @@ class IndexSelectorWidget(QWidget):
             playback_speed_label.setStyleSheet("QLabel {font-size: 12px;}")
             playback_speed_layout.addWidget(self.playback_speed_spin)
             playback_speed_layout.addWidget(playback_speed_label)
-            # self.spin_play_layout.addWidget(self.playback_speed_spin, alignment=Qt.AlignRight)
-            self.spin_play_layout.addWidget(playback_speed_widget, alignment=Qt.AlignRight | Qt.AlignTop)
+            self.spin_play_layout.addWidget(
+                playback_speed_widget, alignment=Qt.AlignRight | Qt.AlignTop
+            )
 
         # Main layout for the index selector
         index_selection_layout = QVBoxLayout()
         index_selection_layout.addWidget(self.slider)
-        # index_selection_layout.addLayout(self.spin_play_layout)
         index_selection_layout.addWidget(spin_play_widget)
         index_selection_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
