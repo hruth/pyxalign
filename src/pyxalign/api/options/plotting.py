@@ -1,3 +1,5 @@
+from re import A
+import numpy as np
 import dataclasses
 from dataclasses import field
 from numbers import Number
@@ -48,6 +50,10 @@ class ArrayViewerOptions:
     start_index: int = 0
 
     auto_adjust_clim: bool = False
+
+    additional_spinbox_indexing: Optional[list[np.ndarray]] = None
+    
+    additional_spinbox_titles: Optional[list[str]] = None
 
 
 @dataclasses.dataclass

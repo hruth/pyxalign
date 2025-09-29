@@ -150,8 +150,13 @@ class ProjectionViewer(MultiThreadedWidget):
             array3d=projections.data,
             sort_idx=sort_idx,
             extra_title_strings_list=get_projection_title_strings(
-                self.projections.scan_numbers, self.projections.angles),
-            process_func=self.process_func
+                self.projections.scan_numbers, self.projections.angles
+            ),
+            process_func=self.process_func,
+            options=ArrayViewerOptions(
+                additional_spinbox_indexing=[self.projections.scan_numbers],
+                additional_spinbox_titles=["scan number"],
+            ),
         )
         
         # build the array selection widget
@@ -366,12 +371,15 @@ class ScanRemovalTool(QWidget):
         self.mark_for_removal_check_box.blockSignals(True)
         self.mark_for_removal_check_box.setChecked(False)
         self.mark_for_removal_check_box.blockSignals(False)
+        sort_idx = np.argsort(self.projections.angles)
         # re-initialize array viewer
         self.array_viewer.reinitialize_all(
             array3d=self.projections.data,
-            sort_idx=np.argsort(self.projections.angles),
+            sort_idx=sort_idx,
             extra_title_strings_list=get_projection_title_strings(
-                self.projections.scan_numbers, self.projections.angles)
+                self.projections.scan_numbers, self.projections.angles
+            ),
+            new_additional_spinbox_indexing=[self.projections.scan_numbers],
         )
 
     def table_item_selected(self, row: int):

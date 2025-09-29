@@ -1,9 +1,13 @@
 from functools import wraps
 from ctypes import ArgumentError
+from operator import index
+from re import L
+from tkinter import Spinbox
 from typing import Optional, Sequence, Callable, TypeVar, ParamSpec
 import numpy as np
 import cupy as cp
 import traceback
+import bisect
 from pyxalign.api.options.plotting import ArrayViewerOptions
 from PyQt5.QtWidgets import (
     QWidget,
@@ -32,7 +36,7 @@ from PyQt5.QtCore import (
     QEventLoop,
     QThread,
 )
-from PyQt5.QtGui import QPalette, QColor
+from PyQt5.QtGui import QPalette, QColor, QValidator
 
 # Matplotlib imports remain here, but are not used in ArrayViewer anymore
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -155,7 +159,12 @@ class ArrayViewer(MultiThreadedWidget):
 
         # Create index selection widget (slider, spinbox, play button, etc.)
         self.indexing_widget = IndexSelectorWidget(
-            self.num_frames, self.options.start_index, parent=parent
+            self.num_frames,
+            self.options.start_index,
+            additional_spinbox_indexing=self.options.additional_spinbox_indexing,
+            additional_spinbox_title=self.options.additional_spinbox_titles,
+            sort_idx=sort_idx,
+            parent=parent,
         )
         self.slider, self.spinbox, self.play_button, self.timer = (
             self.indexing_widget.slider,
@@ -254,6 +263,8 @@ class ArrayViewer(MultiThreadedWidget):
         array3d: Optional[np.ndarray] = None,
         sort_idx: Optional[Sequence] = None,
         extra_title_strings_list: Optional[Sequence] = None,
+        new_additional_spinbox_indexing: Optional[list[np.ndarray]] = None,
+        new_selected_value_list: Optional[list[int]] = None,
         process_func: Optional[Callable] = None,
     ):
         """Re-initialize the viewer with a new array or sort indices."""
@@ -273,7 +284,16 @@ class ArrayViewer(MultiThreadedWidget):
             self.num_frames = self.array3d.shape[self.options.slider_axis]
             self.slider.setMaximum(self.num_frames - 1)
             self.spinbox.setMaximum(self.num_frames - 1)
+            # refresh the frame
             self.refresh_frame(force_autolim=True)
+            # update the other boxes
+            new_selected_value_list = [arr[sort_idx[self.spinbox.value()]] for arr in new_additional_spinbox_indexing]
+            print(new_selected_value_list)
+            self.indexing_widget.update_additional_spinbox_indexing(
+                new_indexing=new_additional_spinbox_indexing,
+                sort_idx=sort_idx,
+                new_selected_value_list=new_selected_value_list,
+            )
 
     def start(self):
         """Show the widget."""
@@ -320,9 +340,13 @@ class IndexSelectorWidget(QWidget):
         num_frames: int,
         start_index: Optional[int] = None,
         include_play_button: bool = True,
+        additional_spinbox_indexing: Optional[list[np.ndarray]] = None,
+        additional_spinbox_title: Optional[list[str]] = None,
+        sort_idx: Optional[Sequence] = None,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
+        self.extra_spinboxes_list: list[ValidatedSpinBox] = []
         if start_index is None:
             start_index = 0
 
@@ -333,21 +357,35 @@ class IndexSelectorWidget(QWidget):
         self.slider.setValue(start_index)
 
         # SpinBox (editable + arrows)
-        self.spinbox = QSpinBox()
+        self.spinbox = ValidatedSpinBox(
+            allowed_values=np.arange(0, num_frames, dtype=int)
+        )  # QSpinBox()
         self.spinbox.setMinimum(0)
         self.spinbox.setMaximum(num_frames - 1)
         self.spinbox.setValue(start_index)
         self.slider.valueChanged.connect(self.spinbox.setValue)
         self.spinbox.valueChanged.connect(self.slider.setValue)
-        self.spinbox.setStyleSheet("""
-        QSpinBox {
-            font-size: 14px;
-            padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
-            min-width: 60px;     /* Minimum width */
-            min-height: 20px;    /* Minimum height */
-            text-align: center;  /* Text alignment */
-        }
-        """)
+        # add spinbox to layout with label
+        main_spinbox_widget = QWidget()
+        main_spinbox_widget.setLayout(QVBoxLayout())
+        # main_spinbox_widget.layout().setContentsMargins(0, 0, 0, 0)
+        main_spinbox_widget.layout().setContentsMargins(
+            0, *main_spinbox_widget.layout().getContentsMargins()[1:]
+        )
+        main_spinbox_widget.layout().addWidget(self.spinbox)
+        main_spinbox_widget.layout().addWidget(QLabel("index"))
+        # main_spinbox_widget.layout().addSpacerItem(
+        #     QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        # )
+        # self.spinbox.setStyleSheet("""
+        # QSpinBox {
+        #     font-size: 14px;
+        #     padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
+        #     min-width: 60px;     /* Minimum width */
+        #     min-height: 20px;    /* Minimum height */
+        #     text-align: center;  /* Text alignment */
+        # }
+        # """)
 
         # Play button
         if include_play_button:
@@ -371,10 +409,62 @@ class IndexSelectorWidget(QWidget):
             self.play_button.hide()
 
         # Layout for spinbox and optional play button
+        spin_play_widget = QWidget()
         self.spin_play_layout = QHBoxLayout()
+        self.spin_play_layout.setContentsMargins(0, *self.spin_play_layout.getContentsMargins()[1:])
+        spin_play_widget.setLayout(self.spin_play_layout)
         if include_play_button:
-            self.spin_play_layout.addWidget(self.play_button)
-        self.spin_play_layout.addWidget(self.spinbox)
+            # A widget is made for the play button purely so I can
+            # align it better on the gui
+            play_button_widget = QWidget()
+            play_button_widget.setLayout(QVBoxLayout())
+            play_button_widget.layout().addWidget(self.play_button)
+            play_button_widget.layout().addWidget(QLabel(" "))
+            play_button_widget.layout().setContentsMargins(
+                0, *play_button_widget.layout().getContentsMargins()[1:]
+            )
+            self.spin_play_layout.addWidget(play_button_widget, alignment=Qt.AlignTop)  
+            # self.spin_play_layout.addWidget(self.play_button, alignment=Qt.AlignTop)
+
+        # self.spin_play_layout.addWidget(self.spinbox)
+        self.spin_play_layout.addWidget(main_spinbox_widget, alignment=Qt.AlignLeft | Qt.AlignTop)
+
+        # add more spinboxes, like one for scan numbers in the case 
+        # of the ProjectionViewerr, if specified
+        if additional_spinbox_indexing is not None:
+            for i, indexing in enumerate(additional_spinbox_indexing):
+                sbox = ValidatedSpinBox(allowed_values=indexing[sort_idx])
+                self.extra_spinboxes_list += [sbox]
+                sbox.setValue(indexing[start_index])
+                sbox.setMinimum(np.min(indexing))
+                sbox.setMaximum(np.max(indexing))
+                
+                # link to primary indexing box
+                def update_extra_from_primary(i: int):
+                    sbox.setValue(sbox.allowed_values[i])
+                def update_primary_from_extra(i: int):
+                    self.slider.setValue(np.where(np.array(sbox.allowed_values)==i)[0][0])
+
+                self.slider.valueChanged.connect(update_extra_from_primary)
+                sbox.valueChanged.connect(update_primary_from_extra)
+
+                # sbox_label = QLabel(additional_spinbox_title[i])
+                extra_sbox_widget = QWidget()
+                # sbox_layout = QVBoxLayout()
+                extra_sbox_widget.setLayout(QVBoxLayout())
+                # extra_sbox_widget.layout().setContentsMargins(0, 0, 0, 0)
+                extra_sbox_widget.layout().setContentsMargins(
+                    0, *extra_sbox_widget.layout().getContentsMargins()[1:]
+                )
+                extra_sbox_widget.layout().addWidget(sbox)
+                extra_sbox_widget.layout().addWidget(QLabel(additional_spinbox_title[i]))
+                # extra_spinboxes_layout.addWidget(extra_sbox_widget)
+                # add to spin-play layout
+                self.spin_play_layout.addWidget(extra_sbox_widget, alignment=Qt.AlignLeft | Qt.AlignTop)
+
+            # # add to spin-play layout
+            # self.spin_play_layout.addWidget(extra_spinboxes_widget)
+
         self.spin_play_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
         )
@@ -385,25 +475,221 @@ class IndexSelectorWidget(QWidget):
 
             playback_speed_label = QLabel("Playback Speed (Hz)")
             playback_speed_label.setStyleSheet("QLabel {font-size: 12px;}")
-            playback_speed_layout.addWidget(playback_speed_label)
             playback_speed_layout.addWidget(self.playback_speed_spin)
+            playback_speed_layout.addWidget(playback_speed_label)
             # self.spin_play_layout.addWidget(self.playback_speed_spin, alignment=Qt.AlignRight)
-            self.spin_play_layout.addWidget(playback_speed_widget, alignment=Qt.AlignRight)
+            self.spin_play_layout.addWidget(playback_speed_widget, alignment=Qt.AlignRight | Qt.AlignTop)
 
         # Main layout for the index selector
         index_selection_layout = QVBoxLayout()
         index_selection_layout.addWidget(self.slider)
-        index_selection_layout.addLayout(self.spin_play_layout)
+        # index_selection_layout.addLayout(self.spin_play_layout)
+        index_selection_layout.addWidget(spin_play_widget)
         index_selection_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
         self.setLayout(index_selection_layout)
+
+        spin_play_widget.setStyleSheet("""
+        QSpinBox {
+            font-size: 14px;
+            padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
+            min-width: 60px;     /* Minimum width */
+            min-height: 20px;    /* Minimum height */
+            text-align: center;  /* Text alignment */
+        }
+        """)
+        # spin_play_widget.setStyleSheet("QLabel {font-size: 14px;}")
 
         if include_play_button:
             # Timer for playback
             self.play_timer = QTimer(parent)
             self.play_timer.setInterval(self.playback_speed_spin.value())  # milliseconds per frame
 
+    def update_additional_spinbox_indexing(
+        self,
+        new_indexing: list[np.ndarray],
+        sort_idx: Optional[np.ndarray] = None,
+        new_selected_value_list: Optional[list[int]] = None,
+    ):
+        for i, indexing in enumerate(new_indexing):
+            if sort_idx is not None:
+                use_indexing = indexing[sort_idx]
+            else:
+                use_indexing = indexing
+            if new_selected_value_list is None or new_selected_value_list[i] is None:
+                new_value = None
+            else:
+                new_value = new_selected_value_list[i]
+            self.extra_spinboxes_list[i].set_allowed_values(use_indexing, set_value_to=new_value)
+
     def _on_playback_speed_changed(self, value: int):
-        interval = int(1e3 * 1/value)
+        interval = int(1e3 * 1 / value)
         self.play_timer.setInterval(interval)
+
+
+class ValidatedSpinBox(QSpinBox):
+    """
+    QSpinBox that only accepts values from a discrete allowed set.
+
+    - Preserves the input order of allowed_values (no sorting).
+    - While typing, prefixes of allowed values are permitted (Intermediate).
+    - Up/down arrows jump to the numerically closest next/previous allowed value.
+    - allowed_values can be updated at runtime via set_allowed_values(...).
+    - Optionally confirm only on Enter/focus-out via setKeyboardTracking(False).
+
+    Note: this was primarily created by chatGPT5
+    """
+
+    def __init__(self, allowed_values, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._set_allowed_core(allowed_values)
+        self.setRange(self._sorted_vals[0], self._sorted_vals[-1])
+        self.setKeyboardTracking(False)  # confirm on Enter/focus-out (nice UX)
+
+    # ---------- Public API ----------
+    def set_allowed_values(
+        self, allowed_values, set_value_to: Optional[int] = None
+    ):  # *, reconcile="nearest"):
+        """
+        Update the allowed values after construction.
+
+        Parameters
+        ----------
+        allowed_values : Iterable[int]
+            New allowed integer values (deduplicated, preserving first occurrence).
+        reconcile : {"nearest","min","max"}
+            If current value not in new set:
+              - "nearest": snap to numerically closest allowed value (default)
+              - "min":     snap to the minimum of the new set
+              - "max":     snap to the maximum of the new set
+        """
+        # if not allowed_values:
+        #     raise ValueError("allowed_values must be non-empty")
+
+        # cur = self.value()
+        self._set_allowed_core(allowed_values)
+        self.setRange(self._sorted_vals[0], self._sorted_vals[-1])
+
+        if set_value_to is not None:
+            self.setValue(set_value_to)
+
+        # if cur not in self._set_vals:
+        #     if reconcile == "min":
+        #         target = self._sorted_vals[0]
+        #     elif reconcile == "max":
+        #         target = self._sorted_vals[-1]
+        #     else:  # "nearest"
+        #         target = self._nearest(cur)
+        #     if target != self.value():
+        #         self.setValue(target)
+
+    def allowedValues(self):
+        """Return the allowed values in the original input order."""
+        return tuple(self.allowed_values)
+
+    # ---------- Internals ----------
+    def _set_allowed_core(self, allowed_values):
+        # Deduplicate while preserving first occurrence (and cast to int)
+        seen = set()
+        vals = []
+        for v in allowed_values:
+            iv = int(v)
+            if iv not in seen:
+                seen.add(iv)
+                vals.append(iv)
+        if not vals:
+            raise ValueError("allowed_values must be non-empty")
+
+        self.allowed_values = vals  # original order (public)
+        self._set_vals = set(vals)  # membership tests
+        self._sorted_vals = sorted(vals)  # numeric stepping
+        self._allowed_strs = [str(v) for v in vals]  # for prefix typing
+
+    def _is_prefix_of_allowed(self, text: str) -> bool:
+        s = text.strip()
+        if s in ("", "+", "-"):
+            return True
+        neg = s.startswith("-")
+        body = s[1:] if neg else s
+        if not body.isdigit():
+            return False
+        # Allow leading zeros while typing
+        s_no_zeros = ("-" if neg else "") + (body.lstrip("0") or "0")
+        return any(asv.startswith(s) or asv.startswith(s_no_zeros) for asv in self._allowed_strs)
+
+    def _nearest(self, x: int) -> int:
+        """Return numerically closest value in _sorted_vals to x (ties -> smaller)."""
+        a = self._sorted_vals
+        i = bisect.bisect_left(a, x)
+        if i == 0:
+            return a[0]
+        if i == len(a):
+            return a[-1]
+        before, after = a[i - 1], a[i]
+        # tie-break toward the smaller (consistent, predictable)
+        return before if (x - before) <= (after - x) else after
+
+    # ---------- QAbstractSpinBox overrides ----------
+    def validate(self, text, pos):
+        try:
+            val = int(text)
+        except ValueError:
+            return (
+                QValidator.Intermediate if self._is_prefix_of_allowed(text) else QValidator.Invalid,
+                text,
+                pos,
+            )
+
+        if val in self._set_vals:
+            return (QValidator.Acceptable, text, pos)
+
+        if self._is_prefix_of_allowed(text):
+            return (QValidator.Intermediate, text, pos)
+
+        return (QValidator.Invalid, text, pos)
+
+    def fixup(self, text):
+        # On commit with invalid text, keep current valid value
+        return str(self.value())
+
+    def valueFromText(self, text):
+        return int(text)
+
+    def textFromValue(self, value):
+        return str(value)
+
+    def stepBy(self, steps):
+        """
+        Step to the numerically next/previous allowed value, regardless of
+        input order. Supports multi-step (e.g., steps=±2).
+        """
+        if steps == 0:
+            return
+
+        cur = self.value()
+        a = self._sorted_vals
+
+        # If current value is not on-grid, snap to nearest first
+        if cur not in self._set_vals:
+            cur = self._nearest(cur)
+
+        # Use bisect to find neighbors; loop for |steps| times
+        for _ in range(abs(steps)):
+            i = bisect.bisect_left(a, cur)
+            if steps > 0:
+                # move to strictly greater value if possible
+                if i < len(a) and a[i] != cur:
+                    cur = a[i]
+                else:
+                    # i points to current or end; go to next index if exists
+                    next_i = min(i + 1, len(a) - 1)
+                    cur = a[next_i]
+            else:
+                # move to strictly smaller value if possible
+                if i > 0:
+                    # a[i-1] is < cur (or == if off-grid handled above)
+                    cur = a[i - 1] if (i >= len(a) or a[i] != cur) else a[i - 1]
+                else:
+                    cur = a[0]
+        self.setValue(cur)
