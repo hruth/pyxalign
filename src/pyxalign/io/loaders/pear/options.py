@@ -30,6 +30,20 @@ class BaseLoadOptions:
     `scan_start`, `scan_end`, `file_pattern`, and all other settings/filters
     will still be applied."""
 
+    file_pattern_priority_list: Optional[list[str]] = None
+    """
+    If multiple matching files are found, iterate through this list
+    select the first file that matches the member of this list.
+    """
+
+    skip_files_not_in_priority_list: bool = True
+    """
+    Only applies when file_pattern_priority_list is not `None`. This 
+    dictates what to do if there is a scan that has a file that matches 
+    `file_pattern` but not any of the patterns in 
+    `file_pattern_priority_list`.
+    """
+
     only_include_files_with: Optional[list[str]] = None
     "Only include files with these strings in the ptycho file string."
 

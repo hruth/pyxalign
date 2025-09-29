@@ -198,7 +198,10 @@ def load_experiment(
     # Extract the unique file string for all projection files, and filter
     # out the ones that don't match user specified inputs
     selected_experiment.get_matching_ptycho_file_strings(
-        options.base.only_include_files_with, options.base.exclude_files_with
+        options.base.only_include_files_with,
+        options.base.exclude_files_with,
+        options.base.file_pattern_priority_list,
+        options.base.skip_files_not_in_priority_list,
     )
     selected_experiment.select_projections(
         options.base.selected_ptycho_strings,

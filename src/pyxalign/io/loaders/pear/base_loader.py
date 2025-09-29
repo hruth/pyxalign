@@ -6,6 +6,7 @@ from abc import ABC
 import re
 from scipy import stats
 from tqdm import tqdm
+import fnmatch
 from pyxalign.io.loaders.utils import (
     border,
     generate_input_user_prompt,
@@ -144,7 +145,23 @@ class BaseLoader(ABC):
         self,
         only_include_files_with: Optional[list[str]] = None,
         exclude_files_with: Optional[list[str]] = None,
+        file_pattern_priority_list: Optional[list[str]] = None,
+        skip_files_not_in_priority_list: bool = False,
     ):
+        # Select the first file that matches the pattern
+        if file_pattern_priority_list is not None:
+            for scan_number, found_file_list in self.available_projection_files.items():
+                match_found = False
+                for prioritized_pattern in file_pattern_priority_list:
+                    matches = [x for x in found_file_list if fnmatch.fnmatch(x, prioritized_pattern)]
+                    if matches != []:
+                        # the prioritized pattern has been found, so move on to the next scan number
+                        self.available_projection_files[scan_number] = [matches[0]]
+                        match_found = True
+                        break
+                if not match_found and skip_files_not_in_priority_list:
+                    self.available_projection_files[scan_number] = []
+
         # make list of relative paths (wrt projection scan folder) of filenames
         file_list = np.concatenate(list(self.available_projection_files.values())).ravel()
         self.unique_ptycho_file_strings = list(
@@ -188,6 +205,7 @@ class BaseLoader(ABC):
         selected_ptycho_file_strings: Optional[list[str]],
         ask_for_backup_ptycho_file_string: bool,
         select_all_by_default: bool,
+        file_pattern_priority_list: Optional[list[str]] = None,
     ):
         """
         Select which projections to load.
@@ -202,7 +220,8 @@ class BaseLoader(ABC):
             while True:
                 # Find file strings with matching types
                 proj_file_string = self.find_matching_ptycho_file_strings(
-                    self.selected_ptycho_file_strings, self.available_projection_files[scan_number]
+                    self.selected_ptycho_file_strings,
+                    self.available_projection_files[scan_number],
                 )
                 if proj_file_string is not None:
                     # get the file path to the reconstruction file
@@ -250,7 +269,9 @@ class BaseLoader(ABC):
 
     @timer()
     def find_matching_ptycho_file_strings(
-        self, selected_ptycho_file_strings: list[str], projection_files: list[str]
+        self,
+        selected_ptycho_file_strings: list[str],
+        projection_files: list[str],
     ) -> str:
         for ptycho_file_string in selected_ptycho_file_strings:
             matched_strings = [
