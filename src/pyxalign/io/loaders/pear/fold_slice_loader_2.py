@@ -22,7 +22,7 @@ class FoldSliceLoaderVersion2(NestedLoader):
             projection = loadmat(file_path)["object"]
         except NotImplementedError as ex:
             with h5py.File(file_path, "r") as F:
-                projection = (F["object"]["real"] + 1j * F["object"]["imag"]).astype(c_type)
+                projection = (F["object"]["real"] + 1j * F["object"]["imag"]).astype(c_type).transpose([1, 0])
 
         return projection
 
@@ -37,9 +37,9 @@ class FoldSliceLoaderVersion2(NestedLoader):
                 )["outputs"]["probe_positions"][0][0][:, ::-1]
             except NotImplementedError as ex:
                 with h5py.File(file_path, "r") as F:
-                    self.probe_positions[scan_number] = F["outputs"]["probe_positions"][()][
-                        :, ::-1
-                    ].transpose()
+                    self.probe_positions[scan_number] = F["outputs"]["probe_positions"][
+                        ()
+                    ].transpose()[:, ::-1]
 
     def load_probe(self):
         # I assume all probes are similar, and I just load the first scan's probe
