@@ -13,21 +13,26 @@ from PyQt5.QtCore import Qt
 # from pyxalign.plotting.interactive.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 
-def launch_volume_viewer(array_3d: np.ndarray) -> VolumeViewer:
+def launch_volume_viewer(
+    array_3d: np.ndarray,
+    wait_until_closed: bool = False,
+) -> VolumeViewer:
     app = QApplication.instance() or QApplication([])
     gui = VolumeViewer(volume=array_3d)
     gui.show()
+    if wait_until_closed:
+        app.exec_()
     return gui
 
 
 def launch_projection_viewer(
     projections: "p.Projections",
     options: Optional[ProjectionViewerOptions] = None,
-    enable_dropping: bool = True,
+    display_only: bool = False,
     wait_until_closed: bool = False,
 ) -> ProjectionViewer:
     app = QApplication.instance() or QApplication([])
-    gui = ProjectionViewer(projections, options, enable_dropping=enable_dropping)
+    gui = ProjectionViewer(projections, options, display_only=display_only)
     gui.show()
     if wait_until_closed:
         app.exec_()

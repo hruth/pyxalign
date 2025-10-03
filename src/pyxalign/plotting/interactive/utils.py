@@ -1,3 +1,4 @@
+from typing import Optional
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -7,6 +8,8 @@ from PyQt5.QtWidgets import (
     QTableWidget,
 )
 from PyQt5.QtCore import Qt
+
+from pyxalign.io.utils import OptionsClass
 
 
 def populate_tree_widget(tree_widget: QTreeWidget, data):
@@ -84,9 +87,10 @@ def add_dataclass_to_tree(parent_item: QTreeWidgetItem, data, path: str = ""):
 
 
 class OptionsDisplayWidget(QWidget):
-    def __init__(self, options):
+    def __init__(self, options: Optional[OptionsClass] = None):
         super().__init__()
         self.setWindowTitle("Options")
+        self.options = options
 
         # Create layout
         layout = QVBoxLayout(self)
@@ -99,10 +103,17 @@ class OptionsDisplayWidget(QWidget):
         self.tree_widget.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
 
         # Populate it with the example data
-        populate_tree_widget(self.tree_widget, options)
+        if options is not None:
+            populate_tree_widget(self.tree_widget, options)
 
         # Add the tree to our layout
         layout.addWidget(self.tree_widget)
+
+    def update_options(self, options):
+        self.options = options
+
+    def update_display(self):#, options):
+        populate_tree_widget(self.tree_widget, self.options)
 
 
 def sync_checkboxes(*checkboxes):

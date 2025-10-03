@@ -647,6 +647,9 @@ class ProjectionMatchingAligner(Aligner):
     def run_with_GUI(self, initial_shift: np.ndarray):
         "Launches the PMA viewer gui and runs the PMA loop"
         app = QApplication.instance() or QApplication([])
+        # Objective: make this interactive
+        # I could delay starting the thread until after the user hits a button.
+        # However, this makes setting up multi-resolution runs difficult.
         self.gui = ProjectionMatchingViewer(self, multi_thread_func=self.run)
         self.gui.show()
         shift = self.gui.start_thread(initial_shift=initial_shift)

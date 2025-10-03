@@ -299,6 +299,7 @@ class ArrayViewer(MultiThreadedWidget):
 
     def start(self):
         """Show the widget."""
+        """Show the widget."""
         self.show()
 
 
@@ -386,6 +387,10 @@ class IndexSelectorWidget(QWidget):
             self.play_button.setStyleSheet("""
             QPushButton {
                 font-size: 14px;
+                padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
+                min-width: 60px;     /* Minimum width */
+                min-height: 20px;    /* Minimum height */
+                text-align: center;  /* Text alignment */
                 padding: 3px 6px;    /* Inner spacing (top/bottom, left/right) */
                 min-width: 60px;     /* Minimum width */
                 min-height: 20px;    /* Minimum height */

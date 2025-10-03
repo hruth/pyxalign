@@ -14,7 +14,7 @@ from pyxalign.api.options.transform import CropOptions, DownsampleOptions, Rotat
 from functools import partial
 
 
-def pma_factory_for_estimate_center_options():
+def pma_factory_for_estimate_center_options() -> ProjectionMatchingOptions:
     return ProjectionMatchingOptions(
         iterations=1,
         interactive_viewer=InteractiveViewerOptions(update=UpdatePlotOptions(enabled=False)),

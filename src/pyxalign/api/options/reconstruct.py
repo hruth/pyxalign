@@ -1,8 +1,6 @@
 import dataclasses
-from typing import Sequence
 from dataclasses import field
 from pyxalign.api.options.device import DeviceOptions
-from pyxalign.api.options.options import ExperimentOptions
 
 
 @dataclasses.dataclass
@@ -12,9 +10,9 @@ class FilterOptions:
 
 @dataclasses.dataclass
 class AstraOptions:
-    back_project_gpu_indices: Sequence[int] = (0,)
+    back_project_gpu_indices: tuple[int] = (0,)
 
-    forward_project_gpu_indices: Sequence[int] = (0,)
+    forward_project_gpu_indices: tuple[int] = (0,)
 
     algorithm_type: str = "BP3D_CUDA"
 

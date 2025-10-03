@@ -1,10 +1,13 @@
-from turtle import title
 from typing import Callable, Optional
 import cupy as cp
 from pyxalign.api.maps import get_process_func_by_enum
+from pyxalign.api.options.options import ExperimentOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
+from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
+from pyxalign.interactions.mask import ThresholdSelector
+from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.plotting.interactive.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QWidget,
@@ -22,7 +25,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QLabel,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar,
@@ -113,6 +116,7 @@ class VolumeViewer(MultiThreadedWidget):
 
 class ProjectionViewer(MultiThreadedWidget):
     """Widget for viewing projections"""
+    masks_created = pyqtSignal(np.ndarray)
 
     def __init__(
         self,
@@ -121,7 +125,7 @@ class ProjectionViewer(MultiThreadedWidget):
         multi_thread_func: Optional[Callable] = None,
         include_options: bool = True,
         include_shifts: bool = True,
-        enable_dropping: bool = False,
+        display_only: bool = True,
         parent=None,
     ):
         super().__init__(
@@ -134,6 +138,7 @@ class ProjectionViewer(MultiThreadedWidget):
             options = ProjectionViewerOptions()
         self.options = options
         self.projection_dropping_widget = None
+        self.options_editor = None
         self.resize(1300, 900)
 
         if np.iscomplexobj(projections.data) and options.process_func is None:
@@ -146,7 +151,6 @@ class ProjectionViewer(MultiThreadedWidget):
         else:
             sort_idx = None
         self.array_viewer = ArrayViewer(
-            # array3d=self.process_func(projections.data),
             array3d=projections.data,
             sort_idx=sort_idx,
             extra_title_strings_list=get_projection_title_strings(
@@ -158,13 +162,20 @@ class ProjectionViewer(MultiThreadedWidget):
                 additional_spinbox_titles=["scan number"],
             ),
         )
-        
+
         # build the array selection widget
-        button_group_box = self.build_array_selector()
+        self.build_array_selector()
         # create button for launch the scan removal tool
-        if enable_dropping:
-            self.open_scan_removal_button = QPushButton("Open Scan Removal Window")
-            self.open_scan_removal_button.clicked.connect(self.open_scan_removal_window)
+        if not display_only:
+            # create button for scan removal tool
+            open_scan_removal_button = QPushButton("Open Scan Removal Window")
+            open_scan_removal_button.clicked.connect(self.open_scan_removal_window)
+            # create button for the mask creation tol
+            open_mask_creation_button = QPushButton("Open Mask Creation Window")
+            open_mask_creation_button.clicked.connect(self.open_mask_creation_window)
+            # create button for editing properties
+            open_options_editor_button = QPushButton("Edit Projection Parameters")
+            open_options_editor_button.clicked.connect(self.open_options_editor)
 
         # setup tabs and layout
         tabs = QTabWidget()
@@ -179,9 +190,11 @@ class ProjectionViewer(MultiThreadedWidget):
         left_panel_layout = QVBoxLayout()
         left_panel.setLayout(left_panel_layout)
         array_view_layout.addWidget(left_panel)
-        left_panel_layout.addWidget(button_group_box)
-        if enable_dropping:
-            left_panel_layout.addWidget(self.open_scan_removal_button)
+        left_panel_layout.addWidget(self.button_group_box)
+        if not display_only:
+            left_panel_layout.addWidget(open_scan_removal_button)
+            left_panel_layout.addWidget(open_mask_creation_button)
+            left_panel_layout.addWidget(open_options_editor_button)
         left_panel_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
@@ -199,10 +212,58 @@ class ProjectionViewer(MultiThreadedWidget):
             self.options_display = OptionsDisplayWidget(projections.options)
             tabs.addTab(self.options_display, "Projection Options")
 
+    def open_options_editor(self):
+        if self.options_editor is None:
+            all_attributes = get_all_attribute_names(self.projections.options)
+            # include only experiment attributes
+            basic_options_list = [x for x in all_attributes if "experiment" in x]
+            # skip all other attributes
+            skip_fields = [x for x in all_attributes if "experiment" not in x]
+            # create options editor widget
+            self.options_editor = BasicOptionsEditor(
+                self.projections.options,
+                basic_options_list=basic_options_list,
+                skip_fields=skip_fields,
+                open_panels_list=["experiment"],
+                label="Projections Options Editor",
+            )
+        self.options_editor.show()
+
     def open_scan_removal_window(self):
         if self.projection_dropping_widget is None:
             self.projection_dropping_widget = ScanRemovalTool(self.projections, self.array_viewer)
         self.projection_dropping_widget.show()
+
+    def open_mask_creation_window(self):
+        self.mask_builder = ThresholdSelector(
+            self.projections.data,
+            self.projections.probe,
+            self.projections.probe_positions.data,
+        )
+        self.mask_builder.masks_created.connect(self.receive_masks)
+        self.mask_builder.show()
+
+    def receive_masks(self, masks: np.ndarray):
+        if self.projections.masks is None:
+            self.projections.masks = masks
+            self.update_array_selector()
+        else:
+            self.projections.masks[:] = masks
+        self.array_viewer.refresh_frame()
+        self.masks_created.emit(self.projections.masks)
+
+    def update_array_selector(self):
+        add_masks = self.projections.masks is not None and (self.masks_name not in self.array_names)
+        add_forward_projection = self.has_forward_projection() and (
+            self.forward_projections_name not in self.array_names
+        )
+        if add_masks:
+            add_buttons = [self.masks_name, self.projections_plus_masks_name]
+        if add_forward_projection:
+            add_buttons = [self.forward_projections_name, self.residuals_name]
+        self.array_names += add_buttons
+        for array_name in add_buttons:
+            self.add_button_to_group(array_name)
 
     def build_array_selector(self) -> QWidget:
         self.projections_name = "projections"
@@ -221,29 +282,27 @@ class ProjectionViewer(MultiThreadedWidget):
         # Build button group
         self.radio_button_dict: dict[str, QRadioButton] = {}
         self.radio_button_group = QButtonGroup(parent=self)
+        self.button_group_box = QGroupBox("Array Selection")
         button_layout = QVBoxLayout()
+        self.button_group_box.setLayout(button_layout)
+        self.button_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
 
         # Add each button
         for array_name in self.array_names:
-            rb = QRadioButton(array_name, self)
-            self.radio_button_dict[array_name] = rb
-            rb.setChecked(array_name == self.projections_name)
-            self.radio_button_group.addButton(rb)
-            button_layout.addWidget(rb)
-            rb.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            rb.setStyleSheet("font-size: 12pt;")
+            self.add_button_to_group(array_name)
         self.radio_button_group.buttonClicked.connect(self.update_arrays)
 
         # Format button layout
         button_layout.setSpacing(10)  # Reduce space between widgets
-        # button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
-        # Wrap the button layout in a QGroupBox
-        button_group_box = QGroupBox("Array Selection")
-        button_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
-        button_group_box.setLayout(button_layout)
-
-        return button_group_box
+    def add_button_to_group(self, array_name: str):
+        rb = QRadioButton(array_name, self)
+        self.radio_button_dict[array_name] = rb
+        rb.setChecked(array_name == self.projections_name)
+        self.radio_button_group.addButton(rb)
+        self.button_group_box.layout().addWidget(rb)
+        rb.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        rb.setStyleSheet("font-size: 12pt;")
 
     def has_forward_projection(self):
         return (
@@ -255,10 +314,15 @@ class ProjectionViewer(MultiThreadedWidget):
         # Update the data in the array viewer
         checked_button_name = self.radio_button_group.checkedButton().text()
         if checked_button_name == self.projections_name:
-            self.array_viewer.array3d = self.process_func(self.projections.data)
+            self.array_viewer.process_func = self.process_func
+            self.array_viewer.array3d = self.projections.data
         elif checked_button_name == self.masks_name:
+            self.array_viewer.process_func = lambda x: x
             self.array_viewer.array3d = self.projections.masks
         elif checked_button_name == self.projections_plus_masks_name:
+            # multiplying with the mask might be faster, and display might be
+            # more intuitive for the user
+            self.array_viewer.process_func = lambda x: x
             self.array_viewer.array3d = self.projections.masks + self.process_func(
                 self.projections.data
             )
@@ -274,6 +338,7 @@ class ProjectionViewer(MultiThreadedWidget):
 
     def start(self):
         self.show()
+
 
 class ScanRemovalTool(QWidget):
     def __init__(
@@ -303,7 +368,9 @@ class ScanRemovalTool(QWidget):
         # create table widget for show scans staged for removal
         self.staged_for_removal_table = QTableWidget(self)
         self.staged_for_removal_table.setColumnCount(3)
-        self.staged_for_removal_table.setHorizontalHeaderLabels(["Index", "Scan Number", "Angle (deg)"])
+        self.staged_for_removal_table.setHorizontalHeaderLabels(
+            ["Index", "Scan Number", "Angle (deg)"]
+        )
         self.staged_for_removal_table.currentCellChanged.connect(self.table_item_selected)
         # create table widget for previously removed scans
         self.removed_scans_table = QTableWidget(self)
@@ -335,10 +402,10 @@ class ScanRemovalTool(QWidget):
         widget_layout.addWidget(QLabel("Previously removed scans", self))
         widget_layout.addWidget(self.removed_scans_table)
         widget_layout.addWidget(drop_projections_button)
-        
+
         # widget_layout.addLayout(index_selection_layout)
         widget_layout.addWidget(index_selector_widget)
-        widget_layout.addWidget(self.mark_for_removal_check_box) # temp location
+        widget_layout.addWidget(self.mark_for_removal_check_box)  # temp location
         # format list widget style
         widget_group_box = QGroupBox()
         widget_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
@@ -347,7 +414,7 @@ class ScanRemovalTool(QWidget):
         self.setStyleSheet("QLabel { font-size: 11pt;}")
 
         return widget_group_box
-    
+
     def remove_staged_projections(self):
         # remove scans from projection object
         remove_scan_numbers = []
@@ -416,12 +483,11 @@ class ScanRemovalTool(QWidget):
                 if index == current_scan_index:
                     self.staged_for_removal_table.removeRow(row)
                     return
-                
+
     def closeEvent(self, event):
         # Hide the window instead of closing it
         self.hide()
         event.ignore()
-
 
 
 class AllShiftsViewer(MultiThreadedWidget):
@@ -493,12 +559,6 @@ class AllShiftsViewer(MultiThreadedWidget):
         button_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
         button_group_box.setLayout(self.checkbox_layout)
 
-        # scroll = QScrollArea()
-        # scroll.setWidgetResizable(True)
-        # scroll.setWidget(self.checkbox_widget)
-        # control_layout.addWidget(scroll)
-        # control_layout.addStretch()
-        # control_layout.addWidget(self.checkbox_widget)
         control_layout.addWidget(button_group_box)
 
         # === Right panel: matplotlib plot ===

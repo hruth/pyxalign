@@ -39,10 +39,11 @@ from pyxalign.api.options.transform import (
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
 from pyxalign.data_structures.volume import Volume
+from pyxalign.interactions.mask import ThresholdSelector, build_masks_from_threshold
 from pyxalign.io.utils import load_list_of_arrays
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
-from pyxalign.mask import IlluminationMapMaskBuilder, estimate_reliability_region_mask, blur_masks
+from pyxalign.mask import estimate_reliability_region_mask, blur_masks#, IlluminationMapMaskBuilder
 from pyxalign.model_functions import symmetric_gaussian_2d
 from pyxalign.plotting.interactive.arrays import ProjectionViewer
 from pyxalign.plotting.interactive.launchers import launch_projection_viewer
@@ -162,7 +163,7 @@ class Projections:
             self.shift_manager = ShiftManager(self.n_projections)
 
         # Initialize other quantities
-        self.mask_builder: IlluminationMapMaskBuilder = None
+        # self.mask_builder: IlluminationMapMaskBuilder = None
         self.dropped_scan_numbers = []
         # Run initialization code specific to the projection type (i.e. PhaseProjections
         # or complex projections)
@@ -264,7 +265,7 @@ class Projections:
     ):
         # Note: the fourier rotation that is used for masks will likely
         # be an issue. A new method needs to be implemented.
-        if options.enabled:
+        if options.enabled and options.angle != 0:
             center_pixel = np.array(self.data.shape[1:]) / 2
             data_aspect_ratio_changes = will_rotation_flip_aspect_ratio(options.angle)
             if not data_aspect_ratio_changes:
@@ -329,7 +330,7 @@ class Projections:
 
     @timer()
     def shear_projections(self, options: ShearOptions, apply_to_center_of_rotation: bool = True):
-        if options.enabled:
+        if options.enabled and options.angle != 0:
             Shearer(options).run(self.data, pinned_results=self.data)
             if self.masks is not None:
                 # Will probably be wrong without fixes
@@ -378,40 +379,62 @@ class Projections:
     @timer()
     def get_masks_from_probe_positions(
         self, threshold: Optional[float] = None, delete_mask_builder: bool = True
-    ):
-        """
-        Do one of the following:
-        1) Run `setup_masks_from_probe_positions` first
-        2) Provide the threshold input, above which to set the illumination map to 1
-        """
-        # if self.mask_builder is None and threshold is None:
-        # raise Exception
-        if threshold is None:
-            # set threshold interactively
-            if self.probe is None or self.probe_positions is None:
-                raise Exception(
-                    "The Projections object must have probe_positions and "
-                    + "probe attribute to run create_mask_from_probe_positions!"
-                )
-            self.mask_builder = IlluminationMapMaskBuilder()
-            self.mask_builder.get_mask_base(
-                self.probe, self.probe_positions.data, self.data, use_fourier=True
+    ):  
+        if threshold is not None:
+            self.masks = build_masks_from_threshold(
+                self.data.shape, self.probe, self.probe_positions.data, threshold
             )
-            # Set threshold value for building masks
-            threshold = self.mask_builder.set_mask_threshold_interactively(self.data)
-            self.mask_builder.clip_masks(threshold)
-        else:
-            self.mask_builder = IlluminationMapMaskBuilder()
-            self.mask_builder.get_mask_base(
-                self.probe, self.probe_positions.data, self.data, use_fourier=True
-            )
-            self.mask_builder.clip_masks(threshold)
-        # else:
-        # self.mask_builder.clip_masks()
-        self.masks = self.mask_builder.masks
+            return
 
-        if delete_mask_builder:
-            self.mask_builder = None
+        if QApplication.instance() is None:
+            app = QApplication.instance() or QApplication([])
+        else:
+            app = None
+
+        mask_builder = ThresholdSelector(
+            self.data,
+            self.probe,
+            self.probe_positions.data,
+        )
+        mask_builder.show()
+        if app is not None:
+            app.exec_()
+        self.masks = mask_builder.masks
+        print("masks built")
+
+        # """
+        # Do one of the following:
+        # 1) Run `setup_masks_from_probe_positions` first
+        # 2) Provide the threshold input, above which to set the illumination map to 1
+        # """
+        # # if self.mask_builder is None and threshold is None:
+        # # raise Exception
+        # if threshold is None:
+        #     # set threshold interactively
+        #     if self.probe is None or self.probe_positions is None:
+        #         raise Exception(
+        #             "The Projections object must have probe_positions and "
+        #             + "probe attribute to run create_mask_from_probe_positions!"
+        #         )
+        #     self.mask_builder = IlluminationMapMaskBuilder()
+        #     self.mask_builder.get_mask_base(
+        #         self.probe, self.probe_positions.data, self.data, use_fourier=True
+        #     )
+        #     # Set threshold value for building masks
+        #     threshold = self.mask_builder.set_mask_threshold_interactively(self.data)
+        #     self.mask_builder.clip_masks(threshold)
+        # else:
+        #     self.mask_builder = IlluminationMapMaskBuilder()
+        #     self.mask_builder.get_mask_base(
+        #         self.probe, self.probe_positions.data, self.data, use_fourier=True
+        #     )
+        #     self.mask_builder.clip_masks(threshold)
+        # # else:
+        # # self.mask_builder.clip_masks()
+        # self.masks = self.mask_builder.masks
+
+        # if delete_mask_builder:
+        #     self.mask_builder = None
 
     def drop_projections(self, remove_scans: list[int], repin_array: bool = False):
         "Permanently remove specific projections from object"
@@ -749,7 +772,7 @@ class Projections:
         wait_until_closed: Optional[bool] = False,
     ):
         self.gui = launch_projection_viewer(
-            self, options, enable_dropping=True, wait_until_closed=wait_until_closed
+            self, options, display_only=False, wait_until_closed=wait_until_closed
         )
 
     def load_and_stage_shift(

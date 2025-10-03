@@ -13,7 +13,8 @@ from contextlib import nullcontext
 from pyxalign import gpu_utils
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.gpu_wrapper import device_handling_wrapper
-from pyxalign.interactions.mask import illum_map_threshold_plotter
+
+# from pyxalign.interactions.mask import ThresholdSelector, illum_map_threshold_plotter
 from pyxalign.transformations.helpers import is_array_real
 from IPython.display import display
 from PyQt5.QtWidgets import QApplication
@@ -24,6 +25,8 @@ from pyxalign.api.options.options import MaskOptions
 from pyxalign.gpu_utils import get_scipy_module, memory_releasing_error_handler
 from pyxalign.timing.timer_utils import timer, InlineTimer
 from pyxalign.api.types import ArrayType, r_type
+
+from PyQt5.QtWidgets import QWidget
 
 
 @memory_releasing_error_handler
@@ -360,45 +363,45 @@ def place_patches_fourier_batch(
     return masks_out
 
 
-class IlluminationMapMaskBuilder:
-    """
-    Class for building mask from the illumination map.
-    """
+# class IlluminationMapMaskBuilder:
+#     """
+#     Class for building mask from the illumination map.
+#     """
 
-    def get_mask_base(
-        self,
-        probe: np.ndarray,
-        positions: list[np.ndarray],
-        projections: np.ndarray,
-        use_fourier: bool = True,
-    ):
-        # The base for building the mask is the illumination map
-        if use_fourier:
-            self.masks = place_patches_fourier_batch(projections.shape, probe, positions)
-        else:
-            for i in range(len(positions)):
-                self.masks = np.zeros_like(projections, dtype=r_type)
-                get_illumination_map(self.masks[i], probe, positions[i])
+#     def get_mask_base(
+#         self,
+#         probe: np.ndarray,
+#         positions: list[np.ndarray],
+#         projections: np.ndarray,
+#         use_fourier: bool = True,
+#     ):
+#         # The base for building the mask is the illumination map
+#         if use_fourier:
+#             self.masks = place_patches_fourier_batch(projections.shape, probe, positions)
+#         else:
+#             for i in range(len(positions)):
+#                 self.masks = np.zeros_like(projections, dtype=r_type)
+#                 get_illumination_map(self.masks[i], probe, positions[i])
 
-    def set_mask_threshold_interactively(self, projections: np.ndarray) -> float:
-        # temporary bugfix: all windows need to be closed or else app.exec_() will 
-        # hang indefinitely. I am putting this temporary solution (which I don't like
-        # very much) in place, because any changes will be overwritten once merged with
-        # interactive_pma_gui anyway.
-        app = QApplication.instance() or QApplication([])
-        app.closeAllWindows()
+#     def set_mask_threshold_interactively(self, projections: np.ndarray) -> float:
+#         # temporary bugfix: all windows need to be closed or else app.exec_() will 
+#         # hang indefinitely. I am putting this temporary solution (which I don't like
+#         # very much) in place, because any changes will be overwritten once merged with
+#         # interactive_pma_gui anyway.
+#         app = QApplication.instance() or QApplication([])
+#         app.closeAllWindows()
 
-        # Use interactivity to decide mask threshold"
-        self.threshold_selector = illum_map_threshold_plotter(
-            self.masks, projections, init_thresh=0.01
-        )
-        self.threshold_selector.show()
+#         # Use interactivity to decide mask threshold"
+#         self.threshold_selector = illum_map_threshold_plotter(
+#             self.masks, projections, init_thresh=0.01
+#         )
+#         self.threshold_selector.show()
 
-        app.exec_()
-        threshold = self.threshold_selector.threshold
-        return threshold
+#         app.exec_()
+#         threshold = self.threshold_selector.threshold
+#         return threshold
 
-    def clip_masks(self, thresh: Optional[float] = None):
-        clip_idx = self.masks > thresh
-        self.masks[:] = 0
-        self.masks[clip_idx] = 1
+#     def clip_masks(self, thresh: Optional[float] = None):
+#         clip_idx = self.masks > thresh
+#         self.masks[:] = 0
+#         self.masks[clip_idx] = 1

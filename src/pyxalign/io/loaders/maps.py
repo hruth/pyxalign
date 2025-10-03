@@ -1,8 +1,15 @@
 from typing import Union
 from pyxalign.io.loaders.pear.fold_slice_loader_2 import FoldSliceLoaderVersion2
 from pyxalign.io.loaders.pear.fold_slice_loader_1 import FoldSliceLoaderVersion1
+from pyxalign.io.loaders.pear.options import (
+    BaseLoadOptions,
+    Beamline2IDELoadOptions,
+    LYNXLoadOptions,
+)
 from pyxalign.io.loaders.pear.pear_loader_1 import PearLoaderVersion1
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.enums import ExperimentType, LoaderType
+from pyxalign.io.loaders.xrf.options import XRFLoadOptions
+from pyxalign.io.utils import OptionsClass
 
 LoaderInstanceType = Union[FoldSliceLoaderVersion1, FoldSliceLoaderVersion2, PearLoaderVersion1]
 LoaderClassType = Union[
@@ -16,3 +23,26 @@ def get_loader_class_by_enum(key: LoaderType) -> LoaderClassType:
         LoaderType.FOLD_SLICE_V2: FoldSliceLoaderVersion2,
         LoaderType.PEAR_V1: PearLoaderVersion1,
     }[key]
+
+
+def get_loader_options_by_enum(key: ExperimentType) -> OptionsClass:
+    return {
+        ExperimentType.LYNX: LYNXLoadOptions(
+            dat_file_path=None,
+            base=BaseLoadOptions(parent_projections_folder=None),
+        ),
+        ExperimentType.BEAMLINE_2IDE_PTYCHO: Beamline2IDELoadOptions(
+            mda_folder=None,
+            base=BaseLoadOptions(parent_projections_folder=None),
+        ),
+        ExperimentType.BEAMLINE_2IDE_XRF: XRFLoadOptions(),
+    }[key]
+
+
+def get_experiment_type_enum_from_options(options: OptionsClass) -> ExperimentType:
+    if isinstance(options, LYNXLoadOptions):
+        return ExperimentType.LYNX
+    elif isinstance(options, Beamline2IDELoadOptions):
+        return ExperimentType.BEAMLINE_2IDE_PTYCHO
+    elif isinstance(options, XRFLoadOptions):
+        return ExperimentType.BEAMLINE_2IDE_XRF

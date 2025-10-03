@@ -22,6 +22,8 @@ from pyxalign.io.utils import load_options
 from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
 from pyxalign.timing.timer_utils import clear_timer_globals
 # from pyxalign.plotting.interactive.task import TaskViewer # causes circular imports
+import pyxalign.plotting.interactive.task as task_viewer
+import pyxalign.interactions.pma_runner as pma_runner
 
 
 class LaminographyAlignmentTask:
@@ -47,7 +49,7 @@ class LaminographyAlignmentTask:
         projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
         illum_sum: np.ndarray = None,
         plot_results: bool = True,
-    ):
+    ) -> np.ndarray:
         clear_timer_globals()
         # Only for complex projections for now
         # Does this really need to be saved as an attribute?
@@ -75,9 +77,12 @@ class LaminographyAlignmentTask:
                 title="Cross-correlation Shift",
             )
         print("Cross-correlation shift stored in shift_manager")
+        return shift
 
     def get_projection_matching_shift(
-        self, initial_shift: Optional[np.ndarray] = None
+        self,
+        initial_shift: Optional[np.ndarray] = None,
+        options: Optional[ProjectionMatchingOptions] = None,
     ) -> np.ndarray:
         # clear existing astra objects
         if self.pma_object is not None:
@@ -95,9 +100,13 @@ class LaminographyAlignmentTask:
         else:
             self.pma_gui_list += [self.pma_object.gui]
 
+        # assign options
+        if options is None:
+            options = self.options.projection_matching
+
         # run the pma algorithm
         self.pma_object, shift = run_projection_matching(
-            self.phase_projections, initial_shift, self.options.projection_matching
+            self.phase_projections, initial_shift, options
         )
 
         # Store the result in the ShiftManager object

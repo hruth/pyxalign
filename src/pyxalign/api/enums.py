@@ -54,6 +54,7 @@ class Direction(StrEnum):
 class ProcessFunc(StrEnum):
     ANGLE = auto()
     ABS = auto()
+    NONE = auto()
 
 
 class SpecialValuePlaceholder(StrEnum):

@@ -35,12 +35,11 @@ class PlotDataOptions:
 
     scalebar: ScalebarOptions = field(default_factory=ScalebarOptions)
 
-    # process_func: callable = lambda x: x
-    process_func: Optional[enums.ProcessFunc] = None
+    process_func: enums.ProcessFunc = enums.ProcessFunc.NONE
 
-    index: Optional[int] = None
+    index: Optional[int] = 0
 
-    clim: Optional[Sequence] = None
+    clim: Optional[tuple[float]] = None
 
 
 @dataclasses.dataclass

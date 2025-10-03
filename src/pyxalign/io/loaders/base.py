@@ -17,12 +17,18 @@ class StandardData:
         pixel_size: Optional[float] = None,
     ):
         self.projections = projections
-        self.angles = angles
+        self.angles = angles 
         self.scan_numbers = scan_numbers
         self.file_paths = file_paths
         self.probe_positions = probe_positions
         self.probe = probe
         self.pixel_size = pixel_size
+
+        # Force all angles to be in a 360 degree range
+        # I like to keep values similar to raw data when possible, so I only
+        # apply mod if the range is outside the 360 degree range
+        if np.max(self.angles) - np.min(self.angles):
+            self.angles %= 360
 
     def drop_scans(self, scan_numbers_to_drop: list[int]):
         # Update dictionaries
