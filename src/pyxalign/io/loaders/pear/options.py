@@ -91,10 +91,17 @@ class LYNXLoadOptions:
     """
 
     is_tile_scan: bool = False
+    """
+    Specifies if data was taken in tile scan configuration. You can tell
+    if data was taken in tile scan configuration by checking if the scan
+    numbers in the tomography_scannumbers file """
 
     selected_tile: Optional[int] = None
-
-    n_tiles: Optional[int] = None
+    """
+    The tile number to select. This is 1-indexed, so the minimum allowed
+    value is 1 and the maximum allowed value is equal to the number of
+    tiles.
+    """
 
 
 @dataclasses.dataclass
