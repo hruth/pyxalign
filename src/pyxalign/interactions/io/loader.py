@@ -37,7 +37,7 @@ from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.interactions.io.input_data_viewer import StandardDataViewer
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.enums import ExperimentType
-from pyxalign.io.loaders.lamni.api import load_data_from_lamni_format
+from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.maps import (
     get_experiment_type_enum_from_options,
     get_loader_options_by_enum,
@@ -46,7 +46,7 @@ from pyxalign.io.loaders.xrf.options import XRFLoadOptions
 import sip
 
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.io.loaders.lamni.options import (
+from pyxalign.io.loaders.pear.options import (
     LYNXLoadOptions,
     Beamline2IDELoadOptions,
     BaseLoadOptions,
@@ -178,7 +178,7 @@ class SelectLoadSettingsWidget(QWidget):
     def load_data(self):
         try:
             if isinstance(self.options, Union[LYNXLoadOptions, Beamline2IDELoadOptions]):
-                standard_data = load_data_from_lamni_format(
+                standard_data = load_data_from_pear_format(
                     options=self.options,
                     n_processes=int(mp.cpu_count() * 0.8),
                 )
@@ -282,7 +282,7 @@ if __name__ == "__main__":
     load_widget.show()
     sys.exit(app.exec_())
 
-    # standard_data = load_data_from_lamni_format(
+    # standard_data = load_data_from_pear_format(
     #     options=options,
     #     n_processes=int(mp.cpu_count() * 0.8),
     # )

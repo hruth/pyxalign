@@ -287,15 +287,16 @@ class ArrayViewer(MultiThreadedWidget):
             # refresh the frame
             self.refresh_frame(force_autolim=True)
             # update the other boxes
-            new_selected_value_list = [
-                arr[sort_idx[self.spinbox.value()]] for arr in new_additional_spinbox_indexing
-            ]
-            print(new_selected_value_list)
-            self.indexing_widget.update_additional_spinbox_indexing(
-                new_indexing=new_additional_spinbox_indexing,
-                sort_idx=sort_idx,
-                new_selected_value_list=new_selected_value_list,
-            )
+            if new_additional_spinbox_indexing is not None:
+                new_selected_value_list = [
+                    arr[sort_idx[self.spinbox.value()]] for arr in new_additional_spinbox_indexing
+                ]
+                # print(new_selected_value_list)
+                self.indexing_widget.update_additional_spinbox_indexing(
+                    new_indexing=new_additional_spinbox_indexing,
+                    sort_idx=sort_idx,
+                    new_selected_value_list=new_selected_value_list,
+                )
 
     def start(self):
         """Show the widget."""
@@ -364,9 +365,10 @@ class IndexSelectorWidget(QWidget):
         self.slider.setValue(start_index)
 
         # SpinBox (editable + arrows)
-        self.spinbox = ValidatedSpinBox(
-            allowed_values=np.arange(0, num_frames, dtype=int)
-        )  # QSpinBox()
+        self.spinbox = QSpinBox()
+        # self.spinbox = ValidatedSpinBox(
+        #     allowed_values=np.arange(0, num_frames, dtype=int)
+        # )  # QSpinBox()
         self.spinbox.setMinimum(0)
         self.spinbox.setMaximum(num_frames - 1)
         self.spinbox.setValue(start_index)
