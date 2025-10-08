@@ -203,6 +203,9 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
             phase_projections=loaded_projections["phase_projections"],
         )
 
+        # make sure all device options work on the current machine
+        gpu_utils.fix_device_options(task.options)
+
         print("Loading complete")
 
     return task

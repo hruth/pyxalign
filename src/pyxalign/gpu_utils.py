@@ -1,3 +1,4 @@
+from dataclasses import is_dataclass
 from functools import wraps
 import traceback
 from types import ModuleType
@@ -13,6 +14,11 @@ import sys
 from typing import Union
 import pyxalign.api.enums as enums
 # from pyxalign.timer import timer
+from pyxalign.api.options.alignment import ProjectionMatchingOptions
+from pyxalign.api.options.device import DeviceOptions
+from pyxalign.api.options.reconstruct import AstraOptions
+from pyxalign.api.options_utils import print_options, set_all_device_options
+from pyxalign.io.utils import OptionsClass
 import pyxalign.timing.timer_utils as timer_utils
 
 from pyxalign.api.types import ArrayType
@@ -173,3 +179,57 @@ def return_cpu_array(array: ArrayType):
         return array.get()
     else:
         return array
+
+
+def auto_update_gpu_options(options: OptionsClass):
+    for k, v in options.__dict__.items():
+        # I am not using isinstance here because it does not always work as expected when
+        # using the reload_module_recursively and refresh_task function.
+        if is_dataclass(v):
+            if v.__class__.__qualname__ == DeviceOptions.__qualname__:
+                fix_device_options(v)
+            elif v.__class__.__qualname__ == AstraOptions.__qualname__:
+                fix_astra_options(v)
+            else:
+                auto_update_gpu_options(v)
+        else:
+            pass
+
+
+def fix_astra_options(options: AstraOptions):
+    gpu_list = get_available_gpus()
+    options.back_project_gpu_indices = [
+        x for x in options.back_project_gpu_indices if x in gpu_list
+    ]
+    options.forward_project_gpu_indices = [
+        x for x in options.forward_project_gpu_indices if x in gpu_list
+    ]
+    if options.forward_project_gpu_indices == []:
+        options.forward_project_gpu_indices = [0]
+    if options.back_project_gpu_indices == []:
+        options.back_project_gpu_indices = [0]
+
+
+def fix_device_options(options: DeviceOptions):
+    gpu_list = get_available_gpus()
+    n_gpus = len(gpu_list)
+    options.gpu.gpu_indices = [x for x in options.gpu.gpu_indices if x in gpu_list]
+    if options.gpu.gpu_indices == []:
+        options.gpu.gpu_indices = [0]
+    if options.gpu.n_gpus > n_gpus:
+        options.gpu.n_gpus = n_gpus
+    if options.gpu.n_gpus > len(gpu_list):
+        options.gpu.n_gpus = len(gpu_list)
+
+
+if __name__ == "__main__":
+    options = DeviceOptions()
+    options.gpu.gpu_indices = (5,6,7,8,9,10)
+    options.gpu.n_gpus = 20
+    pma_options = ProjectionMatchingOptions()
+    pma_options.device = options
+    pma_options.reconstruct.filter.device = options
+    auto_update_gpu_options(pma_options)
+    print_options(pma_options.device)
+    print_options(pma_options.reconstruct.filter.device)
+    print_options(pma_options.downsample.device)

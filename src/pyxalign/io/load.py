@@ -1,6 +1,7 @@
 from numbers import Complex
 import h5py
 
+from pyxalign import gpu_utils
 from pyxalign.api.enums import ProjectionType
 from pyxalign.data_structures import xrf_projections
 from pyxalign.data_structures.projections import (
@@ -60,7 +61,7 @@ def load_xrf_projections(
 
 def load_projections_object(
     proj_h5_obj: Union[h5py.Group, h5py.File], projection_type: ProjectionType
-):
+) -> Projections:
     # select the right class
     if projection_type == ProjectionType.COMPLEX:
         projection_class = ComplexProjections
@@ -119,5 +120,8 @@ def load_projections_object(
         if is_null_type(dropped_scan_numbers):
             dropped_scan_numbers = handle_null_type(dropped_scan_numbers)
         projections.dropped_scan_numbers = list(dropped_scan_numbers)
+
+    # make sure all device options work on the current machine
+    gpu_utils.fix_device_options(projections.options)
 
     return projections
