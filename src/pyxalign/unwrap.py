@@ -232,7 +232,6 @@ def unwrap_phase_gradient_integration(
             from gradients.
             - ImageIntegrationMethods.FOURIER: Use Fourier integration as implemented in PtychoShelves.
             - "deconvolution": Deconvolve ramp filter.
-            - "discrete": Use cumulative sum.
         weight_map: A weight map multiplied to the input image. Optional.
         flat_region_mask: A boolean mask with the same shape as `image` that
             specifies the region of the image that should be flat. This is used
@@ -281,22 +280,22 @@ def unwrap_phase_gradient_integration(
         image_grad_method=image_grad_method,
     )
 
-    if image_integration_method == ImageIntegrationMethods.DISCRETE and np.any(np.array(padding) > 0):
-        gy = gy[padding[0] : -padding[0], padding[1] : -padding[1]]
-        gx = gx[padding[0] : -padding[0], padding[1] : -padding[1]]
-    if image_integration_method == ImageIntegrationMethods.DISCRETE:
-        phase = xp.real(integrate_image_2d(gy, gx, bc_center=bc_center))
-    elif image_integration_method == ImageIntegrationMethods.FOURIER:
+    # if image_integration_method == ImageIntegrationMethods.DISCRETE and np.any(np.array(padding) > 0):
+    #     gy = gy[padding[0] : -padding[0], padding[1] : -padding[1]]
+    #     gx = gx[padding[0] : -padding[0], padding[1] : -padding[1]]
+    # if image_integration_method == ImageIntegrationMethods.DISCRETE:
+    #     phase = xp.real(integrate_image_2d(gy, gx, bc_center=bc_center))
+    if image_integration_method == ImageIntegrationMethods.FOURIER:
         phase = xp.real(integrate_image_2d_fourier(gy, gx))
     elif image_integration_method == ImageIntegrationMethods.DECONVOLUTION:
         phase = xp.real(integrate_image_2d_deconvolution(gy, gx, bc_center=bc_center))
     else:
         raise ValueError(f"Unknown integration method: {image_integration_method}")
 
-    if image_integration_method != ImageIntegrationMethods.DISCRETE and np.any(np.array(padding) > 0):
-        gy = gy[padding[0] : -padding[0], padding[1] : -padding[1]]
-        gx = gx[padding[0] : -padding[0], padding[1] : -padding[1]]
-        phase = phase[padding[0] : -padding[0], padding[1] : -padding[1]]
+    # if image_integration_method != ImageIntegrationMethods.DISCRETE and np.any(np.array(padding) > 0):
+    #     gy = gy[padding[0] : -padding[0], padding[1] : -padding[1]]
+    #     gx = gx[padding[0] : -padding[0], padding[1] : -padding[1]]
+    #     phase = phase[padding[0] : -padding[0], padding[1] : -padding[1]]
 
     if flat_region_mask is not None:
         phase = remove_polynomial_background(
