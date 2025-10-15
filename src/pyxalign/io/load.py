@@ -122,6 +122,6 @@ def load_projections_object(
         projections.dropped_scan_numbers = list(dropped_scan_numbers)
 
     # make sure all device options work on the current machine
-    gpu_utils.fix_device_options(projections.options)
+    gpu_utils.auto_update_gpu_options(projections.options)
 
     return projections

@@ -66,6 +66,7 @@ class RoundType(StrEnum):
     FLOOR = auto()
     NEAREST = auto()
 
+
 class ProjectionType(StrEnum):
     COMPLEX = auto()
     PHASE = auto()
@@ -82,3 +83,19 @@ class ShiftManagerMemberType(StrEnum):
     APPLIED_SHIFT_SEPERATE = auto()
     STAGED_SHIFT = auto()
 
+
+class PhaseUnwrapMethods(StrEnum):
+    IterativeResidualCorrection = auto()
+    GradientIntegration = auto()
+
+
+class ImageGradientMethods(StrEnum):
+    FOURIER_SHIFT = auto()
+    FOURIER_DIFFERENTIATION = auto()
+    NEAREST = auto()
+
+
+class ImageIntegrationMethods(StrEnum):
+    FOURIER = auto()
+    DISCRETE = auto()
+    DECONVOLUTION = auto()

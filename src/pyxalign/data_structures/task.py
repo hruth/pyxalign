@@ -120,16 +120,6 @@ class LaminographyAlignmentTask:
         self.complex_projections.get_masks(enable_plotting)
 
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
-        # if (
-        #     self.phase_projections is not None
-        #     and gpu_utils.is_pinned(self.phase_projections.data)
-        #     and pinned_results is None
-        # ):
-        #     pinned_results = gpu_utils.pin_memory(self.phase_projections.data)
-        # elif pinned_results is None:
-        #     pinned_results = gpu_utils.create_empty_pinned_array(
-        #         self.complex_projections.data.shape, dtype=r_type
-        #     )
         if pinned_results is None:
             if (
                 self.phase_projections is not None
@@ -204,7 +194,7 @@ def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentT
         )
 
         # make sure all device options work on the current machine
-        gpu_utils.fix_device_options(task.options)
+        gpu_utils.auto_update_gpu_options(task.options)
 
         print("Loading complete")
 

@@ -84,8 +84,6 @@ class RefineGeometryOptions:
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    # step_relax: float = 0.01
-
     lamino_step_relax: float = 0.01
 
     tilt_step_relax: float = 0.01

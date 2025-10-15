@@ -8,6 +8,7 @@ import scipy
 import cupyx
 import cupyx.scipy.signal
 import cupyx.scipy.interpolate
+import cupyx.scipy.ndimage
 import cupyx.scipy.fft as cufft
 import numpy as np
 import sys

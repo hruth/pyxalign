@@ -781,15 +781,21 @@ class Projections:
         )
         remove_scans = [scan for scan in self.scan_numbers if scan not in shared_scan_numbers]
         if drop_unshared_scans:
-        # remove scans that were not in reference data
-            keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan in shared_scan_numbers]
+            # remove scans that were not in reference data
+            keep_idx = [
+                i for i, scan in enumerate(self.scan_numbers) if scan in shared_scan_numbers
+            ]
             new_shift = new_shift[keep_idx]
             self.drop_projections(remove_scans)
             if remove_scans != []:
-                print(f"Removed scans that were not found in reference data: {[int(x) for x in remove_scans]}")
+                print(
+                    f"Removed scans that were not found in reference data: {[int(x) for x in remove_scans]}"
+                )
         else:
             if remove_scans != []:
-                print(f"Scans not found in reference data will not be shifted: {[int(x) for x in remove_scans]}")
+                print(
+                    f"Scans not found in reference data will not be shifted: {[int(x) for x in remove_scans]}"
+                )
         # stage shift
         self.shift_manager.stage_shift(new_shift, staged_function_type)
         # Update center of rotation
@@ -807,14 +813,27 @@ class Projections:
 
 class ComplexProjections(Projections):
     def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
+        use_masks = (
+            self.options.phase_unwrap.method == enums.PhaseUnwrapMethods.GradientIntegration
+        ) and (self.options.phase_unwrap.gradient_integration.use_masks)
+        # the configuration of the device_handling_wrapper depends on the number
+        # of chunked arguments passed to it, so it depends on whether or not
+        # we are passing in masks
+        if use_masks:
+            chunkable_inputs_for_gpu_idx = [0, 1]
+        else:
+            chunkable_inputs_for_gpu_idx = [0]
         unwrap_phase_wrapped = device_handling_wrapper(
             func=unwrap_phase,
             options=self.options.phase_unwrap.device,
-            chunkable_inputs_for_gpu_idx=[0, 1],
+            chunkable_inputs_for_gpu_idx=chunkable_inputs_for_gpu_idx,
             pinned_results=pinned_results,
             display_progress_bar=True,
         )
-        return unwrap_phase_wrapped(self.data, self.masks, self.options.phase_unwrap)
+        if use_masks:
+            return unwrap_phase_wrapped(self.data, self.masks, self.options.phase_unwrap)
+        else:
+            return unwrap_phase_wrapped(self.data, None, self.options.phase_unwrap)
 
 
 class PhaseProjections(Projections):
