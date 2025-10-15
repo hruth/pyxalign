@@ -97,5 +97,5 @@ class ImageGradientMethods(StrEnum):
 
 class ImageIntegrationMethods(StrEnum):
     FOURIER = auto()
-    DISCRETE = auto()
     DECONVOLUTION = auto()
+    # DISCRETE = auto()
