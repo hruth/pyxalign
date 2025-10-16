@@ -617,7 +617,10 @@ class Projections:
         else:
             options = copy.deepcopy(options)
 
-        if np.issubdtype(self.data.dtype, np.complexfloating) and options.process_func is None:
+        if (
+            np.issubdtype(self.data.dtype, np.complexfloating)
+            and options.process_func is enums.ProcessFunc.NONE
+        ):
             print("process_func not provided, defaulting to plotting angle of complex projections")
             options.process_func = enums.ProcessFunc.ANGLE
 
