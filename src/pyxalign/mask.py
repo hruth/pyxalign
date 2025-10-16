@@ -358,7 +358,8 @@ def place_patches_fourier_batch(
     # undo initial padding
     if pad_edges:
         a = int(padding / 2)
-        masks_out = masks_out[:, a:-a, a:-a]
+        # need to make a copy to prevent array from being non-contiguous
+        masks_out = masks_out[:, a:-a, a:-a] * 1 
 
     return masks_out
 

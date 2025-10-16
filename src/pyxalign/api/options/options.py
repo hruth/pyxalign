@@ -48,14 +48,67 @@ class PhaseRampRemovalOptions:
 
 
 @dataclasses.dataclass
+class GradientIntegrationUnwrapOptions:
+    gradient_method: enums.ImageGradientMethods = enums.ImageGradientMethods.FOURIER_DIFFERENTIATION
+    "The method used to calculate the phase gradient"
+
+    integration_method: enums.ImageIntegrationMethods = enums.ImageIntegrationMethods.FOURIER
+    "The method used to integrate the image back from gradients"
+
+    fourier_shift_step: float = 0.5
+    """
+    The finite-difference step size used to calculate the gradient, 
+    if the Fourier shift method is selected
+    """
+
+    use_masks: bool = True
+    """
+    Determines if the projection masks should be multiplied with the 
+    projections before unwrapping
+    """
+
+    deramp_polyfit_order: int = 1
+    "The order of the polynomial fit used to de-ramp the phase"
+
+
+@dataclasses.dataclass
+class IterativeResidualUnwrapOptions:
+    iterations: int = 10
+    "Number of iterative correction steps to perform"
+
+    lsq_fit_ramp_removal: bool = False
+    """
+    Whether to remove phase ramps using least-squares fitting after 
+    unwrapping
+    """
+
+
+@dataclasses.dataclass
 class PhaseUnwrapOptions:
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    iterations: int = 10
+    method: enums.PhaseUnwrapMethods = enums.PhaseUnwrapMethods.IterativeResidualCorrection
+    """
+    Phase unwrapping method to use
 
-    # poly_fit_order: int = 1
+    Options:
+    - PhaseUnwrapMethods.IterativeResidualCorrection
+        - default choice; typically performs better
+    - PhaseUnwrapMethods.GradientIntegration
+        - can perform better if the IterativeResidualCorrection 
+        unwrapping is producing large phase ramps
+        - same unwrapping method that is used by pty-chi
+    """
 
-    lsq_fit_ramp_removal: bool = False
+    gradient_integration: GradientIntegrationUnwrapOptions = field(
+        default_factory=GradientIntegrationUnwrapOptions
+    )
+    "Options for GradientIntegration unwrapping"
+
+    iterative_residual: IterativeResidualUnwrapOptions = field(
+        default_factory=IterativeResidualUnwrapOptions
+    )
+    "Options for IterativeResidualCorrection unwrapping"
 
 
 @dataclasses.dataclass

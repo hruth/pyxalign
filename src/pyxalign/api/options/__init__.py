@@ -34,6 +34,8 @@ from .options import (
     PhaseRampRemovalOptions,
     PhaseUnwrapOptions,
     RegularizationOptions,
+    GradientIntegrationUnwrapOptions,
+    IterativeResidualUnwrapOptions,
 )
 from .plotting import (
     UpdatePlotOptions,

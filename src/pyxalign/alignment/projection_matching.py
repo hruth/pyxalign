@@ -1048,21 +1048,21 @@ class ProjectionMatchingAligner(Aligner):
         inline_timer.end()
 
         # Update angles
-        def get_angle_update(angle_correction: ArrayType):
+        def get_angle_update(angle_correction: ArrayType, step_relax: float):
             angle_update = xp.median(xp.real(angle_correction))
             if self.memory_config == MemoryConfig.GPU_ONLY:
                 angle_update = angle_update.get()
-            angle_update = angle_update * self.options.refine_geometry.step_relax
+            angle_update = angle_update * step_relax
             return angle_update
 
         self.aligned_projections.options.experiment.laminography_angle += get_angle_update(
-            self.pinned_lamino_angle_correction
+            self.pinned_lamino_angle_correction, self.options.refine_geometry.lamino_step_relax
         )
         self.aligned_projections.options.reconstruct.geometry.tilt_angle += get_angle_update(
-            self.pinned_tilt_angle_correction
+            self.pinned_tilt_angle_correction, self.options.refine_geometry.tilt_step_relax
         )
         self.aligned_projections.options.reconstruct.geometry.skew_angle += get_angle_update(
-            self.pinned_skew_angle_correction
+            self.pinned_skew_angle_correction, self.options.refine_geometry.skew_step_relax
         )
 
         # Store updated results for plotting
