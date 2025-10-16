@@ -293,9 +293,10 @@ def unwrap_phase_gradient_integration(
         raise ValueError(f"Unknown integration method: {image_integration_method}")
 
     # if image_integration_method != ImageIntegrationMethods.DISCRETE and np.any(np.array(padding) > 0):
-    #     gy = gy[padding[0] : -padding[0], padding[1] : -padding[1]]
-    #     gx = gx[padding[0] : -padding[0], padding[1] : -padding[1]]
-    #     phase = phase[padding[0] : -padding[0], padding[1] : -padding[1]]
+    if np.any(np.array(padding) > 0):
+        gy = gy[padding[0] : -padding[0], padding[1] : -padding[1]]
+        gx = gx[padding[0] : -padding[0], padding[1] : -padding[1]]
+        phase = phase[padding[0] : -padding[0], padding[1] : -padding[1]]
 
     if flat_region_mask is not None:
         phase = remove_polynomial_background(

@@ -813,9 +813,21 @@ class Projections:
 
 class ComplexProjections(Projections):
     def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
-        use_masks = (
-            self.options.phase_unwrap.method == enums.PhaseUnwrapMethods.GradientIntegration
+        # this method always needs a mask
+        bool_1 = (
+            self.options.phase_unwrap.method
+            == enums.PhaseUnwrapMethods.IterativeResidualCorrection
+        )
+        # this method does not need a mask
+        bool_2 = (
+            self.options.phase_unwrap.method
+            == enums.PhaseUnwrapMethods.GradientIntegration
         ) and (self.options.phase_unwrap.gradient_integration.use_masks)
+        use_masks = bool_1 or bool_2
+        if use_masks is True and self.masks is None:
+            raise ValueError(
+                "Phase unwrapping requires masks for the selected phase_unwrap settings, but masks do not exist"
+            )
         # the configuration of the device_handling_wrapper depends on the number
         # of chunked arguments passed to it, so it depends on whether or not
         # we are passing in masks
