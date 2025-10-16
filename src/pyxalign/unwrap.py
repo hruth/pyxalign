@@ -302,6 +302,9 @@ def unwrap_phase_gradient_integration(
         phase = remove_polynomial_background(
             phase, flat_region_mask, polyfit_order=deramp_polyfit_order
         )
+    if isinstance(weight_map, ArrayType):
+        phase *= weight_map
+
     if return_phase_grads:
         return phase, (gy, gx)
     return phase

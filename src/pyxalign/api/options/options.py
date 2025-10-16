@@ -61,7 +61,7 @@ class GradientIntegrationUnwrapOptions:
     if the Fourier shift method is selected
     """
 
-    use_masks: bool = False
+    use_masks: bool = True
     """
     Determines if the projection masks should be multiplied with the 
     projections before unwrapping

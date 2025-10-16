@@ -177,12 +177,8 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
 
         ### Unwrap phase ###
         # Unwrap phase and create phase_projections object
-        task.complex_projections.options.phase_unwrap = opts.PhaseUnwrapOptions(
-            device=multi_gpu_device_options,
-            iterations=10,
-            lsq_fit_ramp_removal=False,
-        )
         # Pin data used in calculating phase projections
+        task.complex_projections.options.phase_unwrap.device = multi_gpu_device_options
         task.get_unwrapped_phase()
         # Flip contrast on projections
         task.phase_projections.data[:] = -task.phase_projections.data

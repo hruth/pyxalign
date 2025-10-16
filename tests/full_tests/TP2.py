@@ -175,20 +175,11 @@ def run_full_test_TP2(
 
         ### Unwrap phase ###
         # Unwrap phase and create phase_projections object
-        task.complex_projections.options.phase_unwrap = opts.PhaseUnwrapOptions(
-            device=multi_gpu_device_options,
-            iterations=10,
-            lsq_fit_ramp_removal=False,
-        )
-        # Pin data used in calculating phase projections
-        pinned_data = gpu_utils.create_empty_pinned_array(
-            task.complex_projections.data.shape, dtype=r_type
-        )
-        task.get_unwrapped_phase(pinned_data)
+        task.complex_projections.options.phase_unwrap.device = multi_gpu_device_options
+        task.get_unwrapped_phase()
 
         # Delete arrays that are no longer needed to free up space
         task.complex_projections = None
-        del pinned_data
 
         # Check/save results of unwrapping phase
         ci_test_helper.save_or_compare_results(task, "unwrapped_phase")
