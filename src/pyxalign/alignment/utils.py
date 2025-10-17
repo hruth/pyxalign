@@ -20,8 +20,8 @@ def get_shift_from_different_resolution_alignment(
 
     new_shift = np.zeros((len(current_scan_numbers), 2), dtype=r_type)
     new_shift[idx_1] = reference_shift[idx_2]
-    # return shared_scan_numbers, new_shift[idx_1] * (reference_pixel_size / current_pixel_size)
-    return shared_scan_numbers, new_shift * (reference_pixel_size / current_pixel_size)
+    new_shift *= (reference_pixel_size / current_pixel_size)
+    return shared_scan_numbers, new_shift
 
 
 def get_center_of_rotation_from_different_resolution_alignment(
