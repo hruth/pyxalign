@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Sequence
 import numpy as np
 import tifffile
 import matplotlib.pyplot as plt
@@ -18,10 +18,13 @@ def plot_slice_comparison_with_insets(
     inset_loc: str = "upper right",
     scalebar_fractional_width: float = 0.15,
     append_title_list: Optional[list[str]] = None,
+    clim: Optional[list[float]] = None,
     clim_mult_list: Optional[list[tuple[float]]] = None,
+    colorbar: bool = False,
     n_rows: int = 1,
     figsize: Optional[tuple[int]] = None,
     show_plot: bool = True,
+    invert: Optional[list[bool]] = None,
 ):
     """
     Plot a comparison of image slices from multiple TIFF volumes with
@@ -103,8 +106,11 @@ def plot_slice_comparison_with_insets(
             inset_zoom=inset_zoom,
             large_crop_size=outer_crop_width_px,
             scalebar_fractional_width=scalebar_fractional_width,
+            clim=clim,
             clim_mult=clim_mult_list[i],
+            colorbar=colorbar,
             plot_center_frac=plot_center_frac,
+            invert=invert[i],
         )
     if show_plot:
         plt.show()
@@ -123,7 +129,10 @@ def plot_tiff_layer(
     large_crop_size=1200,
     scalebar_fractional_width=0.15,
     clim_mult=None,
+    clim: Optional[list[float]] = None,
+    colorbar: bool = False,
     return_layer=False,
+    invert: bool = False,
     *,
     plot_center=None,  # (y, x) in pixels on the (possibly) cropped image
     plot_center_frac=None,  # (fy, fx) in [0,1]; ignored if plot_center is provided
@@ -143,7 +152,13 @@ def plot_tiff_layer(
     layer = image_crop(layer, large_crop_size, large_crop_size)
 
     # Parent image
+    if invert:
+        layer = -layer
     im = ax.imshow(layer, cmap="bone")
+    if colorbar:
+        plt.colorbar(im)# orientation='vertical')
+    if clim is not None:
+        im.set_clim(clim)
     if clim_mult is not None:
         default_clim = im.get_clim()
         clim_mean = np.mean(default_clim)
@@ -182,6 +197,8 @@ def plot_tiff_layer(
     im = axins.imshow(layer, cmap="bone")
     if clim_mult is not None:
         im.set_clim(new_clim)
+    elif clim is not None:
+        im.set_clim(clim)
     axins.set_xlim(x1, x2)
     axins.set_ylim(y2, y1)  # origin='upper' default -> invert y to show correctly
     axins.set_xticks([])
