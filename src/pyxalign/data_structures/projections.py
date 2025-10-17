@@ -39,7 +39,7 @@ from pyxalign.api.options.transform import (
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
 from pyxalign.data_structures.volume import Volume
-from pyxalign.interactions.mask import ThresholdSelector, build_masks_from_threshold
+from pyxalign.interactions.mask import ThresholdSelector, build_masks_from_threshold, launch_mask_builder
 from pyxalign.io.utils import load_list_of_arrays
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
@@ -362,79 +362,30 @@ class Projections:
         if self.probe_positions is not None:
             self.probe_positions.shift_positions(shift)
 
-    # @timer()
-    # def setup_masks_from_probe_positions(self):
-    #     if self.probe is None or self.probe_positions is None:
-    #         raise Exception(
-    #             "The Projections object must have probe_positions and "
-    #             + "probe attribute to run create_mask_from_probe_positions!"
-    #         )
-    #     self.mask_builder = IlluminationMapMaskBuilder()
-    #     self.mask_builder.get_mask_base(self.probe, self.probe_positions.data, self.data)
-    #     # Set threshold value for building masks
-    #     self.mask_builder.set_mask_threshold_interactively(self.data)
-    #     # Build the masks
-    #     self.get_masks_from_probe_positions()
-
     @timer()
     def get_masks_from_probe_positions(
-        self, threshold: Optional[float] = None, delete_mask_builder: bool = True
-    ):  
-        if threshold is not None:
+        self, threshold: Optional[float] = None, wait_until_closed: bool = True
+    ):
+        if threshold is None:
+            # open the window
+            self.mask_gui = launch_mask_builder(
+                self.data,
+                self.probe,
+                self.probe_positions.data,
+                mask_receiver_function=self._receive_masks,
+                wait_until_closed=wait_until_closed,
+            )
+        else:
+            # bypass the GUI if the threshold is known
             self.masks = build_masks_from_threshold(
                 self.data.shape, self.probe, self.probe_positions.data, threshold
             )
-            return
 
-        if QApplication.instance() is None:
-            app = QApplication.instance() or QApplication([])
+    def _receive_masks(self, masks: np.ndarray):
+        if self.masks is None or self.masks.shape != masks.shape:
+            self.masks = masks
         else:
-            app = None
-
-        mask_builder = ThresholdSelector(
-            self.data,
-            self.probe,
-            self.probe_positions.data,
-        )
-        mask_builder.show()
-        if app is not None:
-            app.exec_()
-        self.masks = mask_builder.masks
-        print("masks built")
-
-        # """
-        # Do one of the following:
-        # 1) Run `setup_masks_from_probe_positions` first
-        # 2) Provide the threshold input, above which to set the illumination map to 1
-        # """
-        # # if self.mask_builder is None and threshold is None:
-        # # raise Exception
-        # if threshold is None:
-        #     # set threshold interactively
-        #     if self.probe is None or self.probe_positions is None:
-        #         raise Exception(
-        #             "The Projections object must have probe_positions and "
-        #             + "probe attribute to run create_mask_from_probe_positions!"
-        #         )
-        #     self.mask_builder = IlluminationMapMaskBuilder()
-        #     self.mask_builder.get_mask_base(
-        #         self.probe, self.probe_positions.data, self.data, use_fourier=True
-        #     )
-        #     # Set threshold value for building masks
-        #     threshold = self.mask_builder.set_mask_threshold_interactively(self.data)
-        #     self.mask_builder.clip_masks(threshold)
-        # else:
-        #     self.mask_builder = IlluminationMapMaskBuilder()
-        #     self.mask_builder.get_mask_base(
-        #         self.probe, self.probe_positions.data, self.data, use_fourier=True
-        #     )
-        #     self.mask_builder.clip_masks(threshold)
-        # # else:
-        # # self.mask_builder.clip_masks()
-        # self.masks = self.mask_builder.masks
-
-        # if delete_mask_builder:
-        #     self.mask_builder = None
+            self.masks[:] = masks
 
     def drop_projections(self, remove_scans: list[int], repin_array: bool = False):
         "Permanently remove specific projections from object"

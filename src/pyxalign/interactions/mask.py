@@ -1,20 +1,12 @@
 from __future__ import annotations
 
-"""
-Interactive mask threshold selector based on pyqtgraph and the shared
-IndexSelectorWidget used elsewhere in pyxalign.
-
-This file replaces the previous Matplotlib-based implementation with a fast
-Qt/pyqtgraph GUI and removes the bespoke slider / play logic in favour of the
-centralised IndexSelectorWidget (see plotting/interactive/base.py).
-"""
-
-from typing import Optional, List
+from typing import Callable, Optional, List
 
 import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
+    QApplication,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -25,6 +17,15 @@ from PyQt5.QtWidgets import (
 
 from pyxalign.mask import place_patches_fourier_batch
 from pyxalign.plotting.interactive.base import IndexSelectorWidget
+
+"""
+Interactive mask threshold selector based on pyqtgraph and the shared
+IndexSelectorWidget used elsewhere in pyxalign.
+
+This file replaces the previous Matplotlib-based implementation with a fast
+Qt/pyqtgraph GUI and removes the bespoke slider / play logic in favour of the
+centralised IndexSelectorWidget (see plotting/interactive/base.py).
+"""
 
 
 # ------------------------------------------------------------------------------
@@ -317,3 +318,25 @@ class ThresholdSelector(QWidget):
         self.show()  # non-modal; caller must start QApplication exec
         # busy-wait loop could be added, but left out intentionally.
         return self._final_masks
+
+
+def launch_mask_builder(
+    projections_array: np.ndarray,
+    probe: np.ndarray,
+    probe_positions: list[np.ndarray],
+    mask_receiver_function: Optional[Callable] = None,
+    wait_until_closed: bool = False,
+):
+    app = QApplication.instance() or QApplication([])
+    gui = ThresholdSelector(
+        projections_array,
+        probe,
+        probe_positions,
+    )
+    if mask_receiver_function is not None:
+        gui.masks_created.connect(mask_receiver_function)
+    gui.show()
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    if wait_until_closed:
+        app.exec_()
+    return gui

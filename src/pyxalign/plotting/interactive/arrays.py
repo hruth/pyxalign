@@ -235,20 +235,11 @@ class ProjectionViewer(MultiThreadedWidget):
         self.projection_dropping_widget.show()
 
     def open_mask_creation_window(self):
-        self.mask_builder = ThresholdSelector(
-            self.projections.data,
-            self.projections.probe,
-            self.projections.probe_positions.data,
-        )
-        self.mask_builder.masks_created.connect(self.receive_masks)
-        self.mask_builder.show()
+        self.projections.get_masks_from_probe_positions(wait_until_closed=False)
+        self.projections.mask_gui.masks_created.connect(self.on_masks_created)
 
-    def receive_masks(self, masks: np.ndarray):
-        if self.projections.masks is None:
-            self.projections.masks = masks
-            self.update_array_selector()
-        else:
-            self.projections.masks[:] = masks
+    def on_masks_created(self):
+        self.update_array_selector()
         self.array_viewer.refresh_frame()
         self.masks_created.emit(self.projections.masks)
 
@@ -257,10 +248,11 @@ class ProjectionViewer(MultiThreadedWidget):
         add_forward_projection = self.has_forward_projection() and (
             self.forward_projections_name not in self.array_names
         )
+        add_buttons = []
         if add_masks:
-            add_buttons = [self.masks_name, self.projections_plus_masks_name]
+            add_buttons += [self.masks_name, self.projections_plus_masks_name]
         if add_forward_projection:
-            add_buttons = [self.forward_projections_name, self.residuals_name]
+            add_buttons += [self.forward_projections_name, self.residuals_name]
         self.array_names += add_buttons
         for array_name in add_buttons:
             self.add_button_to_group(array_name)
