@@ -842,12 +842,12 @@ class ComplexProjections(Projections):
         # this method always needs a mask
         bool_1 = (
             self.options.phase_unwrap.method
-            == enums.PhaseUnwrapMethods.IterativeResidualCorrection
+            == enums.PhaseUnwrapMethods.ITERATIVE_RESIDUAL_CORRECTION
         )
         # this method does not need a mask
         bool_2 = (
             self.options.phase_unwrap.method
-            == enums.PhaseUnwrapMethods.GradientIntegration
+            == enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION
         ) and (self.options.phase_unwrap.gradient_integration.use_masks)
         use_masks = bool_1 or bool_2
         if use_masks is True and self.masks is None:

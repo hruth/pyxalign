@@ -86,8 +86,8 @@ class ShiftManagerMemberType(StrEnum):
 
 
 class PhaseUnwrapMethods(StrEnum):
-    IterativeResidualCorrection = auto()
-    GradientIntegration = auto()
+    ITERATIVE_RESIDUAL_CORRECTION = auto()
+    GRADIENT_INTEGRATION = auto()
 
 
 class ImageGradientMethods(StrEnum):

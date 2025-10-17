@@ -87,7 +87,7 @@ class IterativeResidualUnwrapOptions:
 class PhaseUnwrapOptions:
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
-    method: enums.PhaseUnwrapMethods = enums.PhaseUnwrapMethods.IterativeResidualCorrection
+    method: enums.PhaseUnwrapMethods = enums.PhaseUnwrapMethods.ITERATIVE_RESIDUAL_CORRECTION
     """
     Phase unwrapping method to use
 

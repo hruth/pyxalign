@@ -2,6 +2,8 @@ from dataclasses import fields, is_dataclass
 import enum
 from typing import Type, Union, TypeVar
 import h5py
+from difflib import get_close_matches
+
 
 from pyxalign.api.enums import SpecialValuePlaceholder
 
@@ -120,7 +122,9 @@ def dict_to_dataclass(
                 # Convert to str enum if necessary
                 expected_type = options_class.__annotations__[field_name]
                 if isinstance(expected_type, enum.EnumType):
-                    value = expected_type[value.upper()]
+                    # control for typos,
+                    # value = expected_type[value.upper()]
+                    value = safe_enum_access(value, expected_type)
             field_values[field_name] = value
 
     return options_class(**field_values)
@@ -137,3 +141,62 @@ def load_array(h5_obj: h5py.Group, name: str):
             return handle_null_type(value)
         else:
             return value
+
+
+def safe_enum_access(value: str, expected_type: type[enum.StrEnum]) -> enum.StrEnum:
+    """
+    Safely access enum member with automatic typo correction.
+
+    Args:
+        value: The input string
+        expected_type: The StrEnum class
+
+    Returns:
+        The matching enum member
+
+    Raises:
+        ValueError: If no suitable match found
+    """
+    # Try direct access first (case-insensitive)
+    try:
+        return expected_type[value.upper()]
+    except KeyError:
+        pass
+
+    match_found = False
+    # Try fuzzy matching
+    normalized_value = value.replace("_", "").lower()
+    enum_names = [member.name for member in expected_type]
+    normalized_names = [name.replace("_", "").lower() for name in enum_names]
+
+    # Check for exact match after normalization
+    for i, norm_name in enumerate(normalized_names):
+        if normalized_value == norm_name:
+            match_found = True
+            best_member_match = expected_type[enum_names[i]]
+            break
+            # return expected_type[enum_names[i]]
+
+    if not match_found:
+        # Fuzzy match as last resort
+        matches = get_close_matches(normalized_value, normalized_names, n=1, cutoff=0.6)
+
+        if matches:
+            match_found = True
+            best_match_index = normalized_names.index(matches[0])
+            best_member_match = expected_type[enum_names[best_match_index]]
+        
+
+    if match_found:
+        print(f"""
+        WARNING: trying to load string enum '{value}', but no matching member was found in 
+        {expected_type}. Using the best match '{best_member_match}' instead.
+
+        If you are getting this message, it means a typo was made or the string enums in the 
+        codebase have changed at some point after this file was created. 
+        """)
+        return best_member_match
+
+    raise ValueError(
+        f"No matching enum member found for '{value}' in {expected_type.__name__}"
+    )

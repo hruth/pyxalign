@@ -38,14 +38,14 @@ def unwrap_phase(
     """
     xp = cp.get_array_module(images)
 
-    if options.method == PhaseUnwrapMethods.IterativeResidualCorrection:
+    if options.method == PhaseUnwrapMethods.ITERATIVE_RESIDUAL_CORRECTION:
         unwrapped_phase = unwrap_phase_iterative_residual_correction(
             images,
             weights,
             options.iterative_residual.iterations,
             options.iterative_residual.lsq_fit_ramp_removal,
         )
-    elif options.method == PhaseUnwrapMethods.GradientIntegration:
+    elif options.method == PhaseUnwrapMethods.GRADIENT_INTEGRATION:
         unwrapped_phase = xp.zeros(shape=images.shape, dtype=r_type)
         for i in range(len(images)):
             if options.gradient_integration.use_masks:
