@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
 )
 
+from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 from pyxalign.mask import place_patches_fourier_batch
 from pyxalign.plotting.interactive.base import IndexSelectorWidget
 
@@ -170,7 +171,14 @@ class ThresholdSelector(QWidget):
         super().__init__(parent=parent)
 
         # Precompute masks (floating-point values)
-        masks = place_patches_fourier_batch(projections.shape, probe, positions)
+        load_bar_func_wrapper = loading_bar_wrapper("Initializing masks...")(
+            place_patches_fourier_batch
+        )
+        masks = load_bar_func_wrapper(
+            projections.shape,
+            probe,
+            positions,
+        )
 
         # Basic state
         self.masks = masks
@@ -292,7 +300,8 @@ class ThresholdSelector(QWidget):
         self.timer.stop()
 
         # Convert masks to binary using final threshold
-        self.masks = clip_masks(self.masks, self.threshold)
+        wrapped_clip_masks = loading_bar_wrapper("Constructing masks...")(func=clip_masks)
+        self.masks = wrapped_clip_masks(self.masks, self.threshold)
 
         # Emit and close
         self.masks_created.emit(self.masks)

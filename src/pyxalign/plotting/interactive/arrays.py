@@ -8,6 +8,7 @@ import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.mask import ThresholdSelector
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
+from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 from pyxalign.plotting.interactive.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QWidget,
@@ -413,7 +414,10 @@ class ScanRemovalTool(QWidget):
         for row in range(self.staged_for_removal_table.rowCount()):
             remove_scan_numbers += [int(self.staged_for_removal_table.item(row, 1).text())]
         # drop projections
-        self.projections.drop_projections(remove_scan_numbers)
+        drop_projections_wrapped = loading_bar_wrapper("Removing projections...")(
+            self.projections.drop_projections
+        )
+        drop_projections_wrapped(remove_scan_numbers)
         # clear rows
         self.staged_for_removal_table.blockSignals(True)
         self.staged_for_removal_table.setRowCount(0)
