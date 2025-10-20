@@ -138,6 +138,7 @@ def load_projections_object(
             dropped_file_paths = {}
         else:
             dropped_file_paths = dict(zip(scans, dropped_file_paths))
+            dropped_file_paths = {k: v.decode() for k, v in dropped_file_paths.items()}
         projections.dropped_file_paths = dropped_file_paths
 
     # make sure all device options work on the current machine

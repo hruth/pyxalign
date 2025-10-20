@@ -131,6 +131,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
             probe_positions=list(lamni_data.probe_positions.values()),
             probe=lamni_data.probe,
             skip_pre_processing=False,
+            file_paths=lamni_data.file_paths,
         )
         task = LaminographyAlignmentTask(
             options=opts.AlignmentTaskOptions(),

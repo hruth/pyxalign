@@ -334,6 +334,10 @@ class ProjectionViewer(MultiThreadedWidget):
 
 
 class ScanRemovalTool(QWidget):
+    scan_column = 0
+    angle_column = 1
+    file_path_column = 2
+
     def __init__(
         self,
         projections: "p.Projections",
@@ -360,18 +364,35 @@ class ScanRemovalTool(QWidget):
         self.array_viewer.slider.valueChanged.connect(self.update_mark_for_removal_check_box)
         # create table widget for show scans staged for removal
         self.staged_for_removal_table = QTableWidget(self)
-        self.staged_for_removal_table.setColumnCount(3)
+        self.staged_for_removal_table.setColumnCount(4)
         self.staged_for_removal_table.setHorizontalHeaderLabels(
-            ["Index", "Scan Number", "Angle (deg)"]
+            ["Index", "Scan Number", "Angle (deg)", "File Path"]
         )
         self.staged_for_removal_table.currentCellChanged.connect(self.table_item_selected)
         # create table widget for previously removed scans
         self.removed_scans_table = QTableWidget(self)
-        self.removed_scans_table.setColumnCount(1)
-        self.removed_scans_table.setHorizontalHeaderLabels(["Scan Number"])
+        self.removed_scans_table.setColumnCount(3)
+        self.removed_scans_table.setHorizontalHeaderLabels(
+            ["Scan Number", "Angle (deg)", "File Path"]
+        )
         for row_index, scan in enumerate(np.sort(self.projections.dropped_scan_numbers)):
             self.removed_scans_table.insertRow(row_index)
-            self.removed_scans_table.setItem(row_index, 0, QTableWidgetItem(str(scan)))
+            # insert scan num
+            self.removed_scans_table.setItem(
+                row_index, self.scan_column, QTableWidgetItem(str(scan))
+            )
+            # insert angle
+            if scan in self.projections.dropped_angles.keys():
+                angle = self.projections.dropped_angles[scan]
+                self.removed_scans_table.setItem(
+                    row_index, self.angle_column, QTableWidgetItem(str(angle))
+                )
+            # insert file path
+            if scan in self.projections.dropped_file_paths.keys():
+                file_path = self.projections.dropped_file_paths[scan]
+                self.removed_scans_table.setItem(
+                    row_index, self.file_path_column, QTableWidgetItem(file_path)
+                )
         # create the button for permanently dropping projections
         drop_projections_button = QPushButton("Permanently Remove Scans", self)
         drop_projections_button.pressed.connect(self.remove_staged_projections)
@@ -412,7 +433,9 @@ class ScanRemovalTool(QWidget):
         # remove scans from projection object
         remove_scan_numbers = []
         for row in range(self.staged_for_removal_table.rowCount()):
-            remove_scan_numbers += [int(self.staged_for_removal_table.item(row, 1).text())]
+            remove_scan_numbers += [
+                int(self.staged_for_removal_table.item(row, self.scan_column + 1).text())
+            ]
         # drop projections
         drop_projections_wrapped = loading_bar_wrapper("Removing projections...")(
             self.projections.drop_projections
@@ -427,9 +450,23 @@ class ScanRemovalTool(QWidget):
         for i in range(new_rows_count):
             row_index = self.removed_scans_table.rowCount()
             self.removed_scans_table.insertRow(row_index)
+            scan = remove_scan_numbers[i]
+            # insert scan
             self.removed_scans_table.setItem(
-                row_index, 0, QTableWidgetItem(str(remove_scan_numbers[i]))
+                row_index, self.scan_column, QTableWidgetItem(str(scan))
             )
+            # insert angle
+            if scan in self.projections.dropped_angles.keys():
+                angle = self.projections.dropped_angles[scan]
+                self.removed_scans_table.setItem(
+                    row_index, self.angle_column, QTableWidgetItem(str(angle))
+                )
+            # insert file path
+            if scan in self.projections.dropped_file_paths.keys():
+                file_path = self.projections.dropped_file_paths[scan]
+                self.removed_scans_table.setItem(
+                    row_index, self.file_path_column, QTableWidgetItem(file_path)
+                )
         # un-check scan removal checkbox
         self.mark_for_removal_check_box.blockSignals(True)
         self.mark_for_removal_check_box.setChecked(False)
@@ -466,12 +503,23 @@ class ScanRemovalTool(QWidget):
             self.staged_for_removal_table.setItem(row_index, 0, QTableWidgetItem(str(index)))
             # add scan number
             self.staged_for_removal_table.setItem(
-                row_index, 1, QTableWidgetItem(str(self.projections.scan_numbers[sorted_index]))
+                row_index,
+                self.scan_column + 1,
+                QTableWidgetItem(str(self.projections.scan_numbers[sorted_index])),
             )
             # add angle
             self.staged_for_removal_table.setItem(
-                row_index, 2, QTableWidgetItem(f"{self.projections.angles[sorted_index]:.3f}")
+                row_index,
+                self.angle_column + 1,
+                QTableWidgetItem(f"{self.projections.angles[sorted_index]:.3f}"),
             )
+            # add file path
+            if self.projections.file_paths is not None:
+                self.staged_for_removal_table.setItem(
+                    row_index,
+                    self.file_path_column + 1,
+                    QTableWidgetItem(self.projections.file_paths[sorted_index]),
+                )
         else:
             # find row and remove it
             for row in range(self.staged_for_removal_table.rowCount()):
