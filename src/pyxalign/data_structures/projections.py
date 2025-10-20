@@ -165,6 +165,8 @@ class Projections:
         # Initialize other quantities
         # self.mask_builder: IlluminationMapMaskBuilder = None
         self.dropped_scan_numbers = []
+        self.dropped_angles = {}
+        self.dropped_file_paths = {}
         # Run initialization code specific to the projection type (i.e. PhaseProjections
         # or complex projections)
         self._post_init()
@@ -396,8 +398,14 @@ class Projections:
         if isinstance(remove_scans, np.ndarray):
             remove_scans = list(remove_scans)
         keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan not in remove_scans]
-        # self.dropped_scan_numbers += remove_scans
-        self.dropped_scan_numbers += [scan for scan in remove_scans if scan in self.scan_numbers]
+        remove_idx = [i for i, scan in enumerate(self.scan_numbers) if scan in remove_scans]
+        # update list of dropped scans
+        # self.dropped_scan_numbers += [scan for scan in remove_scans if scan in self.scan_numbers]
+        self.dropped_scan_numbers += [self.scan_numbers[i] for i in remove_idx]
+        for i in remove_idx:
+            self.dropped_angles[self.scan_numbers[i]] = self.angles[i]
+            if self.file_paths is not None:
+                self.dropped_file_paths[self.scan_numbers[i]] = self.file_paths[i]
 
         def return_modified_array(arr, repin_array: bool):
             if gpu_utils.is_pinned(self.data) and repin_array:
@@ -415,9 +423,9 @@ class Projections:
         if self.probe_positions is not None:
             self.probe_positions.data = [self.probe_positions.data[i] for i in keep_idx]
         self.angles = self.angles[keep_idx]
-        self.scan_numbers = self.scan_numbers[keep_idx]
         if self.file_paths is not None:
             self.file_paths = [self.file_paths[i] for i in keep_idx]
+        self.scan_numbers = self.scan_numbers[keep_idx]
 
         # Update the past shifts and staged shift
         self.shift_manager.staged_shift = self.shift_manager.staged_shift[keep_idx]
@@ -705,8 +713,10 @@ class Projections:
             "applied_shifts": self.shift_manager.past_shifts,
             "staged_shift": self.shift_manager.staged_shift,
             "staged_shift_function_type": self.shift_manager.staged_function_type,
-            "dropped_scan_numbers": self.dropped_scan_numbers,
             "file_paths": file_paths,
+            "dropped_scan_numbers": self.dropped_scan_numbers,
+            "dropped_angles": self.dropped_angles,
+            "dropped_file_paths": self.dropped_file_paths,
         }
         # Save all elements from save_attr_dict to the .h5 file
         save_generic_data_structure_to_h5(save_attr_dict, h5_obj)

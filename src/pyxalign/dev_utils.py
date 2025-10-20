@@ -44,6 +44,9 @@ def refresh_projections(stale_projections: Projections) -> Projections:
                 file_paths=stale_projections.file_paths,
             )
             new_projections.dropped_scan_numbers = stale_projections.dropped_scan_numbers
+            new_projections.dropped_angles = stale_projections.dropped_angles
+            new_projections.dropped_file_paths = stale_projections.dropped_file_paths
+
     return new_projections
 
 

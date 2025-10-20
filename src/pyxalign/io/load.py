@@ -59,6 +59,7 @@ def load_xrf_projections(
             )
     return xrf_projections_dict
 
+
 def load_projections_object(
     proj_h5_obj: Union[h5py.Group, h5py.File], projection_type: ProjectionType
 ) -> Projections:
@@ -120,6 +121,24 @@ def load_projections_object(
         if is_null_type(dropped_scan_numbers):
             dropped_scan_numbers = handle_null_type(dropped_scan_numbers)
         projections.dropped_scan_numbers = list(dropped_scan_numbers)
+
+    if "dropped_angles" in proj_h5_obj.keys():
+        dropped_angles = proj_h5_obj["dropped_angles/values"][()]
+        scans = proj_h5_obj["dropped_angles/keys"][()]
+        if is_null_type(dropped_angles):
+            dropped_angles = {}
+        else:
+            dropped_angles = dict(zip(scans, dropped_angles))
+        projections.dropped_angles = dropped_angles
+
+    if "dropped_file_paths" in proj_h5_obj.keys():
+        dropped_file_paths = proj_h5_obj["dropped_file_paths/values"][()]
+        scans = proj_h5_obj["dropped_file_paths/keys"][()]
+        if is_null_type(dropped_file_paths):
+            dropped_file_paths = {}
+        else:
+            dropped_file_paths = dict(zip(scans, dropped_file_paths))
+        projections.dropped_file_paths = dropped_file_paths
 
     # make sure all device options work on the current machine
     gpu_utils.auto_update_gpu_options(projections.options)

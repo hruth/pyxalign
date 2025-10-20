@@ -60,6 +60,7 @@ class ProcessFunc(StrEnum):
 class SpecialValuePlaceholder(StrEnum):
     NONE = auto()
     EMPTY_LIST = auto()
+    EMPTY_DICT = auto()
 
 
 class RoundType(StrEnum):

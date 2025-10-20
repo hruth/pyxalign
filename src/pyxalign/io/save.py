@@ -60,6 +60,18 @@ def save_generic_data_structure_to_h5(d: dict, h5_obj: Union[h5py.Group, h5py.Fi
             for i, list_entry in enumerate(value):
                 sub_group.create_dataset(str(i), data=list_entry, dtype=list_entry.dtype)
 
+        elif isinstance(value, dict):
+            # save dicts as two lists
+            sub_group = h5_obj.create_group(value_name)
+            if len(value) > 0:
+                item = [item for item in value.items()][0]
+                key_dtype, value_dtype = type(item[0]), type(item[1])
+                sub_group.create_dataset("keys", data=list(value.keys()), dtype=key_dtype)
+                sub_group.create_dataset("values", data=list(value.values()), dtype=value_dtype)
+            else:
+                sub_group.create_dataset("keys", data=SpecialValuePlaceholder.EMPTY_LIST._value_)
+                sub_group.create_dataset("values", data=SpecialValuePlaceholder.EMPTY_LIST._value_)
+
         else:
             print(f"WARNING: {value_name} not saved")
 
