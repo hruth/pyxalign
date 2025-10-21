@@ -15,10 +15,11 @@ from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.plotting.interactive.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 
-def run_full_test_xrf_data_type_1(
+def full_2ide_xrf_processing_test(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,  # not yet used
+    show_GUI: bool = False,
 ):
     # Setup the test
     ci_options = opts.CITestOptions(
@@ -31,17 +32,6 @@ def run_full_test_xrf_data_type_1(
     # define a downscaling value for when volumes are saved to prevent
     # saving files large files
     s = 4
-
-    # Setup default gpu options
-    n_gpus = cp.cuda.runtime.getDeviceCount()
-    gpu_list = list(range(0, n_gpus))
-    multi_gpu_device_options = opts.DeviceOptions(
-        gpu=opts.GPUOptions(
-            n_gpus=n_gpus,
-            gpu_indices=gpu_list,
-            chunk_length=20,
-        )
-    )
 
     # if not projection_matching_only:
     checkpoint_list = [enums.TestStartPoints.BEGINNING]
@@ -104,11 +94,6 @@ def run_full_test_xrf_data_type_1(
                 proj.volume.data[::s, ::s, ::s], f"pre_pma_volume_{channel}"
             )
 
-        # app = QApplication.instance() or QApplication([])
-        # gui = XRFVolumeViewer(xrf_task)
-        # gui.show()
-        # app.exec()
-
         # create dummy mask
         xrf_task.projections_dict[xrf_task._primary_channel].masks = np.ones_like(
             xrf_task.projections_dict[xrf_task._primary_channel].data
@@ -124,7 +109,7 @@ def run_full_test_xrf_data_type_1(
         pma_options.mask_shift_type = "fft"
         pma_options.projection_shift_type = "fft"
         pma_options.momentum.enabled = True
-        pma_options.interactive_viewer.update.enabled = True
+        pma_options.interactive_viewer.update.enabled = show_GUI
         pma_options.interactive_viewer.update.stride = 50
 
         # Run projection-matching alignment at successively higher resolutions
@@ -166,25 +151,28 @@ def run_full_test_xrf_data_type_1(
         xrf_task.clear_pma_gui_list()
 
         # print results of the test
-        ci_test_helper.finish_test()
+        all_passed = ci_test_helper.finish_test()
 
-        # Launch the volume viewer
-        app = QApplication.instance() or QApplication([])
-        gui = XRFVolumeViewer(xrf_task)
-        gui.show()
-        app.exec()
+        if show_GUI:
+            # Launch the volume viewer
+            app = QApplication.instance() or QApplication([])
+            gui = XRFVolumeViewer(xrf_task)
+            gui.show()
+            app.exec()
 
-        # Launch the projections viewer
-        app = QApplication.instance() or QApplication([])
-        gui = XRFProjectionsViewer(xrf_task)
-        gui.show()
-        app.exec()
+            # Launch the projections viewer
+            app = QApplication.instance() or QApplication([])
+            gui = XRFProjectionsViewer(xrf_task)
+            gui.show()
+            app.exec()
+
+        assert all_passed
 
 
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    run_full_test_xrf_data_type_1(
+    full_2ide_xrf_processing_test(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
         test_start_point=args.start_point,
