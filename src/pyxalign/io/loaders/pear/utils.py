@@ -7,7 +7,7 @@ from scipy import stats
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
 from pyxalign.io.loaders.enums import LoaderType
-from pyxalign.io.loaders.pear.options import LYNXLoadOptions, Beamline2IDELoadOptions
+from pyxalign.io.loaders.pear.options import Beamline2IDDLoadOptions, LYNXLoadOptions, Beamline2IDELoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum
 from pyxalign.io.loaders.utils import generate_input_user_prompt
 from pyxalign.api.types import r_type
@@ -15,7 +15,7 @@ from pyxalign.io.loaders.xrf.utils import get_scan_file_dict
 from pyxalign.timing.timer_utils import timer
 from pyxalign.io.loaders.pear.base_loader import BaseLoader
 
-T = TypeVar("T", bound=Union[LYNXLoadOptions, Beamline2IDELoadOptions])
+T = TypeVar("T", bound=Union[LYNXLoadOptions, Beamline2IDELoadOptions, Beamline2IDDLoadOptions])
 
 
 def get_experiment_subsets(
@@ -187,8 +187,6 @@ def load_experiment(
         options.base.loader_type,
         use_experiment_name=selected_experiment_name,
         use_sequence=selected_sequences,
-        # use_experiment_name=options.base.selected_experiment_name,
-        # use_sequence=options.base.selected_sequences,
         is_tile_scan=is_tile_scan,
         selected_tile=selected_tile,
         select_all_by_default=options.base.select_all_by_default,
@@ -208,19 +206,6 @@ def load_experiment(
         options.base.ask_for_backup_files,
         options.base.select_all_by_default,
     )
-    # # Print data selection settings
-    # print("Use these settings to bypass user-selection on next load:")
-    # input_settings_string = (
-    #     f'  selected_experiment_name="{selected_experiment.experiment_name}",\n'
-    #     + f"  selected_sequences={list(np.unique(selected_experiment.sequences))},\n"
-    #     + f"  selected_ptycho_strings={insert_new_line_between_list(selected_experiment.selected_ptycho_file_strings)},\n"
-    # )
-    # if options.base.scan_start is not None:
-    #     input_settings_string += f"  scan_start={options.base.scan_start},\n"
-    # if options.base.scan_end is not None:
-    #     input_settings_string += f"  scan_end={options.base.scan_end},\n"
-    # input_settings_string = input_settings_string[:-1]
-    # print(input_settings_string, flush=True)
 
     # Load probe
     selected_experiment.load_probe()
@@ -250,14 +235,18 @@ def extract_experiment_info(options: T) -> tuple[np.ndarray, np.ndarray, list[st
             options.base.scan_start,
             options.base.scan_end,
         )
-    elif isinstance(options, Beamline2IDELoadOptions):
-        scan_numbers, angles, experiment_names, sequences = extract_info_from_mda_file(
-            options.mda_folder, options.base.scan_start, options.base.scan_end
+    elif isinstance(options, Union[Beamline2IDELoadOptions, Beamline2IDDLoadOptions]):
+        scan_numbers, angles = extract_info_from_mda_file(
+            options.mda_folder,
+            options._mda_file_pattern,
+            options._angle_pv_string,
+            options.base.scan_start,
+            options.base.scan_end,
         )
-    # elif options.scan_info_source_type == ExperimentInfoSourceType.PTYCHO_FOLDERS:
-    #     scan_numbers, angles, experiment_names, sequences = extract_info_from_folder_names(
-    #         reconstructions_folder
-    # )
+        # data of this type does not have experiment_names or sequences, so we have to 
+        # make dummy values
+        experiment_names = [""] * len(scan_numbers)
+        sequences = np.zeros(len(scan_numbers), dtype=int)
 
     # Filter scan numbers
     if options.base.scan_list is not None:
@@ -270,31 +259,46 @@ def extract_experiment_info(options: T) -> tuple[np.ndarray, np.ndarray, list[st
     return scan_numbers, angles, experiment_names, sequences
 
 
-def extract_info_from_folder_names(
-    folder: str,
-) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
-    scan_numbers = extract_numeric_patterns(folder)
-    # Implement "angle rule" later
-    angles = np.zeros(len(scan_numbers), dtype=r_type)  # incorrect, placeholder
-    experiment_names = [""] * len(scan_numbers)
-    sequences = np.zeros(len(scan_numbers), dtype=int)
-    return scan_numbers, angles, experiment_names, sequences
-
-
 def extract_info_from_mda_file(
-    mda_folder: str, scan_start: int, scan_end: int
-) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
-    file_names_dict = get_scan_file_dict(os.listdir(mda_folder), r"2xfm_(\d+)\.mda")
+    mda_folder: str,
+    mda_file_pattern: str,
+    angle_pv_string: str,
+    scan_start: Optional[int] = None,
+    scan_end: Optional[int] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Read the measurement angles for the selected scan numbers by
+    extracting the measurement angle from the scan's mda file.
+
+    Args:
+        mda_folder (str): folder containing the mda files
+        mda_file_pattern (str): Regular Expression file pattern that
+            matches the file string of the mda file.
+        angle_pv_string (str): the string that corresponds to the
+            rotation angle entry in the extra PVs
+        scan_start (str, optional): lower bound of scans to load.
+            Defaults to None.
+        scan_end (str, optional): upper bound of scans to load.
+            Defaults to None.
+
+    Returns:
+        A tuple containing:
+            - np.ndarray: an array of the loaded scan numbers
+            - np.ndarray: an array of the loaded measurement angles
+    """
+    file_names_dict = get_scan_file_dict(os.listdir(mda_folder), mda_file_pattern)
     angles = np.array([], dtype=r_type)
     scan_numbers = np.array([], dtype=int)
     for current_scan, current_file in file_names_dict.items():
-        if current_scan < scan_start or current_scan > scan_end:
+        above_lower_bound = scan_start is None or current_scan < scan_start
+        below_upper_bound = scan_end is None or current_scan > scan_end
+        if not above_lower_bound or not below_upper_bound:
             continue
         mda_file_path = os.path.join(mda_folder, current_file)
         try:
             mda_file = MDAFile.read(Path(mda_file_path))
             pv_dict = convert_extra_PVs_to_dict(mda_file)
-            angles = np.append(angles, pv_dict["2xfm:m60.VAL"].value[0])
+            angles = np.append(angles, pv_dict[angle_pv_string].value[0])
             scan_numbers = np.append(scan_numbers, current_scan)
         except Exception:
             print(
@@ -302,42 +306,9 @@ def extract_info_from_mda_file(
             )
 
     # lamino_angle = pv_dict["2xfm:m12.VAL"].value[0]
-    # scan_numbers = np.ndarray(list(file_names_dict.keys()), dtype=r_type)
-    experiment_names = [""] * len(scan_numbers)
-    sequences = np.zeros(len(scan_numbers), dtype=int)
 
     # this is a band-aid fix for now, because this is not the correct spot
     # to put this conversion
     angles[:] = -angles
 
-    return scan_numbers, angles, experiment_names, sequences
-
-
-def extract_numeric_patterns(parent_directory: str) -> np.ndarray:
-    # Compile a regular expression to match folders like "S0123"
-    pattern = re.compile(r"^S(\d+)$")
-
-    extracted_numbers = []
-
-    # List all items in the parent directory
-    for item in os.listdir(parent_directory):
-        # Build the full path to check if it's a directory
-        full_path = os.path.join(parent_directory, item)
-
-        # Check if the item is a directory and follows the "S####" format
-        if os.path.isdir(full_path):
-            match = pattern.match(item)
-            if match:
-                # Extract the numeric portion and convert it to an integer
-                num_pattern = int(match.group(1))
-                extracted_numbers.append(num_pattern)
-
-    # Convert the list of numbers into a NumPy array
-    return np.array(extracted_numbers)
-
-
-def insert_new_line_between_list(list_of_strings: list[str]):
-    return "[\n " + ",\n ".join(f'"{item}"' for item in list_of_strings) + "\n]"
-
-
-# def add_tile_scan()
+    return scan_numbers, angles

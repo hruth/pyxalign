@@ -108,4 +108,19 @@ class LYNXLoadOptions:
 class Beamline2IDELoadOptions:
     mda_folder: str
 
+    _mda_file_pattern: str = r"2xfm_(\d+)\.mda"
+
+    _angle_pv_string: str = "2xfm:m60.VAL"
+
+    base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
+
+
+@dataclasses.dataclass
+class Beamline2IDDLoadOptions:
+    mda_folder: str
+
+    _mda_file_pattern: str = r"bnp_fly(\d+)\.mda"
+
+    _angle_pv_string: str = "9idbTAU:SM:ST:ActPos"
+
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
