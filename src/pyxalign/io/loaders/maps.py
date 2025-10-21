@@ -3,6 +3,7 @@ from pyxalign.io.loaders.pear.fold_slice_loader_2 import FoldSliceLoaderVersion2
 from pyxalign.io.loaders.pear.fold_slice_loader_1 import FoldSliceLoaderVersion1
 from pyxalign.io.loaders.pear.options import (
     BaseLoadOptions,
+    Beamline2IDDLoadOptions,
     Beamline2IDELoadOptions,
     LYNXLoadOptions,
 )
@@ -35,6 +36,10 @@ def get_loader_options_by_enum(key: ExperimentType) -> OptionsClass:
             mda_folder=None,
             base=BaseLoadOptions(parent_projections_folder=None),
         ),
+        ExperimentType.BEAMLINE_2IDD_PTYCHO: Beamline2IDDLoadOptions(
+            mda_folder=None,
+            base=BaseLoadOptions(parent_projections_folder=None),
+        ),
         ExperimentType.BEAMLINE_2IDE_XRF: XRFLoadOptions(),
     }[key]
 
@@ -44,5 +49,7 @@ def get_experiment_type_enum_from_options(options: OptionsClass) -> ExperimentTy
         return ExperimentType.LYNX
     elif isinstance(options, Beamline2IDELoadOptions):
         return ExperimentType.BEAMLINE_2IDE_PTYCHO
+    elif isinstance(options, Beamline2IDDLoadOptions):
+        return ExperimentType.BEAMLINE_2IDD_PTYCHO
     elif isinstance(options, XRFLoadOptions):
         return ExperimentType.BEAMLINE_2IDE_XRF

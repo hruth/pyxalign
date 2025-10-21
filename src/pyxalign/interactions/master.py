@@ -28,7 +28,7 @@ from pyxalign.interactions.initialize_projections import (
 from pyxalign.interactions.io.loader import MainLoadingWidget
 from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
-from pyxalign.io.loaders.pear.options import BaseLoadOptions, Beamline2IDELoadOptions, LYNXLoadOptions
+from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.base import MultiThreadedWidget
 
@@ -105,30 +105,30 @@ class MasterWidget(QWidget):
 
 
 if __name__ == "__main__":
-    # # Pre-load with LYNX options
-    # options = LYNXLoadOptions(
-    #     dat_file_path="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
-    #     # selected_sequences=(2,),
-    #     selected_experiment_name="APS-D_3D",
-    #     base=BaseLoadOptions(
-    #         parent_projections_folder="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
-    #         file_pattern="Ndp128_LSQML_c*_m0.5_p15_cp_mm_opr2_ic/recon_Niter3000.h5",
-    #         select_all_by_default=True,
-    #         # scan_start=252,
-    #         # scan_end=270,
-    #     ),
-    # )
-
+    # Pre-load with LYNX options
     options = LYNXLoadOptions(
-        dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
-        selected_sequences=(2,),
+        dat_file_path="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
+        # selected_sequences=(2,),
         selected_experiment_name="APS-D_3D",
         base=BaseLoadOptions(
-            parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
-            file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
+            parent_projections_folder="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
+            file_pattern="Ndp128_LSQML_c*_m0.5_p15_cp_mm_opr2_ic/recon_Niter3000.h5",
             select_all_by_default=True,
+            # scan_start=252,
+            # scan_end=270,
         ),
     )
+
+    # options = LYNXLoadOptions(
+    #     dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
+    #     selected_sequences=(2,),
+    #     selected_experiment_name="APS-D_3D",
+    #     base=BaseLoadOptions(
+    #         parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
+    #         file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
+    #         select_all_by_default=True,
+    #     ),
+    # )
 
     # Pre-load with 2IDE options
     # import os

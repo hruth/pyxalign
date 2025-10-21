@@ -1,20 +1,16 @@
-from typing import Optional, TypeVar, Union
+from abc import ABC
+from typing import Optional
 import numpy as np
 import dataclasses
 from dataclasses import field
-from pyxalign.io.loaders.enums import LoaderType, ExperimentInfoSourceType
-from pyxalign.io.loaders.utils import select_loader_type_from_prompt
+from pyxalign.io.loaders.enums import LoaderType
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class BaseLoadOptions:
     parent_projections_folder: str
 
     loader_type: LoaderType = LoaderType.PEAR_V1
-
-    # def __post_init__(self):
-    #     if self.loader_type is None:  # Check if the variable is missing
-    #         self.loader_type = select_loader_type_from_prompt()  # Assign a generated value
 
     file_pattern: Optional[str] = None
     "pattern used by re to identify matching folder strings"
@@ -62,7 +58,6 @@ class BaseLoadOptions:
 
     select_all_by_default: bool = False
 
-
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):
             print("No loading options provided.", flush=True)
@@ -74,10 +69,13 @@ class BaseLoadOptions:
 
 
 @dataclasses.dataclass
-class LYNXLoadOptions:
-    dat_file_path: str
-
+class PEARLoadOptions(ABC):
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
+
+
+@dataclasses.dataclass(kw_only=True)
+class LYNXLoadOptions(PEARLoadOptions):
+    dat_file_path: str
 
     selected_experiment_name: Optional[str] = None
     """Name of the experiment to load. Use "unlabeled" to refer to
@@ -104,23 +102,28 @@ class LYNXLoadOptions:
     """
 
 
-@dataclasses.dataclass
-class Beamline2IDELoadOptions:
+@dataclasses.dataclass(kw_only=True)
+class MDAPEARLoadOptions(PEARLoadOptions):
     mda_folder: str
+    """
+    Folder containing MDA files, which in turn contain information
+    about the measurement, including the measurment angle.
+    """
 
+    _mda_file_pattern: str
+
+    _angle_pv_string: str
+
+
+@dataclasses.dataclass(kw_only=True)
+class Beamline2IDELoadOptions(MDAPEARLoadOptions):
     _mda_file_pattern: str = r"2xfm_(\d+)\.mda"
 
     _angle_pv_string: str = "2xfm:m60.VAL"
 
-    base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
 
-
-@dataclasses.dataclass
-class Beamline2IDDLoadOptions:
-    mda_folder: str
-
+@dataclasses.dataclass(kw_only=True)
+class Beamline2IDDLoadOptions(MDAPEARLoadOptions):
     _mda_file_pattern: str = r"bnp_fly(\d+)\.mda"
 
     _angle_pv_string: str = "9idbTAU:SM:ST:ActPos"
-
-    base: BaseLoadOptions = field(default_factory=BaseLoadOptions)

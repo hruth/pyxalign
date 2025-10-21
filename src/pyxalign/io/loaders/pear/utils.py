@@ -7,15 +7,13 @@ from scipy import stats
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
 from pyxalign.io.loaders.enums import LoaderType
-from pyxalign.io.loaders.pear.options import Beamline2IDDLoadOptions, LYNXLoadOptions, Beamline2IDELoadOptions
+from pyxalign.io.loaders.pear.options import LYNXLoadOptions, MDAPEARLoadOptions, PEARLoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum
 from pyxalign.io.loaders.utils import generate_input_user_prompt
 from pyxalign.api.types import r_type
 from pyxalign.io.loaders.xrf.utils import get_scan_file_dict
 from pyxalign.timing.timer_utils import timer
 from pyxalign.io.loaders.pear.base_loader import BaseLoader
-
-T = TypeVar("T", bound=Union[LYNXLoadOptions, Beamline2IDELoadOptions, Beamline2IDDLoadOptions])
 
 
 def get_experiment_subsets(
@@ -152,7 +150,7 @@ def extract_info_from_lamni_dat_file(
 def load_experiment(
     parent_projections_folder: str,
     n_processes: int,
-    options: T,
+    options: PEARLoadOptions,
 ) -> BaseLoader:
     """
     Load an experiment that is saved with the lamni structure.
@@ -228,14 +226,16 @@ def load_experiment(
     return selected_experiment
 
 
-def extract_experiment_info(options: T) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
+def extract_experiment_info(
+    options: PEARLoadOptions,
+) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
     if isinstance(options, LYNXLoadOptions):
         scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
             options.dat_file_path,
             options.base.scan_start,
             options.base.scan_end,
         )
-    elif isinstance(options, Union[Beamline2IDELoadOptions, Beamline2IDDLoadOptions]):
+    elif isinstance(options, MDAPEARLoadOptions):
         scan_numbers, angles = extract_info_from_mda_file(
             options.mda_folder,
             options._mda_file_pattern,
@@ -243,7 +243,7 @@ def extract_experiment_info(options: T) -> tuple[np.ndarray, np.ndarray, list[st
             options.base.scan_start,
             options.base.scan_end,
         )
-        # data of this type does not have experiment_names or sequences, so we have to 
+        # data of this type does not have experiment_names or sequences, so we have to
         # make dummy values
         experiment_names = [""] * len(scan_numbers)
         sequences = np.zeros(len(scan_numbers), dtype=int)
@@ -290,8 +290,8 @@ def extract_info_from_mda_file(
     angles = np.array([], dtype=r_type)
     scan_numbers = np.array([], dtype=int)
     for current_scan, current_file in file_names_dict.items():
-        above_lower_bound = scan_start is None or current_scan < scan_start
-        below_upper_bound = scan_end is None or current_scan > scan_end
+        above_lower_bound = scan_start is None or current_scan > scan_start
+        below_upper_bound = scan_end is None or current_scan < scan_end
         if not above_lower_bound or not below_upper_bound:
             continue
         mda_file_path = os.path.join(mda_folder, current_file)

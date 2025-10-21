@@ -50,6 +50,7 @@ from pyxalign.io.loaders.pear.options import (
     LYNXLoadOptions,
     Beamline2IDELoadOptions,
     BaseLoadOptions,
+    PEARLoadOptions,
 )
 from pyxalign.io.utils import OptionsClass
 from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
@@ -101,6 +102,7 @@ class SelectLoadSettingsWidget(QWidget):
         experiment_options = {
             "LYNX": ExperimentType.LYNX,
             "2IDE: ptycho": ExperimentType.BEAMLINE_2IDE_PTYCHO,
+            "2IDD: ptycho": ExperimentType.BEAMLINE_2IDD_PTYCHO,
             "2IDE: XRF-maps": ExperimentType.BEAMLINE_2IDE_XRF,
         }
         for key, val in experiment_options.items():
@@ -177,7 +179,7 @@ class SelectLoadSettingsWidget(QWidget):
 
     def load_data(self):
         try:
-            if isinstance(self.options, Union[LYNXLoadOptions, Beamline2IDELoadOptions]):
+            if isinstance(self.options, PEARLoadOptions):
                 standard_data = load_data_from_pear_format(
                     options=self.options,
                     n_processes=int(mp.cpu_count() * 0.8),
