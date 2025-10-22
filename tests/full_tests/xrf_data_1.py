@@ -85,6 +85,8 @@ def run_full_test_xrf_data_type_1(
         xrf_task.projection_options.experiment.sample_thickness = 70
         xrf_task.center_of_rotation = np.array([30, 130], dtype=r_type)
 
+        ci_test_helper.save_checkpoint_task(xrf_task, "initial_xrf_task.h5")
+        
         # check projection arrays, angles, cor, and sample thickness for all channels
         for channel, proj in xrf_task.projections_dict.items():
             ci_test_helper.save_or_compare_results(
@@ -164,6 +166,8 @@ def run_full_test_xrf_data_type_1(
             )
 
         xrf_task.clear_pma_gui_list()
+
+        ci_test_helper.save_checkpoint_task(xrf_task, "aligned_xrf_task.h5")
 
         # print results of the test
         ci_test_helper.finish_test()

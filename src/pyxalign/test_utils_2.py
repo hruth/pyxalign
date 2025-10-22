@@ -9,6 +9,7 @@ import subprocess
 
 from pyxalign.data_structures.projections import Projections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.data_structures.xrf_task import XRFTask
 from pyxalign.io.save import save_array_as_tiff
 from pyxalign.style.text import text_colors
 from pyxalign.test_utils import print_comparison_stats
@@ -145,7 +146,7 @@ class CITestHelper:
     def store_run_metadata(self):
         self.timestamp, date_string, time_string = get_timestamp_for_timing_files()
 
-    def save_checkpoint_task(self, task: LaminographyAlignmentTask, file_name: str):
+    def save_checkpoint_task(self, task: Union[LaminographyAlignmentTask, XRFTask], file_name: str):
         if self.options.update_tester_results:
             task.save_task(os.path.join(self.extra_results_folder, file_name))
         if self.options.save_temp_files:
