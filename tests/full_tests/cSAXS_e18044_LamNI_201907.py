@@ -7,23 +7,24 @@ import matplotlib.pyplot as plt
 import pyxalign
 from pyxalign import options as opts
 from pyxalign.api import enums
-from pyxalign.api.types import r_type
 from pyxalign.data_structures.projections import ComplexProjections
-from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign import gpu_utils
-from pyxalign.io.loaders.pear.api import load_data_from_pear_format
-from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
 
+import data_loaders
+from conftest import register_processing_function
 
-def run_full_test_cSAXS_e18044_LamNi_201907(
+
+@register_processing_function("cSAXS_e18044_LamNI_201907_full_test")
+def full_cSAXS_e18044_LamNI_201907_processing(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
-):
+    show_gui: bool = False,
+) -> dict[str, bool]:
     # Setup the test
     ci_options = opts.CITestOptions(
         test_data_name="cSAXS_e18044_LamNI_201907",
@@ -39,7 +40,6 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
     # Setup default gpu options
     n_gpus = cp.cuda.runtime.getDeviceCount()
     gpu_list = list(range(0, n_gpus))
-    single_gpu_device_options = opts.DeviceOptions()
     multi_gpu_device_options = opts.DeviceOptions(
         gpu=opts.GPUOptions(
             n_gpus=n_gpus,
@@ -53,39 +53,14 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
     if test_start_point in checkpoint_list:
         ### Load ptycho input data ###
 
+        # load data
+        lamni_data = data_loaders.load_cSAXS_e18044_LamNI_201907_test_data(scan_start=2714, scan_end=3465)
+
         # Set experiment details
         lamino_angle = 61.108  # laminography measurement angle
         sample_thickness = 7e-6  # thickness of the sample; determines number of pixels in the depth direction of the reconstruction
         rotation_angle = 72.605  # angle that ptycho reconstructions will be rotated by
         shear_angle = -1.296
-
-        # Define paths to ptycho reconstructions and the tomography_scannumbers.txt file
-        parent_folder = ci_test_helper.inputs_folder
-        dat_file_path = os.path.join(
-            parent_folder, "specES1", "dat-files", "tomography_scannumbers.txt"
-        )
-        # parent_projection_folder = os.path.join(parent_folder, "analysis")
-
-        # Define options for loading ptycho reconstructions
-        base_load_options = BaseLoadOptions(
-            parent_projections_folder=os.path.join(parent_folder, "analysis"),
-            loader_type=LoaderType.FOLD_SLICE_V1,
-            file_pattern=r"*_512x512_b0_MLc_Niter500_recons.h5",
-            scan_start=2714,
-            scan_end=3465,
-            select_all_by_default=True,
-        )
-        options = LYNXLoadOptions(
-            dat_file_path=dat_file_path,
-            base=base_load_options,
-            selected_sequences=[3, 4, 5],
-        )
-
-        # Load data
-        lamni_data = load_data_from_pear_format(
-            n_processes=int(mp.cpu_count() * 0.8),
-            options=options,
-        )
 
         new_shape = (2368, 1600)
         projection_array = convert_projection_dict_to_array(
@@ -231,7 +206,7 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         pma_options.keep_on_gpu = True
         pma_options.reconstruction_mask.enabled = True
         pma_options.momentum.enabled = True
-        pma_options.interactive_viewer.update.enabled = True
+        pma_options.interactive_viewer.update.enabled = show_gui
         pma_options.interactive_viewer.close_old_windows = True
         set_all_device_options(pma_options, multi_gpu_device_options)
 
@@ -305,7 +280,9 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
         )
 
         # Rotate the volume
-        task.phase_projections.volume.rotate_reconstruction(opts.DeviceOptions(gpu=opts.GPUOptions(chunk_length=2)))
+        task.phase_projections.volume.rotate_reconstruction(
+            opts.DeviceOptions(gpu=opts.GPUOptions(chunk_length=2))
+        )
 
         # save a tiff stack of the rotated reconstruction
         ci_test_helper.save_tiff(
@@ -320,12 +297,23 @@ def run_full_test_cSAXS_e18044_LamNi_201907(
 
         ci_test_helper.finish_test()
 
+        return ci_test_helper.test_result_dict
+
+
+def test_single_result(test_name, result):
+    """
+    The conftest.pytest_generate_tests hook uses this to parameterize the
+    results of the registered processing functions
+    """
+    assert result, f"Check '{test_name}' failed"
+
 
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    run_full_test_cSAXS_e18044_LamNi_201907(
+    full_cSAXS_e18044_LamNI_201907_processing(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
         test_start_point=args.start_point,
+        show_gui=args.show_gui,
     )

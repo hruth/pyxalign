@@ -17,13 +17,16 @@ from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
 from pyxalign.io.loaders.pear.options import LYNXLoadOptions, BaseLoadOptions
 
+from conftest import register_processing_function
 
+
+@register_processing_function("TP2_full_test")
 def run_full_test_TP2(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
-):
-    plt.ion()
+    show_gui: bool = False,
+)-> dict[str, bool]:
 
     # Setup the test
     ci_options = opts.CITestOptions(
@@ -273,6 +276,7 @@ def run_full_test_TP2(
         pma_options.reconstruct.astra.forward_project_gpu_indices = gpu_list
         pma_options.mask_shift_type = enums.ShiftType.FFT
         pma_options.keep_on_gpu = False
+        pma_options.interactive_viewer.update.enabled = show_gui
         set_all_device_options(pma_options, multi_gpu_device_options)
 
         # Run projection-matching alignment at successively higher resolutions
@@ -340,6 +344,14 @@ def run_full_test_TP2(
         )
 
         ci_test_helper.finish_test()
+        return ci_test_helper.test_result_dict
+
+def test_single_result(test_name, result):
+    """
+    The conftest.pytest_generate_tests hook uses this to parameterize the
+    results of the registered processing functions
+    """
+    assert result, f"Check '{test_name}' failed"
 
 
 if __name__ == "__main__":
@@ -349,4 +361,5 @@ if __name__ == "__main__":
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
         test_start_point=args.start_point,
+        show_gui=args.show_gui,
     )

@@ -14,13 +14,17 @@ from pyxalign.io.loaders.xrf.options import XRFLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.plotting.interactive.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
+import data_loaders
+from conftest import register_processing_function
 
-def full_2ide_xrf_processing_test(
+
+@register_processing_function("2ide_xrf_full_test")
+def full_2ide_xrf_processing(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,  # not yet used
-    show_GUI: bool = False,
-):
+    show_gui: bool = False,
+) -> dict[str, bool]:
     # Setup the test
     ci_options = opts.CITestOptions(
         test_data_name=os.path.join("2ide", "2025-1_Lamni-4"),
@@ -36,15 +40,12 @@ def full_2ide_xrf_processing_test(
     # if not projection_matching_only:
     checkpoint_list = [enums.TestStartPoints.BEGINNING]
     if test_start_point in checkpoint_list:
-        ### Load ptycho input data ###
-
-        folder = ci_test_helper.inputs_folder
-        xrf_load_options = XRFLoadOptions()
-        xrf_standard_data_dict, extra_PVs = load_data_from_xrf_format(folder, xrf_load_options)
+        # load input data
+        xrf_standard_data_dict, extra_PVs = data_loaders.load_2ide_xrf_test_data()
         scan_0 = list(extra_PVs.keys())[0]
         lamino_angle = float(extra_PVs[scan_0]["2xfm:m12.VAL"])
 
-        # Load data
+        # create projection arrays
         xrf_array_dict = convert_xrf_projection_dicts_to_arrays(
             xrf_standard_data_dict,
             pad_with_mode=True,
@@ -109,7 +110,7 @@ def full_2ide_xrf_processing_test(
         pma_options.mask_shift_type = "fft"
         pma_options.projection_shift_type = "fft"
         pma_options.momentum.enabled = True
-        pma_options.interactive_viewer.update.enabled = show_GUI
+        pma_options.interactive_viewer.update.enabled = show_gui
         pma_options.interactive_viewer.update.stride = 50
 
         # Run projection-matching alignment at successively higher resolutions
@@ -150,10 +151,10 @@ def full_2ide_xrf_processing_test(
 
         xrf_task.clear_pma_gui_list()
 
-        # print results of the test
+        # print results of the test even when not running with pytest
         all_passed = ci_test_helper.finish_test()
 
-        if show_GUI:
+        if show_gui:
             # Launch the volume viewer
             app = QApplication.instance() or QApplication([])
             gui = XRFVolumeViewer(xrf_task)
@@ -166,14 +167,30 @@ def full_2ide_xrf_processing_test(
             gui.show()
             app.exec()
 
-        assert all_passed
+        return ci_test_helper.test_result_dict
+
+
+def test_single_result(test_name, result):
+    """
+    The conftest.pytest_generate_tests hook uses this to parameterize the
+    results of the registered processing functions
+    """
+    assert result, f"Check '{test_name}' failed"
 
 
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    full_2ide_xrf_processing_test(
+    full_2ide_xrf_processing(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
         test_start_point=args.start_point,
+        show_gui=args.show_gui,
     )
+
+
+# from conftest import register_processing_function
+
+# @register_processing_function("2ide_xrf")
+# def full_2ide_xrf_processing():
+#     return {"a": True, "b": False, "c":True}

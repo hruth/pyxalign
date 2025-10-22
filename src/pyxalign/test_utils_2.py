@@ -175,6 +175,7 @@ class CITestArgumentParser:
         # flag for specifying you want test results updated
         self.parser.add_argument("--update-results", action="store_true")
         self.parser.add_argument("--save-temp-results", action="store_true")
+        self.parser.add_argument("--show-gui", action="store_true")
 
 
 def compare_arbitrary_result(
