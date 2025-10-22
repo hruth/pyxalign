@@ -42,7 +42,7 @@ from pyxalign.io.loaders.maps import (
     get_experiment_type_enum_from_options,
     get_loader_options_by_enum,
 )
-from pyxalign.io.loaders.xrf.options import XRFLoadOptions
+from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions
 import sip
 
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
@@ -184,7 +184,7 @@ class SelectLoadSettingsWidget(QWidget):
                     options=self.options,
                     n_processes=int(mp.cpu_count() * 0.8),
                 )
-            elif isinstance(self.options, XRFLoadOptions):
+            elif isinstance(self.options, Beamline2IDEXRFLoadOptions):
                 pass
             print("Data loading completed!")
             self.data_loaded_signal.emit(standard_data)

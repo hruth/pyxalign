@@ -6,21 +6,21 @@ import os
 import numpy as np
 
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.xrf.options import XRFLoadOptions
+from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions
 
 
 def load_xrf_experiment(
-    folder: str, file_names: str, options: XRFLoadOptions
+    file_names: str, options: Beamline2IDEXRFLoadOptions
 ) -> tuple[dict[str, StandardData], dict]:
     all_counts_dict = {}
     angles = []
     extra_PVs_dict = {}
-    scan_file_dict = get_scan_file_dict(file_names, options.file_pattern)
-    scan_file_dict = remove_scans_from_dict(scan_file_dict, options.scan_start, options.scan_end, options.scan_list)
+    scan_file_dict = get_scan_file_dict(file_names, options._mda_file_pattern)
+    scan_file_dict = remove_scans_from_dict(scan_file_dict, options.base.scan_start, options.base.scan_end, options.base.scan_list)
 
     # Load data from each file
     for scan_number, file_name in scan_file_dict.items():
-        counts_dict, angle, extra_PVs = get_single_file_data(folder, file_name, options)
+        counts_dict, angle, extra_PVs = get_single_file_data(options.base.folder, file_name, options)
         all_counts_dict[scan_number] = counts_dict
         angles += [angle]
         extra_PVs_dict[scan_number] = extra_PVs
@@ -92,11 +92,11 @@ def remove_inconsistent_sizes(standard_data: StandardData):
 
 
 # Use V9 structure
-def get_single_file_data(folder: str, file_name: str, options: XRFLoadOptions) -> tuple:
+def get_single_file_data(folder: str, file_name: str, options: Beamline2IDEXRFLoadOptions) -> tuple:
     file_path = os.path.join(folder, file_name)
     with h5py.File(file_path) as F:
-        counts_per_second = F[options.channel_data_path][()]
-        channel_names = F[options.channel_names_path][()]
+        counts_per_second = F[options._channel_data_path][()]
+        channel_names = F[options._channel_names_path][()]
         channel_names = [name.decode() for name in channel_names]
         counts_dict = {channel: counts for channel, counts in zip(
             channel_names, counts_per_second)}
@@ -108,7 +108,7 @@ def get_single_file_data(folder: str, file_name: str, options: XRFLoadOptions) -
         }
         try:
             # Get angle if its found correctly
-            angle = float(get_PV_value(PVs, options.angle_PV_string))
+            angle = float(get_PV_value(PVs, options._angle_pv_string))
         except Exception:
             angle = 0
     return counts_dict, angle, PVs

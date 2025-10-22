@@ -121,6 +121,10 @@ class Beamline2IDELoadOptions(MDAPEARLoadOptions):
 
     _angle_pv_string: str = "2xfm:m60.VAL"
 
+    channel_data_path: str = "/MAPS/XRF_roi"
+
+    channel_names_path: str = "/MAPS/channel_names"
+
 
 @dataclasses.dataclass(kw_only=True)
 class Beamline2IDDLoadOptions(MDAPEARLoadOptions):
