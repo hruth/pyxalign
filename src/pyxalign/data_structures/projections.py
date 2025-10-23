@@ -7,7 +7,6 @@ from pyxalign.alignment.utils import (
     get_center_of_rotation_from_different_resolution_alignment,
     get_shift_from_different_resolution_alignment,
 )
-from pyxalign.api.constants import divisor
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.estimate_center import (
     estimate_center_of_rotation,
@@ -18,7 +17,6 @@ from pyxalign.estimate_center import (
 from pyxalign.api import enums
 from pyxalign.api.options.alignment import AlignmentOptions
 from pyxalign.api.options.device import DeviceOptions
-from pyxalign.api.options import ProjectionViewerOptions
 
 from pyxalign.api.options.projections import (
     EstimateCenterOptions,
@@ -43,7 +41,6 @@ from pyxalign.io.save import save_generic_data_structure_to_h5
 
 from pyxalign.mask import estimate_reliability_region_mask, blur_masks
 from pyxalign.model_functions import symmetric_gaussian_2d
-from pyxalign.interactions.viewers.launchers import launch_projection_viewer
 import pyxalign.plotting.plotters as plotters
 from pyxalign.style.text import ordinal
 from pyxalign.timing.timer_utils import timer, clear_timer_globals
@@ -66,6 +63,7 @@ from pyxalign.transformations.helpers import is_array_real
 from pyxalign.unwrap import unwrap_phase
 from pyxalign.data_structures.positions import ProbePositions
 from pyxalign.api.types import ArrayType, r_type
+
 
 class TransformTracker:
     def __init__(
@@ -724,15 +722,6 @@ class Projections:
         else:
             print(f"projections saved to {save_path}")
 
-    def launch_viewer(
-        self,
-        options: Optional[ProjectionViewerOptions] = None,
-        wait_until_closed: Optional[bool] = False,
-    ):
-        self.gui = launch_projection_viewer(
-            self, options, display_only=False, wait_until_closed=wait_until_closed
-        )
-
     def load_and_stage_shift(
         self,
         task_file_path: str,
@@ -801,8 +790,7 @@ class ComplexProjections(Projections):
         )
         # this method does not need a mask
         bool_2 = (
-            self.options.phase_unwrap.method
-            == enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION
+            self.options.phase_unwrap.method == enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION
         ) and (self.options.phase_unwrap.gradient_integration.use_masks)
         use_masks = bool_1 or bool_2
         if use_masks is True and self.masks is None:
@@ -1013,3 +1001,5 @@ def get_kwargs_for_copying_to_new_projections_object(
         kwargs["projections"] = projections.data * 1
 
     return kwargs
+
+

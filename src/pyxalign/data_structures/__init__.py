@@ -6,12 +6,14 @@ interface with.
 """
 
 from .projections import PhaseProjections, ComplexProjections
-from .task import LaminographyAlignmentTask
-from .xrf_task import XRFTask
+from .task import LaminographyAlignmentTask, load_task
+from .xrf_task import XRFTask, load_xrf_task
 
 __all__ = [
     "ComplexProjections",
     "PhaseProjections",
     "LaminographyAlignmentTask",
     "XRFTask",
+    "load_task",
+    "load_xrf_task",
 ]

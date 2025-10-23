@@ -1,16 +1,16 @@
 from typing import Callable, Optional
 import cupy as cp
 from pyxalign.api.maps import get_process_func_by_enum
-from pyxalign.api.options.options import ExperimentOptions
+from pyxalign.api.options import ProjectionViewerOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
 from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
-from pyxalign.interactions.mask import ThresholdSelector
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 from pyxalign.interactions.viewers.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
 from PyQt5.QtWidgets import (
+    QApplication,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -117,6 +117,7 @@ class VolumeViewer(MultiThreadedWidget):
 
 class ProjectionViewer(MultiThreadedWidget):
     """Widget for viewing projections"""
+
     masks_created = pyqtSignal(np.ndarray)
 
     def __init__(
@@ -653,7 +654,35 @@ def get_projection_title_strings(scan_numbers: np.ndarray, angles: np.ndarray) -
 
     def return_scan_string(scan_number):
         return f"<span style='color:#9FEDB9'>Scan {scan_number}</span>"
+
     title_strings = [
         f"{whitespace}{return_scan_string(scan)}{whitespace}{return_angle_string(angle)}"
-        for scan, angle in zip(scan_numbers, angles)]
+        for scan, angle in zip(scan_numbers, angles)
+    ]
     return title_strings
+
+
+def launch_projection_viewer(
+    projections: "p.Projections",
+    options: Optional[ProjectionViewerOptions] = None,
+    display_only: bool = False,
+    wait_until_closed: bool = False,
+) -> ProjectionViewer:
+    app = QApplication.instance() or QApplication([])
+    gui = ProjectionViewer(projections, options, display_only=display_only)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
+
+
+def launch_volume_viewer(
+    array_3d: np.ndarray,
+    wait_until_closed: bool = False,
+) -> VolumeViewer:
+    app = QApplication.instance() or QApplication([])
+    gui = VolumeViewer(volume=array_3d)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui

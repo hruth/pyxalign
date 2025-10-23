@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QLabel,
     QScrollArea,
+    QApplication,
 )
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import (
@@ -64,9 +65,7 @@ class XRFChannelSelectorWidget(QWidget):
             # Set the initially selected channel
             if channel == primary_channel:
                 radio_button.setChecked(True)
-        layout.addSpacerItem(
-            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        )
+        layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
         self.radio_group.buttonClicked.connect(button_clicked_function)
         scroll_area.setWidget(radio_container)
@@ -259,3 +258,25 @@ class XRFTaskViewer(MultiThreadedWidget):
         # layout = QVBoxLayout()
         # layout.addWidget(tabs)
         # self.setLayout(layout)
+
+
+def launch_xrf_projections_viewer(
+    xrf_task: "x.XRFTask", wait_until_closed: bool = False
+) -> XRFProjectionsViewer:
+    app = QApplication.instance() or QApplication([])
+    gui = XRFProjectionsViewer(xrf_task)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
+
+
+def launch_xrf_volume_viewer(
+    xrf_task: "x.XRFTask", wait_until_closed: bool = False
+) -> XRFVolumeViewer:
+    app = QApplication.instance() or QApplication([])
+    gui = XRFVolumeViewer(xrf_task)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui

@@ -686,3 +686,49 @@ class ValidatedSpinBox(QSpinBox):
                 else:
                     cur = a[0]
         self.setValue(cur)
+
+
+def launch_array_viewer(
+    array3d: np.ndarray,
+    options: Optional[ArrayViewerOptions] = None,
+    sort_idx: Optional[Sequence] = None,
+    extra_title_strings_list: Optional[list[str]] = None,
+    process_func: Optional[Callable] = None,
+    wait_until_closed: bool = False,
+):
+    app = QApplication.instance() or QApplication([])
+    gui = ArrayViewer(
+        array3d,
+        options,
+        sort_idx,
+        extra_title_strings_list=extra_title_strings_list,
+        process_func=process_func,
+    )
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
+
+
+def launch_linked_array_viewer(
+    array_list: list[np.ndarray],
+    options: Optional[ArrayViewerOptions] = None,
+    sort_idx: Optional[Sequence] = None,
+    extra_title_strings_list: Optional[list[str]] = None,
+    process_func: Optional[Callable] = None,
+    wait_until_closed: bool = False,
+):
+    app = QApplication.instance() or QApplication([])
+    gui = LinkedArrayViewer(
+        array_list,
+        options,
+        sort_idx,
+        extra_title_strings_list=extra_title_strings_list,
+        process_func=process_func,
+    )
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
