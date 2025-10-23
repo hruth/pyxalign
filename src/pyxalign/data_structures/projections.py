@@ -64,6 +64,7 @@ from pyxalign.unwrap import unwrap_phase
 from pyxalign.data_structures.positions import ProbePositions
 from pyxalign.api.types import ArrayType, r_type
 
+__all__ = ["PhaseProjections", "ComplexProjections"]
 
 class TransformTracker:
     def __init__(

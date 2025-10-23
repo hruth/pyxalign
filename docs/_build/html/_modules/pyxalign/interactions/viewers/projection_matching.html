@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pyxalign.interactions.viewers.projection_matching &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pyxalign.interactions.viewers.projection_matching</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyxalign.alignment.projection_matching</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.gpu_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">return_cpu_array</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.interactions.viewers.arrays</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProjectionViewer</span><span class="p">,</span> <span class="n">VolumeViewer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.interactions.viewers.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiThreadedWidget</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PyQt5.QtWidgets</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">QWidget</span><span class="p">,</span>
+    <span class="n">QVBoxLayout</span><span class="p">,</span>
+    <span class="n">QHBoxLayout</span><span class="p">,</span>
+    <span class="n">QGridLayout</span><span class="p">,</span>
+    <span class="n">QTabWidget</span><span class="p">,</span>
+    <span class="n">QPushButton</span><span class="p">,</span>
+    <span class="n">QLabel</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PyQt5.QtCore</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyqtSignal</span><span class="p">,</span> <span class="n">QObject</span><span class="p">,</span> <span class="n">QMutex</span><span class="p">,</span> <span class="n">QWaitCondition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PyQt5.QtGui</span><span class="w"> </span><span class="kn">import</span> <span class="n">QCloseEvent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.backends.backend_qt5agg</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">FigureCanvasQTAgg</span> <span class="k">as</span> <span class="n">FigureCanvas</span><span class="p">,</span>
+    <span class="n">NavigationToolbar2QT</span> <span class="k">as</span> <span class="n">NavigationToolbar</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.figure</span><span class="w"> </span><span class="kn">import</span> <span class="n">Figure</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.interactions.viewers.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptionsDisplayWidget</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.timing.timer_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">timer</span><span class="p">,</span> <span class="n">InlineTimer</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
+
+<span class="c1"># measuring the timing is not a good idea, it gets all</span>
+<span class="c1"># messed up when doing multithreading</span>
+<span class="n">timer_enabled</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">color_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">matplotlib</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">TABLEAU_COLORS</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PMWorkerSignals</span><span class="p">(</span><span class="n">QObject</span><span class="p">):</span>
+    <span class="n">initialize_plots</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">()</span>
+    <span class="n">update_plots</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">()</span>
+    <span class="n">update_plots_finished</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProjectionMatchingViewer</span><span class="p">(</span><span class="n">MultiThreadedWidget</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Widget for showing overview of projection-matching results&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span>
+        <span class="n">multi_thread_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">multi_thread_func</span><span class="o">=</span><span class="n">multi_thread_func</span><span class="p">,</span>
+            <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span> <span class="o">=</span> <span class="n">pma_object</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">force_stop</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">test_finished</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">close_button_clicked</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setWindowTitle</span><span class="p">(</span><span class="s2">&quot;Projection Matching Alignment Display&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">900</span><span class="p">)</span>
+
+        <span class="c1"># connect signals for initializing the plot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="n">PMWorkerSignals</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">initialize_plots</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initialize_plots</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">update_plots</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">update_plots</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">update_plots_finished</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wakeup</span><span class="p">)</span>
+
+        <span class="c1"># use these to pause the main thread from the PMA thread</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mutex</span> <span class="o">=</span> <span class="n">QMutex</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wait_cond</span> <span class="o">=</span> <span class="n">QWaitCondition</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.wakeup">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.wakeup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wakeup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wait_cond</span><span class="o">.</span><span class="n">wakeAll</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.stop_alignment_thread">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.stop_alignment_thread">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_alignment_thread</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Shut down thread</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">force_stop</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">disable_stop_button</span><span class="p">(</span><span class="s2">&quot;terminating alignment loop...please be patient&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;terminating alignment loop...&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.initialize_plots">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.initialize_plots">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">add_stop_button</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_thread_gpu</span><span class="p">()</span>
+            <span class="n">tabs</span> <span class="o">=</span> <span class="n">QTabWidget</span><span class="p">()</span>
+
+            <span class="c1"># projections viewer</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">projection_viewer</span> <span class="o">=</span> <span class="n">ProjectionViewer</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="p">,</span>
+                <span class="n">include_options</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">include_shifts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">display_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="c1"># volume viewer</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">volume_viewer</span> <span class="o">=</span> <span class="n">VolumeViewer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">volume</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+            <span class="c1"># metrics viewer</span>
+            <span class="n">metrics_widget</span> <span class="o">=</span> <span class="n">QWidget</span><span class="p">()</span>
+            <span class="n">metrics_layout</span> <span class="o">=</span> <span class="n">QGridLayout</span><span class="p">()</span>
+            <span class="n">metrics_widget</span><span class="o">.</span><span class="n">setLayout</span><span class="p">(</span><span class="n">metrics_layout</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">error_viewer</span> <span class="o">=</span> <span class="n">PMErrorPlotWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>  <span class="c1">#</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shift_viewer</span> <span class="o">=</span> <span class="n">PMShiftPlotWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shift_diff_viewer</span> <span class="o">=</span> <span class="n">PMShiftDiffPlotWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">error_v_iter_viewer</span> <span class="o">=</span> <span class="n">PMErrorVsIteration</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step_size_v_iter_viewer</span> <span class="o">=</span> <span class="n">MaxStepSizeVsIteration</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>  <span class="c1">#</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">velocity_map_viewer</span> <span class="o">=</span> <span class="n">VelocityMapPlot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">momentum_v_iter_viewer</span> <span class="o">=</span> <span class="n">MomentumVsIterationMap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shift_viewer</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shift_diff_viewer</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">error_viewer</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1">#</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">step_size_v_iter_viewer</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1">#</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">velocity_map_viewer</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">momentum_v_iter_viewer</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">error_v_iter_viewer</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">setColumnStretch</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">setColumnStretch</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">setColumnStretch</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">setColumnStretch</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">setRowStretch</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">setRowStretch</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">metrics_layout</span><span class="o">.</span><span class="n">setRowStretch</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+            <span class="c1"># Geometry refinement viewer</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">refine_geometry</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+                <span class="n">geom_refinement_widget</span> <span class="o">=</span> <span class="n">QWidget</span><span class="p">()</span>
+                <span class="n">geom_refinement_layout</span> <span class="o">=</span> <span class="n">QGridLayout</span><span class="p">()</span>
+                <span class="n">geom_refinement_widget</span><span class="o">.</span><span class="n">setLayout</span><span class="p">(</span><span class="n">geom_refinement_layout</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lamino_angle_viewer</span> <span class="o">=</span> <span class="n">LaminoAngleRefinementWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tilt_angle_viewer</span> <span class="o">=</span> <span class="n">TiltAngleRefinementWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">skew_angle_viewer</span> <span class="o">=</span> <span class="n">SkewAngleRefinementWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="p">)</span>
+                <span class="n">geom_refinement_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lamino_angle_viewer</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">geom_refinement_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tilt_angle_viewer</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">geom_refinement_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">skew_angle_viewer</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># options viewer</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options_display</span> <span class="o">=</span> <span class="n">OptionsDisplayWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
+
+            <span class="c1"># Add each tab to tab widget</span>
+            <span class="n">tabs</span><span class="o">.</span><span class="n">addTab</span><span class="p">(</span><span class="n">metrics_widget</span><span class="p">,</span> <span class="s2">&quot;Metrics&quot;</span><span class="p">)</span>
+            <span class="n">tabs</span><span class="o">.</span><span class="n">addTab</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">volume_viewer</span><span class="p">,</span> <span class="s2">&quot;3D Reconstruction&quot;</span><span class="p">)</span>
+            <span class="n">tabs</span><span class="o">.</span><span class="n">addTab</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">projection_viewer</span><span class="p">,</span> <span class="s2">&quot;Aligned Projections&quot;</span><span class="p">)</span>
+            <span class="n">tabs</span><span class="o">.</span><span class="n">addTab</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options_display</span><span class="p">,</span> <span class="s2">&quot;Options&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">refine_geometry</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+                <span class="n">tabs</span><span class="o">.</span><span class="n">addTab</span><span class="p">(</span><span class="n">geom_refinement_widget</span><span class="p">,</span> <span class="s2">&quot;Geometry Refinement&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Setup layout</span>
+            <span class="n">layout</span> <span class="o">=</span> <span class="n">QVBoxLayout</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plots_layout</span> <span class="o">=</span> <span class="n">QHBoxLayout</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setLayout</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span>
+            <span class="n">layout</span><span class="o">.</span><span class="n">addLayout</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plots_layout</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_update_label</span> <span class="o">=</span> <span class="n">QLabel</span><span class="p">()</span>
+            <span class="n">layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">last_update_label</span><span class="p">)</span>
+            <span class="c1"># Create button for stopping execution of PMA loop</span>
+            <span class="k">if</span> <span class="n">add_stop_button</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">create_stop_button</span><span class="p">()</span>
+                <span class="n">layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stop_button</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plots_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="n">tabs</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="p">(</span><span class="ne">Exception</span><span class="p">,</span> <span class="ne">KeyboardInterrupt</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;An error occurred: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.create_stop_button">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.create_stop_button">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_stop_button</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_button</span> <span class="o">=</span> <span class="n">QPushButton</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;STOP ALIGNMENT&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_button</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stop_alignment_thread</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_button</span><span class="o">.</span><span class="n">setStyleSheet</span><span class="p">(</span><span class="s2">&quot;QPushButton { background-color: red; color: white; }&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.disable_stop_button">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.disable_stop_button">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">disable_stop_button</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_text</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_button</span><span class="o">.</span><span class="n">setDisabled</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_button</span><span class="o">.</span><span class="n">setStyleSheet</span><span class="p">(</span><span class="s2">&quot;QPushButton { background-color: gray; }&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_button</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="n">new_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.finish_test">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.finish_test">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">finish_test</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">disable_stop_button</span><span class="p">(</span><span class="s2">&quot;alignment finished&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">test_finished</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_button_clicked</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.closeEvent">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.closeEvent">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">closeEvent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">QCloseEvent</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_button_clicked</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">close_button_clicked</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_finished</span><span class="p">:</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">accept</span><span class="p">()</span>  <span class="c1"># Close the window</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stop_alignment_thread</span><span class="p">()</span>
+            <span class="c1"># do not close until the rest is done!</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">ignore</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.update_plots">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.update_plots">[docs]</a>
+    <span class="nd">@timer</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_plots</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_thread_gpu</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">volume_viewer</span><span class="o">.</span><span class="n">update_arrays</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">volume</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="c1"># self.projection_viewer.update_arrays()#self.pma_object.aligned_projections.data)</span>
+            <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;shift_viewer&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shift_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+            <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;error_viewer&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">error_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+            <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;shift_diff_viewer&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shift_diff_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+            <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;error_v_iter_viewer&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">error_v_iter_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+            <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;step_size_v_iter_viewer&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step_size_v_iter_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+            <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;velocity_map_viewer&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">velocity_map_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+            <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">momentum_v_iter_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">refine_geometry</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lamino_angle_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tilt_angle_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">skew_angle_viewer</span><span class="o">.</span><span class="n">update_plot</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_update_label</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Last update: iteration </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">iteration</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">Exception</span><span class="p">,</span> <span class="ne">KeyboardInterrupt</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;An error occurred: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">update_plots_finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ProjectionMatchingViewer.set_thread_gpu">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.data_structures.task.html#pyxalign.data_structures.task.ProjectionMatchingViewer.set_thread_gpu">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_thread_gpu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">keep_on_gpu</span><span class="p">:</span>
+            <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">gpu_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">use</span><span class="p">()</span></div>
+</div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PMLinePlotWidget</span><span class="p">(</span><span class="n">QWidget</span><span class="p">):</span>
+    <span class="s2">&quot;Base class for basic line plots to be used in the ProjectionMatchingViewer&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span> <span class="o">=</span> <span class="n">pma_object</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">angles</span><span class="p">)</span>
+        <span class="c1"># if cp.get_array_module(self.sort_idx) is cp:</span>
+            <span class="c1"># self.sort_idx = self.sort_idx.get()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span> <span class="o">=</span> <span class="n">return_cpu_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">figure</span> <span class="o">=</span> <span class="n">Figure</span><span class="p">(</span><span class="n">layout</span><span class="o">=</span><span class="s2">&quot;compressed&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span> <span class="o">=</span> <span class="n">FigureCanvas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span> <span class="o">=</span> <span class="n">NavigationToolbar</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span><span class="o">.</span><span class="n">setFixedHeight</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_plot</span><span class="p">()</span>
+
+        <span class="n">main_layout</span> <span class="o">=</span> <span class="n">QVBoxLayout</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setLayout</span><span class="p">(</span><span class="n">main_layout</span><span class="p">)</span>
+        <span class="n">main_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span><span class="p">)</span>
+        <span class="n">main_layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="nd">@timer</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;update line data&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+        <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">new_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_data</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">new_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">line</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_data</span><span class="p">,</span> <span class="n">return_cpu_array</span><span class="p">(</span><span class="n">new_data</span><span class="p">))</span>
+        <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+        <span class="n">itimer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;rescale, relim, draw_idle&quot;</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">timer_enabled</span><span class="p">)</span>
+        <span class="n">itimer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">relim</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale_view</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw_idle</span><span class="p">()</span>
+        <span class="n">itimer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_data</span><span class="p">,</span> <span class="n">return_cpu_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_plot_formatting</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw_idle</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_y_axis_in_microns</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pixel_size_um</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">pixel_size</span> <span class="o">*</span> <span class="mf">1e6</span>
+        <span class="c1"># Add a second y-axis for nanometers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax_nm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">twinx</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax_nm</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Shift ($\mu m$)&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Sync the y-axis limits: convert px to nm</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">sync_nm_axis</span><span class="p">():</span>
+            <span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax_nm</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">y_min</span> <span class="o">*</span> <span class="n">pixel_size_um</span><span class="p">,</span> <span class="n">y_max</span> <span class="o">*</span> <span class="n">pixel_size_um</span><span class="p">)</span>
+
+        <span class="c1"># Initial sync</span>
+        <span class="n">sync_nm_axis</span><span class="p">()</span>
+
+        <span class="c1"># Optionally connect to zoom/pan events to keep them in sync</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">on_ylims_changed</span><span class="p">(</span><span class="n">event_ax</span><span class="p">):</span>
+            <span class="n">sync_nm_axis</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;ylim_changed&quot;</span><span class="p">,</span> <span class="n">on_ylims_changed</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PMErrorPlotWidget</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">all_errors</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">angles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;PMA Error&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Angle (deg)&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Error&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PMErrorVsIteration</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">all_errors</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">iteration</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Error vs Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Mean Error&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MaxStepSizeVsIteration</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">all_max_shift_step_size</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Max Step Size Update vs Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Shift Update (px)&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_y_axis_in_microns</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PMShiftPlotWidget</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">total_shift</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">]</span>
+        <span class="c1"># self.pma_object.total_shift[self.sort_idx]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">angles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">initial_shift_colors</span> <span class="o">=</span> <span class="p">((</span><span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">initial_shift</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">return_cpu_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">initial_shift</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">])</span>
+                <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">scale</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">x_data</span><span class="p">,</span>
+                <span class="n">initial_shift</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">initial_shift_colors</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_data</span><span class="p">,</span> <span class="n">return_cpu_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_plot_formatting</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Alignment Shift&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Angle (deg)&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Shift (px)&quot;</span><span class="p">)</span>
+        <span class="c1"># self.ax.legend([&quot;Horizontal&quot;, &quot;Vertical&quot;])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_y_axis_in_microns</span><span class="p">()</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">VelocityMapPlot</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">velocity_map</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">angles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Velocity Map&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Angle (deg)&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Update Velocity&quot;</span><span class="p">)</span>
+        <span class="c1"># self.ax.legend([&quot;Horizontal&quot;, &quot;Vertical&quot;])</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MomentumVsIterationMap</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">all_momentum_acceleration</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Momentum vs Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Update Momentum&quot;</span><span class="p">)</span>
+        <span class="c1"># self.ax.legend([&quot;Horizontal&quot;, &quot;Vertical&quot;])</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PMShiftDiffPlotWidget</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">return_cpu_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">total_shift</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">])</span>
+            <span class="o">-</span> <span class="n">return_cpu_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">initial_shift</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">])</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">scale</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">aligned_projections</span><span class="o">.</span><span class="n">angles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_idx</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;total_shift - initial_shift&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Angle (deg)&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Shift (px)&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">([</span><span class="s2">&quot;Horizontal&quot;</span><span class="p">,</span> <span class="s2">&quot;Vertical&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_y_axis_in_microns</span><span class="p">()</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">LaminoAngleRefinementWidget</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">all_lamino_angle_updates</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Laminography Angle&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Angle (deg)&quot;</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TiltAngleRefinementWidget</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">all_tilt_angle_updates</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Tilt Angle&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Angle (deg)&quot;</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SkewAngleRefinementWidget</span><span class="p">(</span><span class="n">PMLinePlotWidget</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pma_object</span><span class="p">:</span> <span class="s2">&quot;pm.ProjectionMatchingAligner&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">pma_object</span><span class="o">=</span><span class="n">pma_object</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pma_object</span><span class="o">.</span><span class="n">all_skew_angle_updates</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_data</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_plot_formatting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Skew Angle&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Angle (deg)&quot;</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

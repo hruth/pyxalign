@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pyxalign.io.loaders.pear.api &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-pyxalign.io.loaders.pear.api">
+<span id="pyxalign-io-loaders-pear-api"></span><h1>pyxalign.io.loaders.pear.api<a class="headerlink" href="#module-pyxalign.io.loaders.pear.api" title="Link to this heading">¶</a></h1>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.loaders.pear.api.load_data_from_pear_format" title="pyxalign.io.loaders.pear.api.load_data_from_pear_format"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_data_from_pear_format</span></code></a>(options[, ...])</p></td>
+<td><p>Function for loading lamni-formatted projection data and returning it in the standardized format.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.loaders.pear.api.</span></span><span class="sig-name descname"><span class="pre">BaseLoader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_numbers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequences</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_projections_folder</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.options.transform.html#pyxalign.options.transform.ABC" title="abc.ABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Class for loading ptychography reconstructions saved in the Lamni
+file structure format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scan_numbers</strong> (<em>np.ndarray</em>) – Scan number of each projection, according to the dat file.</p></li>
+<li><p><strong>angles</strong> (<em>np.ndarray</em>) – Measurement angles for each projection, according to the dat
+file.</p></li>
+<li><p><strong>experiment_name</strong> (<em>str</em>) – Name of the experiment to load, according to the dat file.</p></li>
+<li><p><strong>parent_projections_folder</strong> (<em>str</em>) – Path to folder containing saved projection data.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.ptycho_params">
+<span class="sig-name descname"><span class="pre">ptycho_params</span></span><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.ptycho_params" title="Link to this definition">¶</a></dt>
+<dd><p>Stores the ptychoshelves ptychography reconstruction settings
+that are stored in the <cite>p</cite> group of the h5 file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[int, dict]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.projection_folders">
+<span class="sig-name descname"><span class="pre">projection_folders</span></span><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.projection_folders" title="Link to this definition">¶</a></dt>
+<dd><p>Dictionary that maps scan number to the path to the folder
+containing projection files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[int, str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.projection_files">
+<span class="sig-name descname"><span class="pre">projection_files</span></span><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.projection_files" title="Link to this definition">¶</a></dt>
+<dd><p>Dictionary that maps scan number to files in the projection
+folder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[int, list[str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.file_paths">
+<span class="sig-name descname"><span class="pre">file_paths</span></span><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.file_paths" title="Link to this definition">¶</a></dt>
+<dd><p>Dictionary that maps scan number to the full projection file
+path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[int, str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.projections">
+<span class="sig-name descname"><span class="pre">projections</span></span><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.projections" title="Link to this definition">¶</a></dt>
+<dd><p>Dictionary that maps scan number to the projection array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[int, np.ndarray]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.available_projection_files">
+<span class="sig-name descname"><span class="pre">available_projection_files</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.available_projection_files" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.filter_file_list">
+<span class="sig-name descname"><span class="pre">filter_file_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">only_include_files_with</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_files_with</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.filter_file_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.filter_file_list" title="Link to this definition">¶</a></dt>
+<dd><p>Remove files that do not meet the following conditions:
+1) file string is not in <cite>only_include_files_with</cite>
+2) file string is in <cite>exclude_files_with</cite></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.find_matching_ptycho_file_strings">
+<span class="sig-name descname"><span class="pre">find_matching_ptycho_file_strings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selected_ptycho_file_strings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection_files</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.find_matching_ptycho_file_strings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.find_matching_ptycho_file_strings" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.get_matching_ptycho_file_strings">
+<span class="sig-name descname"><span class="pre">get_matching_ptycho_file_strings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">only_include_files_with</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_files_with</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_pattern_priority_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_files_not_in_priority_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.get_matching_ptycho_file_strings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.get_matching_ptycho_file_strings" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.get_projection_sub_folder">
+<span class="sig-name descname"><span class="pre">get_projection_sub_folder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.get_projection_sub_folder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.get_projection_sub_folder" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.get_projections_folders_and_file_names">
+<span class="sig-name descname"><span class="pre">get_projections_folders_and_file_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.get_projections_folders_and_file_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.get_projections_folders_and_file_names" title="Link to this definition">¶</a></dt>
+<dd><p>Generate the folder path for all projections and get a list of
+the files in that folder.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.load_positions">
+<span class="sig-name descname"><span class="pre">load_positions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.load_positions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.load_positions" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.load_probe">
+<span class="sig-name descname"><span class="pre">load_probe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.load_probe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.load_probe" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.load_projection_and_metadata">
+<span class="sig-name descname"><span class="pre">load_projection_and_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_number</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.load_projection_and_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.load_projection_and_metadata" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.load_projection_params">
+<span class="sig-name descname"><span class="pre">load_projection_params</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.load_projection_params"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.load_projection_params" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.load_projections">
+<span class="sig-name descname"><span class="pre">load_projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.load_projections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.load_projections" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.load_single_projection">
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_single_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.load_single_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.load_single_projection" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.n_scans">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">n_scans</span></span><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.n_scans" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.pixel_size">
+<span class="sig-name descname"><span class="pre">pixel_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.pixel_size" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.probe">
+<span class="sig-name descname"><span class="pre">probe</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.probe" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.probe_positions">
+<span class="sig-name descname"><span class="pre">probe_positions</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.probe_positions" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">projection_folders</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#id0" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">projections</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#id1" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id2">
+<span class="sig-name descname"><span class="pre">ptycho_params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#id2" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.record_projection_path_and_files">
+<span class="sig-name descname"><span class="pre">record_projection_path_and_files</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.record_projection_path_and_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.record_projection_path_and_files" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.remove_sequences">
+<span class="sig-name descname"><span class="pre">remove_sequences</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequences_to_keep</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.remove_sequences"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.remove_sequences" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.select_projections">
+<span class="sig-name descname"><span class="pre">select_projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selected_ptycho_file_strings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ask_for_backup_ptycho_file_string</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">select_all_by_default</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_pattern_priority_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.select_projections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.select_projections" title="Link to this definition">¶</a></dt>
+<dd><p>Select which projections to load.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.select_ptycho_file_strings">
+<span class="sig-name descname"><span class="pre">select_ptycho_file_strings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">select_all_by_default</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.select_ptycho_file_strings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.select_ptycho_file_strings" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.select_tile">
+<span class="sig-name descname"><span class="pre">select_tile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selected_tile</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/base_loader.html#BaseLoader.select_tile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.select_tile" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.BaseLoader.selected_projection_file_paths">
+<span class="sig-name descname"><span class="pre">selected_projection_file_paths</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#pyxalign.io.loaders.pear.api.BaseLoader.selected_projection_file_paths" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.PEARLoadOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.loaders.pear.api.</span></span><span class="sig-name descname"><span class="pre">PEARLoadOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base:</span> <span class="pre">pyxalign.io.loaders.pear.options.BaseLoadOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/options.html#PEARLoadOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.PEARLoadOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.options.transform.html#pyxalign.options.transform.ABC" title="abc.ABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.PEARLoadOptions.base">
+<span class="sig-name descname"><span class="pre">base</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.io.loaders.pear.options.html#pyxalign.io.loaders.pear.options.BaseLoadOptions" title="pyxalign.io.loaders.pear.options.BaseLoadOptions"><span class="pre">BaseLoadOptions</span></a></em><a class="headerlink" href="#pyxalign.io.loaders.pear.api.PEARLoadOptions.base" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.StandardData">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.loaders.pear.api.</span></span><span class="sig-name descname"><span class="pre">StandardData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">projections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_numbers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_paths</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">probe_positions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">probe</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/base.html#StandardData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.StandardData" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Standard format that is required for doing laminography alignment.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.StandardData.drop_scans">
+<span class="sig-name descname"><span class="pre">drop_scans</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_numbers_to_drop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/base.html#StandardData.drop_scans"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.StandardData.drop_scans" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.StandardData.get_minimum_size_for_projection_array">
+<span class="sig-name descname"><span class="pre">get_minimum_size_for_projection_array</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/pyxalign/io/loaders/base.html#StandardData.get_minimum_size_for_projection_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.StandardData.get_minimum_size_for_projection_array" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.StandardData.plot_sample_projection">
+<span class="sig-name descname"><span class="pre">plot_sample_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/io/loaders/base.html#StandardData.plot_sample_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.StandardData.plot_sample_projection" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.load_data_from_pear_format">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.loaders.pear.api.</span></span><span class="sig-name descname"><span class="pre">load_data_from_pear_format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">options</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pyxalign.io.loaders.pear.options.html#pyxalign.io.loaders.pear.options.PEARLoadOptions" title="pyxalign.io.loaders.pear.options.PEARLoadOptions"><span class="pre">PEARLoadOptions</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_loader_object</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="pyxalign.io.loaders.base.html#pyxalign.io.loaders.base.StandardData" title="pyxalign.io.loaders.base.StandardData"><span class="pre">StandardData</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="pyxalign.io.loaders.base.html#pyxalign.io.loaders.base.StandardData" title="pyxalign.io.loaders.base.StandardData"><span class="pre">StandardData</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.io.loaders.pear.base_loader.html#pyxalign.io.loaders.pear.base_loader.BaseLoader" title="pyxalign.io.loaders.pear.base_loader.BaseLoader"><span class="pre">BaseLoader</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/api.html#load_data_from_pear_format"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.load_data_from_pear_format" title="Link to this definition">¶</a></dt>
+<dd><p>Function for loading lamni-formatted projection data and returning
+it in the standardized format.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.loaders.pear.api.load_experiment">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.loaders.pear.api.</span></span><span class="sig-name descname"><span class="pre">load_experiment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent_projections_folder</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pyxalign.io.loaders.pear.options.html#pyxalign.io.loaders.pear.options.PEARLoadOptions" title="pyxalign.io.loaders.pear.options.PEARLoadOptions"><span class="pre">PEARLoadOptions</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="pyxalign.io.loaders.pear.base_loader.html#pyxalign.io.loaders.pear.base_loader.BaseLoader" title="pyxalign.io.loaders.pear.base_loader.BaseLoader"><span class="pre">BaseLoader</span></a></span></span><a class="reference internal" href="../_modules/pyxalign/io/loaders/pear/utils.html#load_experiment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.loaders.pear.api.load_experiment" title="Link to this definition">¶</a></dt>
+<dd><p>Load an experiment that is saved with the lamni structure.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/_autosummary/pyxalign.io.loaders.pear.api.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

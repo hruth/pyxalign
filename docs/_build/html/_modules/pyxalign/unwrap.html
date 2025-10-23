@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pyxalign.unwrap &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pyxalign.unwrap</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.enums</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageGradientMethods</span><span class="p">,</span> <span class="n">ImageIntegrationMethods</span><span class="p">,</span> <span class="n">PhaseUnwrapMethods</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.options</span><span class="w"> </span><span class="kn">import</span> <span class="n">PhaseUnwrapOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">r_type</span><span class="p">,</span> <span class="n">c_type</span><span class="p">,</span> <span class="n">ArrayType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.gpu_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">memory_releasing_error_handler</span><span class="p">,</span> <span class="n">get_scipy_module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.timing.timer_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">timer</span><span class="p">,</span> <span class="n">InlineTimer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.transformations.functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">image_shift_fft</span>
+
+
+<div class="viewcode-block" id="unwrap_phase">
+<a class="viewcode-back" href="../../_autosummary/pyxalign.data_structures.projections.html#pyxalign.data_structures.projections.unwrap_phase">[docs]</a>
+<span class="nd">@memory_releasing_error_handler</span>
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">unwrap_phase</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">weights</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">options</span><span class="p">:</span> <span class="n">PhaseUnwrapOptions</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unwrap phase from complex images using specified method.</span>
+
+<span class="sd">    This function serves as the main entry point for phase unwrapping operations.</span>
+<span class="sd">    It supports two different unwrapping methods: iterative residual correction</span>
+<span class="sd">    and gradient integration.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images: Complex-valued images to unwrap. Shape should be (N, H, W) where</span>
+<span class="sd">            N is the number of images, H and W are spatial dimensions.</span>
+<span class="sd">        weights: Weight arrays corresponding to each image. Same shape as images.</span>
+<span class="sd">            Values should be between 0 and 1, where 1 indicates full confidence.</span>
+<span class="sd">        options: Configuration object containing phase unwrapping parameters</span>
+<span class="sd">            including method selection, iterations, and other algorithm settings.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Unwrapped phase arrays with the same shape as input images but with</span>
+<span class="sd">        real-valued dtype (r_type).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="n">PhaseUnwrapMethods</span><span class="o">.</span><span class="n">ITERATIVE_RESIDUAL_CORRECTION</span><span class="p">:</span>
+        <span class="n">unwrapped_phase</span> <span class="o">=</span> <span class="n">unwrap_phase_iterative_residual_correction</span><span class="p">(</span>
+            <span class="n">images</span><span class="p">,</span>
+            <span class="n">weights</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">iterative_residual</span><span class="o">.</span><span class="n">iterations</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">iterative_residual</span><span class="o">.</span><span class="n">lsq_fit_ramp_removal</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">options</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="n">PhaseUnwrapMethods</span><span class="o">.</span><span class="n">GRADIENT_INTEGRATION</span><span class="p">:</span>
+        <span class="n">unwrapped_phase</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">images</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">gradient_integration</span><span class="o">.</span><span class="n">use_masks</span><span class="p">:</span>
+                <span class="n">weight_map</span> <span class="o">=</span> <span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">weight_map</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">unwrapped_phase</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">unwrap_phase_gradient_integration</span><span class="p">(</span>
+                <span class="n">images</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">image_grad_method</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">gradient_integration</span><span class="o">.</span><span class="n">gradient_method</span><span class="p">,</span>
+                <span class="n">image_integration_method</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">gradient_integration</span><span class="o">.</span><span class="n">integration_method</span><span class="p">,</span>
+                <span class="n">fourier_shift_step</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">gradient_integration</span><span class="o">.</span><span class="n">fourier_shift_step</span><span class="p">,</span>
+                <span class="n">weight_map</span><span class="o">=</span><span class="n">weight_map</span><span class="p">,</span>
+                <span class="n">deramp_polyfit_order</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">gradient_integration</span><span class="o">.</span><span class="n">deramp_polyfit_order</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">unwrapped_phase</span></div>
+
+
+
+<span class="c1">#### Functions for unwrap_phase_iterative_residual_correction ####</span>
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">unwrap_phase_iterative_residual_correction</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">weights</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">iterations</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">lsq_fit_ramp_removal</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unwrap phase using iterative residual correction method.</span>
+
+<span class="sd">    This method iteratively corrects phase residuals by applying phase unwrapping</span>
+<span class="sd">    to the residual images after removing the current phase estimate.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images: Complex-valued images to unwrap. Shape should be (N, H, W).</span>
+<span class="sd">        weights: Weight arrays for each image. Values should be between 0 and 1.</span>
+<span class="sd">            Negative values are clipped to 0 and weights are normalized.</span>
+<span class="sd">        iterations: Number of iterative correction steps to perform.</span>
+<span class="sd">        lsq_fit_ramp_removal: Whether to remove phase ramps using least-squares</span>
+<span class="sd">            fitting after unwrapping. Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Unwrapped phase arrays with the same shape as input images.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The algorithm normalizes weights and converts them to boolean masks for</span>
+<span class="sd">        the optional ramp removal step.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+    <span class="c1"># Ensure the weights are all between 0 and 1</span>
+    <span class="n">weights</span><span class="p">[</span><span class="n">weights</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">/</span> <span class="n">weights</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">bool_weights</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">phase_block</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">iterations</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">images_resid</span> <span class="o">=</span> <span class="n">images</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">images_resid</span> <span class="o">=</span> <span class="n">images</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">phase_block</span><span class="p">)</span>
+        <span class="n">phase_block</span> <span class="o">=</span> <span class="n">phase_block</span> <span class="o">+</span> <span class="n">weights</span> <span class="o">*</span> <span class="n">phase_unwrap_2D</span><span class="p">(</span><span class="n">images_resid</span><span class="p">,</span> <span class="n">weights</span><span class="p">)</span>
+        <span class="c1"># if empty_region != []:</span>
+        <span class="c1">#   raise NotImplementedError</span>
+        <span class="c1"># phase_block = remove_sinogram_ramp(phase_block, empty_region, options.poly_fit_order)</span>
+    <span class="c1"># Remove phase ramp</span>
+    <span class="k">if</span> <span class="n">lsq_fit_ramp_removal</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">phase_block</span><span class="p">)):</span>
+            <span class="n">phase_block</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">remove_phase_ramp</span><span class="p">(</span><span class="n">phase_block</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">bool_weights</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">phase_block</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">phase_unwrap_2D</span><span class="p">(</span><span class="n">images</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">weights</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">padding</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform 2D phase unwrapping using Fourier gradient integration.</span>
+
+<span class="sd">    This function unwraps phase by computing phase gradients in Fourier domain</span>
+<span class="sd">    and then integrating them back to recover the unwrapped phase. Padding is</span>
+<span class="sd">    applied to reduce boundary artifacts.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images: Complex-valued images to unwrap. Shape should be (N, H, W).</span>
+<span class="sd">        weights: Weight arrays for each image. Values should be between 0 and 1.</span>
+<span class="sd">        padding: Number of pixels to pad on each side. Defaults to 64.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Unwrapped phase arrays with padding removed.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The function normalizes the input images by their magnitude and applies</span>
+<span class="sd">        symmetric padding before processing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+
+    <span class="n">images</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">*</span> <span class="n">images</span> <span class="o">/</span> <span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">images</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-10</span><span class="p">)</span>
+    <span class="k">del</span> <span class="n">weights</span>
+
+    <span class="n">pad_shape</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">padding</span><span class="p">,</span> <span class="s2">&quot;symmetric&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">padded_images</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">images</span><span class="p">),</span> <span class="n">pad_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pad_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">c_type</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">padding</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">images</span><span class="p">)):</span>
+            <span class="n">padded_images</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">images</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">padding</span><span class="p">,</span> <span class="s2">&quot;symmetric&quot;</span><span class="p">)</span>
+
+    <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">get_phase_gradient_fourier</span><span class="p">(</span><span class="n">padded_images</span><span class="p">)</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">get_images_int_2D</span><span class="p">(</span><span class="n">dX</span><span class="p">,</span> <span class="n">dY</span><span class="p">))</span>
+
+    <span class="n">start_idx_1</span><span class="p">,</span> <span class="n">stop_idx_1</span> <span class="o">=</span> <span class="n">padding</span><span class="p">,</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">padding</span>
+    <span class="n">start_idx_2</span><span class="p">,</span> <span class="n">stop_idx_2</span> <span class="o">=</span> <span class="n">padding</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">padding</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">phase</span><span class="p">[:,</span> <span class="n">start_idx_1</span><span class="p">:</span><span class="n">stop_idx_1</span><span class="p">,</span> <span class="n">start_idx_2</span><span class="p">:</span><span class="n">stop_idx_2</span><span class="p">]</span>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_images_int_2D</span><span class="p">(</span><span class="n">dX</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">dY</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Integrate 2D phase gradients using Fourier domain integration.</span>
+
+<span class="sd">    This function performs 2D integration of phase gradients by applying</span>
+<span class="sd">    an integration filter in the Fourier domain. The method is based on</span>
+<span class="sd">    the relationship between differentiation and multiplication by frequency</span>
+<span class="sd">    in Fourier space.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dX: Phase gradients in X direction. Shape should be (N, H, W).</span>
+<span class="sd">        dY: Phase gradients in Y direction. Shape should be (N, H, W).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Integrated phase arrays with the same shape as input gradients.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The DC component (0,0) of the integration filter is set to zero</span>
+<span class="sd">        to avoid division by zero and ensure proper integration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">dX</span><span class="p">)</span>
+    <span class="n">scipy_module</span><span class="p">:</span> <span class="n">scipy</span> <span class="o">=</span> <span class="n">get_scipy_module</span><span class="p">(</span><span class="n">dX</span><span class="p">)</span>
+
+    <span class="n">n_z</span><span class="p">,</span> <span class="n">n_y</span><span class="p">,</span> <span class="n">n_x</span> <span class="o">=</span> <span class="n">dX</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="n">fD</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">dX</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">dY</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">x_grid</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">n_x</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_x</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">x_grid</span> <span class="o">/=</span> <span class="n">n_x</span>
+    <span class="n">y_grid</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">n_y</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_y</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">y_grid</span> <span class="o">/=</span> <span class="n">n_y</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">x_grid</span> <span class="o">+</span> <span class="n">y_grid</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="c1"># apply integration filter</span>
+    <span class="n">X</span> <span class="o">/=</span> <span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">x_grid</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">y_grid</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">integral</span> <span class="o">=</span> <span class="n">fD</span> <span class="o">*</span> <span class="n">X</span>
+    <span class="n">integral</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">integral</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">integral</span>
+
+
+<span class="c1">#### Functions for unwrap_phase_gradient_integration ####</span>
+<span class="c1"># this method is pulled from ptychi and was modified to work with</span>
+<span class="c1"># cupy/numpy instead of torch</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">unwrap_phase_gradient_integration</span><span class="p">(</span>
+    <span class="n">image</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">fourier_shift_step</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">image_grad_method</span><span class="p">:</span> <span class="n">ImageGradientMethods</span> <span class="o">=</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">FOURIER_DIFFERENTIATION</span><span class="p">,</span>
+    <span class="n">image_integration_method</span><span class="p">:</span> <span class="n">ImageIntegrationMethods</span> <span class="o">=</span> <span class="n">ImageIntegrationMethods</span><span class="o">.</span><span class="n">FOURIER</span><span class="p">,</span>
+    <span class="n">weight_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ArrayType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">flat_region_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ArrayType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">deramp_polyfit_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">return_phase_grads</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-9</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Phase unwrapping function adapted from pty-chi.</span>
+
+<span class="sd">    This function unwraps phase using gradient integration methods. It supports</span>
+<span class="sd">    multiple gradient computation and integration approaches, with optional</span>
+<span class="sd">    weight mapping and polynomial background removal.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        image: A complex 2D array giving the image.</span>
+<span class="sd">        fourier_shift_step: The finite-difference step size used to calculate</span>
+<span class="sd">            the gradient, if the Fourier shift method is used.</span>
+<span class="sd">        image_grad_method: The method used to calculate the phase gradient.</span>
+<span class="sd">            - &quot;fourier_shift&quot;: Use Fourier shift to perform shift.</span>
+<span class="sd">            - &quot;nearest&quot;: Use nearest neighbor to perform shift.</span>
+<span class="sd">            - &quot;fourier_differentiation&quot;: Use Fourier differentiation.</span>
+<span class="sd">        image_integration_method: The method used to integrate the image back</span>
+<span class="sd">            from gradients.</span>
+<span class="sd">            - ImageIntegrationMethods.FOURIER: Use Fourier integration as implemented in PtychoShelves.</span>
+<span class="sd">            - &quot;deconvolution&quot;: Deconvolve ramp filter.</span>
+<span class="sd">        weight_map: A weight map multiplied to the input image. Optional.</span>
+<span class="sd">        flat_region_mask: A boolean mask with the same shape as `image` that</span>
+<span class="sd">            specifies the region of the image that should be flat. This is used</span>
+<span class="sd">            to remove unrealistic phase ramps. If None, de-ramping will not be done.</span>
+<span class="sd">        deramp_polyfit_order: The order of the polynomial fit used to de-ramp</span>
+<span class="sd">            the phase.</span>
+<span class="sd">        return_phase_grads: Whether to return the phase gradient.</span>
+<span class="sd">        eps: A small number to avoid division by zero.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The phase of the original image after unwrapping. If return_phase_grads</span>
+<span class="sd">        is True, returns a tuple of (phase, (gy, gx)).</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If input array is not complex.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># unwraps a single frame</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="n">image</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input array must be complex.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">weight_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">weight_map</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">weight_map</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">weight_map</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="n">image</span> <span class="o">=</span> <span class="n">weight_map</span> <span class="o">*</span> <span class="n">image</span> <span class="o">/</span> <span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">image</span><span class="p">)</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="n">bc_center</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">image</span><span class="p">[</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">])</span>
+
+    <span class="c1"># Pad image to avoid FFT boundary artifacts.</span>
+    <span class="n">padding</span> <span class="o">=</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">padding</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">padding_mode</span> <span class="o">=</span> <span class="s2">&quot;reflect&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">padding_mode</span> <span class="o">=</span> <span class="s2">&quot;replicate&quot;</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span>
+            <span class="n">image</span><span class="p">,</span> <span class="p">(</span><span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">mode</span><span class="o">=</span><span class="n">padding_mode</span>
+        <span class="p">)</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">vignette</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
+
+    <span class="n">gy</span><span class="p">,</span> <span class="n">gx</span> <span class="o">=</span> <span class="n">get_phase_gradient</span><span class="p">(</span>
+        <span class="n">image</span><span class="p">,</span>
+        <span class="n">fourier_shift_step</span><span class="o">=</span><span class="n">fourier_shift_step</span><span class="p">,</span>
+        <span class="n">image_grad_method</span><span class="o">=</span><span class="n">image_grad_method</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># if image_integration_method == ImageIntegrationMethods.DISCRETE and np.any(np.array(padding) &gt; 0):</span>
+    <span class="c1">#     gy = gy[padding[0] : -padding[0], padding[1] : -padding[1]]</span>
+    <span class="c1">#     gx = gx[padding[0] : -padding[0], padding[1] : -padding[1]]</span>
+    <span class="c1"># if image_integration_method == ImageIntegrationMethods.DISCRETE:</span>
+    <span class="c1">#     phase = xp.real(integrate_image_2d(gy, gx, bc_center=bc_center))</span>
+    <span class="k">if</span> <span class="n">image_integration_method</span> <span class="o">==</span> <span class="n">ImageIntegrationMethods</span><span class="o">.</span><span class="n">FOURIER</span><span class="p">:</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">integrate_image_2d_fourier</span><span class="p">(</span><span class="n">gy</span><span class="p">,</span> <span class="n">gx</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">image_integration_method</span> <span class="o">==</span> <span class="n">ImageIntegrationMethods</span><span class="o">.</span><span class="n">DECONVOLUTION</span><span class="p">:</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">integrate_image_2d_deconvolution</span><span class="p">(</span><span class="n">gy</span><span class="p">,</span> <span class="n">gx</span><span class="p">,</span> <span class="n">bc_center</span><span class="o">=</span><span class="n">bc_center</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown integration method: </span><span class="si">{</span><span class="n">image_integration_method</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># if image_integration_method != ImageIntegrationMethods.DISCRETE and np.any(np.array(padding) &gt; 0):</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">padding</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">gy</span> <span class="o">=</span> <span class="n">gy</span><span class="p">[</span><span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">gx</span> <span class="o">=</span> <span class="n">gx</span><span class="p">[</span><span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="n">phase</span><span class="p">[</span><span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">padding</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">padding</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+    <span class="k">if</span> <span class="n">flat_region_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="n">remove_polynomial_background</span><span class="p">(</span>
+            <span class="n">phase</span><span class="p">,</span> <span class="n">flat_region_mask</span><span class="p">,</span> <span class="n">polyfit_order</span><span class="o">=</span><span class="n">deramp_polyfit_order</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">weight_map</span><span class="p">,</span> <span class="n">ArrayType</span><span class="p">):</span>
+        <span class="n">phase</span> <span class="o">*=</span> <span class="n">weight_map</span>
+
+    <span class="k">if</span> <span class="n">return_phase_grads</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">phase</span><span class="p">,</span> <span class="p">(</span><span class="n">gy</span><span class="p">,</span> <span class="n">gx</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">phase</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_polynomial_background</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">flat_region_mask</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">polyfit_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a 2D polynomial to flat regions and subtract from image.</span>
+
+<span class="sd">    This function fits a 2D polynomial to the region that is supposed to be flat</span>
+<span class="sd">    in an image, and subtracts the fitted function from the image to remove</span>
+<span class="sd">    polynomial background variations.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images: The input image.</span>
+<span class="sd">        flat_region_mask: A boolean mask with the same shape as `images` that</span>
+<span class="sd">            specifies the region of the image that should be flat.</span>
+<span class="sd">        polyfit_order: The order of the polynomial to fit. Should be an integer</span>
+<span class="sd">            &gt;= 0. If 0, just subtract the average. Defaults to 1.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The image with the polynomial background subtracted.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        For polyfit_order=0, only the mean is subtracted. For higher orders,</span>
+<span class="sd">        a full 2D polynomial fit is performed using least squares.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">polyfit_order</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">images</span> <span class="o">-</span> <span class="n">images</span><span class="p">[</span><span class="n">flat_region_mask</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">ys</span><span class="p">,</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">flat_region_mask</span><span class="p">)</span>
+    <span class="n">y_full</span><span class="p">,</span> <span class="n">x_full</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span>
+    <span class="p">)</span>
+    <span class="n">y_full</span> <span class="o">=</span> <span class="n">y_full</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">x_full</span> <span class="o">=</span> <span class="n">x_full</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">y_all_orders</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">x_all_orders</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">y_full_all_orders</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">x_full_all_orders</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">polyfit_order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">y_all_orders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ys</span><span class="o">**</span><span class="n">order</span><span class="p">)</span>
+        <span class="n">x_all_orders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xs</span><span class="o">**</span><span class="n">order</span><span class="p">)</span>
+        <span class="n">y_full_all_orders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y_full</span><span class="o">**</span><span class="n">order</span><span class="p">)</span>
+        <span class="n">x_full_all_orders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x_full</span><span class="o">**</span><span class="n">order</span><span class="p">)</span>
+    <span class="n">const_basis</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span>
+    <span class="n">const_basis_full</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_full</span><span class="p">))</span>
+
+    <span class="n">a_mat</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">y_all_orders</span> <span class="o">+</span> <span class="n">x_all_orders</span> <span class="o">+</span> <span class="p">[</span><span class="n">const_basis</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">b_vec</span> <span class="o">=</span> <span class="n">images</span><span class="p">[</span><span class="n">flat_region_mask</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">x_vec</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">a_mat</span><span class="p">,</span> <span class="n">b_vec</span><span class="p">)</span>
+    <span class="n">a_mat_full</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+        <span class="n">y_full_all_orders</span> <span class="o">+</span> <span class="n">x_full_all_orders</span> <span class="o">+</span> <span class="p">[</span><span class="n">const_basis_full</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">bg</span> <span class="o">=</span> <span class="n">a_mat_full</span> <span class="o">@</span> <span class="n">x_vec</span>
+    <span class="n">bg</span> <span class="o">=</span> <span class="n">bg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">images</span> <span class="o">-</span> <span class="n">bg</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">vignette</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">margin</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;gaussian&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="s2">&quot;window&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;gaussian&quot;</span><span class="p">,</span>
+    <span class="n">dim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply vignetting to gradually decay image near boundaries.</span>
+
+<span class="sd">    For each dimension of the image, a mask with a width of `2 * margin`</span>
+<span class="sd">    and with half of it filled with 0s and half with 1s is generated and</span>
+<span class="sd">    convolved with a Gaussian kernel. The blurred mask is cropped and</span>
+<span class="sd">    multiplied to the near-edge regions of the image.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images: The input image.</span>
+<span class="sd">        margin: The margin of image where the decay takes place.</span>
+<span class="sd">            Only used if `method` is &quot;gaussian&quot; or &quot;linear&quot;.</span>
+<span class="sd">        sigma: The standard deviation of the Gaussian kernel.</span>
+<span class="sd">            Only used if `method` is &quot;gaussian&quot;.</span>
+<span class="sd">        method: The method to use to generate the vignette mask.</span>
+<span class="sd">            &quot;window&quot; is a Hann window.</span>
+<span class="sd">        dim: Dimensions along which to apply vignetting. Defaults to (-2, -1).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The vignetted image with gradual decay near boundaries.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This function is not differentiable because of the slice-assignment</span>
+<span class="sd">        operation. The &quot;window&quot; method applies a Hamming window function.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+    <span class="n">scipy_module</span> <span class="o">=</span> <span class="n">get_scipy_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+
+    <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="o">%</span> <span class="n">images</span><span class="o">.</span><span class="n">ndim</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dim</span><span class="p">]</span>
+    <span class="c1"># images = images.clone()</span>
+    <span class="n">images</span> <span class="o">=</span> <span class="n">images</span> <span class="o">*</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i_dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i_dim</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">margin</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">mask_shape</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">[</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i_dim</span><span class="p">)]</span>
+            <span class="o">+</span> <span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">margin</span><span class="p">]</span>
+            <span class="o">+</span> <span class="p">[</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">images</span><span class="o">.</span><span class="n">ndim</span><span class="p">)]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;gaussian&quot;</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">mask_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">)</span>  <span class="c1">##, device=images.device)</span>
+            <span class="n">mask_slicer</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="n">i_dim</span> <span class="o">+</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="n">margin</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]</span>
+            <span class="n">mask</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">mask_slicer</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="c1"># gauss_win = torch.signal.windows.gaussian(margin // 2, std=sigma)</span>
+            <span class="n">gauss_win</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">signal</span><span class="o">.</span><span class="n">windows</span><span class="o">.</span><span class="n">gaussian</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="n">margin</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">std</span><span class="o">=</span><span class="n">sigma</span><span class="p">)</span>
+            <span class="n">gauss_win</span> <span class="o">=</span> <span class="n">gauss_win</span> <span class="o">/</span> <span class="n">xp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">gauss_win</span><span class="p">)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">convolve1d</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">gauss_win</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">i_dim</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)</span>
+            <span class="n">mask_final_slicer</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="n">i_dim</span> <span class="o">+</span> <span class="p">[</span>
+                <span class="nb">slice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gauss_win</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">gauss_win</span><span class="p">)</span> <span class="o">+</span> <span class="n">margin</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">mask_final_slicer</span><span class="p">)]</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">&lt;</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;linear&quot;</span><span class="p">:</span>
+            <span class="n">ramp</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">margin</span><span class="p">)</span>
+            <span class="n">new_shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">images</span><span class="o">.</span><span class="n">ndim</span>
+            <span class="n">new_shape</span><span class="p">[</span><span class="n">i_dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">margin</span>
+            <span class="n">ramp</span> <span class="o">=</span> <span class="n">ramp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">new_shape</span><span class="p">)</span>
+            <span class="n">rep</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">rep</span><span class="p">[</span><span class="n">i_dim</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">ramp</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">rep</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;window&quot;</span><span class="p">:</span>
+            <span class="c1"># window_func = torch.hamming_window(</span>
+            <span class="c1">#     images.shape[i_dim], periodic=True, alpha=0.5, beta=0.5</span>
+            <span class="c1"># )</span>
+            <span class="n">window_func</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">signal</span><span class="o">.</span><span class="n">windows</span><span class="o">.</span><span class="n">general_hamming</span><span class="p">(</span>
+                <span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i_dim</span><span class="p">],</span> <span class="n">periodic</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.5</span>
+            <span class="p">)</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">images</span> <span class="o">*</span> <span class="n">window_func</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">images</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="n">i_dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown method: </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;gaussian&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">]:</span>
+            <span class="n">slicer</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="n">i_dim</span> <span class="o">+</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">margin</span><span class="p">)]</span>
+            <span class="c1"># images[slicer] = images[slicer] * mask</span>
+            <span class="n">images</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">slicer</span><span class="p">)]</span> <span class="o">=</span> <span class="n">images</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">slicer</span><span class="p">)]</span> <span class="o">*</span> <span class="n">mask</span>
+
+            <span class="n">slicer</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="n">i_dim</span> <span class="o">+</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="o">-</span><span class="n">margin</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]</span>
+            <span class="c1"># images[slicer] = images[slicer] * mask.flip(i_dim)</span>
+            <span class="n">images</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">slicer</span><span class="p">)]</span> <span class="o">=</span> <span class="n">images</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">slicer</span><span class="p">)]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">i_dim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">images</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">integrate_image_2d_fourier</span><span class="p">(</span><span class="n">grad_y</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">grad_x</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Integrate image gradients using Fourier differentiation.</span>
+
+<span class="sd">    This function integrates an image with the gradient in y and x directions</span>
+<span class="sd">    using Fourier domain methods. The integration is performed by applying</span>
+<span class="sd">    the inverse of the differentiation operator in frequency space.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        grad_y: Gradients in Y direction. Shape should be (H, W).</span>
+<span class="sd">        grad_x: Gradients in X direction. Shape should be (H, W).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The integrated image with the same shape as input gradients.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The DC component (0,0) is set to zero to avoid division by zero.</span>
+<span class="sd">        This implementation follows PtychoShelves conventions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">grad_y</span><span class="p">)</span>
+    <span class="n">scipy_module</span> <span class="o">=</span> <span class="n">get_scipy_module</span><span class="p">(</span><span class="n">grad_y</span><span class="p">)</span>
+
+    <span class="n">shape</span> <span class="o">=</span> <span class="n">grad_y</span><span class="o">.</span><span class="n">shape</span>
+    <span class="c1"># f = pmath.fft2_precise(grad_x + 1j * grad_y) # I am not using precise fft</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">grad_x</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">grad_y</span><span class="p">)</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># In PtychoShelves&#39; get_img_int_2D.m, they set the numerator of r to be</span>
+    <span class="c1"># exp(2j * pi * (x + y[:, None])) to shift it by 1 pixel. We should NOT</span>
+    <span class="c1"># do this in order to get the same result as PtychoShelves.</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">r</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">y</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]))</span>
+    <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">integrated_image</span> <span class="o">=</span> <span class="n">f</span> <span class="o">*</span> <span class="n">r</span>
+    <span class="c1"># integrated_image = pmath.ifft2_precise(integrated_image)</span>
+    <span class="n">integrated_image</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">integrated_image</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">xp</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="n">grad_x</span><span class="p">):</span>
+        <span class="n">integrated_image</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">integrated_image</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">integrated_image</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">integrate_image_2d</span><span class="p">(</span>
+    <span class="n">grad_y</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">grad_x</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">bc_center</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Integrate an image with the gradient in y and x directions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        grad_y: The gradient in y direction.</span>
+<span class="sd">        grad_x: The gradient in x direction.</span>
+<span class="sd">        bc_center: The boundary condition at the center of the image. Defaults to 0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The integrated image.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">grad_y</span><span class="p">)</span>
+
+    <span class="n">left_boundary</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">grad_y</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">int_img</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">grad_x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">left_boundary</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">int_img</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">int_img</span> <span class="o">+</span> <span class="n">bc_center</span> <span class="o">-</span> <span class="n">int_img</span><span class="p">[</span><span class="n">int_img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">int_img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">int_img</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">integrate_image_2d_deconvolution</span><span class="p">(</span>
+    <span class="n">grad_y</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">grad_x</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">tf_y</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ArrayType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tf_x</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ArrayType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">bc_center</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Integrate an image with gradients by deconvolving the differentiation kernel.</span>
+
+<span class="sd">    The transfer function is assumed to be a ramp function. This method is adapted</span>
+<span class="sd">    from Tripathi et al. (2016) for single-view phase retrieval.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        grad_y: A (H, W) array of gradients in y direction.</span>
+<span class="sd">        grad_x: A (H, W) array of gradients in x direction.</span>
+<span class="sd">        tf_y: A (H, W) array of transfer functions in y direction. If not</span>
+<span class="sd">            provided, assumed to be 2i * pi * u, which are the effective</span>
+<span class="sd">            transfer functions in Fourier differentiation. Optional.</span>
+<span class="sd">        tf_x: A (H, W) array of transfer functions in x direction. If not</span>
+<span class="sd">            provided, assumed to be 2i * pi * v, which are the effective</span>
+<span class="sd">            transfer functions in Fourier differentiation. Optional.</span>
+<span class="sd">        bc_center: The value of the boundary condition at the center of the image.</span>
+<span class="sd">            Defaults to 0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The integrated image.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Adapted from Tripathi, A., McNulty, I., Munson, T., &amp; Wild, S. M. (2016).</span>
+<span class="sd">        Single-view phase retrieval of an extended sample by exploiting edge detection</span>
+<span class="sd">        and sparsity. Optics Express, 24(21), 24719–24738. doi:10.1364/OE.24.024719</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">grad_y</span><span class="p">)</span>
+    <span class="n">scipy_module</span> <span class="o">=</span> <span class="n">get_scipy_module</span><span class="p">(</span><span class="n">grad_x</span><span class="p">)</span>
+
+    <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">grad_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+        <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">grad_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tf_y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">tf_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tf_y</span> <span class="o">=</span> <span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">u</span>
+        <span class="n">tf_x</span> <span class="o">=</span> <span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">v</span>
+    <span class="c1"># f_grad_y = pmath.fft2_precise(grad_y)</span>
+    <span class="c1"># f_grad_x = pmath.fft2_precise(grad_x)</span>
+    <span class="n">f_grad_y</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">grad_y</span><span class="p">)</span>
+    <span class="n">f_grad_x</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">grad_x</span><span class="p">)</span>
+    <span class="n">images</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_grad_y</span> <span class="o">*</span> <span class="n">tf_y</span> <span class="o">+</span> <span class="n">f_grad_x</span> <span class="o">*</span> <span class="n">tf_x</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">tf_y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">tf_x</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mf">1e-5</span>
+    <span class="p">)</span>
+    <span class="c1"># images = -pmath.ifft2_precise(images)</span>
+    <span class="n">images</span> <span class="o">=</span> <span class="o">-</span><span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+    <span class="n">images</span> <span class="o">=</span> <span class="n">images</span> <span class="o">+</span> <span class="n">bc_center</span> <span class="o">-</span> <span class="n">images</span><span class="p">[</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">images</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">convolve1d</span><span class="p">(</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">kernel</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">padding</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;same&quot;</span><span class="p">,</span> <span class="s2">&quot;valid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;same&quot;</span><span class="p">,</span>
+    <span class="n">padding_mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;replicate&quot;</span><span class="p">,</span> <span class="s2">&quot;constant&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;replicate&quot;</span><span class="p">,</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;1D convolution with an explicitly given kernel.</span>
+
+<span class="sd">    This routine flips the kernel to adhere with the textbook definition of convolution.</span>
+<span class="sd">    The original implementation was adapted from torch.nn.functional.conv1d.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input: A (... d) array of signals.</span>
+<span class="sd">        kernel: A (d,) array of kernel.</span>
+<span class="sd">        padding: Padding mode for convolution. Defaults to &quot;same&quot;.</span>
+<span class="sd">        padding_mode: Mode for padding operation. Defaults to &quot;replicate&quot;.</span>
+<span class="sd">        dim: Dimension along which to perform convolution. Defaults to -1.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A (... d) array of convolved signals.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+    <span class="n">scipy_module</span> <span class="o">=</span> <span class="n">get_scipy_module</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">input</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Image must have at least 1 dimensions.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">kernel</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Kernel must have exactly 1 dimensions.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">xp</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="nb">input</span><span class="p">):</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="nb">input</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span> <span class="o">%</span> <span class="nb">input</span><span class="o">.</span><span class="n">ndim</span>
+    <span class="n">orig_shape</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">shape</span>
+    <span class="c1"># Move dim to the end.</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">!=</span> <span class="nb">input</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="nb">input</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">bcast_shape</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># Reshape image to (N, 1, d).</span>
+    <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># Reshape kernel to (1, 1, d).</span>
+    <span class="c1"># kernel = kernel.flip((0,))</span>
+    <span class="c1"># kernel = xp.flip(kernel, axis=0) # not needed since not using torch convolution</span>
+    <span class="n">kernel</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">padding</span> <span class="o">==</span> <span class="s2">&quot;same&quot;</span><span class="p">:</span>
+        <span class="n">pad_lengths</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">pad_lengths</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="c1"># input = xp.pad(input, pad_lengths, mode=padding_mode)</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="n">torch_pad_to_numpy_pad</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">pad_lengths</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">padding_mode</span><span class="p">)</span>
+
+    <span class="c1"># result = torch.nn.functional.conv1d(input, kernel, padding=&quot;valid&quot;)</span>
+    <span class="c1"># result = xp.convolve(input, kernel, mode=&quot;valid&quot;) # here</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">ndimage</span><span class="o">.</span><span class="n">convolve1d</span><span class="p">(</span>
+        <span class="nb">input</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">kernel</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="mi">0</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Restore shape.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="o">*</span><span class="n">bcast_shape</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">!=</span> <span class="nb">input</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_phase_ramp</span><span class="p">(</span><span class="n">phase</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove the phase ramp from a 2D phase array using masked region estimation.</span>
+
+<span class="sd">    This function removes linear phase ramps from a 2D phase array by fitting</span>
+<span class="sd">    a plane to the masked region and subtracting it from the entire array.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        phase: A 2D array representing the phase (in radians).</span>
+<span class="sd">        mask: A 2D boolean array (same shape as `phase`), where True indicates</span>
+<span class="sd">            the region to use for phase ramp estimation.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The phase-corrected 2D array.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If phase and mask arrays have different shapes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Phase and mask arrays must have the same shape.&quot;</span><span class="p">)</span>
+
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+
+    <span class="n">inline_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;meshgrid&quot;</span><span class="p">)</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nx</span><span class="p">),</span> <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">ny</span><span class="p">))</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+    <span class="n">inline_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;extract masked data&quot;</span><span class="p">)</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="c1"># Extract only masked data</span>
+    <span class="n">x_masked</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+    <span class="n">y_masked</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+    <span class="n">phase_masked</span> <span class="o">=</span> <span class="n">phase</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+    <span class="n">inline_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;get design matrix&quot;</span><span class="p">)</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="c1"># Construct the design matrix A for Ax = b (where A contains x, y, and constant terms)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">x_masked</span><span class="p">,</span> <span class="n">y_masked</span><span class="p">,</span> <span class="n">xp</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x_masked</span><span class="p">)))</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">phase_masked</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+    <span class="n">inline_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;lsq fit&quot;</span><span class="p">)</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="c1"># Solve the least-squares problem using the normal equation: x = (A^T A)^(-1) A^T b</span>
+    <span class="n">inv_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;inverse&quot;</span><span class="p">)</span>
+    <span class="n">inv_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">AtA_inv</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">A</span><span class="o">.</span><span class="n">get</span><span class="p">()))</span>  <span class="c1"># (A^T A)^(-1)</span>
+    <span class="n">inv_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+    <span class="n">atb_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;atb&quot;</span><span class="p">)</span>
+    <span class="n">atb_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">Atb</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">b</span>  <span class="c1"># A^T b</span>
+    <span class="n">atb_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+    <span class="n">solve_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;solve&quot;</span><span class="p">)</span>
+    <span class="n">solve_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">params_opt</span> <span class="o">=</span> <span class="n">AtA_inv</span> <span class="o">@</span> <span class="n">Atb</span>  <span class="c1"># Solve for [a, b, c]</span>
+    <span class="n">solve_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+    <span class="n">inline_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;compute ramp over full grid&quot;</span><span class="p">)</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="c1"># Compute the phase ramp over the full grid</span>
+    <span class="n">phase_ramp</span> <span class="o">=</span> <span class="n">params_opt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">params_opt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">y</span> <span class="o">+</span> <span class="n">params_opt</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">inline_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+    <span class="c1"># Remove the phase ramp</span>
+    <span class="k">return</span> <span class="n">phase</span> <span class="o">-</span> <span class="n">phase_ramp</span>
+
+
+<span class="nd">@timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_phase_gradient</span><span class="p">(</span>
+    <span class="n">image</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+    <span class="n">fourier_shift_step</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">image_grad_method</span><span class="p">:</span> <span class="n">ImageGradientMethods</span> <span class="o">=</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">FOURIER_DIFFERENTIATION</span><span class="p">,</span>
+    <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the gradient of the phase of a complex 2D image.</span>
+
+<span class="sd">    This function calculates the spatial gradient of the complex image first, then</span>
+<span class="sd">    takes the phase of the complex gradient. This approach avoids sharp gradients</span>
+<span class="sd">    due to phase wrapping when directly taking the gradient of the phase.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        image: A [N, H, W] or [H, W] array giving a batch of images or a single image.</span>
+<span class="sd">        fourier_shift_step: The finite-difference step size used to calculate the</span>
+<span class="sd">            gradient, if the Fourier shift method is used.</span>
+<span class="sd">        image_grad_method: The method used to calculate the phase gradient.</span>
+<span class="sd">            - &quot;fourier_shift&quot;: Use Fourier shift to perform shift.</span>
+<span class="sd">            - &quot;nearest&quot;: Use nearest neighbor to perform shift.</span>
+<span class="sd">            - &quot;fourier_differentiation&quot;: Use Fourier differentiation.</span>
+<span class="sd">        eps: A stabilizing constant.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of 2 arrays with the gradient in y and x directions.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If step is not positive when using fourier_shift method.</span>
+<span class="sd">        ValueError: If unknown finite-difference method is specified.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fourier_shift_step</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">image_grad_method</span> <span class="o">==</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">FOURIER_SHIFT</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Step must be positive.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">image_grad_method</span> <span class="o">==</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">FOURIER_DIFFERENTIATION</span><span class="p">:</span>
+        <span class="n">gx</span><span class="p">,</span> <span class="n">gy</span> <span class="o">=</span> <span class="n">get_phase_gradient_fourier</span><span class="p">(</span><span class="n">image</span><span class="p">[</span><span class="kc">None</span><span class="p">])</span>
+        <span class="n">gx</span><span class="p">,</span> <span class="n">gy</span> <span class="o">=</span> <span class="n">gx</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">gy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Use finite difference.</span>
+        <span class="k">if</span> <span class="n">image</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+        <span class="n">pad</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">fourier_shift_step</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">torch_pad_to_numpy_pad</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">pad</span><span class="p">,</span> <span class="n">pad</span><span class="p">,</span> <span class="n">pad</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">)</span>
+
+        <span class="n">sy1</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="n">fourier_shift_step</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sy2</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">fourier_shift_step</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">image_grad_method</span> <span class="o">==</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">FOURIER_SHIFT</span><span class="p">:</span>
+            <span class="c1"># If the image contains zero-valued pixels, Fourier shift can result in small</span>
+            <span class="c1"># non-zero values that dangles around 0. This can cause the phase</span>
+            <span class="c1"># of the shifted image to dangle between pi and -pi. In that case, use</span>
+            <span class="c1"># `finite_diff_method=&quot;nearest&quot; instead`, or use `step=1`.</span>
+            <span class="n">complex_prod</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">image_shift_fft</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">sy1</span><span class="p">)</span> <span class="o">*</span> <span class="n">image_shift_fft</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">sy2</span><span class="p">)</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">image_grad_method</span> <span class="o">==</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">NEAREST</span><span class="p">:</span>
+            <span class="n">complex_prod</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">image</span>
+                <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">image</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">image</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown finite-difference method: </span><span class="si">{</span><span class="n">image_grad_method</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">complex_prod</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">complex_prod</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">complex_prod</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">complex_prod</span>
+        <span class="p">)</span>
+        <span class="c1"># gy = pmath.angle(complex_prod, eps=eps) / (2 * fourier_shift_step)</span>
+        <span class="n">gy</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">complex_prod</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">fourier_shift_step</span><span class="p">)</span>
+        <span class="n">gy</span> <span class="o">=</span> <span class="n">gy</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">pad</span><span class="p">:</span><span class="o">-</span><span class="n">pad</span><span class="p">,</span> <span class="n">pad</span><span class="p">:</span><span class="o">-</span><span class="n">pad</span><span class="p">]</span>
+
+        <span class="n">sx1</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">fourier_shift_step</span><span class="p">]])</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sx2</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="n">fourier_shift_step</span><span class="p">]])</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">image_grad_method</span> <span class="o">==</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">FOURIER_SHIFT</span><span class="p">:</span>
+            <span class="n">complex_prod</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">image_shift_fft</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">sx1</span><span class="p">)</span> <span class="o">*</span> <span class="n">image_shift_fft</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">sx2</span><span class="p">)</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">image_grad_method</span> <span class="o">==</span> <span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">NEAREST</span><span class="p">:</span>
+            <span class="n">complex_prod</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">image</span>
+                <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">image</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">1</span><span class="p">],</span> <span class="n">image</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="n">complex_prod</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">complex_prod</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">complex_prod</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">complex_prod</span>
+        <span class="p">)</span>
+        <span class="c1"># gx = pmath.angle(complex_prod, eps=eps) / (2 * fourier_shift_step)</span>
+        <span class="n">gx</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">complex_prod</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">fourier_shift_step</span><span class="p">)</span>
+        <span class="n">gx</span> <span class="o">=</span> <span class="n">gx</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">pad</span><span class="p">:</span><span class="o">-</span><span class="n">pad</span><span class="p">,</span> <span class="n">pad</span><span class="p">:</span><span class="o">-</span><span class="n">pad</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">gy</span><span class="p">,</span> <span class="n">gx</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">torch_pad_to_numpy_pad</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">pad_lengths</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;replicate&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert PyTorch-style padding to NumPy padding.</span>
+
+<span class="sd">    This function converts padding specifications from PyTorch format to NumPy format</span>
+<span class="sd">    and applies the padding to the input array.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input: Array to pad.</span>
+<span class="sd">        pad_lengths: Tuple in PyTorch format (left, right, top, bottom, ...)</span>
+<span class="sd">            specified in reverse order starting from last dimension.</span>
+<span class="sd">        mode: Padding mode string. Defaults to &quot;replicate&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Padded array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Map PyTorch modes to NumPy modes</span>
+    <span class="n">mode_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;replicate&quot;</span><span class="p">:</span> <span class="s2">&quot;edge&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;constant&quot;</span><span class="p">:</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;reflect&quot;</span><span class="p">:</span> <span class="s2">&quot;reflect&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;circular&quot;</span><span class="p">:</span> <span class="s2">&quot;wrap&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">numpy_mode</span> <span class="o">=</span> <span class="n">mode_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
+
+    <span class="c1"># Convert pad_lengths from PyTorch format to NumPy format</span>
+    <span class="c1"># PyTorch: (left, right, top, bottom, front, back, ...) - pairs in reverse dimension order</span>
+    <span class="c1"># NumPy: ((dim0_before, dim0_after), (dim1_before, dim1_after), ...)</span>
+
+    <span class="c1"># Group into pairs: [(left, right), (top, bottom), (front, back), ...]</span>
+    <span class="n">pad_pairs</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">pad_lengths</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">pad_lengths</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">pad_lengths</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Reverse to get forward dimension order</span>
+    <span class="n">pad_pairs</span> <span class="o">=</span> <span class="n">pad_pairs</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Add (0, 0) for dimensions that aren&#39;t being padded</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">ndim</span>
+    <span class="n">num_padded_dims</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pad_pairs</span><span class="p">)</span>
+    <span class="n">pad_width</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ndim</span> <span class="o">-</span> <span class="n">num_padded_dims</span><span class="p">)</span> <span class="o">+</span> <span class="n">pad_pairs</span>
+
+    <span class="c1"># Apply padding</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">pad_width</span><span class="o">=</span><span class="n">pad_width</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">numpy_mode</span><span class="p">)</span>
+
+
+<span class="c1">#### shared functions #### </span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_phase_gradient_fourier</span><span class="p">(</span><span class="n">images</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute phase gradients using Fourier differentiation.</span>
+
+<span class="sd">    This function calculates phase gradients by first computing spatial gradients</span>
+<span class="sd">    of the complex images using Fourier differentiation, then extracting the</span>
+<span class="sd">    imaginary part of the product with the conjugate of the original images.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images: Complex-valued images. Shape should be (N, H, W).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple of phase gradients (dX, dY) in X and Y directions with the same</span>
+<span class="sd">        shape as input images.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This method avoids phase wrapping issues by working with the complex</span>
+<span class="sd">        gradients rather than taking gradients of the phase directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+    <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">get_image_grad</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+    <span class="n">dX</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">images</span><span class="p">)</span> <span class="o">*</span> <span class="n">dX</span><span class="p">)</span>
+    <span class="n">dY</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">xp</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">images</span><span class="p">)</span> <span class="o">*</span> <span class="n">dY</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_image_grad</span><span class="p">(</span><span class="n">images</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute spatial gradients of images using Fourier differentiation.</span>
+
+<span class="sd">    This function calculates spatial gradients in X and Y directions using</span>
+<span class="sd">    Fourier domain differentiation. The method multiplies the Fourier transform</span>
+<span class="sd">    of the images by the appropriate frequency grids to compute derivatives.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images: Complex-valued images. Shape should be (N, H, W).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple of spatial gradients (dX, dY) in X and Y directions with the same</span>
+<span class="sd">        shape as input images.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This is a core function used by phase gradient computation routines.</span>
+<span class="sd">        The gradients are computed in Fourier domain for accuracy and efficiency.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+    <span class="n">scipy_module</span><span class="p">:</span> <span class="n">scipy</span> <span class="o">=</span> <span class="n">get_scipy_module</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+
+    <span class="n">n_z</span><span class="p">,</span> <span class="n">n_y</span><span class="p">,</span> <span class="n">n_x</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">n_x</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_x</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">c_type</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">X</span> <span class="o">*=</span> <span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">n_x</span>
+    <span class="n">dX</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">X</span>
+    <span class="n">dX</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">dX</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">n_y</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_y</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">c_type</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">Y</span> <span class="o">*=</span> <span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">xp</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">n_y</span>
+    <span class="n">dY</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">Y</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">dY</span> <span class="o">=</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">dY</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

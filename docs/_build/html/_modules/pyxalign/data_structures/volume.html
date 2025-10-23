@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pyxalign.data_structures.volume &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pyxalign.data_structures.volume</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">astra</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">divisor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlotDataOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">RotationOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.gpu_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_empty_pinned_array_like</span><span class="p">,</span> <span class="n">get_scipy_module</span><span class="p">,</span> <span class="n">pin_memory</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyxalign.image_processing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ip</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign</span><span class="w"> </span><span class="kn">import</span> <span class="n">reconstruct</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.io.save</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_array_as_tiff</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.plotting.plotters</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_slice_of_3D_array</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyxalign.data_structures.projections</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">projections</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.timing.timer_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">timer</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">r_type</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.transformations.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rotator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.transformations.functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">image_rotate_fft</span>
+
+
+<div class="viewcode-block" id="Volume">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Volume</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">projections</span><span class="p">:</span> <span class="s2">&quot;projections.PhaseProjections&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># Store a reference to the projections</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">projections</span> <span class="o">=</span> <span class="n">projections</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">projections</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">reconstruct</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment_options</span> <span class="o">=</span> <span class="n">projections</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">experiment</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object_geometries</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scan_geometry_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vectors</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forward_projection_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forward_projections</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_layers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">reconstructed_object_dimensions</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Volume.intialize_astra_reconstructor_inputs">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.intialize_astra_reconstructor_inputs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">intialize_astra_reconstructor_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_pix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">n_pix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">n_pix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">reconstructed_object_dimensions</span>
+        <span class="n">scan_geometry_config</span><span class="p">,</span> <span class="n">vectors</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">get_astra_reconstructor_geometry</span><span class="p">(</span>
+            <span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">size</span><span class="p">,</span>
+            <span class="n">angles</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">angles</span><span class="p">,</span>
+            <span class="n">n_pix</span><span class="o">=</span><span class="n">n_pix</span><span class="p">,</span>
+            <span class="n">center_of_rotation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">center_of_rotation</span><span class="p">,</span>
+            <span class="n">lamino_angle</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment_options</span><span class="o">.</span><span class="n">laminography_angle</span><span class="p">,</span>
+            <span class="n">tilt_angle</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">tilt_angle</span><span class="p">,</span>
+            <span class="n">skew_angle</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">skew_angle</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">object_geometries</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">get_object_geometries</span><span class="p">(</span><span class="n">scan_geometry_config</span><span class="p">,</span> <span class="n">vectors</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scan_geometry_config</span><span class="p">,</span> <span class="n">vectors</span><span class="p">,</span> <span class="n">object_geometries</span></div>
+
+
+<div class="viewcode-block" id="Volume.generate_volume">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.generate_volume">[docs]</a>
+    <span class="nd">@timer</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_volume</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">filter_inputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">pinned_filtered_sinogram</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">reinitialize_astra</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">n_pix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">update_stored_sinogram</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">update_geometries</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># reinforce references</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">reconstruct</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">experiment</span>
+
+        <span class="c1"># Copy the settings used at the time of the reconstruction</span>
+        <span class="c1"># self.options = copy.deepcopy(self.projections.options.reconstruct)</span>
+        <span class="c1"># self.experiment_options = copy.deepcopy(self.projections.options.experiment)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">()</span>
+        <span class="c1"># Re-initialize the inputs and clear outputs</span>
+        <span class="k">if</span> <span class="n">reinitialize_astra</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clear_astra_objects</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scan_geometry_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vectors</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">object_geometries</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">intialize_astra_reconstructor_inputs</span><span class="p">(</span><span class="n">n_pix</span><span class="o">=</span><span class="n">n_pix</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_initialized</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">update_geometries</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">reinitialize_astra</span><span class="p">:</span>
+            <span class="c1"># Re-initialize geometries, but not the whole astra object</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scan_geometry_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vectors</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">object_geometries</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">intialize_astra_reconstructor_inputs</span><span class="p">(</span><span class="n">n_pix</span><span class="o">=</span><span class="n">n_pix</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="c1"># update the geometries, but do not update the stored projections</span>
+            <span class="n">reconstruct</span><span class="o">.</span><span class="n">update_astra_reconstructor_config</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">object_geometries</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">update_stored_sinogram</span><span class="p">:</span>
+            <span class="c1"># Prepare the projections before doing the back-projection</span>
+            <span class="c1"># if (sinogram is None) and update_stored_sinogram:</span>
+            <span class="k">if</span> <span class="n">filter_inputs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">pinned_filtered_sinogram</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">pinned_filtered_sinogram</span> <span class="o">=</span> <span class="n">create_empty_pinned_array_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+                <span class="n">sinogram</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">filter_sinogram</span><span class="p">(</span>
+                    <span class="n">sinogram</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+                    <span class="n">vectors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">vectors</span><span class="p">,</span>
+                    <span class="n">device_options</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                    <span class="n">pinned_results</span><span class="o">=</span><span class="n">pinned_filtered_sinogram</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sinogram</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">data</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># allocate memory for volume and projections, and store projections</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">create_astra_reconstructor_config</span><span class="p">(</span>
+                <span class="n">sinogram</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">object_geometries</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">astra</span><span class="o">.</span><span class="n">algorithm_type</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">update_stored_sinogram</span><span class="p">:</span>
+                <span class="c1"># update the stored projections</span>
+                <span class="n">reconstruct</span><span class="o">.</span><span class="n">update_stored_sinogram</span><span class="p">(</span><span class="n">sinogram</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">)</span>
+
+        <span class="c1"># size of the 3D reconstruction</span>
+        <span class="n">volume_shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scan_geometry_config</span><span class="p">[</span><span class="s2">&quot;iVolZ&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scan_geometry_config</span><span class="p">[</span><span class="s2">&quot;iVolX&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scan_geometry_config</span><span class="p">[</span><span class="s2">&quot;iVolY&quot;</span><span class="p">],</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="c1"># device = cp.cuda.Device()</span>
+        <span class="n">astra</span><span class="o">.</span><span class="n">set_gpu_index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">astra</span><span class="o">.</span><span class="n">back_project_gpu_indices</span><span class="p">)</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">use</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">volume_shape</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">get_3D_reconstruction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">get_3D_reconstruction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">)</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">use</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Volume.get_forward_projection">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.get_forward_projection">[docs]</a>
+    <span class="nd">@timer</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_forward_projection</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pinned_forward_projection</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">forward_projection_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># If no forward_projection_id was passed in, a new projection</span>
+        <span class="c1"># id will be generated. If that is the case, save that ID so</span>
+        <span class="c1"># you can skip the creation of a new 3D astra object next time</span>
+        <span class="c1"># this is run</span>
+        <span class="n">is_new_sino_id_created</span> <span class="o">=</span> <span class="p">(</span><span class="n">forward_projection_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">forward_projection_id</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">forward_projection_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">forward_projection_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward_projection_id</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">()</span>
+        <span class="n">astra</span><span class="o">.</span><span class="n">set_gpu_index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">astra</span><span class="o">.</span><span class="n">forward_project_gpu_indices</span><span class="p">)</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">use</span><span class="p">()</span>
+        <span class="n">forward_projections</span><span class="p">,</span> <span class="n">forward_projection_id</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">get_forward_projection</span><span class="p">(</span>
+            <span class="n">reconstruction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>  <span class="c1"># should remove this since volume id is always provided</span>
+            <span class="n">object_geometries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">object_geometries</span><span class="p">,</span>
+            <span class="n">pinned_forward_projection</span><span class="o">=</span><span class="n">pinned_forward_projection</span><span class="p">,</span>
+            <span class="n">volume_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">[</span><span class="s2">&quot;ReconstructionDataId&quot;</span><span class="p">],</span>
+            <span class="n">forward_projection_id</span><span class="o">=</span><span class="n">forward_projection_id</span><span class="p">,</span>
+            <span class="n">return_id</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">use</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">is_new_sino_id_created</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">forward_projection_id</span> <span class="o">=</span> <span class="n">forward_projection_id</span>
+
+        <span class="c1"># Create a projections object in case I want to use any of the</span>
+        <span class="c1"># projections object methods</span>
+        <span class="n">forward_projection_options</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
+        <span class="n">forward_projection_options</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">pixel_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">pixel_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forward_projections</span> <span class="o">=</span> <span class="n">projections</span><span class="o">.</span><span class="n">PhaseProjections</span><span class="p">(</span>
+            <span class="n">projections</span><span class="o">=</span><span class="n">forward_projections</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">=</span><span class="n">forward_projection_options</span><span class="p">,</span>
+            <span class="n">angles</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">angles</span><span class="p">,</span>
+            <span class="n">scan_numbers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">,</span>
+            <span class="n">center_of_rotation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">center_of_rotation</span><span class="p">,</span>
+            <span class="n">skip_pre_processing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Volume.generate_projection_masks_from_circulo">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.generate_projection_masks_from_circulo">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_projection_masks_from_circulo</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">forward_project_gpu_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">radial_smooth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">rad_apod</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">forward_project_gpu_indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">astra</span><span class="o">.</span><span class="n">set_gpu_index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">astra</span><span class="o">.</span><span class="n">forward_project_gpu_indices</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">astra</span><span class="o">.</span><span class="n">set_gpu_index</span><span class="p">(</span><span class="n">forward_project_gpu_indices</span><span class="p">)</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">use</span><span class="p">()</span>
+
+        <span class="n">reconstruction_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_circular_window</span><span class="p">(</span><span class="n">radial_smooth</span><span class="p">,</span> <span class="n">rad_apod</span><span class="p">)</span>
+        <span class="n">reconstruction_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">reconstruction_mask</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_layers</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">object_geometries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">intialize_astra_reconstructor_inputs</span><span class="p">()</span>
+        <span class="n">mask</span><span class="p">,</span> <span class="n">sino_id</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="o">.</span><span class="n">get_forward_projection</span><span class="p">(</span>
+            <span class="n">reconstruction</span><span class="o">=</span><span class="n">reconstruction_mask</span><span class="p">,</span>
+            <span class="n">object_geometries</span><span class="o">=</span><span class="n">object_geometries</span><span class="p">,</span>
+            <span class="n">return_id</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">mask</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">astra</span><span class="o">.</span><span class="n">data3d</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">sino_id</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">mask</span></div>
+
+
+<div class="viewcode-block" id="Volume.clear_astra_objects">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.clear_astra_objects">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_astra_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">astra_objects</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">astra_objects</span> <span class="o">+=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">[</span><span class="s2">&quot;ReconstructionDataId&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span><span class="p">[</span><span class="s2">&quot;ProjectionDataId&quot;</span><span class="p">],</span>
+            <span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward_projection_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">astra_objects</span> <span class="o">+=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">forward_projection_id</span><span class="p">]</span>
+        <span class="n">astra</span><span class="o">.</span><span class="n">data3d</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">astra_objects</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">astra_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object_geometries</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scan_geometry_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vectors</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forward_projection_id</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Volume.apply_circular_window">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.apply_circular_window">[docs]</a>
+    <span class="nd">@timer</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_circular_window</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">circulo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ArrayType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">circulo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_circular_window</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">*</span> <span class="n">circulo</span></div>
+
+
+<div class="viewcode-block" id="Volume.get_circular_window">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.get_circular_window">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_circular_window</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">radial_smooth</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rad_apod</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="c1"># was 5 and 0</span>
+        <span class="c1"># Generate circular mask for reconstruction</span>
+        <span class="k">return</span> <span class="n">ip</span><span class="o">.</span><span class="n">apply_3D_apodization</span><span class="p">(</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">reconstructed_object_dimensions</span><span class="p">),</span>
+            <span class="n">rad_apod</span><span class="o">=</span><span class="n">rad_apod</span><span class="p">,</span>
+            <span class="n">radial_smooth</span><span class="o">=</span><span class="n">radial_smooth</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">r_type</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Volume.plot_data">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.plot_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PlotDataOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">show_plot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="n">PlotDataOptions</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reconstruction Slice </span><span class="si">{</span><span class="n">options</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">plot_slice_of_3D_array</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">options</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="o">.</span><span class="n">pixel_size</span><span class="p">,</span>
+            <span class="n">show_plot</span><span class="o">=</span><span class="n">show_plot</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Volume.get_optimal_rotation_of_reconstruction">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.get_optimal_rotation_of_reconstruction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_optimal_rotation_of_reconstruction</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">use_gpu</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">slice_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pad_mult</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span> <span class="o">=</span> <span class="n">get_tomogram_rotation_angles</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">use_gpu</span><span class="p">,</span> <span class="n">slice_index</span><span class="p">,</span> <span class="n">pad_mult</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;Optimal rotation values:</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">x: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">y: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">z: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Volume.rotate_reconstruction">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.rotate_reconstruction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rotate_reconstruction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DeviceOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">device_options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">device_options</span> <span class="o">=</span> <span class="n">DeviceOptions</span><span class="p">()</span>
+
+        <span class="n">rotation_options</span> <span class="o">=</span> <span class="n">RotationOptions</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device_options</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">rotator</span> <span class="o">=</span> <span class="n">Rotator</span><span class="p">(</span><span class="n">rotation_options</span><span class="p">)</span>
+
+        <span class="n">rotated_reconstruction</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="n">rotator</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">angle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">rotated_reconstruction</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ax</span><span class="p">))</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">rotator</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">angle</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">rotated_reconstruction</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">rotated_reconstruction</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ax</span><span class="p">))</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span>
+
+        <span class="n">rotator</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">angle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">rotated_reconstruction</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">rotated_reconstruction</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;Rotated reconstruction by:</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">x: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">y: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">z: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimal_rotation_angles</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">rotated_reconstruction</span></div>
+
+
+<div class="viewcode-block" id="Volume.save_as_tiff">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.save_as_tiff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_as_tiff</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="nb">min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="nb">max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;There is no volume data to save!&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+
+        <span class="n">save_array_as_tiff</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Volume.save_as_h5">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.Volume.save_as_h5">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_as_h5</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;There is no volume data to save!&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">F</span><span class="p">:</span>
+            <span class="n">F</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;volume&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="get_tomogram_rotation_angles">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.get_tomogram_rotation_angles">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_tomogram_rotation_angles</span><span class="p">(</span>
+    <span class="n">reconstruction</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">use_gpu</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">slice_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pad_mult</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="n">use_gpu</span><span class="p">:</span>
+        <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">xp</span> <span class="o">=</span> <span class="n">np</span>
+    <span class="k">if</span> <span class="n">slice_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">slice_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">reconstruction</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">rotation_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">reconstruction_slice</span> <span class="o">=</span> <span class="n">reconstruction</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">max_search_angle</span> <span class="o">=</span> <span class="mf">22.5</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">reconstruction_slice</span> <span class="o">=</span> <span class="n">reconstruction</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="n">indices</span><span class="o">=</span><span class="n">slice_index</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># Assume the sample is properly centered and calculate</span>
+            <span class="c1"># the max search angle</span>
+            <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">reconstruction_slice</span><span class="o">.</span><span class="n">shape</span>
+            <span class="n">max_search_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">h</span> <span class="o">/</span> <span class="n">w</span><span class="p">)</span> <span class="o">*</span> <span class="mi">180</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+            <span class="n">pad_mult</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">reconstruction_slice</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">divisor</span><span class="p">)</span>
+            <span class="n">pad_by</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pad_mult</span> <span class="o">*</span> <span class="n">divisor</span><span class="p">)</span>
+            <span class="n">reconstruction_slice</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">reconstruction_slice</span><span class="p">,</span> <span class="p">((</span><span class="n">pad_by</span><span class="p">,</span> <span class="n">pad_by</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+        <span class="n">rotation_angle</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_optimized_sparseness_angle</span><span class="p">(</span>
+            <span class="n">xp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">reconstruction_slice</span><span class="p">),</span>
+            <span class="n">angle_search_bounds</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="n">max_search_angle</span><span class="p">,</span> <span class="n">max_search_angle</span><span class="p">],</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">rotation_angle</span></div>
+
+
+
+<div class="viewcode-block" id="get_optimized_sparseness_angle">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.projections.get_optimized_sparseness_angle">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_optimized_sparseness_angle</span><span class="p">(</span>
+    <span class="n">image_slice</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">angle_search_bounds</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">n_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find the rotation of the object that maximizes sparsity</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">image_slice</span><span class="p">)</span>
+    <span class="n">scipy_module</span> <span class="o">=</span> <span class="n">get_scipy_module</span><span class="p">(</span><span class="n">image_slice</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_hoyer_sparsity</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">):</span>
+        <span class="c1"># image = image[:]</span>
+        <span class="n">sqrt_n</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">image</span><span class="p">))</span>
+        <span class="n">l1_norm</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">l2_norm</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">sparsity</span> <span class="o">=</span> <span class="p">(</span><span class="n">sqrt_n</span> <span class="o">-</span> <span class="n">l1_norm</span> <span class="o">/</span> <span class="n">l2_norm</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">sqrt_n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sparsity</span>
+
+    <span class="c1"># generate circular mask for image</span>
+    <span class="n">n_pix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">image_slice</span><span class="p">)</span>
+    <span class="p">[</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">]</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_pix</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n_pix</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">),</span>
+        <span class="n">xp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_pix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n_pix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">elliptical_mask</span> <span class="o">=</span> <span class="n">X</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">n_pix</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">Y</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">n_pix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span>
+
+    <span class="nd">@timer</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_image_sparsity_score</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">angle</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">image</span> <span class="o">*</span> <span class="n">elliptical_mask</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">image</span> <span class="o">-</span> <span class="n">scipy_module</span><span class="o">.</span><span class="n">ndimage</span><span class="o">.</span><span class="n">gaussian_filter</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">image_rotate_fft</span><span class="p">(</span><span class="n">image</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">angle</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Remove edges</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">)</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.9</span><span class="p">),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">)</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.9</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">scipy_module</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">image</span><span class="p">)))</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">get_hoyer_sparsity</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+                <span class="n">get_hoyer_sparsity</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="o">-</span><span class="n">xp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">score</span><span class="p">)</span>
+        <span class="c1"># score = -score</span>
+        <span class="k">if</span> <span class="n">xp</span> <span class="ow">is</span> <span class="n">cp</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">score</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">score</span>
+
+    <span class="n">test_image</span> <span class="o">=</span> <span class="n">image_slice</span>
+    <span class="c1"># test_image = xp.abs(image_slice)</span>
+    <span class="c1"># test_image = test_image - xp.median(test_image)</span>
+    <span class="c1"># test_image[test_image &lt; 0] = 0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_score_vs_angle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">angles</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">angles</span><span class="p">)):</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="p">[</span><span class="n">get_image_sparsity_score</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">angles</span><span class="p">[</span><span class="n">i</span><span class="p">])]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">)</span>
+
+    <span class="n">angles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">angle_search_bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">angle_search_bounds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_iter</span><span class="p">)</span>
+    <span class="n">next_range</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># Do grid search of the sparsity score and plot results</span>
+    <span class="c1"># fig, ax = plt.subplots(2, 2, layout=&quot;compressed&quot;)</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">layout</span><span class="o">=</span><span class="s2">&quot;compressed&quot;</span><span class="p">)</span>
+    <span class="n">gs</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_gridspec</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">height_ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="n">sparsity_axis</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">orig_slice_axis</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+    <span class="n">rotated_slice_axis</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># Find and plot the sparsity score</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">sca</span><span class="p">(</span><span class="n">sparsity_axis</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Hoyer Sparsity Score&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;angle (deg)&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="n">get_score_vs_angle</span><span class="p">(</span><span class="n">test_image</span><span class="p">,</span> <span class="n">angles</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">angles</span><span class="p">,</span> <span class="n">score</span><span class="p">)</span>
+        <span class="n">angles</span> <span class="o">=</span> <span class="n">angles</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">score</span><span class="p">)]</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+            <span class="n">next_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">next_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">next_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">10</span>
+        <span class="p">)</span>
+        <span class="n">next_range</span> <span class="o">=</span> <span class="n">next_range</span> <span class="o">/</span> <span class="mi">10</span>
+    <span class="n">angle</span> <span class="o">=</span> <span class="n">angles</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">score</span><span class="p">)]</span>
+
+    <span class="c1"># Plot the image slice</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Original slice&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">sca</span><span class="p">(</span><span class="n">orig_slice_axis</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">image_slice</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">image_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bone&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">image_slice</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bone&quot;</span><span class="p">)</span>
+    <span class="c1"># Plot the rotated image slice</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">sca</span><span class="p">(</span><span class="n">rotated_slice_axis</span><span class="p">)</span>
+    <span class="n">rotated_image_slice</span> <span class="o">=</span> <span class="n">image_rotate_fft</span><span class="p">(</span><span class="n">image_slice</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">angle</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rotated_image_slice</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">rotated_image_slice</span> <span class="o">=</span> <span class="n">rotated_image_slice</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">rotated_image_slice</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bone&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">angle</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

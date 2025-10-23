@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pyxalign.io.utils &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pyxalign.io.utils</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">fields</span><span class="p">,</span> <span class="n">is_dataclass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">TypeVar</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">difflib</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_close_matches</span>
+
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.enums</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpecialValuePlaceholder</span>
+
+<span class="n">OptionsClass</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;OptionsClass&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="handle_null_type">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.handle_null_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_null_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="n">SpecialValuePlaceholder</span><span class="o">.</span><span class="n">NONE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">elif</span> <span class="n">value</span> <span class="o">==</span> <span class="n">SpecialValuePlaceholder</span><span class="o">.</span><span class="n">EMPTY_LIST</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+
+
+<div class="viewcode-block" id="is_null_type">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.is_null_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_null_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">SpecialValuePlaceholder</span><span class="o">.</span><span class="n">__members__</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="load_list_of_arrays">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.load_list_of_arrays">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_list_of_arrays</span><span class="p">(</span><span class="n">h5_obj</span><span class="p">:</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">h5_obj</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">h5_obj</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">h5_obj</span><span class="p">[</span><span class="n">name</span><span class="p">][()]</span>
+            <span class="k">if</span> <span class="n">is_null_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                <span class="c1"># pass</span>
+                <span class="k">return</span> <span class="n">handle_null_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n_arrays</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">h5_obj</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+            <span class="n">list_of_arrays</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n_arrays</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_arrays</span><span class="p">):</span>
+                <span class="n">entry</span> <span class="o">=</span> <span class="n">h5_obj</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)][()]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                    <span class="n">entry</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+                <span class="n">list_of_arrays</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+                <span class="c1"># list_of_arrays[i] = h5_obj[name][str(i)][()]</span>
+            <span class="k">return</span> <span class="n">list_of_arrays</span></div>
+
+
+
+<div class="viewcode-block" id="h5_to_dict">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.h5_to_dict">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">h5_to_dict</span><span class="p">(</span><span class="n">h5_obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Recursively converts an HDF5 group or file into a Python dictionary.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        h5_obj: h5py File or Group object.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A dictionary representation of the HDF5 structure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># Add datasets and attributes</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">h5_obj</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
+            <span class="c1"># Recurse into groups</span>
+            <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">h5_to_dict</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+            <span class="c1"># Convert datasets to their value</span>
+            <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="p">[()]</span>  <span class="c1"># Use [()] to retrieve the data</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">is_null_type</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]):</span>
+                    <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">handle_null_type</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+
+    <span class="c1"># Add attributes</span>
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">h5_obj</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+        <span class="n">result</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">h5_obj</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="dict_to_dataclass">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.dict_to_dataclass">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">dict_to_dataclass</span><span class="p">(</span>
+    <span class="n">options_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">OptionsClass</span><span class="p">],</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">options_path_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptionsClass</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Recursively converts a dictionary into an options dataclass instance.</span>
+
+<span class="sd">    In the options dataclasses, there typically are one or more attributes that are</span>
+<span class="sd">    other options classes. If the names of these attributes are changed (don&#39;t confuse</span>
+<span class="sd">    this with the class name) then this function will not loaded those values in,</span>
+<span class="sd">    because the options are saved in a dataset named after the attribute.</span>
+
+<span class="sd">    If the attributes names are ever changed and you still need this to load those</span>
+<span class="sd">    attributes, you can make a function that maps the all of the past attribute names</span>
+<span class="sd">    to the current attribute name and update this function to use that.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_dataclass</span><span class="p">(</span><span class="n">options_class</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">options_class</span><span class="si">}</span><span class="s2"> must be a dataclass&quot;</span><span class="p">)</span>
+    <span class="n">arrow_symbol</span> <span class="o">=</span> <span class="s2">&quot; </span><span class="se">\u2192</span><span class="s2"> &quot;</span>
+    <span class="k">if</span> <span class="n">options_path_string</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+        <span class="n">options_path_string</span> <span class="o">=</span> <span class="n">options_class</span><span class="o">.</span><span class="vm">__qualname__</span> <span class="o">+</span> <span class="n">arrow_symbol</span>
+
+    <span class="n">field_values</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">(</span><span class="n">options_class</span><span class="p">):</span>
+        <span class="n">field_name</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">field_type</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">type</span>
+        <span class="k">if</span> <span class="n">field_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;WARNING: expected value not found&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">field_name</span><span class="si">}</span><span class="s2">&#39; not found in saved options, using default values for &#39;</span><span class="si">{</span><span class="n">field_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+            <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">options_path_string</span> <span class="o">+</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span>
+
+        <span class="c1"># Check if the field is a dataclass</span>
+        <span class="k">if</span> <span class="n">is_dataclass</span><span class="p">(</span><span class="n">field_type</span><span class="p">):</span>
+            <span class="n">field_values</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">dict_to_dataclass</span><span class="p">(</span>
+                <span class="n">field_type</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">options_path_string</span> <span class="o">+</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="c1"># Convert to str enum if necessary</span>
+                <span class="n">expected_type</span> <span class="o">=</span> <span class="n">options_class</span><span class="o">.</span><span class="vm">__annotations__</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expected_type</span><span class="p">,</span> <span class="n">enum</span><span class="o">.</span><span class="n">EnumType</span><span class="p">):</span>
+                    <span class="c1"># control for typos,</span>
+                    <span class="c1"># value = expected_type[value.upper()]</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">safe_enum_access</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">expected_type</span><span class="p">)</span>
+            <span class="n">field_values</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">return</span> <span class="n">options_class</span><span class="p">(</span><span class="o">**</span><span class="n">field_values</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="load_options">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.load_options">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_options</span><span class="p">(</span><span class="n">h5_obj</span><span class="p">:</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">,</span> <span class="n">options_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">OptionsClass</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">OptionsClass</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">dict_to_dataclass</span><span class="p">(</span><span class="n">options_class</span><span class="o">=</span><span class="n">options_class</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">h5_to_dict</span><span class="p">(</span><span class="n">h5_obj</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="load_array">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.load_array">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_array</span><span class="p">(</span><span class="n">h5_obj</span><span class="p">:</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">h5_obj</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">h5_obj</span><span class="p">[</span><span class="n">name</span><span class="p">][()]</span>
+        <span class="k">if</span> <span class="n">is_null_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">handle_null_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span></div>
+
+
+
+<div class="viewcode-block" id="safe_enum_access">
+<a class="viewcode-back" href="../../../_autosummary/pyxalign.io.utils.html#pyxalign.data_structures.projections.safe_enum_access">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">safe_enum_access</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">expected_type</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">enum</span><span class="o">.</span><span class="n">StrEnum</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">enum</span><span class="o">.</span><span class="n">StrEnum</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Safely access enum member with automatic typo correction.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        value: The input string</span>
+<span class="sd">        expected_type: The StrEnum class</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The matching enum member</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If no suitable match found</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Try direct access first (case-insensitive)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">expected_type</span><span class="p">[</span><span class="n">value</span><span class="o">.</span><span class="n">upper</span><span class="p">()]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    <span class="n">match_found</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="c1"># Try fuzzy matching</span>
+    <span class="n">normalized_value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">enum_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">member</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">expected_type</span><span class="p">]</span>
+    <span class="n">normalized_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">enum_names</span><span class="p">]</span>
+
+    <span class="c1"># Check for exact match after normalization</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">norm_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">normalized_names</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">normalized_value</span> <span class="o">==</span> <span class="n">norm_name</span><span class="p">:</span>
+            <span class="n">match_found</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">best_member_match</span> <span class="o">=</span> <span class="n">expected_type</span><span class="p">[</span><span class="n">enum_names</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="k">break</span>
+            <span class="c1"># return expected_type[enum_names[i]]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">match_found</span><span class="p">:</span>
+        <span class="c1"># Fuzzy match as last resort</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="n">get_close_matches</span><span class="p">(</span><span class="n">normalized_value</span><span class="p">,</span> <span class="n">normalized_names</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">matches</span><span class="p">:</span>
+            <span class="n">match_found</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">best_match_index</span> <span class="o">=</span> <span class="n">normalized_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">matches</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">best_member_match</span> <span class="o">=</span> <span class="n">expected_type</span><span class="p">[</span><span class="n">enum_names</span><span class="p">[</span><span class="n">best_match_index</span><span class="p">]]</span>
+        
+
+    <span class="k">if</span> <span class="n">match_found</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        WARNING: trying to load string enum &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;, but no matching member was found in </span>
+<span class="s2">        </span><span class="si">{</span><span class="n">expected_type</span><span class="si">}</span><span class="s2">. Using the best match &#39;</span><span class="si">{</span><span class="n">best_member_match</span><span class="si">}</span><span class="s2">&#39; instead.</span>
+
+<span class="s2">        If you are getting this message, it means a typo was made or the string enums in the </span>
+<span class="s2">        codebase have changed at some point after this file was created. </span>
+<span class="s2">        &quot;&quot;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">best_member_match</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;No matching enum member found for &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; in </span><span class="si">{</span><span class="n">expected_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

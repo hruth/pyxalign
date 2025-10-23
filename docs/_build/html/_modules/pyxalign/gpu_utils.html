@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pyxalign.gpu_utils &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pyxalign.gpu_utils</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">wraps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TypeVar</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupyx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupyx.scipy.signal</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupyx.scipy.interpolate</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupyx.scipy.ndimage</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cupyx.scipy.fft</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cufft</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyxalign.api.enums</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">enums</span>
+<span class="c1"># from pyxalign.timer import timer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.alignment</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProjectionMatchingOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.reconstruct</span><span class="w"> </span><span class="kn">import</span> <span class="n">AstraOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">print_options</span>
+<span class="c1"># from pyxalign.io.utils import OptionsClass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyxalign.timing.timer_utils</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">timer_utils</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayType</span>
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_available_gpus</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">getDeviceCount</span><span class="p">()))</span>
+
+
+<span class="c1"># def turn_off_fft_cache(gpu_indices: Optional[List[int]] = None):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">toggle_fft_cache</span><span class="p">(</span><span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">gpu_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">gpu_indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">gpu_indices</span> <span class="o">=</span> <span class="n">get_available_gpus</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpu_indices</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">gpu</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">enabled</span><span class="p">:</span>
+                <span class="n">cp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_plan_cache</span><span class="p">()</span><span class="o">.</span><span class="n">set_size</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cp</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_plan_cache</span><span class="p">()</span><span class="o">.</span><span class="n">set_size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">free_blocks_on_all_gpus</span><span class="p">(</span><span class="n">gpu_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">show_info</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">gpu_indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">gpu_indices</span> <span class="o">=</span> <span class="n">get_available_gpus</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpu_indices</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">gpu</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">show_info</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Before freeing:&quot;</span><span class="p">)</span>
+                <span class="n">print_gpu_memory_use</span><span class="p">()</span>
+            <span class="n">cp</span><span class="o">.</span><span class="n">get_default_memory_pool</span><span class="p">()</span><span class="o">.</span><span class="n">free_all_blocks</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">show_info</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;After freeing:&quot;</span><span class="p">)</span>
+                <span class="n">print_gpu_memory_use</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">print_gpu_memory_use</span><span class="p">():</span>
+    <span class="n">bytes_to_MiB</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">1048576</span>
+    <span class="n">mempool</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_default_memory_pool</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   Used:&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">mempool</span><span class="o">.</span><span class="n">used_bytes</span><span class="p">()</span> <span class="o">*</span> <span class="n">bytes_to_MiB</span><span class="p">),</span> <span class="s2">&quot;MiB&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Total:&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">mempool</span><span class="o">.</span><span class="n">total_bytes</span><span class="p">()</span> <span class="o">*</span> <span class="n">bytes_to_MiB</span><span class="p">),</span> <span class="s2">&quot;MiB&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">check_gpu_list</span><span class="p">(</span><span class="n">num_gpus</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">gpu_indices</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]):</span>
+    <span class="n">gpu_count</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">getDeviceCount</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">num_gpus</span> <span class="o">&gt;</span> <span class="n">gpu_count</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The number of GPUs specified in options is </span><span class="si">{</span><span class="n">num_gpus</span><span class="si">}</span><span class="s2">, but the actual device count is only </span><span class="si">{</span><span class="n">gpu_count</span><span class="si">}</span><span class="s2">!&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">index</span> <span class="o">&gt;</span> <span class="n">gpu_count</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">gpu_indices</span><span class="p">[:</span><span class="n">num_gpus</span><span class="p">]]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The specified GPU indices </span><span class="si">{</span><span class="n">gpu_indices</span><span class="p">[:</span><span class="n">num_gpus</span><span class="p">]</span><span class="si">}</span><span class="s2"> have value(s) greater than the actual device count (</span><span class="si">{</span><span class="n">gpu_count</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+
+<div class="viewcode-block" id="pin_memory">
+<a class="viewcode-back" href="../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.volume.pin_memory">[docs]</a>
+<span class="nd">@timer_utils</span><span class="o">.</span><span class="n">timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">pin_memory</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">force_repin</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="c1"># Could use cupyx.empty_pinned instead to make it simpler..</span>
+    <span class="k">if</span> <span class="n">force_repin</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_pinned</span><span class="p">(</span><span class="n">array</span><span class="p">):</span>
+        <span class="c1"># Allocate pinned memory</span>
+        <span class="n">mem</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">alloc_pinned_memory</span><span class="p">(</span><span class="n">array</span><span class="o">.</span><span class="n">nbytes</span><span class="p">)</span>
+        <span class="c1"># Create a new 1D array from an existing buffer</span>
+        <span class="c1"># Just makes a array of zeros with the same data type and size as the buffer</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="n">array</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">array</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">array</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">ret</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
+        <span class="k">return</span> <span class="n">ret</span>
+    <span class="k">else</span><span class="p">:</span> 
+        <span class="k">return</span> <span class="n">array</span></div>
+
+
+
+<span class="nd">@timer_utils</span><span class="o">.</span><span class="n">timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_empty_pinned_array</span><span class="p">(</span><span class="n">shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">float</span><span class="p">]):</span>
+    <span class="k">return</span> <span class="n">cupyx</span><span class="o">.</span><span class="n">empty_pinned</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="create_empty_pinned_array_like">
+<a class="viewcode-back" href="../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.volume.create_empty_pinned_array_like">[docs]</a>
+<span class="nd">@timer_utils</span><span class="o">.</span><span class="n">timer</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_empty_pinned_array_like</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">cupyx</span><span class="o">.</span><span class="n">empty_like_pinned</span><span class="p">(</span><span class="n">array</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">is_pinned</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="c1"># Temporary -- this will only give the proper answer for large arrays</span>
+    <span class="n">min_array_size</span> <span class="o">=</span> <span class="mi">200</span>
+    <span class="k">if</span> <span class="n">array</span><span class="o">.</span><span class="n">nbytes</span> <span class="o">&lt;</span> <span class="n">min_array_size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;This function does not work to check if arrays smaller than </span><span class="si">{</span><span class="n">min_array_size</span><span class="si">}</span><span class="s2"> bytes&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">array</span><span class="o">.</span><span class="n">nbytes</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">array</span><span class="o">.</span><span class="n">__sizeof__</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">move_to_device</span><span class="p">(</span>
+    <span class="n">array</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">device</span><span class="p">:</span> <span class="n">enums</span><span class="o">.</span><span class="n">DeviceType</span><span class="p">,</span> <span class="n">return_copy</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">device</span> <span class="ow">is</span> <span class="n">enums</span><span class="o">.</span><span class="n">DeviceType</span><span class="o">.</span><span class="n">GPU</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">array</span><span class="p">)</span> <span class="ow">is</span> <span class="n">cp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="n">device</span> <span class="ow">is</span> <span class="n">enums</span><span class="o">.</span><span class="n">DeviceType</span><span class="o">.</span><span class="n">CPU</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">array</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">return_copy</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">array</span> <span class="o">*</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">array</span>
+    <span class="k">elif</span> <span class="n">device</span> <span class="ow">is</span> <span class="n">enums</span><span class="o">.</span><span class="n">DeviceType</span><span class="o">.</span><span class="n">GPU</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">device</span> <span class="ow">is</span> <span class="n">enums</span><span class="o">.</span><span class="n">DeviceType</span><span class="o">.</span><span class="n">CPU</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">array</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_fft_backend</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">):</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">module</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;numpy&quot;</span><span class="p">:</span>
+        <span class="n">fft_backend</span> <span class="o">=</span> <span class="s2">&quot;scipy&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">fft_backend</span> <span class="o">=</span> <span class="n">cufft</span>
+
+    <span class="k">return</span> <span class="n">fft_backend</span>
+
+
+<div class="viewcode-block" id="get_scipy_module">
+<a class="viewcode-back" href="../../_autosummary/pyxalign.data_structures.volume.html#pyxalign.data_structures.volume.get_scipy_module">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_scipy_module</span><span class="p">(</span>
+    <span class="n">array</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModuleType</span><span class="p">:</span>  <span class="c1">#  Literal[scipy, cupyx.scipy]:#ModuleType:  # , submodule: enums.SciPySubmodules) -&gt; ModuleType:</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">module</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;numpy&quot;</span><span class="p">:</span>
+        <span class="n">scipy_module</span> <span class="o">=</span> <span class="n">scipy</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">scipy_module</span> <span class="o">=</span> <span class="n">cupyx</span><span class="o">.</span><span class="n">scipy</span>
+
+    <span class="k">return</span> <span class="n">scipy_module</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">memory_releasing_error_handler</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">show_info</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: Execution stopped by user&quot;</span><span class="p">)</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;An error occurred: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">get_available_gpus</span><span class="p">():</span>
+                <span class="k">with</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">gpu</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">show_info</span><span class="p">:</span>
+                        <span class="n">print_gpu_memory_use</span><span class="p">()</span>
+                    <span class="n">cp</span><span class="o">.</span><span class="n">get_default_memory_pool</span><span class="p">()</span><span class="o">.</span><span class="n">free_all_blocks</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">show_info</span><span class="p">:</span>
+                        <span class="n">print_gpu_memory_use</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">wrapped</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">return_cpu_array</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">ArrayType</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_array_module</span><span class="p">(</span><span class="n">array</span><span class="p">)</span> <span class="o">==</span> <span class="n">cp</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">array</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">array</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">auto_update_gpu_options</span><span class="p">(</span><span class="n">options</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># I am not using isinstance here because it does not always work as expected when</span>
+        <span class="c1"># using the reload_module_recursively and refresh_task function.</span>
+        <span class="k">if</span> <span class="n">is_dataclass</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__qualname__</span> <span class="o">==</span> <span class="n">DeviceOptions</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">:</span>
+                <span class="n">fix_device_options</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">v</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__qualname__</span> <span class="o">==</span> <span class="n">AstraOptions</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">:</span>
+                <span class="n">fix_astra_options</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">auto_update_gpu_options</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">fix_astra_options</span><span class="p">(</span><span class="n">options</span><span class="p">:</span> <span class="n">AstraOptions</span><span class="p">):</span>
+    <span class="n">gpu_list</span> <span class="o">=</span> <span class="n">get_available_gpus</span><span class="p">()</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">back_project_gpu_indices</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">back_project_gpu_indices</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">gpu_list</span>
+    <span class="p">]</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">forward_project_gpu_indices</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">forward_project_gpu_indices</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">gpu_list</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">forward_project_gpu_indices</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">forward_project_gpu_indices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">back_project_gpu_indices</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">back_project_gpu_indices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">fix_device_options</span><span class="p">(</span><span class="n">options</span><span class="p">:</span> <span class="n">DeviceOptions</span><span class="p">):</span>
+    <span class="n">gpu_list</span> <span class="o">=</span> <span class="n">get_available_gpus</span><span class="p">()</span>
+    <span class="n">n_gpus</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">gpu_list</span><span class="p">)</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">gpu_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">gpu_indices</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">gpu_list</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">gpu_indices</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">gpu_indices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">n_gpus</span> <span class="o">&gt;</span> <span class="n">n_gpus</span><span class="p">:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">n_gpus</span> <span class="o">=</span> <span class="n">n_gpus</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">n_gpus</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">gpu_list</span><span class="p">):</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">n_gpus</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">gpu_list</span><span class="p">)</span>
+
+<span class="c1"># Define public API</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;get_available_gpus&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="n">DeviceOptions</span><span class="p">()</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">gpu_indices</span> <span class="o">=</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">9</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">gpu</span><span class="o">.</span><span class="n">n_gpus</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="n">pma_options</span> <span class="o">=</span> <span class="n">ProjectionMatchingOptions</span><span class="p">()</span>
+    <span class="n">pma_options</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">options</span>
+    <span class="n">pma_options</span><span class="o">.</span><span class="n">reconstruct</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">options</span>
+    <span class="n">auto_update_gpu_options</span><span class="p">(</span><span class="n">pma_options</span><span class="p">)</span>
+    <span class="n">print_options</span><span class="p">(</span><span class="n">pma_options</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">print_options</span><span class="p">(</span><span class="n">pma_options</span><span class="o">.</span><span class="n">reconstruct</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">print_options</span><span class="p">(</span><span class="n">pma_options</span><span class="o">.</span><span class="n">downsample</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

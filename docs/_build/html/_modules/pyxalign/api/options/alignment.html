@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pyxalign.api.options.alignment &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pyxalign.api.options.alignment</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyxalign.api.enums</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">enums</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.options</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegularizationOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">UpdatePlotOptions</span><span class="p">,</span> <span class="n">PlotDataOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.reconstruct</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReconstructOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">CropOptions</span><span class="p">,</span> <span class="n">DownsampleOptions</span>
+
+
+<div class="viewcode-block" id="AlignmentOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.alignment.html#pyxalign.data_structures.projections.AlignmentOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AlignmentOptions</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">DeviceOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DeviceOptions</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="CrossCorrelationOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.task.html#pyxalign.data_structures.projections.CrossCorrelationOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CrossCorrelationOptions</span><span class="p">:</span>
+    <span class="n">iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="n">binning</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
+
+    <span class="n">filter_position</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">101</span>
+
+    <span class="n">filter_data</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.005</span>
+
+    <span class="n">remove_slow_variation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">use_end_corrections</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">apply_optional_clamp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">remove_ramp_artifacts</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">use_boundary_corrections</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">device</span><span class="p">:</span> <span class="n">DeviceOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DeviceOptions</span><span class="p">)</span>
+
+    <span class="n">crop</span><span class="p">:</span> <span class="n">CropOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CropOptions</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ProjectionMatchingPlotOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.alignment.html#pyxalign.data_structures.projections.ProjectionMatchingPlotOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProjectionMatchingPlotOptions</span><span class="p">:</span>
+    <span class="n">update</span><span class="p">:</span> <span class="n">UpdatePlotOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">UpdatePlotOptions</span><span class="p">)</span>
+
+    <span class="n">reconstruction</span><span class="p">:</span> <span class="n">PlotDataOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PlotDataOptions</span><span class="p">)</span>
+
+    <span class="n">projections</span><span class="p">:</span> <span class="n">PlotDataOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PlotDataOptions</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ReconstructionMaskOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.alignment.html#pyxalign.data_structures.projections.ReconstructionMaskOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ReconstructionMaskOptions</span><span class="p">:</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">rad_apod</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">radial_smooth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span></div>
+
+
+
+<div class="viewcode-block" id="SecondaryMaskOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.alignment.html#pyxalign.data_structures.projections.SecondaryMaskOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SecondaryMaskOptions</span><span class="p">:</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">rad_apod</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+
+    <span class="n">radial_smooth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span></div>
+
+
+
+<div class="viewcode-block" id="StepMomentum">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.alignment.html#pyxalign.data_structures.projections.StepMomentum">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StepMomentum</span><span class="p">:</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+
+    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
+
+    <span class="n">gain</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span></div>
+
+
+
+<div class="viewcode-block" id="RefineGeometryOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.alignment.html#pyxalign.data_structures.projections.RefineGeometryOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RefineGeometryOptions</span><span class="p">:</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">device</span><span class="p">:</span> <span class="n">DeviceOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DeviceOptions</span><span class="p">)</span>
+
+    <span class="n">lamino_step_relax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span>
+
+    <span class="n">tilt_step_relax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span>
+
+    <span class="n">skew_step_relax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span></div>
+
+
+
+<div class="viewcode-block" id="InteractiveViewerOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.projections.html#pyxalign.data_structures.projections.InteractiveViewerOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">InteractiveViewerOptions</span><span class="p">:</span>
+    <span class="n">close_old_windows</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">update</span><span class="p">:</span> <span class="n">UpdatePlotOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span><span class="n">UpdatePlotOptions</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="downsample_factory_for_estimate_center_options">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.alignment.html#pyxalign.data_structures.projections.downsample_factory_for_estimate_center_options">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">downsample_factory_for_estimate_center_options</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">DownsampleOptions</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">DownsampleOptions</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ProjectionMatchingOptions">
+<a class="viewcode-back" href="../../../../_autosummary/pyxalign.options.task.html#pyxalign.data_structures.projections.ProjectionMatchingOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProjectionMatchingOptions</span><span class="p">:</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">DeviceOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DeviceOptions</span><span class="p">)</span>
+
+    <span class="n">keep_on_gpu</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">interactive_viewer</span><span class="p">:</span> <span class="n">InteractiveViewerOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">InteractiveViewerOptions</span><span class="p">)</span>
+
+    <span class="n">iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span>
+
+    <span class="n">downsample</span><span class="p">:</span> <span class="n">DownsampleOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">downsample_factory_for_estimate_center_options</span>
+    <span class="p">)</span>
+
+    <span class="n">crop</span><span class="p">:</span> <span class="n">CropOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CropOptions</span><span class="p">)</span>
+
+    <span class="n">high_pass_filter</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.005</span>
+
+    <span class="n">step_relax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
+
+    <span class="n">min_step_size</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span>
+
+    <span class="n">regularization</span><span class="p">:</span> <span class="n">RegularizationOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RegularizationOptions</span><span class="p">)</span>
+
+    <span class="n">refine_geometry</span><span class="p">:</span> <span class="n">RefineGeometryOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RefineGeometryOptions</span><span class="p">)</span>
+
+    <span class="n">momentum</span><span class="p">:</span> <span class="n">StepMomentum</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">StepMomentum</span><span class="p">)</span>
+
+    <span class="n">reconstruction_mask</span><span class="p">:</span> <span class="n">ReconstructionMaskOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">ReconstructionMaskOptions</span>
+    <span class="p">)</span>
+
+    <span class="n">secondary_mask</span><span class="p">:</span> <span class="n">SecondaryMaskOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">SecondaryMaskOptions</span><span class="p">)</span>
+
+    <span class="n">reconstruct</span><span class="p">:</span> <span class="n">ReconstructOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ReconstructOptions</span><span class="p">)</span>
+
+    <span class="n">tukey_shape_parameter</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span>
+
+    <span class="n">min_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="n">max_step_size</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>
+
+    <span class="n">projection_shift_type</span><span class="p">:</span> <span class="n">enums</span><span class="o">.</span><span class="n">ShiftType</span> <span class="o">=</span> <span class="n">enums</span><span class="o">.</span><span class="n">ShiftType</span><span class="o">.</span><span class="n">FFT</span>
+
+    <span class="n">mask_shift_type</span><span class="p">:</span> <span class="n">enums</span><span class="o">.</span><span class="n">ShiftType</span> <span class="o">=</span> <span class="n">enums</span><span class="o">.</span><span class="n">ShiftType</span><span class="o">.</span><span class="n">CIRC</span>
+
+    <span class="n">prevent_wrapping_from_shift</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">filter_directions</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)</span>
+
+    <span class="n">plot</span><span class="p">:</span> <span class="n">ProjectionMatchingPlotOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ProjectionMatchingPlotOptions</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

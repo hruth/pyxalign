@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pyxalign.enums &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-pyxalign.enums">
+<span id="pyxalign-enums"></span><h1>pyxalign.enums<a class="headerlink" href="#module-pyxalign.enums" title="Link to this heading">¶</a></h1>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.DeviceType" title="pyxalign.enums.DeviceType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DeviceType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.Direction" title="pyxalign.enums.Direction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Direction</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.DownsampleType" title="pyxalign.enums.DownsampleType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DownsampleType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.ImageGradientMethods" title="pyxalign.enums.ImageGradientMethods"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ImageGradientMethods</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.ImageIntegrationMethods" title="pyxalign.enums.ImageIntegrationMethods"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ImageIntegrationMethods</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.InputFileStructureType" title="pyxalign.enums.InputFileStructureType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InputFileStructureType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.MemoryConfig" title="pyxalign.enums.MemoryConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MemoryConfig</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.PhaseUnwrapMethods" title="pyxalign.enums.PhaseUnwrapMethods"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PhaseUnwrapMethods</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.ProcessFunc" title="pyxalign.enums.ProcessFunc"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ProcessFunc</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.ProjectionType" title="pyxalign.enums.ProjectionType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ProjectionType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.RotationType" title="pyxalign.enums.RotationType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RotationType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.RoundType" title="pyxalign.enums.RoundType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RoundType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.SciPySubmodules" title="pyxalign.enums.SciPySubmodules"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SciPySubmodules</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.ShearType" title="pyxalign.enums.ShearType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ShearType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.ShiftManagerMemberType" title="pyxalign.enums.ShiftManagerMemberType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ShiftManagerMemberType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.ShiftType" title="pyxalign.enums.ShiftType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ShiftType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.SpecialValuePlaceholder" title="pyxalign.enums.SpecialValuePlaceholder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpecialValuePlaceholder</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.enums.TestStartPoints" title="pyxalign.enums.TestStartPoints"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TestStartPoints</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.enums.UpsampleType" title="pyxalign.enums.UpsampleType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UpsampleType</span></code></a>(*values)</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.DeviceType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">DeviceType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#DeviceType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.DeviceType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.DeviceType.CPU">
+<span class="sig-name descname"><span class="pre">CPU</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'cpu'</span></em><a class="headerlink" href="#pyxalign.enums.DeviceType.CPU" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.DeviceType.GPU">
+<span class="sig-name descname"><span class="pre">GPU</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'gpu'</span></em><a class="headerlink" href="#pyxalign.enums.DeviceType.GPU" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.Direction">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">Direction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#Direction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.Direction" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.Direction.HORIZONTAL">
+<span class="sig-name descname"><span class="pre">HORIZONTAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'horizontal'</span></em><a class="headerlink" href="#pyxalign.enums.Direction.HORIZONTAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.Direction.VERTICAL">
+<span class="sig-name descname"><span class="pre">VERTICAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'vertical'</span></em><a class="headerlink" href="#pyxalign.enums.Direction.VERTICAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.DownsampleType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">DownsampleType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#DownsampleType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.DownsampleType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.DownsampleType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.enums.DownsampleType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.DownsampleType.LINEAR">
+<span class="sig-name descname"><span class="pre">LINEAR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'linear'</span></em><a class="headerlink" href="#pyxalign.enums.DownsampleType.LINEAR" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.DownsampleType.NEAREST">
+<span class="sig-name descname"><span class="pre">NEAREST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nearest'</span></em><a class="headerlink" href="#pyxalign.enums.DownsampleType.NEAREST" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.ImageGradientMethods">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">ImageGradientMethods</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ImageGradientMethods"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.ImageGradientMethods" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ImageGradientMethods.FOURIER_DIFFERENTIATION">
+<span class="sig-name descname"><span class="pre">FOURIER_DIFFERENTIATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fourier_differentiation'</span></em><a class="headerlink" href="#pyxalign.enums.ImageGradientMethods.FOURIER_DIFFERENTIATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ImageGradientMethods.FOURIER_SHIFT">
+<span class="sig-name descname"><span class="pre">FOURIER_SHIFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fourier_shift'</span></em><a class="headerlink" href="#pyxalign.enums.ImageGradientMethods.FOURIER_SHIFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ImageGradientMethods.NEAREST">
+<span class="sig-name descname"><span class="pre">NEAREST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nearest'</span></em><a class="headerlink" href="#pyxalign.enums.ImageGradientMethods.NEAREST" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.ImageIntegrationMethods">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">ImageIntegrationMethods</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ImageIntegrationMethods"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.ImageIntegrationMethods" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ImageIntegrationMethods.DECONVOLUTION">
+<span class="sig-name descname"><span class="pre">DECONVOLUTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'deconvolution'</span></em><a class="headerlink" href="#pyxalign.enums.ImageIntegrationMethods.DECONVOLUTION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ImageIntegrationMethods.FOURIER">
+<span class="sig-name descname"><span class="pre">FOURIER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fourier'</span></em><a class="headerlink" href="#pyxalign.enums.ImageIntegrationMethods.FOURIER" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.InputFileStructureType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">InputFileStructureType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#InputFileStructureType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.InputFileStructureType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.InputFileStructureType.LAMNI">
+<span class="sig-name descname"><span class="pre">LAMNI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'lamni'</span></em><a class="headerlink" href="#pyxalign.enums.InputFileStructureType.LAMNI" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.MemoryConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">MemoryConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#MemoryConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.MemoryConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.MemoryConfig.CPU_ONLY">
+<span class="sig-name descname"><span class="pre">CPU_ONLY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'cpu_only'</span></em><a class="headerlink" href="#pyxalign.enums.MemoryConfig.CPU_ONLY" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.MemoryConfig.GPU_ONLY">
+<span class="sig-name descname"><span class="pre">GPU_ONLY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'gpu_only'</span></em><a class="headerlink" href="#pyxalign.enums.MemoryConfig.GPU_ONLY" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.MemoryConfig.MIXED">
+<span class="sig-name descname"><span class="pre">MIXED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'mixed'</span></em><a class="headerlink" href="#pyxalign.enums.MemoryConfig.MIXED" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.PhaseUnwrapMethods">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">PhaseUnwrapMethods</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#PhaseUnwrapMethods"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.PhaseUnwrapMethods" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION">
+<span class="sig-name descname"><span class="pre">GRADIENT_INTEGRATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'gradient_integration'</span></em><a class="headerlink" href="#pyxalign.enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.PhaseUnwrapMethods.ITERATIVE_RESIDUAL_CORRECTION">
+<span class="sig-name descname"><span class="pre">ITERATIVE_RESIDUAL_CORRECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'iterative_residual_correction'</span></em><a class="headerlink" href="#pyxalign.enums.PhaseUnwrapMethods.ITERATIVE_RESIDUAL_CORRECTION" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.ProcessFunc">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">ProcessFunc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ProcessFunc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.ProcessFunc" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ProcessFunc.ABS">
+<span class="sig-name descname"><span class="pre">ABS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'abs'</span></em><a class="headerlink" href="#pyxalign.enums.ProcessFunc.ABS" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ProcessFunc.ANGLE">
+<span class="sig-name descname"><span class="pre">ANGLE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'angle'</span></em><a class="headerlink" href="#pyxalign.enums.ProcessFunc.ANGLE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ProcessFunc.NONE">
+<span class="sig-name descname"><span class="pre">NONE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'none'</span></em><a class="headerlink" href="#pyxalign.enums.ProcessFunc.NONE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.ProjectionType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">ProjectionType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ProjectionType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.ProjectionType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ProjectionType.COMPLEX">
+<span class="sig-name descname"><span class="pre">COMPLEX</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'complex'</span></em><a class="headerlink" href="#pyxalign.enums.ProjectionType.COMPLEX" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ProjectionType.PHASE">
+<span class="sig-name descname"><span class="pre">PHASE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'phase'</span></em><a class="headerlink" href="#pyxalign.enums.ProjectionType.PHASE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.RotationType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">RotationType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#RotationType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.RotationType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.RotationType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.enums.RotationType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.RoundType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">RoundType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#RoundType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.RoundType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.RoundType.CEIL">
+<span class="sig-name descname"><span class="pre">CEIL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ceil'</span></em><a class="headerlink" href="#pyxalign.enums.RoundType.CEIL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.RoundType.FLOOR">
+<span class="sig-name descname"><span class="pre">FLOOR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'floor'</span></em><a class="headerlink" href="#pyxalign.enums.RoundType.FLOOR" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.RoundType.NEAREST">
+<span class="sig-name descname"><span class="pre">NEAREST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nearest'</span></em><a class="headerlink" href="#pyxalign.enums.RoundType.NEAREST" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.SciPySubmodules">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">SciPySubmodules</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#SciPySubmodules"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.SciPySubmodules" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.SciPySubmodules.SIGNAL">
+<span class="sig-name descname"><span class="pre">SIGNAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'signal'</span></em><a class="headerlink" href="#pyxalign.enums.SciPySubmodules.SIGNAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.ShearType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">ShearType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ShearType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.ShearType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ShearType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.enums.ShearType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftManagerMemberType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">ShiftManagerMemberType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ShiftManagerMemberType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.ShiftManagerMemberType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftManagerMemberType.APPLIED_SHIFT_SEPERATE">
+<span class="sig-name descname"><span class="pre">APPLIED_SHIFT_SEPERATE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'applied_shift_seperate'</span></em><a class="headerlink" href="#pyxalign.enums.ShiftManagerMemberType.APPLIED_SHIFT_SEPERATE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftManagerMemberType.APPLIED_SHIFT_TOTAL">
+<span class="sig-name descname"><span class="pre">APPLIED_SHIFT_TOTAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'applied_shift_total'</span></em><a class="headerlink" href="#pyxalign.enums.ShiftManagerMemberType.APPLIED_SHIFT_TOTAL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftManagerMemberType.STAGED_SHIFT">
+<span class="sig-name descname"><span class="pre">STAGED_SHIFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'staged_shift'</span></em><a class="headerlink" href="#pyxalign.enums.ShiftManagerMemberType.STAGED_SHIFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">ShiftType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ShiftType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.ShiftType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftType.CIRC">
+<span class="sig-name descname"><span class="pre">CIRC</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'circ'</span></em><a class="headerlink" href="#pyxalign.enums.ShiftType.CIRC" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.enums.ShiftType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.ShiftType.LINEAR">
+<span class="sig-name descname"><span class="pre">LINEAR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'linear'</span></em><a class="headerlink" href="#pyxalign.enums.ShiftType.LINEAR" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.SpecialValuePlaceholder">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">SpecialValuePlaceholder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#SpecialValuePlaceholder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.SpecialValuePlaceholder" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.SpecialValuePlaceholder.EMPTY_DICT">
+<span class="sig-name descname"><span class="pre">EMPTY_DICT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'empty_dict'</span></em><a class="headerlink" href="#pyxalign.enums.SpecialValuePlaceholder.EMPTY_DICT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.SpecialValuePlaceholder.EMPTY_LIST">
+<span class="sig-name descname"><span class="pre">EMPTY_LIST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'empty_list'</span></em><a class="headerlink" href="#pyxalign.enums.SpecialValuePlaceholder.EMPTY_LIST" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.SpecialValuePlaceholder.NONE">
+<span class="sig-name descname"><span class="pre">NONE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'none'</span></em><a class="headerlink" href="#pyxalign.enums.SpecialValuePlaceholder.NONE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.StrEnum">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">StrEnum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_class_name</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/enum.html#StrEnum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.StrEnum" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ReprEnum</span></code></p>
+<p>Enum where members are also (and must be) strings</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.TestStartPoints">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">TestStartPoints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#TestStartPoints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.TestStartPoints" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.TestStartPoints.BEGINNING">
+<span class="sig-name descname"><span class="pre">BEGINNING</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'beginning'</span></em><a class="headerlink" href="#pyxalign.enums.TestStartPoints.BEGINNING" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.TestStartPoints.INITIAL_TASK">
+<span class="sig-name descname"><span class="pre">INITIAL_TASK</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'initial_task'</span></em><a class="headerlink" href="#pyxalign.enums.TestStartPoints.INITIAL_TASK" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.TestStartPoints.PRE_PMA">
+<span class="sig-name descname"><span class="pre">PRE_PMA</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'pre_pma'</span></em><a class="headerlink" href="#pyxalign.enums.TestStartPoints.PRE_PMA" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.UpsampleType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">UpsampleType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#UpsampleType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.UpsampleType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.enums.UpsampleType.NEAREST">
+<span class="sig-name descname"><span class="pre">NEAREST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nearest'</span></em><a class="headerlink" href="#pyxalign.enums.UpsampleType.NEAREST" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.enums.auto">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.enums.</span></span><span class="sig-name descname"><span class="pre">auto</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">_auto_null</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/enum.html#auto"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.enums.auto" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Instances are replaced with an appropriate value in Enum class suites.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/_autosummary/pyxalign.enums.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

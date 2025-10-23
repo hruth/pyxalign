@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pyxalign.options.options &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-pyxalign.options.options">
+<span id="pyxalign-options-options"></span><h1>pyxalign.options.options<a class="headerlink" href="#module-pyxalign.options.options" title="Link to this heading">¶</a></h1>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.options.ExperimentOptions" title="pyxalign.options.options.ExperimentOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ExperimentOptions</span></code></a>([laminography_angle, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions" title="pyxalign.options.options.GradientIntegrationUnwrapOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GradientIntegrationUnwrapOptions</span></code></a>(...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.options.IterativeResidualUnwrapOptions" title="pyxalign.options.options.IterativeResidualUnwrapOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IterativeResidualUnwrapOptions</span></code></a>([iterations, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.options.options.MaskOptions" title="pyxalign.options.options.MaskOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MaskOptions</span></code></a>(downsample, ...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.options.PhaseRampRemovalOptions" title="pyxalign.options.options.PhaseRampRemovalOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PhaseRampRemovalOptions</span></code></a>([iterations, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.options.options.PhaseUnwrapOptions" title="pyxalign.options.options.PhaseUnwrapOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PhaseUnwrapOptions</span></code></a>(device, method, ...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.options.RegularizationOptions" title="pyxalign.options.options.RegularizationOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RegularizationOptions</span></code></a>([enabled, ...])</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.DeviceOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">DeviceOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device_type:</span> <span class="pre">pyxalign.api.enums.DeviceType</span> <span class="pre">=</span> <span class="pre">&lt;DeviceType.GPU:</span> <span class="pre">'gpu'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpu:</span> <span class="pre">pyxalign.api.options.device.GPUOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/device.html#DeviceOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.DeviceOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.DeviceOptions.device_type">
+<span class="sig-name descname"><span class="pre">device_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.enums.html#pyxalign.enums.DeviceType" title="pyxalign.api.enums.DeviceType"><span class="pre">DeviceType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'gpu'</span></em><a class="headerlink" href="#pyxalign.options.options.DeviceOptions.device_type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.DeviceOptions.gpu">
+<span class="sig-name descname"><span class="pre">gpu</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.options.device.html#pyxalign.options.device.GPUOptions" title="pyxalign.api.options.device.GPUOptions"><span class="pre">GPUOptions</span></a></em><a class="headerlink" href="#pyxalign.options.options.DeviceOptions.gpu" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.DownsampleOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">DownsampleOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type:</span> <span class="pre">pyxalign.api.enums.DownsampleType</span> <span class="pre">=</span> <span class="pre">&lt;DownsampleType.FFT:</span> <span class="pre">'fft'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">pyxalign.api.options.device.DeviceOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_gaussian_filter:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#DownsampleOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.DownsampleOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.options.transform.html#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.DownsampleOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.options.DownsampleOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.DownsampleOptions.scale">
+<span class="sig-name descname"><span class="pre">scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#pyxalign.options.options.DownsampleOptions.scale" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.DownsampleOptions.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.options.transform.html#pyxalign.options.transform.DownsampleType" title="pyxalign.api.enums.DownsampleType"><span class="pre">DownsampleType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.options.DownsampleOptions.type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.DownsampleOptions.use_gaussian_filter">
+<span class="sig-name descname"><span class="pre">use_gaussian_filter</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#pyxalign.options.options.DownsampleOptions.use_gaussian_filter" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.ExperimentOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">ExperimentOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">laminography_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">61.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_thickness</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">7e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/options.html#ExperimentOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.ExperimentOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.ExperimentOptions.laminography_angle">
+<span class="sig-name descname"><span class="pre">laminography_angle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">61.1</span></em><a class="headerlink" href="#pyxalign.options.options.ExperimentOptions.laminography_angle" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.ExperimentOptions.pixel_size">
+<span class="sig-name descname"><span class="pre">pixel_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#pyxalign.options.options.ExperimentOptions.pixel_size" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.ExperimentOptions.sample_thickness">
+<span class="sig-name descname"><span class="pre">sample_thickness</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">7e-06</span></em><a class="headerlink" href="#pyxalign.options.options.ExperimentOptions.sample_thickness" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.GradientIntegrationUnwrapOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">GradientIntegrationUnwrapOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gradient_method:</span> <span class="pre">pyxalign.api.enums.ImageGradientMethods</span> <span class="pre">=</span> <span class="pre">&lt;ImageGradientMethods.FOURIER_DIFFERENTIATION:</span> <span class="pre">'fourier_differentiation'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integration_method:</span> <span class="pre">pyxalign.api.enums.ImageIntegrationMethods</span> <span class="pre">=</span> <span class="pre">&lt;ImageIntegrationMethods.FOURIER:</span> <span class="pre">'fourier'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fourier_shift_step:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_masks:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deramp_polyfit_order:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/options.html#GradientIntegrationUnwrapOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.GradientIntegrationUnwrapOptions.deramp_polyfit_order">
+<span class="sig-name descname"><span class="pre">deramp_polyfit_order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions.deramp_polyfit_order" title="Link to this definition">¶</a></dt>
+<dd><p>The order of the polynomial fit used to de-ramp the phase</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.GradientIntegrationUnwrapOptions.fourier_shift_step">
+<span class="sig-name descname"><span class="pre">fourier_shift_step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></em><a class="headerlink" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions.fourier_shift_step" title="Link to this definition">¶</a></dt>
+<dd><p>The finite-difference step size used to calculate the gradient,
+if the Fourier shift method is selected</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.GradientIntegrationUnwrapOptions.gradient_method">
+<span class="sig-name descname"><span class="pre">gradient_method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.enums.html#pyxalign.enums.ImageGradientMethods" title="pyxalign.api.enums.ImageGradientMethods"><span class="pre">ImageGradientMethods</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fourier_differentiation'</span></em><a class="headerlink" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions.gradient_method" title="Link to this definition">¶</a></dt>
+<dd><p>The method used to calculate the phase gradient</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.GradientIntegrationUnwrapOptions.integration_method">
+<span class="sig-name descname"><span class="pre">integration_method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.enums.html#pyxalign.enums.ImageIntegrationMethods" title="pyxalign.api.enums.ImageIntegrationMethods"><span class="pre">ImageIntegrationMethods</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fourier'</span></em><a class="headerlink" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions.integration_method" title="Link to this definition">¶</a></dt>
+<dd><p>The method used to integrate the image back from gradients</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.GradientIntegrationUnwrapOptions.use_masks">
+<span class="sig-name descname"><span class="pre">use_masks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions.use_masks" title="Link to this definition">¶</a></dt>
+<dd><p>Determines if the projection masks should be multiplied with the
+projections before unwrapping</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.IterativeResidualUnwrapOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">IterativeResidualUnwrapOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lsq_fit_ramp_removal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/options.html#IterativeResidualUnwrapOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.IterativeResidualUnwrapOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.IterativeResidualUnwrapOptions.iterations">
+<span class="sig-name descname"><span class="pre">iterations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#pyxalign.options.options.IterativeResidualUnwrapOptions.iterations" title="Link to this definition">¶</a></dt>
+<dd><p>Number of iterative correction steps to perform</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.IterativeResidualUnwrapOptions.lsq_fit_ramp_removal">
+<span class="sig-name descname"><span class="pre">lsq_fit_ramp_removal</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.options.IterativeResidualUnwrapOptions.lsq_fit_ramp_removal" title="Link to this definition">¶</a></dt>
+<dd><p>Whether to remove phase ramps using least-squares fitting after
+unwrapping</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.MaskOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">MaskOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">downsample:</span> <span class="pre">pyxalign.api.options.transform.DownsampleOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">binary_close_coefficient:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">binary_erode_coefficient:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unsharp:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/options.html#MaskOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.MaskOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.MaskOptions.binary_close_coefficient">
+<span class="sig-name descname"><span class="pre">binary_close_coefficient</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30</span></em><a class="headerlink" href="#pyxalign.options.options.MaskOptions.binary_close_coefficient" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.MaskOptions.binary_erode_coefficient">
+<span class="sig-name descname"><span class="pre">binary_erode_coefficient</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30</span></em><a class="headerlink" href="#pyxalign.options.options.MaskOptions.binary_erode_coefficient" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.MaskOptions.downsample">
+<span class="sig-name descname"><span class="pre">downsample</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.options.transform.html#pyxalign.options.transform.DownsampleOptions" title="pyxalign.api.options.transform.DownsampleOptions"><span class="pre">DownsampleOptions</span></a></em><a class="headerlink" href="#pyxalign.options.options.MaskOptions.downsample" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.MaskOptions.fill">
+<span class="sig-name descname"><span class="pre">fill</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8</span></em><a class="headerlink" href="#pyxalign.options.options.MaskOptions.fill" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.MaskOptions.unsharp">
+<span class="sig-name descname"><span class="pre">unsharp</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#pyxalign.options.options.MaskOptions.unsharp" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.Number">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">Number</span></span><a class="reference internal" href="../_modules/numbers.html#Number"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.Number" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>All numbers inherit from this class.</p>
+<p>If you just want to check if an argument x is a number, without
+caring what kind, use isinstance(x, Number).</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseRampRemovalOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">PhaseRampRemovalOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downsampling</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/options.html#PhaseRampRemovalOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.PhaseRampRemovalOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseRampRemovalOptions.downsampling">
+<span class="sig-name descname"><span class="pre">downsampling</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8</span></em><a class="headerlink" href="#pyxalign.options.options.PhaseRampRemovalOptions.downsampling" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseRampRemovalOptions.iterations">
+<span class="sig-name descname"><span class="pre">iterations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#pyxalign.options.options.PhaseRampRemovalOptions.iterations" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseUnwrapOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">PhaseUnwrapOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">pyxalign.api.options.device.DeviceOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method:</span> <span class="pre">pyxalign.api.enums.PhaseUnwrapMethods</span> <span class="pre">=</span> <span class="pre">&lt;PhaseUnwrapMethods.ITERATIVE_RESIDUAL_CORRECTION:</span> <span class="pre">'iterative_residual_correction'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gradient_integration:</span> <span class="pre">pyxalign.api.options.options.GradientIntegrationUnwrapOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iterative_residual:</span> <span class="pre">pyxalign.api.options.options.IterativeResidualUnwrapOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/options.html#PhaseUnwrapOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.PhaseUnwrapOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseUnwrapOptions.device">
+<span class="sig-name descname"><span class="pre">device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.options.transform.html#pyxalign.options.transform.DeviceOptions" title="pyxalign.api.options.device.DeviceOptions"><span class="pre">DeviceOptions</span></a></em><a class="headerlink" href="#pyxalign.options.options.PhaseUnwrapOptions.device" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseUnwrapOptions.gradient_integration">
+<span class="sig-name descname"><span class="pre">gradient_integration</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.options.GradientIntegrationUnwrapOptions" title="pyxalign.api.options.options.GradientIntegrationUnwrapOptions"><span class="pre">GradientIntegrationUnwrapOptions</span></a></em><a class="headerlink" href="#pyxalign.options.options.PhaseUnwrapOptions.gradient_integration" title="Link to this definition">¶</a></dt>
+<dd><p>Options for GradientIntegration unwrapping</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseUnwrapOptions.iterative_residual">
+<span class="sig-name descname"><span class="pre">iterative_residual</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.options.IterativeResidualUnwrapOptions" title="pyxalign.api.options.options.IterativeResidualUnwrapOptions"><span class="pre">IterativeResidualUnwrapOptions</span></a></em><a class="headerlink" href="#pyxalign.options.options.PhaseUnwrapOptions.iterative_residual" title="Link to this definition">¶</a></dt>
+<dd><p>Options for IterativeResidualCorrection unwrapping</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.PhaseUnwrapOptions.method">
+<span class="sig-name descname"><span class="pre">method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.enums.html#pyxalign.enums.PhaseUnwrapMethods" title="pyxalign.api.enums.PhaseUnwrapMethods"><span class="pre">PhaseUnwrapMethods</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'iterative_residual_correction'</span></em><a class="headerlink" href="#pyxalign.options.options.PhaseUnwrapOptions.method" title="Link to this definition">¶</a></dt>
+<dd><p>Phase unwrapping method to use</p>
+<p>Options:
+- PhaseUnwrapMethods.IterativeResidualCorrection</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>default choice; typically performs better</p></li>
+</ul>
+</div></blockquote>
+<ul>
+<li><dl>
+<dt>PhaseUnwrapMethods.GradientIntegration</dt><dd><ul class="simple">
+<li><p>can perform better if the IterativeResidualCorrection</p></li>
+</ul>
+<p>unwrapping is producing large phase ramps
+- same unwrapping method that is used by pty-chi</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.RegularizationOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">RegularizationOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_TV_lambda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iterations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/options.html#RegularizationOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.RegularizationOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.RegularizationOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.options.RegularizationOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.RegularizationOptions.iterations">
+<span class="sig-name descname"><span class="pre">iterations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#pyxalign.options.options.RegularizationOptions.iterations" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.RegularizationOptions.local_TV_lambda">
+<span class="sig-name descname"><span class="pre">local_TV_lambda</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#pyxalign.options.options.RegularizationOptions.local_TV_lambda" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.options.options.field">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_factory=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repr=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hash=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compare=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kw_only=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dataclasses.html#field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.field" title="Link to this definition">¶</a></dt>
+<dd><p>Return an object to identify dataclass fields.</p>
+<p>default is the default value of the field.  default_factory is a
+0-argument function called to initialize a field’s value.  If init
+is true, the field will be a parameter to the class’s __init__()
+function.  If repr is true, the field will be included in the
+object’s repr().  If hash is true, the field will be included in the
+object’s hash().  If compare is true, the field will be used in
+comparison functions.  metadata, if specified, must be a mapping
+which is stored but not otherwise examined by dataclass.  If kw_only
+is true, the field will become a keyword-only parameter to
+__init__().</p>
+<p>It is an error to specify both default and default_factory.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.options.partial">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">partial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">keywords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/functools.html#partial"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.partial" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Create a new function with partial application of the given arguments
+and keywords.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.partial.args">
+<span class="sig-name descname"><span class="pre">args</span></span><a class="headerlink" href="#pyxalign.options.options.partial.args" title="Link to this definition">¶</a></dt>
+<dd><p>tuple of arguments to future partial calls</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.partial.func">
+<span class="sig-name descname"><span class="pre">func</span></span><a class="headerlink" href="#pyxalign.options.options.partial.func" title="Link to this definition">¶</a></dt>
+<dd><p>function object to use in future partial calls</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.options.partial.keywords">
+<span class="sig-name descname"><span class="pre">keywords</span></span><a class="headerlink" href="#pyxalign.options.options.partial.keywords" title="Link to this definition">¶</a></dt>
+<dd><p>dictionary of keyword arguments to future partial calls</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.options.options.viridis">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.options.options.</span></span><span class="sig-name descname"><span class="pre">viridis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/matplotlib/pyplot.html#viridis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.options.viridis" title="Link to this definition">¶</a></dt>
+<dd><p>Set the colormap to ‘viridis’.</p>
+<p>This changes the default colormap as well as the colormap of the current
+image if there is one. See <code class="docutils literal notranslate"><span class="pre">help(colormaps)</span></code> for more information.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/_autosummary/pyxalign.options.options.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

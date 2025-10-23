@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pyxalign.options.transform &#8212; pyxalign 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-pyxalign.options.transform">
+<span id="pyxalign-options-transform"></span><h1>pyxalign.options.transform<a class="headerlink" href="#module-pyxalign.options.transform" title="Link to this heading">¶</a></h1>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.transform.CropOptions" title="pyxalign.options.transform.CropOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CropOptions</span></code></a>([horizontal_range, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.options.transform.DownsampleOptions" title="pyxalign.options.transform.DownsampleOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DownsampleOptions</span></code></a>(type, scale, enabled, ...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.transform.PadOptions" title="pyxalign.options.transform.PadOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PadOptions</span></code></a>([new_extent_x, new_extent_y, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.options.transform.RotationOptions" title="pyxalign.options.transform.RotationOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RotationOptions</span></code></a>(type, enabled, device, angle)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.transform.ShearOptions" title="pyxalign.options.transform.ShearOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ShearOptions</span></code></a>(type, enabled, device, angle)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.options.transform.ShiftOptions" title="pyxalign.options.transform.ShiftOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ShiftOptions</span></code></a>(type, enabled, device, ...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.options.transform.TransformOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TransformOptions</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.options.transform.UpsampleOptions" title="pyxalign.options.transform.UpsampleOptions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UpsampleOptions</span></code></a>(type, scale, enabled, device)</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ABC">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">ABC</span></span><a class="reference internal" href="../_modules/abc.html#ABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.ABC" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Helper class that provides a standard way to create an ABC using
+inheritance.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.CropOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">CropOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">horizontal_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vertical_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">horizontal_offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vertical_offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_view</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#CropOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.CropOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.CropOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.CropOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.CropOptions.horizontal_offset">
+<span class="sig-name descname"><span class="pre">horizontal_offset</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#pyxalign.options.transform.CropOptions.horizontal_offset" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.CropOptions.horizontal_range">
+<span class="sig-name descname"><span class="pre">horizontal_range</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#pyxalign.options.transform.CropOptions.horizontal_range" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.CropOptions.return_view">
+<span class="sig-name descname"><span class="pre">return_view</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.CropOptions.return_view" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.CropOptions.vertical_offset">
+<span class="sig-name descname"><span class="pre">vertical_offset</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#pyxalign.options.transform.CropOptions.vertical_offset" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.CropOptions.vertical_range">
+<span class="sig-name descname"><span class="pre">vertical_range</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#pyxalign.options.transform.CropOptions.vertical_range" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DeviceOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">DeviceOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device_type:</span> <span class="pre">pyxalign.api.enums.DeviceType</span> <span class="pre">=</span> <span class="pre">&lt;DeviceType.GPU:</span> <span class="pre">'gpu'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpu:</span> <span class="pre">pyxalign.api.options.device.GPUOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/device.html#DeviceOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.DeviceOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DeviceOptions.device_type">
+<span class="sig-name descname"><span class="pre">device_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.enums.html#pyxalign.enums.DeviceType" title="pyxalign.api.enums.DeviceType"><span class="pre">DeviceType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'gpu'</span></em><a class="headerlink" href="#pyxalign.options.transform.DeviceOptions.device_type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DeviceOptions.gpu">
+<span class="sig-name descname"><span class="pre">gpu</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="pyxalign.options.device.html#pyxalign.options.device.GPUOptions" title="pyxalign.api.options.device.GPUOptions"><span class="pre">GPUOptions</span></a></em><a class="headerlink" href="#pyxalign.options.transform.DeviceOptions.gpu" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">DownsampleOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type:</span> <span class="pre">pyxalign.api.enums.DownsampleType</span> <span class="pre">=</span> <span class="pre">&lt;DownsampleType.FFT:</span> <span class="pre">'fft'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">pyxalign.api.options.device.DeviceOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_gaussian_filter:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#DownsampleOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.DownsampleOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.DownsampleOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleOptions.scale">
+<span class="sig-name descname"><span class="pre">scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#pyxalign.options.transform.DownsampleOptions.scale" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleOptions.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.transform.DownsampleType" title="pyxalign.api.enums.DownsampleType"><span class="pre">DownsampleType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.DownsampleOptions.type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleOptions.use_gaussian_filter">
+<span class="sig-name descname"><span class="pre">use_gaussian_filter</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#pyxalign.options.transform.DownsampleOptions.use_gaussian_filter" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">DownsampleType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#DownsampleType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.DownsampleType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.DownsampleType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleType.LINEAR">
+<span class="sig-name descname"><span class="pre">LINEAR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'linear'</span></em><a class="headerlink" href="#pyxalign.options.transform.DownsampleType.LINEAR" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.DownsampleType.NEAREST">
+<span class="sig-name descname"><span class="pre">NEAREST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nearest'</span></em><a class="headerlink" href="#pyxalign.options.transform.DownsampleType.NEAREST" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.PadOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">PadOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_extent_x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_extent_y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'constant'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#PadOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.PadOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.PadOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.PadOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.PadOptions.new_extent_x">
+<span class="sig-name descname"><span class="pre">new_extent_x</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#pyxalign.options.transform.PadOptions.new_extent_x" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.PadOptions.new_extent_y">
+<span class="sig-name descname"><span class="pre">new_extent_y</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#pyxalign.options.transform.PadOptions.new_extent_y" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.PadOptions.pad_type">
+<span class="sig-name descname"><span class="pre">pad_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'constant'</span></em><a class="headerlink" href="#pyxalign.options.transform.PadOptions.pad_type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.PadOptions.pad_value">
+<span class="sig-name descname"><span class="pre">pad_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#pyxalign.options.transform.PadOptions.pad_value" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.RotationOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">RotationOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type:</span> <span class="pre">pyxalign.api.enums.RotationType</span> <span class="pre">=</span> <span class="pre">&lt;RotationType.FFT:</span> <span class="pre">'fft'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">pyxalign.api.options.device.DeviceOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angle:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#RotationOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.RotationOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.RotationOptions.angle">
+<span class="sig-name descname"><span class="pre">angle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#pyxalign.options.transform.RotationOptions.angle" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.RotationOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#pyxalign.options.transform.RotationOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.RotationOptions.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.transform.RotationType" title="pyxalign.api.enums.RotationType"><span class="pre">RotationType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.RotationOptions.type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.RotationType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">RotationType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#RotationType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.RotationType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.RotationType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.RotationType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShearOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">ShearOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type:</span> <span class="pre">pyxalign.api.enums.ShearType</span> <span class="pre">=</span> <span class="pre">&lt;ShearType.FFT:</span> <span class="pre">'fft'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">pyxalign.api.options.device.DeviceOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angle:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#ShearOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.ShearOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShearOptions.angle">
+<span class="sig-name descname"><span class="pre">angle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#pyxalign.options.transform.ShearOptions.angle" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShearOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#pyxalign.options.transform.ShearOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShearOptions.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.transform.ShearType" title="pyxalign.api.enums.ShearType"><span class="pre">ShearType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.ShearOptions.type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShearType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">ShearType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ShearType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.ShearType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShearType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.ShearType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">ShiftOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type:</span> <span class="pre">pyxalign.api.enums.ShiftType</span> <span class="pre">=</span> <span class="pre">&lt;ShiftType.FFT:</span> <span class="pre">'fft'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">pyxalign.api.options.device.DeviceOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eliminate_wrapping:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#ShiftOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.ShiftOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftOptions.eliminate_wrapping">
+<span class="sig-name descname"><span class="pre">eliminate_wrapping</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.ShiftOptions.eliminate_wrapping" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.ShiftOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftOptions.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.transform.ShiftType" title="pyxalign.api.enums.ShiftType"><span class="pre">ShiftType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.ShiftOptions.type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">ShiftType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#ShiftType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.ShiftType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftType.CIRC">
+<span class="sig-name descname"><span class="pre">CIRC</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'circ'</span></em><a class="headerlink" href="#pyxalign.options.transform.ShiftType.CIRC" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftType.FFT">
+<span class="sig-name descname"><span class="pre">FFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fft'</span></em><a class="headerlink" href="#pyxalign.options.transform.ShiftType.FFT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.ShiftType.LINEAR">
+<span class="sig-name descname"><span class="pre">LINEAR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'linear'</span></em><a class="headerlink" href="#pyxalign.options.transform.ShiftType.LINEAR" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.TransformOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">TransformOptions</span></span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#TransformOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.TransformOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.ABC" title="abc.ABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.TransformOptions.device">
+<span class="sig-name descname"><span class="pre">device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.transform.DeviceOptions" title="pyxalign.api.options.device.DeviceOptions"><span class="pre">DeviceOptions</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Field(name=None,type=None,default=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;,default_factory=&lt;class</span> <span class="pre">'pyxalign.api.options.device.DeviceOptions'&gt;,init=True,repr=True,hash=None,compare=True,metadata=mappingproxy({}),kw_only=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;,_field_type=None)</span></em><a class="headerlink" href="#pyxalign.options.transform.TransformOptions.device" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.TransformOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.TransformOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.UpsampleOptions">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">UpsampleOptions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type:</span> <span class="pre">pyxalign.api.enums.UpsampleType</span> <span class="pre">=</span> <span class="pre">&lt;UpsampleType.NEAREST:</span> <span class="pre">'nearest'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">pyxalign.api.options.device.DeviceOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/options/transform.html#UpsampleOptions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.UpsampleOptions" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyxalign.options.transform.TransformOptions" title="pyxalign.api.options.transform.TransformOptions"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransformOptions</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.UpsampleOptions.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#pyxalign.options.transform.UpsampleOptions.enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.UpsampleOptions.scale">
+<span class="sig-name descname"><span class="pre">scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#pyxalign.options.transform.UpsampleOptions.scale" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.UpsampleOptions.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pyxalign.options.transform.UpsampleType" title="pyxalign.api.enums.UpsampleType"><span class="pre">UpsampleType</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nearest'</span></em><a class="headerlink" href="#pyxalign.options.transform.UpsampleOptions.type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.options.transform.UpsampleType">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">UpsampleType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyxalign/api/enums.html#UpsampleType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.UpsampleType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="pyxalign.io.save.html#pyxalign.io.save.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.options.transform.UpsampleType.NEAREST">
+<span class="sig-name descname"><span class="pre">NEAREST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nearest'</span></em><a class="headerlink" href="#pyxalign.options.transform.UpsampleType.NEAREST" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.options.transform.abstractmethod">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">abstractmethod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">funcobj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/abc.html#abstractmethod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.abstractmethod" title="Link to this definition">¶</a></dt>
+<dd><p>A decorator indicating abstract methods.</p>
+<p>Requires that the metaclass is ABCMeta or derived from it.  A
+class that has a metaclass derived from ABCMeta cannot be
+instantiated unless all of its abstract methods are overridden.
+The abstract methods can be called using any of the normal
+‘super’ call mechanisms.  abstractmethod() may be used to declare
+abstract methods for properties and descriptors.</p>
+<p>Usage:</p>
+<blockquote>
+<div><dl>
+<dt>class C(metaclass=ABCMeta):</dt><dd><p>&#64;abstractmethod
+def my_abstract_method(self, arg1, arg2, argN):</p>
+<blockquote>
+<div><p>…</p>
+</div></blockquote>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.options.transform.field">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.options.transform.</span></span><span class="sig-name descname"><span class="pre">field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_factory=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repr=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hash=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compare=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kw_only=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dataclasses.html#field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.options.transform.field" title="Link to this definition">¶</a></dt>
+<dd><p>Return an object to identify dataclass fields.</p>
+<p>default is the default value of the field.  default_factory is a
+0-argument function called to initialize a field’s value.  If init
+is true, the field will be a parameter to the class’s __init__()
+function.  If repr is true, the field will be included in the
+object’s repr().  If hash is true, the field will be included in the
+object’s hash().  If compare is true, the field will be used in
+comparison functions.  metadata, if specified, must be a mapping
+which is stored but not otherwise examined by dataclass.  If kw_only
+is true, the field will become a keyword-only parameter to
+__init__().</p>
+<p>It is an error to specify both default and default_factory.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">pyxalign</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Argonne National Laboratory.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/_autosummary/pyxalign.options.transform.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
