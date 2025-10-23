@@ -1,10 +1,8 @@
-from multiprocessing import Value
 from typing import List, Optional, Sequence, Union
 import numpy as np
 import copy
 import h5py
 import matplotlib.pyplot as plt
-from PyQt5.QtWidgets import QApplication
 from pyxalign.alignment.utils import (
     get_center_of_rotation_from_different_resolution_alignment,
     get_shift_from_different_resolution_alignment,
@@ -39,13 +37,12 @@ from pyxalign.api.options.transform import (
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
 from pyxalign.data_structures.volume import Volume
-from pyxalign.interactions.mask import ThresholdSelector, build_masks_from_threshold, launch_mask_builder
+from pyxalign.interactions.mask import build_masks_from_threshold, launch_mask_builder
 from pyxalign.io.utils import load_list_of_arrays
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
-from pyxalign.mask import estimate_reliability_region_mask, blur_masks#, IlluminationMapMaskBuilder
+from pyxalign.mask import estimate_reliability_region_mask, blur_masks
 from pyxalign.model_functions import symmetric_gaussian_2d
-from pyxalign.plotting.interactive.arrays import ProjectionViewer
 from pyxalign.plotting.interactive.launchers import launch_projection_viewer
 import pyxalign.plotting.plotters as plotters
 from pyxalign.style.text import ordinal
@@ -69,9 +66,6 @@ from pyxalign.transformations.helpers import is_array_real
 from pyxalign.unwrap import unwrap_phase
 from pyxalign.data_structures.positions import ProbePositions
 from pyxalign.api.types import ArrayType, r_type
-from pyxalign.transformations.helpers import round_to_divisor
-from pyxalign.api.constants import divisor
-
 
 class TransformTracker:
     def __init__(

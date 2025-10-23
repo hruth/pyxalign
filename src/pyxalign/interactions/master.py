@@ -5,21 +5,15 @@ This module provides the main application window that coordinates data loading,
 projection initialization, and alignment workflows. It uses a sidebar navigation
 pattern to organize different stages of the alignment process.
 """
-
 import sys
-from dataclasses import fields, is_dataclass
-from enum import Enum
-from typing import Callable, Optional, Union
-
-import cupy as cp
-import numpy as np
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from typing import Optional
 
 from PyQt5.QtWidgets import (
     QApplication,
     QVBoxLayout,
     QWidget,
 )
+from PyQt5.QtCore import Qt
 
 import pyxalign.data_structures.task as t
 from pyxalign.interactions.initialize_projections import (
@@ -30,7 +24,6 @@ from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.utils import OptionsClass
-from pyxalign.plotting.interactive.base import MultiThreadedWidget
 
 
 class MasterWidget(QWidget):
@@ -104,6 +97,28 @@ class MasterWidget(QWidget):
         self.pma_widget.initialize_page(self.task)
 
 
+def launch_master_gui(
+    load_options: Optional[OptionsClass] = None,
+    wait_until_closed: bool = False,
+):
+    app = QApplication.instance() or QApplication([])
+    gui = MasterWidget(input_options=load_options)
+    # window.loading_widget.select_load_settings_widget.load_data()
+    screen_geometry = app.desktop().availableGeometry(gui)
+    gui.setGeometry(
+        screen_geometry.x(),
+        screen_geometry.y(),
+        int(screen_geometry.width() * 0.75),
+        int(screen_geometry.height() * 0.9),
+    )
+    gui.show()
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
+
+
 if __name__ == "__main__":
     # Pre-load with LYNX options
     options = LYNXLoadOptions(
@@ -148,16 +163,18 @@ if __name__ == "__main__":
     #         base=base_load_options,
     #     )
 
-    app = QApplication(sys.argv)
-    window = MasterWidget(input_options=options)
-    # window.loading_widget.select_load_settings_widget.load_data()
-    screen_geometry = app.desktop().availableGeometry(window)
-    window.setGeometry(
-        screen_geometry.x(),
-        screen_geometry.y(),
-        int(screen_geometry.width() * 0.75),
-        int(screen_geometry.height() * 0.9),
-    )
+    gui = launch_master_gui(load_options=options, wait_until_closed=True)
 
-    window.show()
-    sys.exit(app.exec_())
+    # app = QApplication(sys.argv)
+    # window = MasterWidget(input_options=options)
+    # # window.loading_widget.select_load_settings_widget.load_data()
+    # screen_geometry = app.desktop().availableGeometry(window)
+    # window.setGeometry(
+    #     screen_geometry.x(),
+    #     screen_geometry.y(),
+    #     int(screen_geometry.width() * 0.75),
+    #     int(screen_geometry.height() * 0.9),
+    # )
+
+    # window.show()
+    # sys.exit(app.exec_())

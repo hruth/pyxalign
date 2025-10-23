@@ -38,6 +38,7 @@ def launch_projection_viewer(
         app.exec_()
     return gui
 
+
 def launch_array_viewer(
     array3d: np.ndarray,
     options: Optional[ArrayViewerOptions] = None,
@@ -61,7 +62,7 @@ def launch_array_viewer(
     return gui
 
 
-def launch_linked_array_viewer(    
+def launch_linked_array_viewer(
     array_list: list[np.ndarray],
     options: Optional[ArrayViewerOptions] = None,
     sort_idx: Optional[Sequence] = None,
@@ -82,7 +83,6 @@ def launch_linked_array_viewer(
     if wait_until_closed:
         app.exec_()
     return gui
-
 
 
 # def launch_xrf_projections_viewer(xrf_task: "x.xrf_task") -> XRFProjectionsViewer:

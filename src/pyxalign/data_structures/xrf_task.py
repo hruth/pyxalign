@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 import h5py
 import copy
-from pyxalign import LaminographyAlignmentTask
+# from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.alignment.cross_correlation import CrossCorrelationAligner
 from pyxalign.api import enums
 from pyxalign.api.options.device import DeviceOptions
