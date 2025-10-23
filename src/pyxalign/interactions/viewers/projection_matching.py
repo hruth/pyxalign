@@ -3,8 +3,8 @@ import traceback
 
 import pyxalign.alignment.projection_matching as pm
 from pyxalign.gpu_utils import return_cpu_array
-from pyxalign.plotting.interactive.arrays import ProjectionViewer, VolumeViewer
-from pyxalign.plotting.interactive.base import MultiThreadedWidget
+from pyxalign.interactions.viewers.arrays import ProjectionViewer, VolumeViewer
+from pyxalign.interactions.viewers.base import MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -23,7 +23,7 @@ from matplotlib.backends.backend_qt5agg import (
 import numpy as np
 from matplotlib.figure import Figure
 import matplotlib
-from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
+from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 from pyxalign.timing.timer_utils import timer, InlineTimer
 import cupy as cp
 

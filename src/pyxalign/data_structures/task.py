@@ -19,10 +19,10 @@ from pyxalign.api.types import r_type
 from pyxalign.io.load import load_ptycho_projections
 from pyxalign.io.save import save_generic_data_structure_to_h5
 from pyxalign.io.utils import load_options
-from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
+from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
 from pyxalign.timing.timer_utils import clear_timer_globals
-# from pyxalign.plotting.interactive.task import TaskViewer # causes circular imports
-import pyxalign.plotting.interactive.task as task_viewer
+# from pyxalign.interactions.viewers.task import TaskViewer # causes circular imports
+import pyxalign.interactions.viewers.task as task_viewer
 import pyxalign.interactions.pma_runner as pma_runner
 
 

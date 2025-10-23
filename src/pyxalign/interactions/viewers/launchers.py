@@ -1,8 +1,8 @@
 from typing import Optional, Sequence, Callable
 import numpy as np
 from pyxalign.api.options.plotting import ProjectionViewerOptions
-from pyxalign.plotting.interactive.arrays import ProjectionViewer, VolumeViewer
-from pyxalign.plotting.interactive.base import ArrayViewer, LinkedArrayViewer
+from pyxalign.interactions.viewers.arrays import ProjectionViewer, VolumeViewer
+from pyxalign.interactions.viewers.base import ArrayViewer, LinkedArrayViewer
 import pyxalign.data_structures.projections as p
 from pyxalign.api.options.plotting import ArrayViewerOptions
 
@@ -10,7 +10,7 @@ from pyxalign.api.options.plotting import ArrayViewerOptions
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 
-# from pyxalign.plotting.interactive.xrf import XRFProjectionsViewer, XRFVolumeViewer
+from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer
 
 
 def launch_volume_viewer(

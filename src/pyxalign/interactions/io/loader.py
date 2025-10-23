@@ -53,7 +53,7 @@ from pyxalign.io.loaders.pear.options import (
     PEARLoadOptions,
 )
 from pyxalign.io.utils import OptionsClass
-from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
+from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 
 advanced_options_list = [
     "base.only_include_files_with",

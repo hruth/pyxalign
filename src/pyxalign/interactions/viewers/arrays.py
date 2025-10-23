@@ -9,7 +9,7 @@ from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.mask import ThresholdSelector
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
-from pyxalign.plotting.interactive.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
+from pyxalign.interactions.viewers.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -34,7 +34,7 @@ from matplotlib.backends.backend_qt5agg import (
 import numpy as np
 from matplotlib.figure import Figure
 import matplotlib
-from pyxalign.plotting.interactive.utils import (
+from pyxalign.interactions.viewers.utils import (
     OptionsDisplayWidget,
     get_strings_from_table_widget,
     sync_checkboxes,

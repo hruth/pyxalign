@@ -64,9 +64,9 @@ from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.sequencer import SequencerWidget
 from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.io.utils import OptionsClass
-from pyxalign.plotting.interactive.base import MultiThreadedWidget
-from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
-from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
+from pyxalign.interactions.viewers.base import MultiThreadedWidget
+from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
+from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 
 basic_pma_settings = [
     "iterations",

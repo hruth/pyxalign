@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (
 )
 import pyqtgraph as pg
 
-from pyxalign.plotting.interactive.base import IndexSelectorWidget
+from pyxalign.interactions.viewers.base import IndexSelectorWidget
 
 
 class StandardDataViewer(QWidget):

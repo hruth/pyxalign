@@ -29,7 +29,7 @@ from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.transform import CropOptions, ShiftOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.custom import action_button_style_sheet
-from pyxalign.plotting.interactive.base import ArrayViewer, MultiThreadedWidget
+from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 from pyxalign.transformations.classes import Cropper, Shifter
 
 

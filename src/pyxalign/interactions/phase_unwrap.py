@@ -24,7 +24,7 @@ from pyxalign.api.options.options import PhaseUnwrapOptions
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.plotting.interactive.base import ArrayViewer
+from pyxalign.interactions.viewers.base import ArrayViewer
 
 
 class PhaseUnwrapWidget(QWidget):

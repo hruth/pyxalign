@@ -1,4 +1,3 @@
-from ast import Str
 from typing import Optional
 import numpy as np
 import h5py
@@ -260,6 +259,8 @@ class XRFTask:
             h5_obj.create_dataset(name="primary_channel", data=self.primary_channel)
             print(f"XRF task saved to {h5_obj.file.filename}{h5_obj.name}")
             h5_obj["task_file_type"] = "xrf"
+
+    # def launch_projections_viewer(self):
 
 
 #     # def launch_xrf_projections_viewer(self):

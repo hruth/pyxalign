@@ -2,8 +2,8 @@ from PyQt5.QtWidgets import QWidget, QTabWidget, QVBoxLayout
 from PyQt5.QtCore import Qt
 from pyxalign.api.options.plotting import ProjectionViewerOptions
 import pyxalign.data_structures.task as t
-from pyxalign.plotting.interactive.arrays import ProjectionViewer, VolumeViewer
-from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
+from pyxalign.interactions.viewers.arrays import ProjectionViewer, VolumeViewer
+from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
 
 
 class TaskViewer(QWidget):

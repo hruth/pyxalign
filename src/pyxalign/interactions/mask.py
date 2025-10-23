@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 from pyxalign.mask import place_patches_fourier_batch
-from pyxalign.plotting.interactive.base import IndexSelectorWidget
+from pyxalign.interactions.viewers.base import IndexSelectorWidget
 
 """
 Interactive mask threshold selector based on pyqtgraph and the shared

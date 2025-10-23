@@ -12,7 +12,7 @@ from pyxalign.io.loaders.xrf.api import (
 )
 from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
-from pyxalign.plotting.interactive.xrf import XRFProjectionsViewer, XRFVolumeViewer
+from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 import data_loaders
 from conftest import register_processing_function

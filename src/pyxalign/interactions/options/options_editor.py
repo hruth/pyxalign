@@ -36,7 +36,7 @@ from pyxalign.interactions.custom import NoScrollSpinBox, CustomDoubleSpinBox
 
 from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.io.utils import OptionsClass
-from pyxalign.plotting.interactive.utils import OptionsDisplayWidget
+from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 
 
 class IntTupleInputWidget(QWidget):

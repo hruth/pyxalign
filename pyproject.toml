@@ -48,6 +48,21 @@ plugins = "numpy.typing.mypy_plugin"
 line-length = 100
 target-version = "py313"
 
+# Enable the unused import rule (F401)
+select = ["F401"]  # Or use ["F"] for all pyflakes rules
+
+# Automatically fix issues when possible
+fix = true
+
+# Exclude specific directories
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
 [tool.setuptools.package-data]
 "pyxalign" = ["py.typed"]
 

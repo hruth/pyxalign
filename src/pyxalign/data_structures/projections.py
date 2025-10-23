@@ -43,7 +43,7 @@ from pyxalign.io.save import save_generic_data_structure_to_h5
 
 from pyxalign.mask import estimate_reliability_region_mask, blur_masks
 from pyxalign.model_functions import symmetric_gaussian_2d
-from pyxalign.plotting.interactive.launchers import launch_projection_viewer
+from pyxalign.interactions.viewers.launchers import launch_projection_viewer
 import pyxalign.plotting.plotters as plotters
 from pyxalign.style.text import ordinal
 from pyxalign.timing.timer_utils import timer, clear_timer_globals

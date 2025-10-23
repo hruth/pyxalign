@@ -29,12 +29,12 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QSpacerItem,
 )
-from pyxalign.plotting.interactive.arrays import ProjectionViewer
+from pyxalign.interactions.viewers.arrays import ProjectionViewer
 import sip
 import pyqtgraph as pg
 
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
-from pyxalign.plotting.interactive.base import ArrayViewer
+from pyxalign.interactions.viewers.base import ArrayViewer
 
 
 class CreateProjectionArrayWidget(QWidget):

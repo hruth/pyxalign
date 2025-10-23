@@ -11,7 +11,7 @@ from pyxalign.api.options.projections import ProjectionTransformOptions
 from pyxalign.api.options.transform import ShiftOptions
 from pyxalign.api.options_utils import set_all_device_options
 import pyxalign.data_structures.projections as projections
-from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
+from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
 from pyxalign.regularization import chambolleLocalTV3D
 from pyxalign.style.text import text_colors
 from pyxalign.timing.timer_utils import InlineTimer, timer
