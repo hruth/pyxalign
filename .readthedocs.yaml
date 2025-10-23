@@ -22,5 +22,3 @@ python:
     # Install your package so it can be imported
     - method: pip
       path: .
-    # Install documentation dependencies
-    - requirements: docs/requirements.txt
