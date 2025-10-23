@@ -131,7 +131,7 @@ class CITestHelper:
             result, self.ci_results_folder, name, atol, rtol, self.options.proj_idx
         )
 
-    def finish_test(self):
+    def finish_test(self) -> Union[bool, None]:
         if not self.options.update_tester_results:
             print("SUMMARY OF TESTS:")
             for i, (test_name, is_passed) in enumerate(self.test_result_dict.items()):
@@ -141,7 +141,11 @@ class CITestHelper:
                     pass_fail_string = fail_string
                 print(f"{i+1}. {test_name}: {pass_fail_string}")
             n_passed = sum([v for v in self.test_result_dict.values()])
-            print(f"{text_colors.HEADER}{n_passed}/{len(self.test_result_dict)}{text_colors.ENDC}")
+            total_tests = len(self.test_result_dict)
+            print(f"{text_colors.HEADER}{n_passed}/{total_tests}{text_colors.ENDC}")
+
+            all_passed = n_passed == total_tests
+            return all_passed
 
     def store_run_metadata(self):
         self.timestamp, date_string, time_string = get_timestamp_for_timing_files()
@@ -172,6 +176,7 @@ class CITestArgumentParser:
         # flag for specifying you want test results updated
         self.parser.add_argument("--update-results", action="store_true")
         self.parser.add_argument("--save-temp-results", action="store_true")
+        self.parser.add_argument("--show-gui", action="store_true")
 
 
 def compare_arbitrary_result(
