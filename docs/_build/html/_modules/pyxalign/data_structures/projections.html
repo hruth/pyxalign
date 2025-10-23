@@ -97,7 +97,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.data_structures.positions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProbePositions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayType</span><span class="p">,</span> <span class="n">r_type</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;PhaseProjections&quot;</span><span class="p">,</span> <span class="s2">&quot;ComplexProjections&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Projections&quot;</span><span class="p">,</span> <span class="s2">&quot;PhaseProjections&quot;</span><span class="p">,</span> <span class="s2">&quot;ComplexProjections&quot;</span><span class="p">]</span>
 
 <div class="viewcode-block" id="TransformTracker">
 <a class="viewcode-back" href="../../../_autosummary/pyxalign.io.load.html#pyxalign.data_structures.TransformTracker">[docs]</a>
@@ -162,6 +162,9 @@
         <span class="n">pin_arrays</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">file_paths</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test description for `Projections`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_paths</span> <span class="o">=</span> <span class="n">file_paths</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">angles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">angles</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">r_type</span><span class="p">)</span>

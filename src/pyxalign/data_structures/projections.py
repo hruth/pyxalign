@@ -64,7 +64,7 @@ from pyxalign.unwrap import unwrap_phase
 from pyxalign.data_structures.positions import ProbePositions
 from pyxalign.api.types import ArrayType, r_type
 
-__all__ = ["PhaseProjections", "ComplexProjections"]
+__all__ = ["Projections", "PhaseProjections", "ComplexProjections"]
 
 class TransformTracker:
     def __init__(
@@ -112,6 +112,9 @@ class Projections:
         pin_arrays: bool = False,
         file_paths: Optional[list[str]] = None,
     ):
+        """
+        Test description for `Projections`
+        """
         self.options = options
         self.file_paths = file_paths
         self.angles = np.array(angles, dtype=r_type)
