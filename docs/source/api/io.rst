@@ -9,14 +9,6 @@ PEAR
 pyxalign options and functions for loading datasets prepared using the PEAR
 branch of pty-chi.
 
-.. .. automodule:: pyxalign.io.loaders.pear
-..    :members:
-..    :undoc-members:
-..    :show-inheritance:
-..    :inherited-members:
-..    :exclude-members: BaseLoadOptions, load_data_from_pear_format
-..    :member-order: bysource
-
 .. member-order doesn't trickle down to the attributes of the dataclasses, 
 .. so they must be done explicitly
 

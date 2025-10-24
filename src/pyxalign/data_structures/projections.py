@@ -524,7 +524,7 @@ class Projections:
         self.masks = Upsampler(upsample_options).run(self.masks)
         # return Upsampler(upsample_options).run(self.masks)
 
-    def blur_masks(
+    def _blur_masks(
         self, kernel_sigma: int, use_gpu: bool = False, masks: Optional[np.ndarray] = None
     ):
         if masks is None:

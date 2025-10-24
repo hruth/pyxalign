@@ -8,25 +8,33 @@ def load_data_from_pear_format(
     n_processes: int = 1,
 ) -> StandardData:
     """
-    Function for loading lamni-formatted projection data and returning
+    Function for loading PEAR formatted datasets projection data and returning
     it in the standardized format.
+
+    Args:
+        options: The first parameter.
+        n_processes: Number of processes to use when loading 
+            projections.
+
+    Returns:
+        StandardData: Loaded data returned in the `StandardData` format.
     """
     options.base.print_selections()
     # Load lamni-formatted projection data
-    lamni_loader = load_experiment(
+    experiment_loader = load_experiment(
         parent_projections_folder=options.base.parent_projections_folder,
         n_processes=n_processes,
         options=options,
     )
     # Load data into standard format
     standard_data = StandardData(
-        lamni_loader.projections,
-        lamni_loader.angles,
-        lamni_loader.scan_numbers,
-        lamni_loader.selected_projection_file_paths,
-        lamni_loader.probe_positions,
-        lamni_loader.probe,
-        lamni_loader.pixel_size,
+        experiment_loader.projections,
+        experiment_loader.angles,
+        experiment_loader.scan_numbers,
+        experiment_loader.selected_projection_file_paths,
+        experiment_loader.probe_positions,
+        experiment_loader.probe,
+        experiment_loader.pixel_size,
     )
 
     return standard_data
