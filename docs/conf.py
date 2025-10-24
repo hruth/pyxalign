@@ -22,8 +22,8 @@ extensions = [
     'sphinx.ext.viewcode',
 ]
 
-# Enable autosummary to generate stub pages automatically
-autosummary_generate = True
+# # Enable autosummary to generate stub pages automatically
+# autosummary_generate = True
 
 # Configure autodoc to respect __all__
 autodoc_default_options = {
