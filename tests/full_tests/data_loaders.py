@@ -12,7 +12,7 @@ from pyxalign.io.loaders.pear.options import (
 from pyxalign.io.loaders.xrf.api import (
     load_data_from_xrf_format,
 )
-from pyxalign.io.loaders.xrf.options import XRFLoadOptions
+from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions, XRFBaseLoadOptions, XRFLoadOptions
 
 ci_test_data_dir = os.environ["PYXALIGN_CI_TEST_DATA_DIR"]
 
@@ -51,8 +51,9 @@ def load_cSAXS_e18044_LamNI_201907_test_data(scan_start: int, scan_end: int) -> 
 
 def load_2ide_xrf_test_data() -> tuple[dict[str, StandardData], dict]:
     folder = os.path.join(ci_test_data_dir, "2ide", "2025-1_Lamni-4", "inputs")
-    xrf_load_options = XRFLoadOptions()
-    xrf_standard_data_dict, extra_PVs = load_data_from_xrf_format(folder, xrf_load_options)
+    base = XRFBaseLoadOptions(folder=folder)
+    xrf_load_options = Beamline2IDEXRFLoadOptions(base=base)
+    xrf_standard_data_dict, extra_PVs = load_data_from_xrf_format(xrf_load_options)
     return xrf_standard_data_dict, extra_PVs
 
 
