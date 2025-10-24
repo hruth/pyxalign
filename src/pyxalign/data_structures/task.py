@@ -21,9 +21,10 @@ from pyxalign.io.save import save_generic_data_structure_to_h5
 from pyxalign.io.utils import load_options
 from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
 from pyxalign.timing.timer_utils import clear_timer_globals
+
 # from pyxalign.interactions.viewers.task import TaskViewer # causes circular imports
-import pyxalign.interactions.viewers.task as task_viewer
-import pyxalign.interactions.pma_runner as pma_runner
+# import pyxalign.interactions.viewers.task as task_viewer
+# import pyxalign.interactions.pma_runner as pma_runner
 
 
 class LaminographyAlignmentTask:
@@ -124,10 +125,6 @@ class LaminographyAlignmentTask:
             gui.close()
         self.pma_gui_list = []
 
-    def get_complex_projection_masks(self, enable_plotting: bool = False):
-        clear_timer_globals()
-        self.complex_projections.get_masks(enable_plotting)
-
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
         if pinned_results is None:
             if (
@@ -160,12 +157,6 @@ class LaminographyAlignmentTask:
                     projection.save_projections_object(h5_obj=h5_obj.create_group(attr))
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
-
-    # def launch_viewer(self) -> QApplication:
-    #     app = QApplication.instance() or QApplication([])
-    #     self.gui = TaskViewer(self)
-    #     self.gui.show()
-    #     return app
 
 
 def run_projection_matching(

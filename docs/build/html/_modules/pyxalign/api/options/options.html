@@ -1,0 +1,242 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyxalign.api.options.options &mdash; pyxalign 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            pyxalign
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">pyxalign</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">pyxalign.api.options.options</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pyxalign.api.options.options</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numbers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Number</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="kn">import</span> <span class="n">viridis</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api.options.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">DownsampleOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.api</span><span class="w"> </span><span class="kn">import</span> <span class="n">enums</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+
+
+<div class="viewcode-block" id="ExperimentOptions">
+<a class="viewcode-back" href="../../../../api/options.html#pyxalign.options.ExperimentOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExperimentOptions</span><span class="p">:</span>
+    <span class="n">laminography_angle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">61.1</span>
+
+    <span class="n">sample_thickness</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">7e-6</span>
+
+    <span class="n">pixel_size</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span></div>
+
+
+
+<div class="viewcode-block" id="MaskOptions">
+<a class="viewcode-back" href="../../../../api/options.html#pyxalign.options.MaskOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MaskOptions</span><span class="p">:</span>
+    <span class="n">downsample</span><span class="p">:</span> <span class="n">DownsampleOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span>
+            <span class="n">DownsampleOptions</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">enums</span><span class="o">.</span><span class="n">DownsampleType</span><span class="o">.</span><span class="n">NEAREST</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># upsample_options = UpsampleOptions(</span>
+    <span class="c1">#     type=enums.UpsampleType.NEAREST, scale=4, enabled=True, device_options=enums.DeviceType.CPU</span>
+    <span class="c1"># )</span>
+
+    <span class="n">binary_close_coefficient</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+
+    <span class="n">binary_erode_coefficient</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+
+    <span class="n">unsharp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">fill</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span></div>
+
+
+
+<div class="viewcode-block" id="PhaseRampRemovalOptions">
+<a class="viewcode-back" href="../../../../api/options.html#pyxalign.options.PhaseRampRemovalOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PhaseRampRemovalOptions</span><span class="p">:</span>
+    <span class="n">iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+
+    <span class="n">downsampling</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span></div>
+
+
+
+<div class="viewcode-block" id="GradientIntegrationUnwrapOptions">
+<a class="viewcode-back" href="../../../../api/options.html#pyxalign.options.GradientIntegrationUnwrapOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GradientIntegrationUnwrapOptions</span><span class="p">:</span>
+    <span class="n">gradient_method</span><span class="p">:</span> <span class="n">enums</span><span class="o">.</span><span class="n">ImageGradientMethods</span> <span class="o">=</span> <span class="n">enums</span><span class="o">.</span><span class="n">ImageGradientMethods</span><span class="o">.</span><span class="n">FOURIER_DIFFERENTIATION</span>
+    <span class="s2">&quot;The method used to calculate the phase gradient&quot;</span>
+
+    <span class="n">integration_method</span><span class="p">:</span> <span class="n">enums</span><span class="o">.</span><span class="n">ImageIntegrationMethods</span> <span class="o">=</span> <span class="n">enums</span><span class="o">.</span><span class="n">ImageIntegrationMethods</span><span class="o">.</span><span class="n">FOURIER</span>
+    <span class="s2">&quot;The method used to integrate the image back from gradients&quot;</span>
+
+    <span class="n">fourier_shift_step</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The finite-difference step size used to calculate the gradient, </span>
+<span class="sd">    if the Fourier shift method is selected</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">use_masks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Determines if the projection masks should be multiplied with the </span>
+<span class="sd">    projections before unwrapping</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">deramp_polyfit_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="s2">&quot;The order of the polynomial fit used to de-ramp the phase&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="IterativeResidualUnwrapOptions">
+<a class="viewcode-back" href="../../../../api/options.html#pyxalign.options.IterativeResidualUnwrapOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">IterativeResidualUnwrapOptions</span><span class="p">:</span>
+    <span class="n">iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="s2">&quot;Number of iterative correction steps to perform&quot;</span>
+
+    <span class="n">lsq_fit_ramp_removal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Whether to remove phase ramps using least-squares fitting after </span>
+<span class="sd">    unwrapping</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="PhaseUnwrapOptions">
+<a class="viewcode-back" href="../../../../api/options.html#pyxalign.options.PhaseUnwrapOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PhaseUnwrapOptions</span><span class="p">:</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">DeviceOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DeviceOptions</span><span class="p">)</span>
+
+    <span class="n">method</span><span class="p">:</span> <span class="n">enums</span><span class="o">.</span><span class="n">PhaseUnwrapMethods</span> <span class="o">=</span> <span class="n">enums</span><span class="o">.</span><span class="n">PhaseUnwrapMethods</span><span class="o">.</span><span class="n">ITERATIVE_RESIDUAL_CORRECTION</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Phase unwrapping method to use</span>
+
+<span class="sd">    Options:</span>
+<span class="sd">    - PhaseUnwrapMethods.IterativeResidualCorrection</span>
+<span class="sd">        - default choice; typically performs better</span>
+<span class="sd">    - PhaseUnwrapMethods.GradientIntegration</span>
+<span class="sd">        - can perform better if the IterativeResidualCorrection </span>
+<span class="sd">        unwrapping is producing large phase ramps</span>
+<span class="sd">        - same unwrapping method that is used by pty-chi</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">gradient_integration</span><span class="p">:</span> <span class="n">GradientIntegrationUnwrapOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">GradientIntegrationUnwrapOptions</span>
+    <span class="p">)</span>
+    <span class="s2">&quot;Options for GradientIntegration unwrapping&quot;</span>
+
+    <span class="n">iterative_residual</span><span class="p">:</span> <span class="n">IterativeResidualUnwrapOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">IterativeResidualUnwrapOptions</span>
+    <span class="p">)</span>
+    <span class="s2">&quot;Options for IterativeResidualCorrection unwrapping&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="RegularizationOptions">
+<a class="viewcode-back" href="../../../../api/options.html#pyxalign.options.RegularizationOptions">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RegularizationOptions</span><span class="p">:</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">local_TV_lambda</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
+
+    <span class="n">iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

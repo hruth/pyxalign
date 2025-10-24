@@ -1,0 +1,223 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyxalign.io.loaders.pear.nested_loader &mdash; pyxalign 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../../index.html" class="icon icon-home">
+            pyxalign
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../index.html">pyxalign</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">pyxalign.io.loaders.pear.nested_loader</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pyxalign.io.loaders.pear.nested_loader</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.io.loaders.pear.base_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.io.loaders.pear.base_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_single_projection_sub_folder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.timing.timer_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">timer</span><span class="p">,</span> <span class="n">InlineTimer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyxalign.io.loaders.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">count_digits</span><span class="p">,</span> <span class="n">extract_s_digit_strings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+
+<div class="viewcode-block" id="NestedLoader">
+<a class="viewcode-back" href="../../../../../api/_autosummary/pyxalign.io.loaders.pear.pear_loader_1.html#pyxalign.io.loaders.pear.fold_slice_loader_2.NestedLoader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NestedLoader</span><span class="p">(</span><span class="n">BaseLoader</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+    <span class="n">analysis_folders</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">n_digits</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="NestedLoader.get_projection_sub_folder">
+<a class="viewcode-back" href="../../../../../api/_autosummary/pyxalign.io.loaders.pear.pear_loader_1.html#pyxalign.io.loaders.pear.fold_slice_loader_2.NestedLoader.get_projection_sub_folder">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_projection_sub_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="c1"># Determine how many digits are in the folder strings</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_digits</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">example_scan_folder</span> <span class="o">=</span> <span class="n">extract_s_digit_strings</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_projections_folder</span><span class="p">)</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_digits</span> <span class="o">=</span> <span class="n">count_digits</span><span class="p">(</span><span class="n">example_scan_folder</span><span class="p">)</span>
+        <span class="c1"># Return folder string corresponding to this scan number</span>
+        <span class="k">return</span> <span class="n">generate_single_projection_sub_folder</span><span class="p">(</span>
+            <span class="n">scan_number</span><span class="p">,</span>
+            <span class="n">n_digits</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_digits</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NestedLoader.find_paths_with_glob">
+<a class="viewcode-back" href="../../../../../api/_autosummary/pyxalign.io.loaders.pear.pear_loader_1.html#pyxalign.io.loaders.pear.fold_slice_loader_2.NestedLoader.find_paths_with_glob">[docs]</a>
+    <span class="nd">@timer</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_paths_with_glob</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folder</span><span class="p">):</span>
+            <span class="n">full_paths</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">pattern</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">full_paths</span></div>
+
+
+<div class="viewcode-block" id="NestedLoader.record_projection_path_and_files">
+<a class="viewcode-back" href="../../../../../api/_autosummary/pyxalign.io.loaders.pear.pear_loader_1.html#pyxalign.io.loaders.pear.fold_slice_loader_2.NestedLoader.record_projection_path_and_files">[docs]</a>
+    <span class="nd">@timer</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">record_projection_path_and_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get full file paths to all existing projection files for the given scan number&quot;&quot;&quot;</span>
+        <span class="c1"># duplicates pearloader</span>
+
+        <span class="c1"># If glob pattern is specified, only use that to find files</span>
+        <span class="k">if</span> <span class="n">pattern</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">full_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_paths_with_glob</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">full_paths</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">projection_folders</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">=</span> <span class="n">folder</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">available_projection_files</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">folder</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">full_paths</span>
+                <span class="p">]</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Get all existing projection paths</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">!=</span> <span class="p">[]:</span>
+            <span class="c1"># Record the absolute path to the scan folder containing ptycho results</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">projection_folders</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">=</span> <span class="n">folder</span>
+            <span class="c1"># Initialize list of analysis folders for this scan. Each entry of the</span>
+            <span class="c1"># list will be a string with with some name like &quot;Ndp128_LSQML_c1234_m0.5_gaussian_p5_mm_opr2_ic&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">analysis_folders</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">inline_timer</span> <span class="o">=</span> <span class="n">InlineTimer</span><span class="p">(</span><span class="s2">&quot;get_nested_analysis_folders&quot;</span><span class="p">)</span>
+            <span class="n">inline_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="c1"># Populate self.analysis_folders[scan_number] with the list of</span>
+            <span class="c1"># ptycho results subfolder names</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">get_nested_analysis_folders</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">)</span>
+            <span class="n">inline_timer</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+            <span class="c1"># Initialize available_projection_files, which will contain the full</span>
+            <span class="c1"># path to all available projection files for this scan</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">available_projection_files</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">analysis_sub_folder</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">analysis_folders</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]:</span>
+                <span class="c1"># Get list of all files in the ptycho results sub-folder</span>
+                <span class="n">file_names</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">analysis_sub_folder</span><span class="p">))</span>
+                <span class="c1"># Add file names that are in the expected projection file format to</span>
+                <span class="c1"># the list</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">available_projection_files</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">analysis_sub_folder</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">file_names</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_if_projection_file</span><span class="p">(</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">analysis_sub_folder</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="NestedLoader.get_nested_analysis_folders">
+<a class="viewcode-back" href="../../../../../api/_autosummary/pyxalign.io.loaders.pear.pear_loader_1.html#pyxalign.io.loaders.pear.fold_slice_loader_2.NestedLoader.get_nested_analysis_folders">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_nested_analysis_folders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rel_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the relative paths of all folders in the scan directory that</span>
+<span class="sd">        contain projection files by recursing through nested folders.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Include this folder if it has a projection file</span>
+        <span class="n">folder_contains_projection_file</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">check_if_projection_file</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder</span><span class="p">)]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">folder_contains_projection_file</span><span class="p">:</span>
+            <span class="n">relative_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_folders</span><span class="p">[</span><span class="n">scan_number</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">analysis_folders</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">relative_path</span><span class="p">]</span>
+
+        <span class="c1"># Look through nested folders</span>
+        <span class="k">for</span> <span class="n">folder_entry</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder</span><span class="p">):</span>
+            <span class="n">full_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">folder_entry</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">full_path</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">get_nested_analysis_folders</span><span class="p">(</span><span class="n">full_path</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NestedLoader.check_if_projection_file">
+<a class="viewcode-back" href="../../../../../api/_autosummary/pyxalign.io.loaders.pear.pear_loader_1.html#pyxalign.io.loaders.pear.fold_slice_loader_2.NestedLoader.check_if_projection_file">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_if_projection_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

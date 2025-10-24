@@ -1,0 +1,225 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyxalign.io.save &mdash; pyxalign 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            pyxalign
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">pyxalign</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">pyxalign.io.save</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/_autosummary/pyxalign.io.save.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pyxalign.io.save">
+<span id="pyxalign-io-save"></span><h1>pyxalign.io.save<a class="headerlink" href="#module-pyxalign.io.save" title="Link to this heading"></a></h1>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.save.convert_to_uint_16" title="pyxalign.io.save.convert_to_uint_16"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convert_to_uint_16</span></code></a>(images[, min, max])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.io.save.draw_text_with_default_font" title="pyxalign.io.save.draw_text_with_default_font"><code class="xref py py-obj docutils literal notranslate"><span class="pre">draw_text_with_default_font</span></code></a>(base_image, ...)</p></td>
+<td><p>Draw text at position (x, y) using Pillow's default bitmap font, scaled up by 'scale_factor'.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.save.save_array_as_tiff" title="pyxalign.io.save.save_array_as_tiff"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_array_as_tiff</span></code></a>(images, file_path[, ...])</p></td>
+<td><p>Save a 3D NumPy array (images) to a TIFF file.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.io.save.save_generic_data_structure_to_h5" title="pyxalign.io.save.save_generic_data_structure_to_h5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_generic_data_structure_to_h5</span></code></a>(d, h5_obj)</p></td>
+<td><p>Create h5 datasets for all items in the passed in dict</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.save.save_options_to_h5_file" title="pyxalign.io.save.save_options_to_h5_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_options_to_h5_file</span></code></a>(file_path, options)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.io.save.save_string_to_h5" title="pyxalign.io.save.save_string_to_h5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">save_string_to_h5</span></code></a>(h5_obj, string, value_name)</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.save.StrEnum">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">StrEnum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_class_name</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/enum.html#StrEnum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.StrEnum" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ReprEnum</span></code></p>
+<p>Enum where members are also (and must be) strings</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.save.Number">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">Number</span></span><a class="reference internal" href="../../_modules/numbers.html#Number"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.Number" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>All numbers inherit from this class.</p>
+<p>If you just want to check if an argument x is a number, without
+caring what kind, use isinstance(x, Number).</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.save.SpecialValuePlaceholder">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">SpecialValuePlaceholder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/api/enums.html#SpecialValuePlaceholder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.SpecialValuePlaceholder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="../enums.html#pyxalign.enums.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.save.SpecialValuePlaceholder.NONE">
+<span class="sig-name descname"><span class="pre">NONE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'none'</span></em><a class="headerlink" href="#pyxalign.io.save.SpecialValuePlaceholder.NONE" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.save.SpecialValuePlaceholder.EMPTY_LIST">
+<span class="sig-name descname"><span class="pre">EMPTY_LIST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'empty_list'</span></em><a class="headerlink" href="#pyxalign.io.save.SpecialValuePlaceholder.EMPTY_LIST" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.save.SpecialValuePlaceholder.EMPTY_DICT">
+<span class="sig-name descname"><span class="pre">EMPTY_DICT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'empty_dict'</span></em><a class="headerlink" href="#pyxalign.io.save.SpecialValuePlaceholder.EMPTY_DICT" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.save.save_generic_data_structure_to_h5">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">save_generic_data_structure_to_h5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h5_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Group</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">File</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/save.html#save_generic_data_structure_to_h5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.save_generic_data_structure_to_h5" title="Link to this definition"></a></dt>
+<dd><p>Create h5 datasets for all items in the passed in dict</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.save.save_string_to_h5">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">save_string_to_h5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Group</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">File</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">string</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/save.html#save_string_to_h5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.save_string_to_h5" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.save.save_options_to_h5_file">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">save_options_to_h5_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/save.html#save_options_to_h5_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.save_options_to_h5_file" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.save.convert_to_uint_16">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">convert_to_uint_16</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">images</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/save.html#convert_to_uint_16"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.convert_to_uint_16" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.save.draw_text_with_default_font">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">draw_text_with_default_font</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_image</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_factor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/pyxalign/io/save.html#draw_text_with_default_font"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.draw_text_with_default_font" title="Link to this definition"></a></dt>
+<dd><p>Draw text at position (x, y) using Pillow’s default bitmap font,
+scaled up by ‘scale_factor’. The drawing is done <em>in place</em> on base_image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>base_image</strong> – Pillow Image in mode “I” (32-bit integer) or similar.</p></li>
+<li><p><strong>text</strong> – The text string to draw.</p></li>
+<li><p><strong>x</strong> – Left coordinate on the base image where text will be placed.</p></li>
+<li><p><strong>y</strong> – Top coordinate on the base image where text will be placed.</p></li>
+<li><p><strong>scale_factor</strong> – How much to scale up the default font’s size.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.save.save_array_as_tiff">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.save.</span></span><span class="sig-name descname"><span class="pre">save_array_as_tiff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">images</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">divide_into_smaller_files</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">numbers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/save.html#save_array_as_tiff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.save.save_array_as_tiff" title="Link to this definition"></a></dt>
+<dd><p>Save a 3D NumPy array (images) to a TIFF file. Optionally, pass a 1D array (numbers)
+of the same length as images.shape[0], each of which is drawn in the top-left corner
+of each slice at a scaled-up size (using the built-in PIL font).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>images</strong> – 3D data array of shape (N, H, W).</p></li>
+<li><p><strong>file_path</strong> – Path of the output tif file.</p></li>
+<li><p><strong>min_val</strong> – Minimum value for scaling into uint16.</p></li>
+<li><p><strong>max_val</strong> – Maximum value for scaling into uint16.</p></li>
+<li><p><strong>divide_into_smaller_files</strong> – Whether to split the output into multiple smaller files
+if the total size exceeds ~4 GB.</p></li>
+<li><p><strong>numbers</strong> – 1D array of length N, containing numeric values to overlay on each slice.</p></li>
+<li><p><strong>text_scale</strong> – Factor by which to scale the default font size (&gt;= 1.0).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

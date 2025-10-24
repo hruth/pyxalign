@@ -1,4 +1,7 @@
-.. toctree::
-   :maxdepth: 2
+Data Structures
+=================
 
-    task
+.. automodule:: pyxalign.data_structures
+   :members:
+   :undoc-members:
+   :show-inheritance:

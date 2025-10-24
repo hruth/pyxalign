@@ -4,7 +4,11 @@ import matplotlib.pyplot as plt
 
 
 class StandardData:
-    """Standard format that is required for doing laminography alignment."""
+    """
+    Standard data structure returned by loading functions such as
+    `pyxalign.io.loaders.pear.load_data_from_pear_format` or 
+    `pyxalign.io.loaders.xrf.load_data_from_xrf_format`
+    """
 
     def __init__(
         self,

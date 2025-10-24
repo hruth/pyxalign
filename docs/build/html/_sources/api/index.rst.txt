@@ -2,7 +2,10 @@ API Reference
 =============
 
 .. toctree::
-   :maxdepth: 5
+   :maxdepth: 2
 
-   task
+   data_structures
    io
+   options
+   enums
+   gui

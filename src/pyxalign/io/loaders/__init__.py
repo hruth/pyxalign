@@ -6,8 +6,10 @@ data into pyxalign's standard input format format.
 """
 
 from . import pear, xrf
+from .base import StandardData
 
 __all__ = [
     'pear',
     'xrf',
+    'StandardData',
 ]

@@ -11,11 +11,11 @@ from ..interactions.viewers.base import (
 )
 
 __all__ = [
-    "launch_master_gui",
     "launch_array_viewer",
     "launch_volume_viewer",
     "launch_linked_array_viewer",
     "launch_projection_viewer",
     "launch_xrf_projections_viewer",
     "launch_xrf_volume_viewer",
+    "launch_master_gui",
 ]

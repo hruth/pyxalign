@@ -1,0 +1,325 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyxalign.io.utils &mdash; pyxalign 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            pyxalign
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">pyxalign</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">pyxalign.io.utils</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/_autosummary/pyxalign.io.utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pyxalign.io.utils">
+<span id="pyxalign-io-utils"></span><h1>pyxalign.io.utils<a class="headerlink" href="#module-pyxalign.io.utils" title="Link to this heading"></a></h1>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.utils.dict_to_dataclass" title="pyxalign.io.utils.dict_to_dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict_to_dataclass</span></code></a>(options_class, data[, ...])</p></td>
+<td><p>Recursively converts a dictionary into an options dataclass instance.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.io.utils.h5_to_dict" title="pyxalign.io.utils.h5_to_dict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">h5_to_dict</span></code></a>(h5_obj)</p></td>
+<td><p>Recursively converts an HDF5 group or file into a Python dictionary.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.utils.handle_null_type" title="pyxalign.io.utils.handle_null_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">handle_null_type</span></code></a>(value)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.io.utils.is_null_type" title="pyxalign.io.utils.is_null_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_null_type</span></code></a>(value)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.utils.load_array" title="pyxalign.io.utils.load_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_array</span></code></a>(h5_obj, name)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.io.utils.load_list_of_arrays" title="pyxalign.io.utils.load_list_of_arrays"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_list_of_arrays</span></code></a>(h5_obj, name)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyxalign.io.utils.load_options" title="pyxalign.io.utils.load_options"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_options</span></code></a>(h5_obj, options_class)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pyxalign.io.utils.safe_enum_access" title="pyxalign.io.utils.safe_enum_access"><code class="xref py py-obj docutils literal notranslate"><span class="pre">safe_enum_access</span></code></a>(value, expected_type)</p></td>
+<td><p>Safely access enum member with automatic typo correction.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.fields">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">fields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">class_or_instance</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/dataclasses.html#fields"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.fields" title="Link to this definition"></a></dt>
+<dd><p>Return a tuple describing the fields of this dataclass.</p>
+<p>Accepts a dataclass or an instance of one. Tuple elements are of
+type Field.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.is_dataclass">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">is_dataclass</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/dataclasses.html#is_dataclass"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.is_dataclass" title="Link to this definition"></a></dt>
+<dd><p>Returns True if obj is a dataclass or an instance of a
+dataclass.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.utils.TypeVar">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">TypeVar</span></span><a class="headerlink" href="#pyxalign.io.utils.TypeVar" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Type variable.</p>
+<p>The preferred way to construct a type variable is via the dedicated
+syntax for generic functions, classes, and type aliases:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Sequence</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>  <span class="c1"># T is a TypeVar</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>This syntax can also be used to create bound and constrained type
+variables:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># S is a TypeVar bound to str</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StrSequence</span><span class="p">[</span><span class="n">S</span><span class="p">:</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="o">...</span>
+
+<span class="c1"># A is a TypeVar constrained to str or bytes</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StrOrBytesSequence</span><span class="p">[</span><span class="n">A</span><span class="p">:</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)]:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>Type variables can also have defaults:</p>
+<blockquote>
+<div><dl class="simple">
+<dt>class IntDefault[T = int]:</dt><dd><p>…</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>However, if desired, reusable type variables can also be constructed
+manually, like so:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">)</span>  <span class="c1"># Can be anything</span>
+<span class="n">S</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;S&#39;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>  <span class="c1"># Can be any subtype of str</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span>  <span class="c1"># Must be exactly str or bytes</span>
+<span class="n">D</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;D&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>  <span class="c1"># Defaults to int</span>
+</pre></div>
+</div>
+<p>Type variables exist primarily for the benefit of static type
+checkers.  They serve as the parameters for generic types as well
+as for generic function and type alias definitions.</p>
+<p>The variance of type variables is inferred by type checkers when they
+are created through the type parameter syntax and when
+<code class="docutils literal notranslate"><span class="pre">infer_variance=True</span></code> is passed. Manually created type variables may
+be explicitly marked covariant or contravariant by passing
+<code class="docutils literal notranslate"><span class="pre">covariant=True</span></code> or <code class="docutils literal notranslate"><span class="pre">contravariant=True</span></code>. By default, manually
+created type variables are invariant. See PEP 484 and PEP 695 for more
+details.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyxalign.io.utils.TypeVar.has_default">
+<span class="sig-name descname"><span class="pre">has_default</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyxalign.io.utils.TypeVar.has_default" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.get_close_matches">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">get_close_matches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">word</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">possibilities</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutoff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/difflib.html#get_close_matches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.get_close_matches" title="Link to this definition"></a></dt>
+<dd><p>Use SequenceMatcher to return list of the best “good enough” matches.</p>
+<p>word is a sequence for which close matches are desired (typically a
+string).</p>
+<p>possibilities is a list of sequences against which to match word
+(typically a list of strings).</p>
+<p>Optional arg n (default 3) is the maximum number of close matches to
+return.  n must be &gt; 0.</p>
+<p>Optional arg cutoff (default 0.6) is a float in [0, 1].  Possibilities
+that don’t score at least that similar to word are ignored.</p>
+<p>The best (no more than n) matches among the possibilities are returned
+in a list, sorted by similarity score, most similar first.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">get_close_matches</span><span class="p">(</span><span class="s2">&quot;appel&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;ape&quot;</span><span class="p">,</span> <span class="s2">&quot;apple&quot;</span><span class="p">,</span> <span class="s2">&quot;peach&quot;</span><span class="p">,</span> <span class="s2">&quot;puppy&quot;</span><span class="p">])</span>
+<span class="go">[&#39;apple&#39;, &#39;ape&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">keyword</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_keyword</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_close_matches</span><span class="p">(</span><span class="s2">&quot;wheel&quot;</span><span class="p">,</span> <span class="n">_keyword</span><span class="o">.</span><span class="n">kwlist</span><span class="p">)</span>
+<span class="go">[&#39;while&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_close_matches</span><span class="p">(</span><span class="s2">&quot;Apple&quot;</span><span class="p">,</span> <span class="n">_keyword</span><span class="o">.</span><span class="n">kwlist</span><span class="p">)</span>
+<span class="go">[]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_close_matches</span><span class="p">(</span><span class="s2">&quot;accept&quot;</span><span class="p">,</span> <span class="n">_keyword</span><span class="o">.</span><span class="n">kwlist</span><span class="p">)</span>
+<span class="go">[&#39;except&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyxalign.io.utils.SpecialValuePlaceholder">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">SpecialValuePlaceholder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/api/enums.html#SpecialValuePlaceholder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.SpecialValuePlaceholder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="../enums.html#pyxalign.enums.StrEnum" title="enum.StrEnum"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.utils.SpecialValuePlaceholder.NONE">
+<span class="sig-name descname"><span class="pre">NONE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'none'</span></em><a class="headerlink" href="#pyxalign.io.utils.SpecialValuePlaceholder.NONE" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.utils.SpecialValuePlaceholder.EMPTY_LIST">
+<span class="sig-name descname"><span class="pre">EMPTY_LIST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'empty_list'</span></em><a class="headerlink" href="#pyxalign.io.utils.SpecialValuePlaceholder.EMPTY_LIST" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyxalign.io.utils.SpecialValuePlaceholder.EMPTY_DICT">
+<span class="sig-name descname"><span class="pre">EMPTY_DICT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'empty_dict'</span></em><a class="headerlink" href="#pyxalign.io.utils.SpecialValuePlaceholder.EMPTY_DICT" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.handle_null_type">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">handle_null_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#handle_null_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.handle_null_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.is_null_type">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">is_null_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#is_null_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.is_null_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.load_list_of_arrays">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">load_list_of_arrays</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#load_list_of_arrays"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.load_list_of_arrays" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.h5_to_dict">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">h5_to_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Group</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">File</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#h5_to_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.h5_to_dict" title="Link to this definition"></a></dt>
+<dd><p>Recursively converts an HDF5 group or file into a Python dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>h5_obj</strong> – h5py File or Group object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary representation of the HDF5 structure.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.dict_to_dataclass">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">dict_to_dataclass</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">options_class</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><span class="pre">OptionsClass</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options_path_string</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">OptionsClass</span></span></span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#dict_to_dataclass"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.dict_to_dataclass" title="Link to this definition"></a></dt>
+<dd><p>Recursively converts a dictionary into an options dataclass instance.</p>
+<p>In the options dataclasses, there typically are one or more attributes that are
+other options classes. If the names of these attributes are changed (don’t confuse
+this with the class name) then this function will not loaded those values in,
+because the options are saved in a dataset named after the attribute.</p>
+<p>If the attributes names are ever changed and you still need this to load those
+attributes, you can make a function that maps the all of the past attribute names
+to the current attribute name and update this function to use that.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.load_options">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">load_options</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options_class</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><span class="pre">OptionsClass</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">OptionsClass</span></span></span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#load_options"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.load_options" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.load_array">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">load_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#load_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.load_array" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyxalign.io.utils.safe_enum_access">
+<span class="sig-prename descclassname"><span class="pre">pyxalign.io.utils.</span></span><span class="sig-name descname"><span class="pre">safe_enum_access</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expected_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../enums.html#pyxalign.enums.StrEnum" title="enum.StrEnum"><span class="pre">StrEnum</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../enums.html#pyxalign.enums.StrEnum" title="enum.StrEnum"><span class="pre">StrEnum</span></a></span></span><a class="reference internal" href="../../_modules/pyxalign/io/utils.html#safe_enum_access"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyxalign.io.utils.safe_enum_access" title="Link to this definition"></a></dt>
+<dd><p>Safely access enum member with automatic typo correction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>value</strong> – The input string</p></li>
+<li><p><strong>expected_type</strong> – The StrEnum class</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The matching enum member</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – If no suitable match found</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

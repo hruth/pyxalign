@@ -39,8 +39,11 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <!-- Local TOC -->
-              <div class="local-toc"></div>
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a></li>
+</ul>
+
         </div>
       </div>
     </nav>
@@ -134,6 +137,8 @@
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Projections&quot;</span><span class="p">,</span> <span class="s2">&quot;PhaseProjections&quot;</span><span class="p">,</span> <span class="s2">&quot;ComplexProjections&quot;</span><span class="p">]</span>
 
+<div class="viewcode-block" id="TransformTracker">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.TransformTracker">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TransformTracker</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -147,19 +152,34 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">crop</span> <span class="o">=</span> <span class="n">crop</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="n">downsample</span>
 
+<div class="viewcode-block" id="TransformTracker.update_rotation">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.TransformTracker.update_rotation">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_rotation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">angle</span><span class="p">:</span> <span class="n">r_type</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rotation</span> <span class="o">+=</span> <span class="n">angle</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotation</span> <span class="o">+=</span> <span class="n">angle</span></div>
 
+
+<div class="viewcode-block" id="TransformTracker.update_shear">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.TransformTracker.update_shear">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_shear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">angle</span><span class="p">:</span> <span class="n">r_type</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">shear</span> <span class="o">+=</span> <span class="n">angle</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shear</span> <span class="o">+=</span> <span class="n">angle</span></div>
 
+
+<div class="viewcode-block" id="TransformTracker.update_crop">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.TransformTracker.update_crop">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_crop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">crop_options</span><span class="p">:</span> <span class="n">CropOptions</span><span class="p">):</span>
-        <span class="k">pass</span>
+        <span class="k">pass</span></div>
 
+
+<div class="viewcode-block" id="TransformTracker.update_downsample">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.TransformTracker.update_downsample">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_downsample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">*=</span> <span class="n">scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">*=</span> <span class="n">scale</span></div>
+</div>
 
 
+
+<div class="viewcode-block" id="Projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Projections</span><span class="p">:</span>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -239,6 +259,8 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">pixel_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">pixel_size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_tracker</span><span class="o">.</span><span class="n">scale</span>
 
+<div class="viewcode-block" id="Projections.transform_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.transform_projections">[docs]</a>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">transform_projections</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -256,8 +278,11 @@
         <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">rotation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">rotate_projections</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">rotation</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">shear</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">shear_projections</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">shear</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shear_projections</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">shear</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.crop_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.crop_projections">[docs]</a>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">crop_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">CropOptions</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
@@ -281,8 +306,11 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span><span class="o">.</span><span class="n">shift_positions</span><span class="p">(</span>
                     <span class="n">shift</span><span class="o">=</span><span class="n">shift</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_projections</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.pad_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.pad_projections">[docs]</a>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">pad_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">PadOptions</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
@@ -299,8 +327,11 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span><span class="o">.</span><span class="n">shift_positions</span><span class="p">(</span>
                     <span class="n">shift</span><span class="o">=</span><span class="n">shift</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_projections</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.downsample_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.downsample_projections">[docs]</a>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">downsample_projections</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -323,8 +354,11 @@
             <span class="c1"># Downsample probe</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">probe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe</span><span class="p">[::</span> <span class="n">options</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span> <span class="p">::</span> <span class="n">options</span><span class="o">.</span><span class="n">scale</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">transform_tracker</span><span class="o">.</span><span class="n">update_downsample</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transform_tracker</span><span class="o">.</span><span class="n">update_downsample</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.rotate_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.rotate_projections">[docs]</a>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">rotate_projections</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">RotationOptions</span><span class="p">,</span> <span class="n">apply_to_center_of_rotation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
@@ -391,9 +425,12 @@
                         <span class="n">center_pixel</span><span class="p">,</span>
                         <span class="n">new_center</span><span class="o">=</span><span class="n">new_center_pixel</span><span class="p">,</span>
                     <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">transform_tracker</span><span class="o">.</span><span class="n">update_rotation</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">angle</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transform_tracker</span><span class="o">.</span><span class="n">update_rotation</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">angle</span><span class="p">)</span></div>
+
             <span class="c1"># To do: insert code for updating center of rotation</span>
 
+<div class="viewcode-block" id="Projections.shear_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.shear_projections">[docs]</a>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">shear_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">ShearOptions</span><span class="p">,</span> <span class="n">apply_to_center_of_rotation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="n">options</span><span class="o">.</span><span class="n">angle</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
@@ -414,8 +451,11 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">center_of_rotation</span> <span class="o">=</span> <span class="n">shear_positions</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">center_of_rotation</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">angle</span><span class="p">,</span> <span class="n">center_pixel</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
                 <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">transform_tracker</span><span class="o">.</span><span class="n">update_shear</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">angle</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transform_tracker</span><span class="o">.</span><span class="n">update_shear</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">angle</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.center_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.center_projections">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">center_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Shift projections so that center of rotation is in center of image</span>
         <span class="n">shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">center_of_rotation</span><span class="p">)</span>
@@ -426,8 +466,11 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">shifter_function</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">,</span> <span class="n">shift</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span><span class="o">.</span><span class="n">shift_positions</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span><span class="o">.</span><span class="n">shift_positions</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.get_masks_from_probe_positions">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.get_masks_from_probe_positions">[docs]</a>
     <span class="nd">@timer</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_masks_from_probe_positions</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">wait_until_closed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
@@ -445,7 +488,8 @@
             <span class="c1"># bypass the GUI if the threshold is known</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">build_masks_from_threshold</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">threshold</span>
-            <span class="p">)</span>
+            <span class="p">)</span></div>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_receive_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">masks</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">masks</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
@@ -453,6 +497,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">masks</span>
 
+<div class="viewcode-block" id="Projections.drop_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.drop_projections">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">drop_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remove_scans</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">repin_array</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="s2">&quot;Permanently remove specific projections from object&quot;</span>
         <span class="c1"># keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]</span>
@@ -494,7 +540,8 @@
         <span class="c1"># Update the past shifts and staged shift</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">staged_shift</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">staged_shift</span><span class="p">[</span><span class="n">keep_idx</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">shift</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">keep_idx</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">keep_idx</span><span class="p">]</span></div>
+
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">n_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -519,11 +566,16 @@
         <span class="s2">&quot;For running children specific code after instantiation&quot;</span>
         <span class="k">pass</span>
 
+<div class="viewcode-block" id="Projections.pin_arrays">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.pin_arrays">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">pin_arrays</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">gpu_utils</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">gpu_utils</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">gpu_utils</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.apply_staged_shift">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.apply_staged_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_staged_shift</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DeviceOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">probe_positions</span><span class="o">.</span><span class="n">shift_positions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">staged_shift</span><span class="p">)</span>
@@ -531,8 +583,11 @@
             <span class="n">images</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
             <span class="n">masks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">,</span>
             <span class="n">device_options</span><span class="o">=</span><span class="n">device_options</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.undo_last_shift">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.undo_last_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">undo_last_shift</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DeviceOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shift_manager</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;There is no shift to undo!&quot;</span><span class="p">)</span>
@@ -543,15 +598,24 @@
             <span class="n">images</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
             <span class="n">masks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">,</span>
             <span class="n">device_options</span><span class="o">=</span><span class="n">device_options</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.plot_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.plot_projections">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">process_function</span><span class="p">:</span> <span class="nb">callable</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">):</span>
-        <span class="n">plotters</span><span class="o">.</span><span class="n">make_image_slider_plot</span><span class="p">(</span><span class="n">process_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+        <span class="n">plotters</span><span class="o">.</span><span class="n">make_image_slider_plot</span><span class="p">(</span><span class="n">process_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">))</span></div>
 
+
+<div class="viewcode-block" id="Projections.plot_shifted_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.plot_shifted_projections">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_shifted_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shift</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">process_function</span><span class="p">:</span> <span class="nb">callable</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">):</span>
         <span class="s2">&quot;Plot the shifted projections using the shift that was passed in.&quot;</span>
-        <span class="n">plotters</span><span class="o">.</span><span class="n">make_image_slider_plot</span><span class="p">(</span><span class="n">process_function</span><span class="p">(</span><span class="n">image_shift_fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">shift</span><span class="p">)))</span>
+        <span class="n">plotters</span><span class="o">.</span><span class="n">make_image_slider_plot</span><span class="p">(</span><span class="n">process_function</span><span class="p">(</span><span class="n">image_shift_fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">shift</span><span class="p">)))</span></div>
 
+
+<div class="viewcode-block" id="Projections.plot_sum_of_projections">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.plot_sum_of_projections">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_sum_of_projections</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">process_function</span><span class="p">:</span> <span class="nb">callable</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">show_cor</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">):</span>
@@ -565,8 +629,11 @@
                 <span class="n">markersize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
                 <span class="n">markeredgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
+
+<div class="viewcode-block" id="Projections.get_masks">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.get_masks">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enable_plotting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">mask_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">mask</span>
         <span class="n">downsample_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">downsample</span>
@@ -589,16 +656,22 @@
         <span class="n">upsample_options</span> <span class="o">=</span> <span class="n">UpsampleOptions</span><span class="p">(</span>
             <span class="n">scale</span><span class="o">=</span><span class="n">downsample_options</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">downsample_options</span><span class="o">.</span><span class="n">enabled</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">Upsampler</span><span class="p">(</span><span class="n">upsample_options</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">Upsampler</span><span class="p">(</span><span class="n">upsample_options</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">)</span></div>
+
         <span class="c1"># return Upsampler(upsample_options).run(self.masks)</span>
 
+<div class="viewcode-block" id="Projections.blur_masks">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.blur_masks">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">blur_masks</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">kernel_sigma</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">use_gpu</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">masks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="n">masks</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span>
-        <span class="k">return</span> <span class="n">blur_masks</span><span class="p">(</span><span class="n">masks</span><span class="p">,</span> <span class="n">kernel_sigma</span><span class="p">,</span> <span class="n">use_gpu</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">blur_masks</span><span class="p">(</span><span class="n">masks</span><span class="p">,</span> <span class="n">kernel_sigma</span><span class="p">,</span> <span class="n">use_gpu</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.show_center_of_rotation">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.show_center_of_rotation">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">show_center_of_rotation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">plot_sum_of_projections</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -626,8 +699,11 @@
         <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Center of Rotation</span><span class="se">\n</span><span class="s2">(x=</span><span class="si">{</span><span class="n">center_of_rotation</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">, y=</span><span class="si">{</span><span class="n">center_of_rotation</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">show_plot</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
+
+<div class="viewcode-block" id="Projections.plot_data">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.plot_data">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_data</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">options</span><span class="p">:</span> <span class="n">PlotDataOptions</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -665,8 +741,11 @@
             <span class="n">options</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">pixel_size</span><span class="p">,</span>
             <span class="n">show_plot</span><span class="o">=</span><span class="n">show_plot</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.plot_shift">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.plot_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_shift</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shift_type</span><span class="p">:</span> <span class="n">enums</span><span class="o">.</span><span class="n">ShiftManagerMemberType</span><span class="p">,</span>
@@ -726,21 +805,30 @@
                 <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
                 <span class="n">plt</span><span class="o">.</span><span class="n">autoscale</span><span class="p">(</span><span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">tight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;shift (px)&quot;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
+
+<div class="viewcode-block" id="Projections.plot_shift_summary">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.plot_shift_summary">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_shift_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plot_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}):</span>
         <span class="s2">&quot;Show plots summarizing all of the applied shifts and the staged shift&quot;</span>
         <span class="k">for</span> <span class="n">shift_type</span> <span class="ow">in</span> <span class="n">enums</span><span class="o">.</span><span class="n">ShiftManagerMemberType</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="n">shift_type</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">plot_shift</span><span class="p">(</span><span class="n">shift_type</span><span class="p">,</span> <span class="n">plot_kwargs</span><span class="o">=</span><span class="n">plot_kwargs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plot_shift</span><span class="p">(</span><span class="n">shift_type</span><span class="p">,</span> <span class="n">plot_kwargs</span><span class="o">=</span><span class="n">plot_kwargs</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.replace_probe_with_gaussian">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.replace_probe_with_gaussian">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">replace_probe_with_gaussian</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">amplitude</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="n">shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">probe</span><span class="o">.</span><span class="n">shape</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">probe</span> <span class="o">=</span> <span class="n">symmetric_gaussian_2d</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">amplitude</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">probe</span> <span class="o">=</span> <span class="n">symmetric_gaussian_2d</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">amplitude</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.save_projections_object">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.save_projections_object">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">save_projections_object</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -792,8 +880,11 @@
         <span class="k">if</span> <span class="n">save_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;projections saved to </span><span class="si">{</span><span class="n">h5_obj</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">filename</span><span class="si">}{</span><span class="n">h5_obj</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;projections saved to </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;projections saved to </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="Projections.load_and_stage_shift">
+<a class="viewcode-back" href="../../../api/data_structures.html#pyxalign.io.load.Projections.load_and_stage_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_and_stage_shift</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">task_file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -850,10 +941,16 @@
                 <span class="n">current_pixel_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pixel_size</span><span class="p">,</span>
             <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">new_shift</span>
+        <span class="k">return</span> <span class="n">new_shift</span></div>
+</div>
 
 
+
+<div class="viewcode-block" id="ComplexProjections">
+<a class="viewcode-back" href="../../../api/projections.html#pyxalign.io.load.ComplexProjections">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ComplexProjections</span><span class="p">(</span><span class="n">Projections</span><span class="p">):</span>
+<div class="viewcode-block" id="ComplexProjections.unwrap_phase">
+<a class="viewcode-back" href="../../../api/projections.html#pyxalign.io.load.ComplexProjections.unwrap_phase">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">unwrap_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pinned_results</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayType</span><span class="p">:</span>
         <span class="c1"># this method always needs a mask</span>
         <span class="n">bool_1</span> <span class="o">=</span> <span class="p">(</span>
@@ -886,17 +983,19 @@
         <span class="k">if</span> <span class="n">use_masks</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">unwrap_phase_wrapped</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">phase_unwrap</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">unwrap_phase_wrapped</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">phase_unwrap</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">unwrap_phase_wrapped</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">phase_unwrap</span><span class="p">)</span></div>
+</div>
+
 
 
 <div class="viewcode-block" id="PhaseProjections">
-<a class="viewcode-back" href="../../../api/pear.html#pyxalign.data_structures.PhaseProjections">[docs]</a>
+<a class="viewcode-back" href="../../../api/projections.html#pyxalign.io.load.PhaseProjections">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PhaseProjections</span><span class="p">(</span><span class="n">Projections</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_post_init</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">volume</span> <span class="o">=</span> <span class="n">Volume</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
 <div class="viewcode-block" id="PhaseProjections.get_3D_reconstruction">
-<a class="viewcode-back" href="../../../api/pear.html#pyxalign.data_structures.PhaseProjections.get_3D_reconstruction">[docs]</a>
+<a class="viewcode-back" href="../../../api/projections.html#pyxalign.io.load.PhaseProjections.get_3D_reconstruction">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_3D_reconstruction</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">filter_inputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -913,7 +1012,7 @@
 
 
 <div class="viewcode-block" id="PhaseProjections.estimate_center_of_rotation">
-<a class="viewcode-back" href="../../../api/pear.html#pyxalign.data_structures.PhaseProjections.estimate_center_of_rotation">[docs]</a>
+<a class="viewcode-back" href="../../../api/projections.html#pyxalign.io.load.PhaseProjections.estimate_center_of_rotation">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">estimate_center_of_rotation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CenterOfRotationEstimateResults</span><span class="p">:</span>
         <span class="n">clear_timer_globals</span><span class="p">()</span>
         <span class="n">estimate_center_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">return_auto_centered_search_options</span><span class="p">()</span>
@@ -921,7 +1020,7 @@
 
 
 <div class="viewcode-block" id="PhaseProjections.plot_coordinate_search_points">
-<a class="viewcode-back" href="../../../api/pear.html#pyxalign.data_structures.PhaseProjections.plot_coordinate_search_points">[docs]</a>
+<a class="viewcode-back" href="../../../api/projections.html#pyxalign.io.load.PhaseProjections.plot_coordinate_search_points">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_coordinate_search_points</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">proj_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
@@ -945,7 +1044,7 @@
 
 
 <div class="viewcode-block" id="PhaseProjections.return_auto_centered_search_options">
-<a class="viewcode-back" href="../../../api/pear.html#pyxalign.data_structures.PhaseProjections.return_auto_centered_search_options">[docs]</a>
+<a class="viewcode-back" href="../../../api/projections.html#pyxalign.io.load.PhaseProjections.return_auto_centered_search_options">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">return_auto_centered_search_options</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EstimateCenterOptions</span><span class="p">:</span>
         <span class="n">modified_options</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">estimate_center</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">estimate_center</span><span class="o">.</span><span class="n">horizontal_coordinate</span><span class="o">.</span><span class="n">center_estimate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -957,6 +1056,8 @@
 
 
 
+<div class="viewcode-block" id="ShiftManager">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.ShiftManager">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ShiftManager</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_projections</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">staged_shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_projections</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
@@ -966,6 +1067,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">staged_function_type</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">staged_alignment_options</span> <span class="o">=</span> <span class="kc">None</span>
 
+<div class="viewcode-block" id="ShiftManager.stage_shift">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.ShiftManager.stage_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">stage_shift</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shift</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -974,8 +1077,11 @@
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">staged_shift</span> <span class="o">=</span> <span class="n">shift</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">staged_function_type</span> <span class="o">=</span> <span class="n">function_type</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">staged_alignment_options</span> <span class="o">=</span> <span class="n">alignment_options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">staged_alignment_options</span> <span class="o">=</span> <span class="n">alignment_options</span></div>
 
+
+<div class="viewcode-block" id="ShiftManager.unstage_shift">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.ShiftManager.unstage_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">unstage_shift</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Store staged values</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">past_shifts</span> <span class="o">+=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">staged_shift</span><span class="p">]</span>
@@ -984,8 +1090,11 @@
         <span class="c1"># Clear the staged variables</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">staged_shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">staged_shift</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">staged_function_type</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">staged_alignment_options</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">staged_alignment_options</span> <span class="o">=</span> <span class="kc">None</span></div>
 
+
+<div class="viewcode-block" id="ShiftManager.shift_arrays">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.ShiftManager.shift_arrays">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">shift_arrays</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shift</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -1017,8 +1126,11 @@
                 <span class="n">images</span><span class="o">=</span><span class="n">masks</span><span class="p">,</span>
                 <span class="n">shift</span><span class="o">=</span><span class="n">shift</span><span class="p">,</span>
                 <span class="n">pinned_results</span><span class="o">=</span><span class="n">masks</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="ShiftManager.apply_staged_shift">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.ShiftManager.apply_staged_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_staged_shift</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">images</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -1035,8 +1147,11 @@
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">unstage_shift</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;There is no shift to apply!&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;There is no shift to apply!&quot;</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="ShiftManager.undo_last_shift">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.ShiftManager.undo_last_shift">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">undo_last_shift</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">masks</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">device_options</span><span class="p">:</span> <span class="n">DeviceOptions</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;There is no shift to undo!&quot;</span><span class="p">)</span>
@@ -1050,8 +1165,11 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">past_shifts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">past_shifts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">past_shift_functions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">past_shift_functions</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">past_shift_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">past_shift_options</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">past_shift_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">past_shift_options</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
 
+
+<div class="viewcode-block" id="ShiftManager.is_shift_nonzero">
+<a class="viewcode-back" href="../../../api/_autosummary/pyxalign.io.load.html#pyxalign.io.load.ShiftManager.is_shift_nonzero">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_shift_nonzero</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">staged_function_type</span> <span class="ow">is</span> <span class="n">enums</span><span class="o">.</span><span class="n">ShiftType</span><span class="o">.</span><span class="n">CIRC</span><span class="p">:</span>
             <span class="n">shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">staged_shift</span><span class="p">)</span>
@@ -1060,7 +1178,9 @@
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">shift</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+</div>
+
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">get_kwargs_for_copying_to_new_projections_object</span><span class="p">(</span>

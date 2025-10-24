@@ -17,21 +17,22 @@ release = '0.1.0'
 
 extensions = [
     'sphinx.ext.autodoc',
-    # 'sphinx.ext.autosummary',
+    'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
 ]
 
-# # Enable autosummary to generate stub pages automatically
-# autosummary_generate = True
+# Enable autosummary to glsenerate stub pages automatically
+autosummary_generate = True
 
-# # Configure autodoc to respect __all__
-# autodoc_default_options = {
-#     'members': True,           # Document members
-#     'undoc-members': False,    # Don't document undocumented members
-#     'show-inheritance': True,
-#     'imported-members': False, # Don't document imported members
-# }
+# Configure autodoc to respect __all__
+autodoc_default_options = {
+    'members': True,           # Document members
+    'undoc-members': False,    # Don't document undocumented members
+    'show-inheritance': True,
+    'imported-members': False, # Don't document imported members
+    'member-order': 'bysource',
+}
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
