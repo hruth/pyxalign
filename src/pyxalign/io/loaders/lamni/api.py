@@ -11,8 +11,7 @@ def load_data_from_pear_format(
     # parent_projections_folder: str,
     options: PEARLoadOptions,
     n_processes: int = 1,
-    return_loader_object: bool = False,
-) -> Union[StandardData, tuple[StandardData, BaseLoader]]:
+) -> StandardData:
     """
     Function for loading lamni-formatted projection data and returning
     it in the standardized format.
@@ -35,7 +34,4 @@ def load_data_from_pear_format(
         lamni_loader.pixel_size,
     )
 
-    if return_loader_object:
-        return standard_data, lamni_loader
-    else:
-        return standard_data
+    return standard_data

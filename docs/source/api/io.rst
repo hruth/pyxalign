@@ -9,22 +9,60 @@ PEAR
 pyxalign options and functions for loading datasets prepared using the PEAR
 branch of pty-chi.
 
-.. automodule:: pyxalign.io.loaders.pear
+.. .. automodule:: pyxalign.io.loaders.pear
+..    :members:
+..    :undoc-members:
+..    :show-inheritance:
+..    :inherited-members:
+..    :exclude-members: BaseLoadOptions, load_data_from_pear_format
+..    :member-order: bysource
+
+.. member-order doesn't trickle down to the attributes of the dataclasses, 
+.. so they must be done explicitly
+
+.. autofunction:: pyxalign.io.loaders.pear.load_data_from_pear_format
+
+.. autoclass:: pyxalign.io.loaders.pear.BaseLoadOptions
    :members:
+   :show-inheritance:
+   :undoc-members:
+   :member-order: bysource
+
+.. autoclass:: pyxalign.io.loaders.pear.LYNXLoadOptions
+   :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members:
+   :member-order: bysource
+
+.. automodule:: pyxalign.io.loaders.pear
+   :members:
+   :show-inheritance:
+   :undoc-members:
+   :inherited-members:
+   :exclude-members: BaseLoadOptions, load_data_from_pear_format, LYNXLoadOptions
+   :member-order: bysource
 
 
 XRF
 ^^^
 pyxalign options and functions for loading x-ray flourescence (XRF) datasets.
 
-.. automodule:: pyxalign.io.loaders.xrf
+.. autofunction:: pyxalign.io.loaders.xrf.load_data_from_xrf_format
+
+.. autoclass:: pyxalign.io.loaders.xrf.XRFLoadOptions
    :members:
+   :inherited-members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members:
+   :member-order: bysource
+
+.. automodule:: pyxalign.io.loaders.xrf
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+   :exclude-members: XRFLoadOptions
 
 Data Structures
 ^^^^^^^^^^^^^^^^^^^

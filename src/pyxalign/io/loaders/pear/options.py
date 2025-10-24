@@ -117,13 +117,13 @@ class MDAPEARLoadOptions(PEARLoadOptions):
 
 @dataclasses.dataclass(kw_only=True)
 class Beamline2IDELoadOptions(MDAPEARLoadOptions):
+    # channel_data_path: str = "/MAPS/XRF_roi"
+
+    # channel_names_path: str = "/MAPS/channel_names"
+
     _mda_file_pattern: str = r"2xfm_(\d+)\.mda"
 
     _angle_pv_string: str = "2xfm:m60.VAL"
-
-    channel_data_path: str = "/MAPS/XRF_roi"
-
-    channel_names_path: str = "/MAPS/channel_names"
 
 
 @dataclasses.dataclass(kw_only=True)

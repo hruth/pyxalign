@@ -82,7 +82,7 @@
 
 
 <div class="viewcode-block" id="XRFBaseLoadOptions">
-<a class="viewcode-back" href="../../../../../api/io.html#pyxalign.io.loaders.maps.XRFBaseLoadOptions">[docs]</a>
+<a class="viewcode-back" href="../../../../../api/io.html#pyxalign.io.loaders.xrf.XRFBaseLoadOptions">[docs]</a>
 <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">XRFBaseLoadOptions</span><span class="p">:</span>
     <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span>
@@ -98,16 +98,13 @@
 
 
 
-<div class="viewcode-block" id="XRFLoadOptions">
-<a class="viewcode-back" href="../../../../../api/_autosummary/pyxalign.io.loaders.xrf.options.html#pyxalign.io.loaders.maps.XRFLoadOptions">[docs]</a>
 <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">XRFLoadOptions</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="n">base</span><span class="p">:</span> <span class="n">XRFBaseLoadOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">XRFBaseLoadOptions</span><span class="p">)</span></div>
-
+    <span class="n">base</span><span class="p">:</span> <span class="n">XRFBaseLoadOptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">XRFBaseLoadOptions</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Beamline2IDEXRFLoadOptions">
-<a class="viewcode-back" href="../../../../../api/io.html#pyxalign.io.loaders.maps.Beamline2IDEXRFLoadOptions">[docs]</a>
+<a class="viewcode-back" href="../../../../../api/io.html#pyxalign.io.loaders.xrf.Beamline2IDEXRFLoadOptions">[docs]</a>
 <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Beamline2IDEXRFLoadOptions</span><span class="p">(</span><span class="n">XRFLoadOptions</span><span class="p">):</span>
     <span class="n">_channel_data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;/MAPS/XRF_roi&quot;</span>
