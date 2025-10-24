@@ -1,14 +1,9 @@
-from typing import Optional, Union
-
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.pear.base_loader import BaseLoader
-from pyxalign.io.loaders.pear.options import LYNXLoadOptions, Beamline2IDELoadOptions, PEARLoadOptions
+from pyxalign.io.loaders.pear.options import PEARLoadOptions
 from pyxalign.io.loaders.pear.utils import load_experiment
 
 
-# This loads 2IDE data as well now, so I need to rename it somehow
 def load_data_from_pear_format(
-    # parent_projections_folder: str,
     options: PEARLoadOptions,
     n_processes: int = 1,
 ) -> StandardData:
