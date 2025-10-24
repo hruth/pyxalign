@@ -19,6 +19,10 @@ sphinx:
 # See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
 python:
   install:
+    - method: pip
+      path: cupy
+    - method: pip
+      path: astra-toolbox
     # Install your package so it can be imported
     - method: pip
       path: .
