@@ -105,6 +105,13 @@ def downsample_factory_for_estimate_center_options() -> DownsampleOptions:
 
 
 @dataclasses.dataclass
+class PositivityConstraint:
+    enabled: bool = False
+
+    threshold: float = 0.0
+
+
+@dataclasses.dataclass
 class ProjectionMatchingOptions:
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
@@ -153,5 +160,7 @@ class ProjectionMatchingOptions:
     prevent_wrapping_from_shift: bool = False
 
     filter_directions: tuple[int] = (2,)
+
+    positivity_constraint: PositivityConstraint = field(default_factory=PositivityConstraint)
 
     plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
