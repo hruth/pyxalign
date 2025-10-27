@@ -241,6 +241,20 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.crop_viewer.show()
 
 
+def launch_cross_correlation_gui(
+    task: "t.LaminographyAlignmentTask",
+    projection_type: enums.ProjectionType.COMPLEX,
+    wait_until_closed: bool = False,
+):
+    app = QApplication.instance() or QApplication([])
+    gui = CrossCorrelationMasterWidget(task=task, projection_type=projection_type)
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+
+
 if __name__ == "__main__":
     import sys
     import argparse

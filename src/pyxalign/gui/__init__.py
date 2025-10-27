@@ -10,6 +10,7 @@ from ..interactions.viewers.base import (
     launch_array_viewer,
 )
 from ..interactions.io.input_data_viewer import launch_standard_data_viewer
+from ..interactions.cross_correlation import launch_cross_correlation_gui
 
 __all__ = [
     "launch_array_viewer",
@@ -20,4 +21,5 @@ __all__ = [
     "launch_xrf_volume_viewer",
     "launch_master_gui",
     "launch_standard_data_viewer",
+    "launch_cross_correlation_gui",
 ]
