@@ -2,7 +2,7 @@
 import os
 import multiprocessing as mp
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.pear.options import LoaderType
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.pear.options import (
     BaseLoadOptions,

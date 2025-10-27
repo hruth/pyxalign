@@ -4,6 +4,7 @@ from .options import (
     LYNXLoadOptions,
     Beamline2IDELoadOptions,
     Beamline2IDDLoadOptions,
+    LoaderType,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "LYNXLoadOptions",
     "Beamline2IDELoadOptions",
     "Beamline2IDDLoadOptions",
+    "LoaderType",
 ]

@@ -6,9 +6,10 @@ from pyxalign.io.loaders.pear.options import (
     Beamline2IDDLoadOptions,
     Beamline2IDELoadOptions,
     LYNXLoadOptions,
+    LoaderType,
 )
 from pyxalign.io.loaders.pear.pear_loader_1 import PearLoaderVersion1
-from pyxalign.io.loaders.enums import ExperimentType, LoaderType
+from pyxalign.io.loaders.enums import ExperimentType
 from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions
 from pyxalign.io.utils import OptionsClass
 

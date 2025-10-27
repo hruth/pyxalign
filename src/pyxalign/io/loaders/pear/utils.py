@@ -6,7 +6,7 @@ import numpy as np
 from scipy import stats
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.pear.options import LoaderType
 from pyxalign.io.loaders.pear.options import LYNXLoadOptions, MDAPEARLoadOptions, PEARLoadOptions
 from pyxalign.io.loaders.maps import get_loader_class_by_enum
 from pyxalign.io.loaders.utils import generate_input_user_prompt

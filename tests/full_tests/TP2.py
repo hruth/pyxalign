@@ -9,7 +9,7 @@ from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.pear.options import LoaderType
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array

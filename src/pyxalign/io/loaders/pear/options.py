@@ -1,9 +1,15 @@
 from abc import ABC
+from enum import StrEnum, auto
 from typing import Optional
 import numpy as np
 import dataclasses
 from dataclasses import field
-from pyxalign.io.loaders.enums import LoaderType
+
+
+class LoaderType(StrEnum):
+    FOLD_SLICE_V1 = auto()
+    FOLD_SLICE_V2 = auto()
+    PEAR_V1 = auto()
 
 
 @dataclasses.dataclass(kw_only=True)

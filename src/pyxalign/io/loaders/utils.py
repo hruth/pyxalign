@@ -8,7 +8,7 @@ import numpy as np
 from scipy import stats
 from tqdm import tqdm
 from pyxalign.transformations.functions import image_crop_pad
-from pyxalign.io.loaders.enums import LoaderType
+from pyxalign.io.loaders.pear.options import LoaderType
 from pyxalign.api.constants import divisor
 from IPython import get_ipython
 

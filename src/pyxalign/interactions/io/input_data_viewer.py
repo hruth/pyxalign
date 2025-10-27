@@ -346,6 +346,19 @@ class StandardDataViewer(QWidget):
             self.slider.setValue(0)
 
 
+def launch_standard_data_viewer(
+    standard_data: StandardData,
+    wait_until_closed: bool = False,
+):
+    app = QApplication.instance() or QApplication([])
+    gui = StandardDataViewer(standard_data)
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
