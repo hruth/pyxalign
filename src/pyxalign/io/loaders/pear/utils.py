@@ -13,7 +13,7 @@ from pyxalign.io.loaders.utils import generate_input_user_prompt
 from pyxalign.api.types import r_type
 from pyxalign.io.loaders.xrf.utils import get_scan_file_dict
 from pyxalign.timing.timer_utils import timer
-from pyxalign.io.loaders.pear.base_loader import BaseLoader
+from pyxalign.io.loaders.pear.base_loader import PEARBaseLoader
 
 
 def get_experiment_subsets(
@@ -23,7 +23,7 @@ def get_experiment_subsets(
     experiment_names: list[str],
     sequences: np.ndarray,
     loader_type: LoaderType,
-) -> dict[str, BaseLoader]:
+) -> dict[str, PEARBaseLoader]:
     subsets = {}
     for unique_name in np.unique(experiment_names):
         idx = [index for index, name in enumerate(experiment_names) if name == unique_name]
@@ -51,7 +51,7 @@ def select_experiment_and_sequences(
     is_tile_scan: Optional[bool] = False,
     selected_tile: Optional[int] = None,
     select_all_by_default: bool = False,
-) -> BaseLoader:
+) -> PEARBaseLoader:
     """
     Select the experiment you want to load.
     """
@@ -151,7 +151,7 @@ def load_experiment(
     parent_projections_folder: str,
     n_processes: int,
     options: PEARLoadOptions,
-) -> BaseLoader:
+) -> PEARBaseLoader:
     """
     Load an experiment that is saved with the lamni structure.
     """

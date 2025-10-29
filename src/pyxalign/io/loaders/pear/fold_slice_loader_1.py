@@ -4,12 +4,12 @@ import os
 import h5py
 from pathlib import Path
 from pyxalign.api.types import c_type
-from pyxalign.io.loaders.pear.base_loader import BaseLoader
+from pyxalign.io.loaders.pear.base_loader import PEARBaseLoader
 from pyxalign.io.loaders.pear.base_loader import generate_single_projection_sub_folder
 from pyxalign.timing.timer_utils import InlineTimer, timer
 
 
-class FoldSliceLoaderVersion1(BaseLoader):
+class FoldSliceLoaderVersion1(PEARBaseLoader):
     def get_projection_sub_folder(self, scan_number: int):
         return generate_projection_relative_path(
             scan_number,

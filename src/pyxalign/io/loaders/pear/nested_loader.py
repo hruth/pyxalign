@@ -1,7 +1,7 @@
 from typing import Union
 import numpy as np
 import os
-from pyxalign.io.loaders.pear.base_loader import BaseLoader
+from pyxalign.io.loaders.pear.base_loader import PEARBaseLoader
 from pyxalign.io.loaders.pear.base_loader import generate_single_projection_sub_folder
 from pyxalign.timing.timer_utils import timer, InlineTimer
 from pyxalign.io.loaders.utils import count_digits, extract_s_digit_strings
@@ -9,7 +9,7 @@ from abc import ABC
 from pathlib import Path
 
 
-class NestedLoader(BaseLoader, ABC):
+class PEARNestedLoader(PEARBaseLoader, ABC):
     analysis_folders: dict[int, list[str]] = {}
     n_digits: int = None
 

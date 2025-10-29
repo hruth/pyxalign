@@ -18,9 +18,9 @@ from pathlib import Path
 from pyxalign.timing.timer_utils import timer
 
 
-class BaseLoader(ABC):
+class PEARBaseLoader(ABC):
     """
-    Class for loading ptychography reconstructions saved in the Lamni
+    Class for loading ptychography reconstructions saved in the PEAR
     file structure format.
 
     Parameters

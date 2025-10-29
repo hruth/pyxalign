@@ -2,11 +2,11 @@ import numpy as np
 import os
 import h5py
 from pyxalign.api.types import c_type
-from pyxalign.io.loaders.pear.nested_loader import NestedLoader
+from pyxalign.io.loaders.pear.nested_loader import PEARNestedLoader
 from pyxalign.timing.timer_utils import timer
 
 
-class PearLoaderVersion1(NestedLoader):
+class PearLoaderVersion1(PEARNestedLoader):
     @staticmethod
     def check_if_projection_file(file_path: str) -> bool:
         _, file_name = os.path.split(file_path)

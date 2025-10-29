@@ -1,12 +1,12 @@
 import numpy as np
 from scipy.io import loadmat
 import h5py
-from pyxalign.io.loaders.pear.nested_loader import NestedLoader
+from pyxalign.io.loaders.pear.nested_loader import PEARNestedLoader
 from pyxalign.api.types import c_type
 from pyxalign.timing.timer_utils import timer
 
 
-class FoldSliceLoaderVersion2(NestedLoader):
+class FoldSliceLoaderVersion2(PEARNestedLoader):
     @staticmethod
     @timer()
     def check_if_projection_file(file_path: str) -> bool:
