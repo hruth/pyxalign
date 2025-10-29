@@ -10,7 +10,7 @@ from pyxalign.io.loaders.xrf.api import (
     convert_xrf_projection_dicts_to_arrays,
     load_data_from_xrf_format,
 )
-from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions
+from pyxalign.io.loaders.xrf.options import XRF2IDELoadOptions
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer, XRFVolumeViewer
 

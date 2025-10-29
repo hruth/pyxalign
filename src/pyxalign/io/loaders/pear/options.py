@@ -122,7 +122,7 @@ class MDAPEARLoadOptions(PEARLoadOptions):
 
 
 @dataclasses.dataclass(kw_only=True)
-class Beamline2IDELoadOptions(MDAPEARLoadOptions):
+class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
     # channel_data_path: str = "/MAPS/XRF_roi"
 
     # channel_names_path: str = "/MAPS/channel_names"
@@ -133,7 +133,7 @@ class Beamline2IDELoadOptions(MDAPEARLoadOptions):
 
 
 @dataclasses.dataclass(kw_only=True)
-class Beamline2IDDLoadOptions(MDAPEARLoadOptions):
+class BNP2IDELoadOptions(MDAPEARLoadOptions):
     _mda_file_pattern: str = r"bnp_fly(\d+)\.mda"
 
     _angle_pv_string: str = "9idbTAU:SM:ST:ActPos"

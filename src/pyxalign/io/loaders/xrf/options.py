@@ -30,7 +30,7 @@ class XRFLoadOptions(ABC):
 
 
 @dataclasses.dataclass(kw_only=True)
-class Beamline2IDEXRFLoadOptions(XRFLoadOptions):
+class XRF2IDELoadOptions(XRFLoadOptions):
     _channel_data_path: str = "/MAPS/XRF_roi"
 
     _channel_names_path: str = "/MAPS/channel_names"

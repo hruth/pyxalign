@@ -6,11 +6,11 @@ import os
 import numpy as np
 
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions
+from pyxalign.io.loaders.xrf.options import XRF2IDELoadOptions
 
 
 def load_xrf_experiment(
-    file_names: str, options: Beamline2IDEXRFLoadOptions
+    file_names: str, options: XRF2IDELoadOptions
 ) -> tuple[dict[str, StandardData], dict]:
     all_counts_dict = {}
     angles = []
@@ -92,7 +92,7 @@ def remove_inconsistent_sizes(standard_data: StandardData):
 
 
 # Use V9 structure
-def get_single_file_data(folder: str, file_name: str, options: Beamline2IDEXRFLoadOptions) -> tuple:
+def get_single_file_data(folder: str, file_name: str, options: XRF2IDELoadOptions) -> tuple:
     file_path = os.path.join(folder, file_name)
     with h5py.File(file_path) as F:
         counts_per_second = F[options._channel_data_path][()]
