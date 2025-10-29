@@ -6,7 +6,7 @@ from pyxalign.io.loaders.pear.options import LoaderType
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.pear.options import (
     BaseLoadOptions,
-    Microprobe2IDELoadOptions,
+    Microprobe2IDEPEARLoadOptions,
     LYNXLoadOptions,
 )
 from pyxalign.io.loaders.xrf.api import (
@@ -67,7 +67,7 @@ def load_2ide_ptycho_test_data() -> StandardData:
         scan_start=115,
         scan_end=264,
     )
-    options = Microprobe2IDELoadOptions(
+    options = Microprobe2IDEPEARLoadOptions(
         mda_folder=os.path.join(parent_folder, "mda"),
         base=base_load_options,
     )

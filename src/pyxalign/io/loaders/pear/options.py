@@ -117,15 +117,19 @@ class MDAPEARLoadOptions(PEARLoadOptions):
     """
 
     _mda_file_pattern: str
+    "Filestring pattern of the mda files"
 
     _angle_pv_string: str
+    "String corresponding to the PV that stores the rotation measurement angle"
 
 
 @dataclasses.dataclass(kw_only=True)
 class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
-    # channel_data_path: str = "/MAPS/XRF_roi"
-
-    # channel_names_path: str = "/MAPS/channel_names"
+    """
+    Options class for loading ptychography data that was:
+    - collected by the microprobe instrument at beamline 2IDE
+    - processed using the PEAR wrapper for Pty-Chi
+    """
 
     _mda_file_pattern: str = r"2xfm_(\d+)\.mda"
 
@@ -134,6 +138,7 @@ class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
 
 @dataclasses.dataclass(kw_only=True)
 class BNP2IDELoadOptions(MDAPEARLoadOptions):
+    "test alias"
     _mda_file_pattern: str = r"bnp_fly(\d+)\.mda"
 
     _angle_pv_string: str = "9idbTAU:SM:ST:ActPos"
