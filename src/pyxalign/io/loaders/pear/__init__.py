@@ -3,7 +3,7 @@ from .options import (
     BaseLoadOptions,
     LYNXLoadOptions,
     Microprobe2IDELoadOptions,
-    BNPIDDLoadOptions,
+    BNP2IDDLoadOptions,
     LoaderType,
 )
 
@@ -12,6 +12,6 @@ __all__ = [
     "BaseLoadOptions",
     "LYNXLoadOptions",
     "Microprobe2IDELoadOptions",
-    "BNPIDDLoadOptions",
+    "BNP2IDDLoadOptions",
     "LoaderType",
 ]

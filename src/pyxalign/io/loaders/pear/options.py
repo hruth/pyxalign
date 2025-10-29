@@ -7,6 +7,8 @@ from dataclasses import field
 
 
 class LoaderType(StrEnum):
+    "Loaders compatible with PEAR style loading"
+
     FOLD_SLICE_V1 = auto()
     FOLD_SLICE_V2 = auto()
     PEAR_V1 = auto()
@@ -14,9 +16,17 @@ class LoaderType(StrEnum):
 
 @dataclasses.dataclass(kw_only=True)
 class BaseLoadOptions:
-    parent_projections_folder: str
+    """
+    Options for loading ptychography reconstructions saved using the
+    PEAR wrapper for Pty-Chi.
+    """
 
-    loader_type: LoaderType = LoaderType.PEAR_V1
+    parent_projections_folder: str
+    """
+    Path to directory containg Pty-Chi reconstructions saved in 
+    PEAR format. The folder contents should have entries like 
+    `S0010`, `S0011`, and so on.
+    """
 
     file_pattern: Optional[str] = None
     "pattern used by re to identify matching folder strings"
@@ -28,9 +38,11 @@ class BaseLoadOptions:
     "Upper bound of scans to include."
 
     scan_list: Optional[list[int]] = None
-    """List of scans to load. This serves as an extra filter, meaning that 
+    """
+    List of scans to load. This serves as an extra filter, meaning that 
     `scan_start`, `scan_end`, `file_pattern`, and all other settings/filters
-    will still be applied."""
+    will still be applied.
+    """
 
     file_pattern_priority_list: Optional[list[str]] = None
     """
@@ -64,6 +76,14 @@ class BaseLoadOptions:
 
     select_all_by_default: bool = False
 
+    loader_type: LoaderType = LoaderType.PEAR_V1
+    """
+    The PEAR style loading is compatible with some data saved using 
+    fold_slice, which saves data in a similar format. Change
+    `loader_type` to other values from the `LoaderType` class to 
+    load fold_slice formatted data.
+    """
+
     def print_selections(self):
         if np.all([v is None for v in self.__dict__.values()]):
             print("No loading options provided.", flush=True)
@@ -81,7 +101,17 @@ class PEARLoadOptions(ABC):
 
 @dataclasses.dataclass(kw_only=True)
 class LYNXLoadOptions(PEARLoadOptions):
+    """
+    Options class for loading ptychography data that was:
+    - collected by the **LYNX** instrument
+    - processed using the **PEAR wrapper** for **Pty-Chi**
+    """
+
     dat_file_path: str
+    """
+    Path to the tomography_scannumbers.txt file, which contains the
+    scan numbers, measurement angles, and experiment names.
+    """
 
     selected_experiment_name: Optional[str] = None
     """Name of the experiment to load. Use "unlabeled" to refer to
@@ -127,8 +157,8 @@ class MDAPEARLoadOptions(PEARLoadOptions):
 class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
     """
     Options class for loading ptychography data that was:
-    - collected by the microprobe instrument at beamline 2IDE
-    - processed using the PEAR wrapper for Pty-Chi
+    - collected by the **bionanoprobe** instrument at **beamline 2IDE**
+    - processed using the **PEAR wrapper** for **Pty-Chi**
     """
 
     _mda_file_pattern: str = r"2xfm_(\d+)\.mda"
@@ -137,7 +167,13 @@ class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
 
 
 @dataclasses.dataclass(kw_only=True)
-class BNPIDDLoadOptions(MDAPEARLoadOptions):
+class BNP2IDDLoadOptions(MDAPEARLoadOptions):
+    """
+    Options class for loading ptychography data that was:
+    - collected by the **bionanoprobe** instrument at **beamline 2IDD**
+    - processed using the **PEAR wrapper** for **Pty-Chi**
+    """
+
     _mda_file_pattern: str = r"bnp_fly(\d+)\.mda"
 
     _angle_pv_string: str = "9idbTAU:SM:ST:ActPos"
