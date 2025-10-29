@@ -32,6 +32,7 @@ from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 from pyxalign.transformations.classes import Cropper, Shifter
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 
 
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
@@ -86,7 +87,8 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         # to do
 
     def start_alignment(self):
-        shift = self.task.get_cross_correlation_shift(
+        wrapped_func = loading_bar_wrapper("Getting cross-correlation alignment")(self.task.get_cross_correlation_shift)
+        shift = wrapped_func(
             projection_type=self.projection_type,  # should perhaps move the type into "options"
             plot_results=False,
         )
@@ -113,7 +115,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
 
         sort_idx = np.argsort(self.projections.angles)
         title_strings = [
-            f" scan {scan}, angle {angle:0.2f}"
+            f", scan {scan}, angle {angle:0.2f}"
             for scan, angle in zip(self.projections.scan_numbers, self.projections.angles)
         ]
         self.post_alignment_viewer.reinitialize_all(
@@ -169,11 +171,19 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         # inputs_layout.addWidget(self.start_button)
 
         # Make results display for showing before and after
-        self.pre_alignment_viewer = ArrayViewer(array3d=proj.data, sort_idx=np.argsort(proj.angles))
+        title_strings = [
+            f", scan {scan}, angle {angle:0.2f}"
+            for scan, angle in zip(self.projections.scan_numbers, self.projections.angles)
+        ]
+        self.pre_alignment_viewer = ArrayViewer(
+            array3d=proj.data, 
+            sort_idx=np.argsort(proj.angles), 
+            extra_title_strings_list=title_strings
+        )
         pre_align_label = QLabel("Pre Alignment")
         pre_align_label.setStyleSheet("QLabel { font-size: 14pt;}")
         # viewer for showing aligned data
-        self.post_alignment_viewer = ArrayViewer()
+        self.post_alignment_viewer = ArrayViewer(hide_index_selector_controls=True)
         self.post_alignment_viewer.setEnabled(False)  # Initially disabled
         post_align_label = QLabel("Post Alignment")
         post_align_label.setStyleSheet("QLabel { font-size: 14pt;}")

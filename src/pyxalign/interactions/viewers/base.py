@@ -103,6 +103,7 @@ class ArrayViewer(MultiThreadedWidget):
         array3d: Optional[np.ndarray] = None,  # changed to Optional and given a default value
         options: Optional[ArrayViewerOptions] = None,
         sort_idx: Optional[Sequence] = None,
+        hide_index_selector_controls: bool = False,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
         process_func: Optional[Callable] = None,
@@ -164,6 +165,7 @@ class ArrayViewer(MultiThreadedWidget):
             additional_spinbox_indexing=self.options.additional_spinbox_indexing,
             additional_spinbox_title=self.options.additional_spinbox_titles,
             sort_idx=sort_idx,
+            hide_controls=hide_index_selector_controls,
             parent=parent,
         )
         self.slider, self.spinbox, self.play_button, self.timer = (
@@ -351,6 +353,7 @@ class IndexSelectorWidget(QWidget):
         additional_spinbox_indexing: Optional[list[np.ndarray]] = None,
         additional_spinbox_title: Optional[list[str]] = None,
         sort_idx: Optional[Sequence] = None,
+        hide_controls: bool = False,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
@@ -493,6 +496,14 @@ class IndexSelectorWidget(QWidget):
         }
         """)
         # spin_play_widget.setStyleSheet("QLabel {font-size: 14px;}")
+
+        if hide_controls:
+            self.slider.hide()
+            self.play_button.hide()
+            # self.playback_speed_spin.hide()
+            # self.spinbox.hide()
+            main_spinbox_widget.hide()
+            playback_speed_widget.hide()
 
         if include_play_button:
             # Timer for playback
