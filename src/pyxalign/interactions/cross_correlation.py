@@ -31,6 +31,7 @@ from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 from pyxalign.transformations.classes import Cropper, Shifter
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 
 
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
@@ -132,9 +133,8 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             proj = self.task.complex_projections  # fixed
 
         # Make options editor
-        basic_options_list = ["binning", "filter_position", "filter_data", "crop"]
+        basic_options_list = ["binning", "remove_slow_variation", "filter_position", "filter_data", "crop"]
         basic_options_list += get_all_attribute_names(CropOptions(), parent_prefix="crop")
-        print(basic_options_list)
         self.options_editor = BasicOptionsEditor(
             self.task.options.cross_correlation,
             skip_fields=["precision"],
@@ -240,19 +240,29 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         # self.crop_viewer.setAttribute(Qt.WA_DeleteOnClose)
         self.crop_viewer.show()
 
-
+@switch_to_matplotlib_qt_backend
 def launch_cross_correlation_gui(
     task: "t.LaminographyAlignmentTask",
-    projection_type: enums.ProjectionType.COMPLEX,
+    projection_type: Optional[enums.ProjectionType] = None,
     wait_until_closed: bool = False,
-):
+) -> CrossCorrelationMasterWidget:
     app = QApplication.instance() or QApplication([])
+    if projection_type is None:
+        if task.complex_projections is not None and task.phase_projections is not None:
+            print("""Task has both phase_projections and complex_projections; 
+                  specify what you want to align using `projection_type`""")
+        if task.complex_projections is None:
+            projection_type = enums.ProjectionType.PHASE
+        elif task.phase_projections is None:
+            projection_type = enums.ProjectionType.COMPLEX
     gui = CrossCorrelationMasterWidget(task=task, projection_type=projection_type)
     gui.setAttribute(Qt.WA_DeleteOnClose)
-
     gui.show()
+
     if wait_until_closed:
         app.exec_()
+
+    return gui
 
 
 if __name__ == "__main__":

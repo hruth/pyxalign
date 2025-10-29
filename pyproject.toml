@@ -68,5 +68,7 @@ exclude = [
 [tool.setuptools.package-data]
 "pyxalign" = ["py.typed"]
 
+# Updated: Include both src and examples directories
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
+include = ["pyxalign*", "pyxalign_examples*"]
