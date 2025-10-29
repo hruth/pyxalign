@@ -879,6 +879,7 @@ class ShiftManager:
         self.staged_shift = np.zeros((n_projections, 2))
         self.past_shifts: List[np.ndarray] = []
         self.past_shift_functions: List[enums.ShiftType] = []
+        self.past_eliminate_wrapping: List[bool] = []
         self.past_alignment_options: List[AlignmentOptions] = []
         self.staged_function_type = None
         self.staged_eliminate_wrapping = False
@@ -900,10 +901,12 @@ class ShiftManager:
         # Store staged values
         self.past_shifts += [self.staged_shift]
         self.past_shift_functions += [self.staged_function_type]
+        self.past_eliminate_wrapping += [self.staged_eliminate_wrapping]
         self.past_alignment_options += [self.staged_alignment_options]
         # Clear the staged variables
         self.staged_shift = np.zeros_like(self.staged_shift)
         self.staged_function_type = None
+        self.staged_eliminate_wrapping = None
         self.staged_alignment_options = None
 
     def shift_arrays(
@@ -969,6 +972,7 @@ class ShiftManager:
             images=images,
             masks=masks,
             function_type=self.past_shift_functions[-1],
+            eliminate_wrapping=False,
             device_options=device_options,
         )
         self.past_shifts = self.past_shifts[:-1]

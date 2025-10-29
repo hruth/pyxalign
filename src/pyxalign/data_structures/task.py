@@ -71,6 +71,7 @@ class LaminographyAlignmentTask:
             shift=shift,
             function_type=enums.ShiftType.CIRC,
             alignment_options=self.options.cross_correlation,
+            eliminate_wrapping=True,
         )
         if plot_results:
             projections.plot_shift(

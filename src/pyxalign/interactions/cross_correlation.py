@@ -106,7 +106,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             )
         ]
         self.results_collection_widget.update_table()
-        shift_func = Shifter(ShiftOptions(type=enums.ShiftType.FFT, enabled=True))
+        shift_func = Shifter(ShiftOptions(type=enums.ShiftType.FFT, enabled=True, eliminate_wrapping=True))
         self.pinned_array = shift_func.run(
             images=self.projections.data,
             shift=shift.astype(r_type),
