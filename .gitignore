@@ -10,3 +10,4 @@ untracked_tests/*
 *tests/demo/*
 *src/paths/*
 **hidden/
+docs/build*
