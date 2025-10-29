@@ -2,6 +2,7 @@ from typing import Callable, Optional
 from pyxalign.api.maps import get_process_func_by_enum
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
 import pyxalign.data_structures.projections as p
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.viewers.arrays import ProjectionViewer, VolumeViewer
 from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 import pyxalign.data_structures.xrf_task as x
@@ -259,7 +260,7 @@ class XRFTaskViewer(MultiThreadedWidget):
         # layout.addWidget(tabs)
         # self.setLayout(layout)
 
-
+@switch_to_matplotlib_qt_backend
 def launch_xrf_projections_viewer(
     xrf_task: "x.XRFTask", wait_until_closed: bool = False
 ) -> XRFProjectionsViewer:
@@ -270,7 +271,7 @@ def launch_xrf_projections_viewer(
         app.exec_()
     return gui
 
-
+@switch_to_matplotlib_qt_backend
 def launch_xrf_volume_viewer(
     xrf_task: "x.XRFTask", wait_until_closed: bool = False
 ) -> XRFVolumeViewer:

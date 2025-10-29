@@ -22,6 +22,7 @@ from pyxalign.interactions.initialize_projections import (
 from pyxalign.interactions.io.loader import MainLoadingWidget
 from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.utils import OptionsClass
 
@@ -97,6 +98,7 @@ class MasterWidget(QWidget):
         self.pma_widget.initialize_page(self.task)
 
 
+@switch_to_matplotlib_qt_backend
 def launch_master_gui(
     load_options: Optional[OptionsClass] = None,
     wait_until_closed: bool = False,

@@ -1,5 +1,6 @@
 from turtle import title
 import matplotlib
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.io.loaders.base import StandardData
 
 import sys
@@ -345,7 +346,7 @@ class StandardDataViewer(QWidget):
             # Loop to the beginning
             self.slider.setValue(0)
 
-
+@switch_to_matplotlib_qt_backend
 def launch_standard_data_viewer(
     standard_data: StandardData,
     wait_until_closed: bool = False,

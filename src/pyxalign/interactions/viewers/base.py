@@ -46,6 +46,8 @@ from matplotlib.figure import Figure
 # New import for using pyqtgraph
 import pyqtgraph as pg
 
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+
 P = ParamSpec("P")
 R = TypeVar("R")
 
@@ -699,6 +701,7 @@ class ValidatedSpinBox(QSpinBox):
         self.setValue(cur)
 
 
+@switch_to_matplotlib_qt_backend
 def launch_array_viewer(
     array3d: np.ndarray,
     options: Optional[ArrayViewerOptions] = None,
@@ -722,6 +725,7 @@ def launch_array_viewer(
     return gui
 
 
+@switch_to_matplotlib_qt_backend
 def launch_linked_array_viewer(
     array_list: list[np.ndarray],
     options: Optional[ArrayViewerOptions] = None,

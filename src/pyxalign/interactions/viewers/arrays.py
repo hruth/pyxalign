@@ -8,6 +8,7 @@ import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.viewers.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QApplication,
@@ -662,6 +663,7 @@ def get_projection_title_strings(scan_numbers: np.ndarray, angles: np.ndarray) -
     return title_strings
 
 
+@switch_to_matplotlib_qt_backend
 def launch_projection_viewer(
     projections: "p.Projections",
     options: Optional[ProjectionViewerOptions] = None,
@@ -676,6 +678,7 @@ def launch_projection_viewer(
     return gui
 
 
+@switch_to_matplotlib_qt_backend
 def launch_volume_viewer(
     array_3d: np.ndarray,
     wait_until_closed: bool = False,
