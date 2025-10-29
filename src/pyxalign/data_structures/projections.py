@@ -879,25 +879,28 @@ class ShiftManager:
         self.staged_shift = np.zeros((n_projections, 2))
         self.past_shifts: List[np.ndarray] = []
         self.past_shift_functions: List[enums.ShiftType] = []
-        self.past_shift_options: List[AlignmentOptions] = []
+        self.past_alignment_options: List[AlignmentOptions] = []
         self.staged_function_type = None
+        self.staged_eliminate_wrapping = False
         self.staged_alignment_options = None
 
     def stage_shift(
         self,
         shift: np.ndarray,
         function_type: enums.ShiftType,
+        eliminate_wrapping: bool = False,
         alignment_options: Optional[AlignmentOptions] = None,
     ):
         self.staged_shift = shift
         self.staged_function_type = function_type
+        self.staged_eliminate_wrapping = eliminate_wrapping
         self.staged_alignment_options = alignment_options
 
     def unstage_shift(self):
         # Store staged values
         self.past_shifts += [self.staged_shift]
         self.past_shift_functions += [self.staged_function_type]
-        self.past_shift_options += [self.staged_alignment_options]
+        self.past_alignment_options += [self.staged_alignment_options]
         # Clear the staged variables
         self.staged_shift = np.zeros_like(self.staged_shift)
         self.staged_function_type = None
@@ -909,6 +912,7 @@ class ShiftManager:
         images: np.ndarray,
         masks: np.ndarray,
         function_type: enums.ShiftType,
+        eliminate_wrapping: bool,
         device_options: Optional[DeviceOptions] = None,
     ):
         if device_options is None:
@@ -918,6 +922,7 @@ class ShiftManager:
             enabled=True,
             type=function_type,
             device=device_options,
+            eliminate_wrapping=eliminate_wrapping,
         )
         images[:] = Shifter(shift_options).run(
             images=images,
@@ -948,6 +953,7 @@ class ShiftManager:
                 images=images,
                 masks=masks,
                 function_type=self.staged_function_type,
+                eliminate_wrapping=self.staged_eliminate_wrapping,
                 device_options=device_options,
             )
             self.unstage_shift()
@@ -967,7 +973,7 @@ class ShiftManager:
         )
         self.past_shifts = self.past_shifts[:-1]
         self.past_shift_functions = self.past_shift_functions[:-1]
-        self.past_shift_options = self.past_shift_options[:-1]
+        self.past_alignment_options = self.past_alignment_options[:-1]
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:
