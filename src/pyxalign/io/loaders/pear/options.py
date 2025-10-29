@@ -137,8 +137,7 @@ class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
 
 
 @dataclasses.dataclass(kw_only=True)
-class BNP2IDELoadOptions(MDAPEARLoadOptions):
-    "test alias"
+class BNPIDDLoadOptions(MDAPEARLoadOptions):
     _mda_file_pattern: str = r"bnp_fly(\d+)\.mda"
 
     _angle_pv_string: str = "9idbTAU:SM:ST:ActPos"
