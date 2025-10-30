@@ -299,10 +299,11 @@ def launch_cross_correlation_gui(
             blocking call until the GUI window is closed.
 
     Example:
-        Align the `phase_projections` in `task`. First, launch the
-        cross-correlation gui::
+        **Align the projections in a task object**
 
-            gui = pyxalign.gui.launch_cross_correlation_gui(task)
+        First, launch the cross-correlation gui::
+
+            gui = pyxalign.gui.launch_cross_correlation_gui(task, "PHASE")
 
         Clicking the "start alignment" button will run the cross-
         correlation alignment algorithm with the selected parameters.

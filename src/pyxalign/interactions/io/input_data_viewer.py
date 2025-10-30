@@ -26,8 +26,8 @@ from pyxalign.interactions.viewers.base import IndexSelectorWidget
 
 
 class StandardDataViewer(QWidget):
-    """
-    A PyQt5 Widget for displaying the data stored in StandardData using pyqtgraph.
+    """A PyQt5 Widget for displaying the data stored in StandardData using
+    pyqtgraph.
 
     Key Changes from the basic version:
       - If projections are complex, display np.angle(projection).
@@ -227,8 +227,9 @@ class StandardDataViewer(QWidget):
         self._update_display(0)
 
     def _on_index_changed(self, value: int):
-        """
-        Callback for both the slider and spinbox. Keeps them synchronized and updates the display.
+        """Callback for both the slider and spinbox.
+
+        Keeps them synchronized and updates the display.
         """
         # Prevent signals from looping
         if self.sender() == self.slider:
@@ -243,22 +244,21 @@ class StandardDataViewer(QWidget):
         self._update_display(value)
 
     def _update_display(self, idx: int):
-        """
-        Update the projection view and conditionally update probe positions based on current tab.
-        """
+        """Update the projection view and conditionally update probe positions
+        based on current tab."""
         if not self.data or idx >= len(self.data.scan_numbers):
             return
 
         scan_num = self.data.scan_numbers[idx]
         self._set_projection_in_viewer(scan_num)
-        
+
         # Only update probe positions if that tab is currently visible
         if self.tab_widget.currentIndex() == 1:  # Probe positions tab index
             self._update_probe_positions(scan_num)
 
     def _set_projection_in_viewer(self, scan_num: int):
-        """
-        Retrieve the projection for the given scan number and display it.
+        """Retrieve the projection for the given scan number and display it.
+
         If the projection is complex, display np.angle(projection).
         """
         if not self.data or not self.data.projections:
@@ -278,9 +278,8 @@ class StandardDataViewer(QWidget):
         self.image_view.setImage(np.transpose(data_to_show), autoLevels=True)
 
     def _update_probe_positions(self, scan_num: int):
-        """
-        Clear the probe_pos_plot and draw a scatter of probe positions for the given scan, if available.
-        """
+        """Clear the probe_pos_plot and draw a scatter of probe positions for
+        the given scan, if available."""
         self.probe_pos_plot.clear()
 
         if self.data and self.data.probe_positions and scan_num in self.data.probe_positions:
@@ -295,9 +294,8 @@ class StandardDataViewer(QWidget):
             )
 
     def _on_tab_changed(self, index: int):
-        """
-        Handle tab changes to synchronize probe positions when switching to that tab.
-        """
+        """Handle tab changes to synchronize probe positions when switching to
+        that tab."""
         if index == 1:  # Probe positions tab
             # Update probe positions to match current projection index
             current_idx = self.slider.value()
@@ -309,9 +307,7 @@ class StandardDataViewer(QWidget):
     # PLAYBACK LOGIC
     # ---------------------------
     def _on_play_clicked(self):
-        """
-        Toggle play/pause of stepping through frames.
-        """
+        """Toggle play/pause of stepping through frames."""
         if not self.data or len(self.data.scan_numbers) == 0:
             return
         if not self.is_playing:
@@ -327,10 +323,8 @@ class StandardDataViewer(QWidget):
             self.play_timer.stop()
 
     def _on_playback_speed_changed(self, value: int):
-        """
-        Update the interval (ms) at which the frames advance,
-        if playback is active this immediately changes the timer rate.
-        """
+        """Update the interval (ms) at which the frames advance, if playback is
+        active this immediately changes the timer rate."""
         if self.is_playing:
             self.play_timer.setInterval(value)
 
@@ -346,11 +340,30 @@ class StandardDataViewer(QWidget):
             # Loop to the beginning
             self.slider.setValue(0)
 
+
 @switch_to_matplotlib_qt_backend
 def launch_standard_data_viewer(
     standard_data: StandardData,
     wait_until_closed: bool = False,
 ):
+    """Launch the GUI for displaying loaded data that is in the `StandardData`
+    format.
+
+    Args:
+        standard_data (StandardData): standardized data to be displayed
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Display the PEAR formatted ptychography 
+        data::
+            # load data
+            standard_data = pyxalign.io.loaders.pear.load_data_from_pear_format(
+                load_options
+            )
+            # launch input data viewer
+            gui = pyxalign.gui.launch_standard_data_viewer(standard_data)
+    """
     app = QApplication.instance() or QApplication([])
     gui = StandardDataViewer(standard_data)
     gui.setAttribute(Qt.WA_DeleteOnClose)

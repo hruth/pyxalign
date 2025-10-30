@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (
 from pyxalign.api.enums import RoundType
 import pyxalign.data_structures.projections as p
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.mask import place_patches_fourier_batch
 from pyxalign.interactions.viewers.base import IndexSelectorWidget
 from pyxalign.mask import clip_masks
@@ -87,8 +88,8 @@ class PGCanvas(QWidget):
         idx: int,
         threshold: float,
     ) -> None:
-        """
-        Update displayed images for frame *idx* and *threshold*.
+        """Update displayed images for frame *idx* and *threshold*.
+
         The logic matches the former Matplotlib implementation.
         """
         # build binary mask clip
@@ -126,8 +127,7 @@ class PGCanvas(QWidget):
 
 
 class ThresholdSelector(QWidget):
-    """
-    Interactive tool to choose a binary-threshold for automatically
+    """Interactive tool to choose a binary-threshold for automatically
     generated “probe-patch” masks.
 
     Signals
@@ -250,9 +250,9 @@ class ThresholdSelector(QWidget):
         self._update_plot()
 
     def _update_plot(self, value: int | None = None, *, initial: bool = False) -> None:
-        """
-        Refresh pyqtgraph images. Called when slider/spinbox changes or
-        threshold changes.
+        """Refresh pyqtgraph images.
+
+        Called when slider/spinbox changes or threshold changes.
         """
         if value is None:  # called from threshold change
             value = self.slider.value()
@@ -312,10 +312,28 @@ class ThresholdSelector(QWidget):
         self.close()
 
 
+@switch_to_matplotlib_qt_backend
 def launch_mask_builder(
     projections: "p.Projections",
     wait_until_closed: bool = False,
 ):
+    """Launch the GUI for interactively building masks from the probe
+    positions. This GUI first by places a probe at each probe position using
+    FFT-based convolution and then the user interactively sets the threshold
+    above which the mask is equal to 1.
+
+    Args:
+        projections (Projections): projections object to create masks
+            for. The projections object must have probe positions in
+            order to run this function.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Launch the mask creation
+        GUI::
+            gui = pyxalign.gui.launch_mask_builder(task.complex_projections)
+    """
     app = QApplication.instance() or QApplication([])
     gui = ThresholdSelector(projections)
     gui.show()

@@ -48,7 +48,7 @@ color_list = list(matplotlib.colors.TABLEAU_COLORS.values())
 
 
 class VolumeViewer(MultiThreadedWidget):
-    """Widget for frames of a 3D reconstruction"""
+    """Widget for frames of a 3D reconstruction."""
 
     def __init__(
         self,
@@ -118,7 +118,7 @@ class VolumeViewer(MultiThreadedWidget):
 
 
 class ProjectionViewer(MultiThreadedWidget):
-    """Widget for viewing projections"""
+    """Widget for viewing projections."""
 
     masks_created = pyqtSignal(np.ndarray)
 
@@ -671,12 +671,27 @@ def get_projection_title_strings(scan_numbers: np.ndarray, angles: np.ndarray) -
 @switch_to_matplotlib_qt_backend
 def launch_projection_viewer(
     projections: "p.Projections",
-    options: Optional[ProjectionViewerOptions] = None,
     display_only: bool = False,
     wait_until_closed: bool = False,
 ) -> ProjectionViewer:
+    """Launch a GUI for interactively viewing and updating a `Projections`
+    object.
+
+    Args:
+        projections (Projections): The projections to display.
+        display_only (bool): If enabled, interactive features like scan
+            removal will not be available. Defaults to false.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Launch a GUI for interactively viewing a `ComplexProjections`
+        object::
+
+            gui = pyxalign.gui.launch_projection_viewer(task.complex_projections)
+    """
     app = QApplication.instance() or QApplication([])
-    gui = ProjectionViewer(projections, options, display_only=display_only)
+    gui = ProjectionViewer(projections, display_only=display_only)
     gui.show()
     if wait_until_closed:
         app.exec_()
@@ -688,6 +703,22 @@ def launch_volume_viewer(
     array_3d: np.ndarray,
     wait_until_closed: bool = False,
 ) -> VolumeViewer:
+    """Launch the volume viewer GUI. This viewer shows three interactive plots
+    where you can index through each layer of the 3D array. Each of the three
+    interactive plots indexes through a different dimension of the input array.
+
+    Args:
+        array_3d (np.ndarray): A 3-dimensional array.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Reconstruct the 3D volume and display it
+        interactively::
+
+            task.phase_projections.get_3D_reconstruction()
+            gui = pyxalign.gui.launch_volume_viewer(task.phase_projections.volume.data)
+    """
     app = QApplication.instance() or QApplication([])
     gui = VolumeViewer(volume=array_3d)
     gui.show()

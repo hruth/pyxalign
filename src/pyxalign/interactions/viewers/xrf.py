@@ -83,7 +83,7 @@ class XRFChannelSelectorWidget(QWidget):
 
 
 class XRFProjectionsViewer(MultiThreadedWidget):
-    """Widget for viewing all XRF projections"""
+    """Widget for viewing all XRF projections."""
 
     def __init__(
         self,
@@ -152,7 +152,7 @@ class XRFProjectionsViewer(MultiThreadedWidget):
 
 
 class XRFVolumeViewer(MultiThreadedWidget):
-    """Widget for viewing all XRF volumes"""
+    """Widget for viewing all XRF volumes."""
 
     def __init__(
         self,
@@ -260,10 +260,25 @@ class XRFTaskViewer(MultiThreadedWidget):
         # layout.addWidget(tabs)
         # self.setLayout(layout)
 
+
 @switch_to_matplotlib_qt_backend
 def launch_xrf_projections_viewer(
     xrf_task: "x.XRFTask", wait_until_closed: bool = False
 ) -> XRFProjectionsViewer:
+    """Launch a GUI for interactively viewing the projections in an `XRFTask`
+    object. This GUI will show projections for all channels of the `XRFTask`.
+
+    Args:
+        xrf_task (XRFTask): The `XRFTask` to be displayed.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Launch a GUI for interactively viewing an `XRFTask`
+        object::
+
+            gui = pyxalign.gui.launch_xrf_projections_viewer(xrf_task)
+    """
     app = QApplication.instance() or QApplication([])
     gui = XRFProjectionsViewer(xrf_task)
     gui.show()
@@ -271,10 +286,26 @@ def launch_xrf_projections_viewer(
         app.exec_()
     return gui
 
+
 @switch_to_matplotlib_qt_backend
 def launch_xrf_volume_viewer(
     xrf_task: "x.XRFTask", wait_until_closed: bool = False
 ) -> XRFVolumeViewer:
+    """Launch a GUI for interactively viewing the volumes in an `XRFTask`
+    object. This GUI will show the reconstructed volumes for all channels of
+    the `XRFTask`.
+
+    Args:
+        xrf_task (XRFTask): The `XRFTask` to be displayed.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Launch a GUI for interactively viewing the 3D volumes in an
+        `XRFTask` object::
+
+            gui = pyxalign.gui.launch_xrf_volume_viewer(xrf_task)
+    """
     app = QApplication.instance() or QApplication([])
     gui = XRFVolumeViewer(xrf_task)
     gui.show()

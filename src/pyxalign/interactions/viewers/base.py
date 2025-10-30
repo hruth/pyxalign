@@ -535,8 +535,7 @@ class IndexSelectorWidget(QWidget):
 
 
 class ValidatedSpinBox(QSpinBox):
-    """
-    QSpinBox that only accepts values from a discrete allowed set.
+    """QSpinBox that only accepts values from a discrete allowed set.
 
     - Preserves the input order of allowed_values (no sorting).
     - While typing, prefixes of allowed values are permitted (Intermediate).
@@ -557,8 +556,7 @@ class ValidatedSpinBox(QSpinBox):
     def set_allowed_values(
         self, allowed_values, set_value_to: Optional[int] = None
     ):  # *, reconcile="nearest"):
-        """
-        Update the allowed values after construction.
+        """Update the allowed values after construction.
 
         Parameters
         ----------
@@ -625,7 +623,8 @@ class ValidatedSpinBox(QSpinBox):
         return any(asv.startswith(s) or asv.startswith(s_no_zeros) for asv in self._allowed_strs)
 
     def _nearest(self, x: int) -> int:
-        """Return numerically closest value in _sorted_vals to x (ties -> smaller)."""
+        """Return numerically closest value in _sorted_vals to x (ties ->
+        smaller)."""
         a = self._sorted_vals
         i = bisect.bisect_left(a, x)
         if i == 0:
@@ -666,9 +665,10 @@ class ValidatedSpinBox(QSpinBox):
         return str(value)
 
     def stepBy(self, steps):
-        """
-        Step to the numerically next/previous allowed value, regardless of
-        input order. Supports multi-step (e.g., steps=±2).
+        """Step to the numerically next/previous allowed value, regardless of
+        input order.
+
+        Supports multi-step (e.g., steps=±2).
         """
         if steps == 0:
             return
@@ -709,7 +709,26 @@ def launch_array_viewer(
     extra_title_strings_list: Optional[list[str]] = None,
     process_func: Optional[Callable] = None,
     wait_until_closed: bool = False,
-):
+) -> ArrayViewer:
+    """Launch the array viewer GUI. This GUI lets you interactively view each
+    layer of a 3D array.
+
+    Args:
+        array3d (np.ndarray): A 3-dimensional array. The GUI indexes
+            along the 0th axis of the input `array3d`.
+        options (Optional[ArrayViewerOptions]): Optional settings for
+            specifying the state that the `ArrayViewer` GUI is initialized in.
+        sort_idx (Optional[extra_title_strings_list]): Sequence for
+            sorting the input array; must have the same length as
+            `array3d`
+        extra_title_strings_list (Optional[list[str]]): List of strings
+            to to append to the title; must have the same length as
+            `array3d`
+        process_func (Optional[Callable]): function to apply to
+            `array3d` before displaying it.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+    """
     app = QApplication.instance() or QApplication([])
     gui = ArrayViewer(
         array3d,
@@ -734,6 +753,33 @@ def launch_linked_array_viewer(
     process_func: Optional[Callable] = None,
     wait_until_closed: bool = False,
 ):
+    """Launch multiple `ArrayViewer` GUIs with linked indexing. This function is useful for
+    comparing frames of multiple 3D arrays at once.
+
+    Args:
+        array_list (np.ndarray): A list of 3-dimensional arrays. The GUI
+            indexes along the 0th axis of the input `array3d`. Each 
+            array in the list must have the same length
+        options (Optional[ArrayViewerOptions]): Optional settings for
+            specifying the state that each `ArrayViewer` GUI is initialized in.
+        sort_idx (Optional[extra_title_strings_list]): Sequence for
+            sorting the input array; must have the same length as
+            the arrays in `array_list`
+        extra_title_strings_list (Optional[list[str]]): List of strings
+            to to append to the title; must have the same length as
+            arrays in `array_list`.
+        process_func (Optional[Callable]): function to apply to
+            `array3d` before displaying it.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Compare two different volume 
+        arrays::
+
+            gui = pyxalign.gui.launch_linked_array_viewer([volume_array_1, volume_array_2])
+
+    """
     app = QApplication.instance() or QApplication([])
     gui = LinkedArrayViewer(
         array_list,
