@@ -14,17 +14,15 @@ class LoaderType(StrEnum):
     PEAR_V1 = auto()
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class BaseLoadOptions:
-    """
-    Options for loading ptychography reconstructions saved using the
-    PEAR wrapper for Pty-Chi.
-    """
+    """Options for loading ptychography reconstructions saved using the PEAR
+    wrapper for Pty-Chi."""
 
-    parent_projections_folder: str
-    """
-    Path to directory containg Pty-Chi reconstructions saved in 
-    PEAR format. The folder contents should have entries like 
+    parent_projections_folder: str = ""
+    """Path to directory containg Pty-Chi reconstructions saved in PEAR format.
+
+    The folder contents should have entries like
     `S0010`, `S0011`, and so on.
     """
 
@@ -38,23 +36,23 @@ class BaseLoadOptions:
     "Upper bound of scans to include."
 
     scan_list: Optional[list[int]] = None
-    """
-    List of scans to load. This serves as an extra filter, meaning that 
+    """List of scans to load.
+
+    This serves as an extra filter, meaning that
     `scan_start`, `scan_end`, `file_pattern`, and all other settings/filters
     will still be applied.
     """
 
     file_pattern_priority_list: Optional[list[str]] = None
-    """
-    If multiple matching files are found, iterate through this list
-    select the first file that matches the member of this list.
-    """
+    """If multiple matching files are found, iterate through this list select
+    the first file that matches the member of this list."""
 
     skip_files_not_in_priority_list: bool = True
-    """
-    Only applies when file_pattern_priority_list is not `None`. This 
-    dictates what to do if there is a scan that has a file that matches 
-    `file_pattern` but not any of the patterns in 
+    """Only applies when file_pattern_priority_list is not `None`.
+
+    This
+    dictates what to do if there is a scan that has a file that matches
+    `file_pattern` but not any of the patterns in
     `file_pattern_priority_list`.
     """
 
@@ -65,10 +63,11 @@ class BaseLoadOptions:
     "Exclude files with any of these strings in the ptycho file string."
 
     selected_ptycho_strings: Optional[list[str]] = None
-    """
-    List of ptycho file strings that are allowed to be loaded, 
-    in prioritized order. The ptycho file strings are strings
-    extracted from the projection file names. 
+    """List of ptycho file strings that are allowed to be loaded, in
+    prioritized order.
+
+    The ptycho file strings are strings extracted from the projection
+    file names.
     """
 
     ask_for_backup_files: bool = False
@@ -77,10 +76,11 @@ class BaseLoadOptions:
     select_all_by_default: bool = False
 
     loader_type: LoaderType = LoaderType.PEAR_V1
-    """
-    The PEAR style loading is compatible with some data saved using 
-    fold_slice, which saves data in a similar format. Change
-    `loader_type` to other values from the `LoaderType` class to 
+    """The PEAR style loading is compatible with some data saved using
+    fold_slice, which saves data in a similar format.
+
+    Change
+    `loader_type` to other values from the `LoaderType` class to
     load fold_slice formatted data.
     """
 
@@ -99,66 +99,69 @@ class PEARLoadOptions(ABC):
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class LYNXLoadOptions(PEARLoadOptions):
     """
     Options class for loading ptychography data that was:
-    - collected by the **LYNX** instrument
-    - processed using the **PEAR wrapper** for **Pty-Chi**
+
+    * collected by the **LYNX** instrument
+    * processed using the **PEAR wrapper** for **Pty-Chi**
     """
 
-    dat_file_path: str
-    """
-    Path to the tomography_scannumbers.txt file, which contains the
-    scan numbers, measurement angles, and experiment names.
-    """
+    dat_file_path: str = ""
+    """Path to the tomography_scannumbers.txt file, which contains the scan
+    numbers, measurement angles, and experiment names."""
 
     selected_experiment_name: Optional[str] = None
-    """Name of the experiment to load. Use "unlabeled" to refer to
-    experiments that do not have a name specified in the dat file."""
+    """Name of the experiment to load.
+
+    Use "unlabeled" to refer to experiments that do not have a name
+    specified in the dat file.
+    """
 
     selected_sequences: Optional[tuple[int]] = None
-    """
-    List of sequence numbers to load in. Each sequence corresponds
-    to a set of measurements taken sequentially over a 360 degree range.
-    The sequence number of a projection comes from the dat file.
+    """List of sequence numbers to load in.
+
+    Each sequence corresponds to a set of measurements taken
+    sequentially over a 360 degree range. The sequence number of a
+    projection comes from the dat file.
     """
 
     is_tile_scan: bool = False
+    """Specifies if data was taken in tile scan configuration.
+
+    You can tell if data was taken in tile scan configuration by
+    checking if the scan numbers in the tomography_scannumbers file
     """
-    Specifies if data was taken in tile scan configuration. You can tell
-    if data was taken in tile scan configuration by checking if the scan
-    numbers in the tomography_scannumbers file """
 
     selected_tile: Optional[int] = None
-    """
-    The tile number to select. This is 1-indexed, so the minimum allowed
-    value is 1 and the maximum allowed value is equal to the number of
-    tiles.
+    """The tile number to select.
+
+    This is 1-indexed, so the minimum allowed value is 1 and the maximum
+    allowed value is equal to the number of tiles.
     """
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class MDAPEARLoadOptions(PEARLoadOptions):
-    mda_folder: str
-    """
-    Folder containing MDA files, which in turn contain information
-    about the measurement, including the measurment angle.
-    """
+    mda_folder: str = ""
+    """Folder containing MDA files, which in turn contain information about the
+    measurement, including the measurment angle."""
 
-    _mda_file_pattern: str
+    _mda_file_pattern: str = ""
     "Filestring pattern of the mda files"
 
-    _angle_pv_string: str
+    _angle_pv_string: str = ""
     "String corresponding to the PV that stores the rotation measurement angle"
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
     """
     Options class for loading ptychography data that was:
-    - collected by the **bionanoprobe** instrument at **beamline 2IDE**
-    - processed using the **PEAR wrapper** for **Pty-Chi**
+
+    * collected by the **bionanoprobe** instrument at **beamline 2IDE**
+    * processed using the **PEAR wrapper** for **Pty-Chi**
     """
 
     _mda_file_pattern: str = r"2xfm_(\d+)\.mda"
@@ -166,12 +169,12 @@ class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
     _angle_pv_string: str = "2xfm:m60.VAL"
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class BNP2IDDLoadOptions(MDAPEARLoadOptions):
     """
     Options class for loading ptychography data that was:
-    - collected by the **bionanoprobe** instrument at **beamline 2IDD**
-    - processed using the **PEAR wrapper** for **Pty-Chi**
+    * collected by the **bionanoprobe** instrument at **beamline 2IDD**
+    * processed using the **PEAR wrapper** for **Pty-Chi**
     """
 
     _mda_file_pattern: str = r"bnp_fly(\d+)\.mda"

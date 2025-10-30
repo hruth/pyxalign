@@ -67,13 +67,13 @@ exclude = [
 
 [tool.ruff.format]
 docstring-code-format = true
-docstring-code-line-length = 79
+docstring-code-line-length = 72
 [tool.setuptools.package-data]
 "pyxalign" = ["py.typed"]
 
 [tool.docformatter]
 recursive = true
-wrap-summaries = 79
+wrap-summaries = 72
 wrap-descriptions = 72
 blank = true
 

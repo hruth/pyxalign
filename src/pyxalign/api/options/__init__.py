@@ -20,6 +20,7 @@ from .alignment import (
     ReconstructionMaskOptions,
     StepMomentum,
     RefineGeometryOptions,
+    PositivityConstraint,
 )
 from .projections import (
     CoordinateSearchOptions,

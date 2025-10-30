@@ -147,6 +147,7 @@ def full_2ide_xrf_processing(
             )
 
         xrf_task.clear_pma_gui_list()
+        ci_test_helper.save_checkpoint_task(xrf_task, "aligned_xrf_task.h5")
 
         ci_test_helper.save_checkpoint_task(xrf_task, "aligned_xrf_task.h5")
         # print results of the test even when not running with pytest

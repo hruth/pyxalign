@@ -156,14 +156,23 @@ class ProjectionMatchingAligner(Aligner):
             n_pix=self.n_pix,
             update_geometries=update_geometries,
         )
+
+        # post processing of 3D volume
         if self.options.reconstruction_mask.enabled:
             self.aligned_projections.volume.apply_circular_window(circulo)
-            # Store data for the forward projection
+        self.regularize_reconstruction()
+        self.apply_positivity_constraint()
+        if (
+            self.options.positivity_constraint.enabled
+            or self.options.regularization.enabled
+            or self.options.reconstruction_mask.enabled
+        ):
+            # Store the updated reconstruction
             astra.data3d.store(
                 self.aligned_projections.volume.astra_config["ReconstructionDataId"],
                 self.aligned_projections.volume.data,
             )
-        self.regularize_reconstruction()
+
         if self.iteration == self.options.iterations:
             return
         # Get forward projection
@@ -514,11 +523,13 @@ class ProjectionMatchingAligner(Aligner):
                 self.options.regularization.local_TV_lambda,
                 self.options.regularization.iterations,
             )
-            # Store the updated reconstruction
-            astra.data3d.store(
-                self.aligned_projections.volume.astra_config["ReconstructionDataId"],
-                self.aligned_projections.volume.data,
-            )
+
+    @timer()
+    def apply_positivity_constraint(self):
+        if self.options.positivity_constraint.enabled:
+            thresh = self.options.positivity_constraint.threshold
+            idx = self.aligned_projections.volume.data < thresh
+            self.aligned_projections.volume.data[idx] = thresh
 
     @timer()
     def initialize_arrays(self):
