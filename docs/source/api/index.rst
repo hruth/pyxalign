@@ -9,3 +9,4 @@ API Reference
    options
    enums
    gui
+   image_utils

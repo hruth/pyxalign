@@ -32,9 +32,12 @@ branch of pty-chi.
    :show-inheritance:
    :undoc-members:
    :inherited-members:
-   :exclude-members: BaseLoadOptions, load_data_from_pear_format, LYNXLoadOptions
+   :exclude-members: BaseLoadOptions, load_data_from_pear_format, LYNXLoadOptions, LoaderType
    :member-order: bysource
 
+.. autoclass:: pyxalign.io.loaders.pear.LoaderType
+   :members:
+   :member-order: bysource
 
 XRF
 ^^^
