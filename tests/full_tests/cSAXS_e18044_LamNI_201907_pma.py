@@ -54,7 +54,8 @@ def cSAXS_e18044_LamNI_201907_projection_matching_alignment(
     task = ci_test_helper.load_checkpoint_task(file_name="pre_pma_task.h5")
     ### Projection-matching alignment ####
     # Use a much smaller mask for alignment
-    task.phase_projections.get_masks_from_probe_positions(15)
+    task.phase_projections.options.mask_from_positions.threshold = 15
+    task.phase_projections.get_masks_from_probe_positions()
     task.phase_projections.pin_arrays()
     # Define projection matching options
     pma_options = task.options.projection_matching

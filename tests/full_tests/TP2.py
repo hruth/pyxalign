@@ -171,7 +171,8 @@ def run_full_test_TP2(
 
         ### Get projection masks ###
         # Calculate masks from probe positions data
-        task.complex_projections.get_masks_from_probe_positions(0.1)
+        task.complex_projections.options.mask_from_positions.threshold = 0.1
+        task.complex_projections.get_masks_from_probe_positions()
 
         ### Unwrap phase ###
         # Unwrap phase and create phase_projections object

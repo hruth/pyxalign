@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, List
+from typing import Optional, List
 
 import numpy as np
 import pyqtgraph as pg
@@ -15,9 +15,11 @@ from PyQt5.QtWidgets import (
     QPushButton,
 )
 
+import pyxalign.data_structures.projections as p
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 from pyxalign.mask import place_patches_fourier_batch
 from pyxalign.interactions.viewers.base import IndexSelectorWidget
+from pyxalign.mask import clip_masks
 
 """
 Interactive mask threshold selector based on pyqtgraph and the shared
@@ -27,29 +29,6 @@ This file replaces the previous Matplotlib-based implementation with a fast
 Qt/pyqtgraph GUI and removes the bespoke slider / play logic in favour of the
 centralised IndexSelectorWidget (see plotting/interactive/base.py).
 """
-
-
-# ------------------------------------------------------------------------------
-# Utility helpers (kept from original file)
-# ------------------------------------------------------------------------------
-
-
-def clip_masks(masks: np.ndarray, threshold: float) -> np.ndarray:
-    """Binarise mask stack at *threshold* (in-place) and return it."""
-    clip_idx = masks > threshold
-    masks[:] = 0
-    masks[clip_idx] = 1
-    return masks
-
-
-def build_masks_from_threshold(
-    shape: tuple[int, int, int],
-    probe: np.ndarray,
-    positions: List[np.ndarray],
-    threshold: float,
-) -> np.ndarray:
-    masks = place_patches_fourier_batch(shape, probe, positions)
-    return clip_masks(masks, threshold)
 
 
 # ------------------------------------------------------------------------------
@@ -330,22 +309,24 @@ class ThresholdSelector(QWidget):
 
 
 def launch_mask_builder(
-    projections_array: np.ndarray,
-    probe: np.ndarray,
-    probe_positions: list[np.ndarray],
-    initial_threshold: Optional[float] = None,
-    mask_receiver_function: Optional[Callable] = None,
+    projections: "p.Projections",
+    # projections_array: np.ndarray,
+    # probe: np.ndarray,
+    # probe_positions: list[np.ndarray],
+    # initial_threshold: Optional[float] = None,
+    # mask_receiver_function: Optional[Callable] = None,
     wait_until_closed: bool = False,
 ):
     app = QApplication.instance() or QApplication([])
     gui = ThresholdSelector(
-        projections_array,
-        probe,
-        probe_positions,
-        init_thresh=initial_threshold,
+        projections.data,
+        projections.probe,
+        projections.probe_positions.data,
+        init_thresh=projections.options.mask_from_positions.threshold,
     )
-    if mask_receiver_function is not None:
-        gui.masks_created.connect(mask_receiver_function)
+    # mask_receiver_function=projections._receive_masks
+    # if mask_receiver_function is not None:
+    #     gui.masks_created.connect(mask_receiver_function)
     gui.show()
     gui.setAttribute(Qt.WA_DeleteOnClose)
     if wait_until_closed:

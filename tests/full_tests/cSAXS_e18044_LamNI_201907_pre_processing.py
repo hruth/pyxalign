@@ -152,7 +152,8 @@ def cSAXS_e18044_LamNI_201907_pre_processing(
         # Use symmetric gaussian probe instead of measured probe
         task.complex_projections.replace_probe_with_gaussian(amplitude=1, sigma=128)
         # Calculate masks from probe positions data
-        task.complex_projections.get_masks_from_probe_positions(threshold=3)
+        task.complex_projections.options.mask_from_positions.threshold = 3
+        task.complex_projections.get_masks_from_probe_positions()
 
         ### Unwrap phase ###
         # Unwrap phase and create phase_projections object

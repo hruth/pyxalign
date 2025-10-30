@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 import cupy as cp
 import numpy as np
 import scipy
@@ -362,6 +362,29 @@ def place_patches_fourier_batch(
         masks_out = masks_out[:, a:-a, a:-a] * 1 
 
     return masks_out
+
+
+# ------------------------------------------------------------------------------
+# Utility helpers (kept from original file)
+# ------------------------------------------------------------------------------
+
+
+def clip_masks(masks: np.ndarray, threshold: float) -> np.ndarray:
+    """Binarise mask stack at *threshold* (in-place) and return it."""
+    clip_idx = masks > threshold
+    masks[:] = 0
+    masks[clip_idx] = 1
+    return masks
+
+
+def build_masks_from_threshold(
+    shape: tuple[int, int, int],
+    probe: np.ndarray,
+    positions: List[np.ndarray],
+    threshold: float,
+) -> np.ndarray:
+    masks = place_patches_fourier_batch(shape, probe, positions)
+    return clip_masks(masks, threshold)
 
 
 # class IlluminationMapMaskBuilder:

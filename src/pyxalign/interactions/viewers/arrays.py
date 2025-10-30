@@ -6,6 +6,7 @@ from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOp
 from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
+from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
@@ -238,13 +239,22 @@ class ProjectionViewer(MultiThreadedWidget):
         self.projection_dropping_widget.show()
 
     def open_mask_creation_window(self):
-        self.projections.get_masks_from_probe_positions(wait_until_closed=False)
-        self.projections.mask_gui.masks_created.connect(self.on_masks_created)
+        self.mask_gui = launch_mask_builder(
+            self.projections,
+            wait_until_closed=False,
+        )
+        self.mask_gui.masks_created.connect(self.on_masks_created)
 
     def on_masks_created(self):
+        new_masks = self.mask_gui.masks
+        if self.projections.masks is None or self.projections.masks.shape != new_masks.shape:
+            self.projections.masks = new_masks
+        else:
+            self.projections.masks[:] = new_masks
+        self.projections.options.mask_from_positions.threshold = self.mask_gui.threshold
+
         self.update_array_selector()
         self.array_viewer.refresh_frame()
-        self.masks_created.emit(self.projections.masks)
 
     def update_array_selector(self):
         add_masks = self.projections.masks is not None and (self.masks_name not in self.array_names)
