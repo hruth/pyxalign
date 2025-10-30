@@ -247,7 +247,7 @@ class XRFTask:
         with h5py.File(file_path, "w") as h5_obj:
             proj_channels_group = h5_obj.create_group("projections")
             for channel in save_channels:
-                self.projections_dict[channel].save_projections_object(
+                self.projections_dict[channel]._save_projections_object(
                     h5_obj=proj_channels_group.create_group(channel)
                 )
             save_generic_data_structure_to_h5(

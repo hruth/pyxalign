@@ -1,9 +1,5 @@
 import dataclasses
 from dataclasses import field
-from numbers import Number
-from typing import Optional
-
-from matplotlib.pyplot import viridis
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.transform import DownsampleOptions
 from pyxalign.api import enums
@@ -12,24 +8,38 @@ from functools import partial
 
 @dataclasses.dataclass
 class ExperimentOptions:
+    """Options related to the experimental configuration."""
+
     laminography_angle: float = 61.1
+    """
+    Laminography angle in degrees. For tomography data, set this to 90.
+    """
 
     sample_thickness: float = 7e-6
+    """
+    Estimate of the sample thickness in meters.
+    """
 
     pixel_size: float = 1.0
+    """"
+    Estimate of the pixels size in meters.
+    """
 
 
 @dataclasses.dataclass
 class MorphologicalMaskOptions:
     downsample: DownsampleOptions = field(
         default_factory=partial(
-            DownsampleOptions, type=enums.DownsampleType.NEAREST, scale=4, enabled=True
+            DownsampleOptions,
+            type=enums.DownsampleType.NEAREST,
+            scale=4,
+            enabled=True,
         )
     )
-
-    # upsample_options = UpsampleOptions(
-    #     type=enums.UpsampleType.NEAREST, scale=4, enabled=True, device_options=enums.DeviceType.CPU
-    # )
+    """
+    Options for downsampling data before doing any of the other
+    morphological transformations.
+    """
 
     binary_close_coefficient: int = 30
 

@@ -68,9 +68,23 @@ class ProjectionTransformOptions:
 
 @dataclasses.dataclass
 class VolumeWidthOptions:
+    """
+    Options for determining the reconstructed volume size. The
+    reconstructed volume defaults to the width of the projection
+    when `use_custom_width` is `False`.
+    """
+
     use_custom_width: bool = False
+    """
+    Determines if `multiplier` is used to change the reconstructed 
+    volume width or not.
+    """
 
     multiplier: float = 1
+    """
+    If `use_custom_width` is `True`, the reconstructed volume size is 
+    equal to the projection width multiplied by `multiplier`.
+    """
 
 
 @dataclasses.dataclass
@@ -106,20 +120,45 @@ class ProbePositionMaskOptions:
 @dataclasses.dataclass
 class ProjectionOptions:
     experiment: ExperimentOptions = field(default_factory=ExperimentOptions)
+    """
+    Options related to the experimental configuration.
+    """
 
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
+    """
+    Options used by the `PhaseProjections` method `get_3D_reconstruction`.
+    """
+
+    mask_from_positions: ProbePositionMaskOptions = field(default_factory=ProbePositionMaskOptions)
+    """
+    Options used by the `Projections` method `get_masks_from_probe_positions`.
+    These options are also used by the GUI tools for building masks from probe
+    positions.
+    """
+
+    phase_unwrap: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)
+    "Options used by the `ComplexProjections` method `unwrap_phase`."
+
+    estimate_center: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)
+    "Options used by the `PhaseProjections` method `estimate_center_of_rotation`"
+
+    input_processing: ProjectionTransformOptions = field(default_factory=ProjectionTransformOptions)
+    """
+    Options for the image transformations applied to the 
+    projection array upon the initialization of a `Projections`
+    object. These options are passed to the `Projections` method
+    `transform_projections` during initialization.
+    """
+
+    volume_width: VolumeWidthOptions = field(default_factory=VolumeWidthOptions)
+    "Determines reconstructed volume size"
 
     masks_from_morphology: MorphologicalMaskOptions = field(
         default_factory=MorphologicalMaskOptions
     )
-
-    mask_from_positions: ProbePositionMaskOptions = field(default_factory=ProbePositionMaskOptions)
-
-    # Technically this should really only be here for complex projections
-    phase_unwrap: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)
-
-    estimate_center: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)
-
-    input_processing: ProjectionTransformOptions = field(default_factory=ProjectionTransformOptions)
-
-    volume_width: VolumeWidthOptions = field(default_factory=VolumeWidthOptions)
+    """
+    Options for getting masks by using morphological operations on the
+    input projections. This usually is not used since it is better to 
+    get masks from the probe positions, the functions are slow, and the
+    results are often unsatisfactory.
+    """

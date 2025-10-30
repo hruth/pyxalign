@@ -629,14 +629,14 @@ class Projections:
             print(shift_type)
             self.plot_shift(shift_type, plot_kwargs=plot_kwargs)
 
-    def replace_probe_with_gaussian(
-        self, amplitude: float, sigma: float, shape: Optional[float] = None
-    ):
-        if shape is None:
-            shape = self.probe.shape
-        self.probe = symmetric_gaussian_2d(shape, amplitude, sigma)
+    # def replace_probe_with_gaussian(
+    #     self, amplitude: float, sigma: float, shape: Optional[float] = None
+    # ):
+    #     if shape is None:
+    #         shape = self.probe.shape
+    #     self.probe = symmetric_gaussian_2d(shape, amplitude, sigma)
 
-    def save_projections_object(
+    def _save_projections_object(
         self,
         save_path: Optional[str] = None,
         h5_obj: Optional[Union[h5py.Group, h5py.File]] = None,
