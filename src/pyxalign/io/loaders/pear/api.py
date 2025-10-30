@@ -1,22 +1,26 @@
-from typing import Union
-
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.pear.base_loader import PEARBaseLoader
-import pyxalign.io.loaders.pear.options as pear_options
+import pyxalign.io.loaders.pear as pear
 from pyxalign.io.loaders.pear.utils import load_experiment
 
 
 def load_data_from_pear_format(
-    options: pear_options.PEARLoadOptions,
+    options: pear.options.PEARLoadOptions,
     n_processes: int = 1,
-    return_loader_object: bool = False,
-) -> Union[StandardData, tuple[StandardData, PEARBaseLoader]]:
-    """
-    Function for loading lamni-formatted projection data and returning
-    it in the standardized format.
+) -> StandardData:
+    """Function for loading ptychography reconstructions created by the PEAR
+    Pty-Chi wrapper and returning it in the standardized format.
+
+    Args:
+        options (pear.options.PEARLoadOptions): Configuration options 
+            for loading data.
+        n_processes (int, optional): Number of processes to use for 
+            loading. Defaults to 1.
+
+    Returns:
+        StandardData: The loaded data in a standardized format.
     """
     options.base.print_selections()
-    # Load lamni-formatted projection data
+    # Load pear-formatted projection data
     loader = load_experiment(
         parent_projections_folder=options.base.parent_projections_folder,
         n_processes=n_processes,
@@ -33,7 +37,4 @@ def load_data_from_pear_format(
         loader.pixel_size,
     )
 
-    if return_loader_object:  # for debugging purposes
-        return standard_data, loader
-    else:
-        return standard_data
+    return standard_data
