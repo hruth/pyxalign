@@ -65,10 +65,20 @@ exclude = [
     "dist",
 ]
 
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 79
 [tool.setuptools.package-data]
 "pyxalign" = ["py.typed"]
+
+[tool.docformatter]
+recursive = true
+wrap-summaries = 79
+wrap-descriptions = 72
+blank = true
 
 # Updated: Include both src and examples directories
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["pyxalign*", "pyxalign_examples*"]
+

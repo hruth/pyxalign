@@ -1,13 +1,18 @@
 io
 ====
+The functions and options classes in this module are used to load laminography/tomography datasets into a standardized format.
+
+The following input formats are currently supported:
+
+* Ptychography reconstructions created using the PEAR wrapper for Pty-Chi (beamlines 31-ID-E, 2-ID-E, 2-ID-D)
+* XRF datasets (beamline 2-ID-E)
 
 File Loading/Preparation
 -------------------------
 
 PEAR
 ^^^^^
-pyxalign options and functions for loading datasets prepared using the PEAR
-branch of pty-chi.
+`pyxalign.io.loaders.pear` contains options and functions for loading datasets prepared using the PEAR branch of Pty-Chi.
 
 .. member-order doesn't trickle down to the attributes of the dataclasses, 
 .. so they must be done explicitly
@@ -41,7 +46,7 @@ branch of pty-chi.
 
 XRF
 ^^^
-pyxalign options and functions for loading x-ray flourescence (XRF) datasets.
+`pyxalign.io.loaders.xrf` contains options and functions for loading x-ray flourescence (XRF) datasets.
 
 .. autofunction:: pyxalign.io.loaders.xrf.load_data_from_xrf_format
 
@@ -57,7 +62,7 @@ pyxalign options and functions for loading x-ray flourescence (XRF) datasets.
    :inherited-members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: XRFLoadOptions
+   :exclude-members: XRFLoadOptions, load_data_from_xrf_format
 
 Data Structures
 ^^^^^^^^^^^^^^^^^^^
