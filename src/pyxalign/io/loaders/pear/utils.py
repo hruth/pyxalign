@@ -1,13 +1,10 @@
 import os
-import re
-from typing import Optional, TypeVar, Union
+from typing import Optional
 import pandas as pd
 import numpy as np
-from scipy import stats
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
-from pyxalign.io.loaders.pear.options import LoaderType
-from pyxalign.io.loaders.pear.options import LYNXLoadOptions, MDAPEARLoadOptions, PEARLoadOptions
+import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign.io.loaders.maps import get_loader_class_by_enum
 from pyxalign.io.loaders.utils import generate_input_user_prompt
 from pyxalign.api.types import r_type
@@ -22,7 +19,7 @@ def get_experiment_subsets(
     angles: np.ndarray,
     experiment_names: list[str],
     sequences: np.ndarray,
-    loader_type: LoaderType,
+    loader_type: pear_options.LoaderType,
 ) -> dict[str, PEARBaseLoader]:
     subsets = {}
     for unique_name in np.unique(experiment_names):
@@ -45,7 +42,7 @@ def select_experiment_and_sequences(
     angles: np.ndarray,
     experiment_names: list[str],
     sequences: np.ndarray,
-    loader_type: LoaderType,
+    loader_type: pear_options.LoaderType,
     use_experiment_name: Optional[str] = None,
     use_sequence: Optional[str] = None,
     is_tile_scan: Optional[bool] = False,
@@ -150,7 +147,7 @@ def extract_info_from_lamni_dat_file(
 def load_experiment(
     parent_projections_folder: str,
     n_processes: int,
-    options: PEARLoadOptions,
+    options: pear_options.PEARLoadOptions,
 ) -> PEARBaseLoader:
     """
     Load an experiment that is saved with the lamni structure.
@@ -169,7 +166,7 @@ def load_experiment(
         selected_sequences = options.selected_sequences
         # options.base.selected_sequences = [sequences[0]]
 
-    if isinstance(options, LYNXLoadOptions):
+    if isinstance(options, pear_options.LYNXLoadOptions):
         is_tile_scan = options.is_tile_scan
         selected_tile = options.selected_tile
     else:
@@ -227,15 +224,15 @@ def load_experiment(
 
 
 def extract_experiment_info(
-    options: PEARLoadOptions,
+    options: pear_options.PEARLoadOptions,
 ) -> tuple[np.ndarray, np.ndarray, list[str], np.ndarray]:
-    if isinstance(options, LYNXLoadOptions):
+    if isinstance(options, pear_options.LYNXLoadOptions):
         scan_numbers, angles, experiment_names, sequences = extract_info_from_lamni_dat_file(
             options.dat_file_path,
             options.base.scan_start,
             options.base.scan_end,
         )
-    elif isinstance(options, MDAPEARLoadOptions):
+    elif isinstance(options, pear_options.MDAPEARLoadOptions):
         scan_numbers, angles = extract_info_from_mda_file(
             options.mda_folder,
             options._mda_file_pattern,

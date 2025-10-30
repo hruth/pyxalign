@@ -1,16 +1,11 @@
 import os
-import cupy as cp
 import numpy as np
 from PyQt5.QtWidgets import QApplication
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.data_structures.xrf_task import XRFTask
-from pyxalign.io.loaders.xrf.api import (
-    convert_xrf_projection_dicts_to_arrays,
-    load_data_from_xrf_format,
-)
-from pyxalign.io.loaders.xrf.options import XRF2IDELoadOptions
+from pyxalign.io.loaders.xrf.api import convert_xrf_projection_dicts_to_arrays
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer, XRFVolumeViewer
 

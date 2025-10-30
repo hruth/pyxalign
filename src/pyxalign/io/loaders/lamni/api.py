@@ -1,10 +1,10 @@
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.pear.options import PEARLoadOptions
+import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign.io.loaders.pear.utils import load_experiment
 
 
 def load_data_from_pear_format(
-    options: PEARLoadOptions,
+    options: pear_options.PEARLoadOptions,
     n_processes: int = 1,
 ) -> StandardData:
     """

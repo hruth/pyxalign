@@ -2,20 +2,17 @@ import os
 import multiprocessing as mp
 import cupy as cp
 
-import matplotlib.pyplot as plt
-import pyxalign
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
-from pyxalign.io.loaders.pear.options import LoaderType
+import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
-from pyxalign.io.loaders.pear.options import LYNXLoadOptions, BaseLoadOptions
 
 from conftest import register_processing_function
 
@@ -67,13 +64,13 @@ def run_full_test_TP2(
         )
 
         # Define options for loading ptycho reconstructions
-        base_load_options = BaseLoadOptions(
+        base_load_options = pear_options.BaseLoadOptions(
             parent_projections_folder=os.path.join(parent_folder, "ptycho_recon", "TP_2"),
-            loader_type=LoaderType.FOLD_SLICE_V2,
+            loader_type=pear_options.LoaderType.FOLD_SLICE_V2,
             file_pattern=r"roi0_Ndp256/MLs_L1_p1_g50_bg0.1_vp5_vi_mm_MW10/Niter200.mat",
             select_all_by_default=True,
         )
-        options = LYNXLoadOptions(
+        options = pear_options.LYNXLoadOptions(
             dat_file_path=dat_file_path,
             base=base_load_options,
             selected_experiment_name="test_pattern_2",

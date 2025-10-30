@@ -2,12 +2,14 @@ import os
 from typing import Optional
 import numpy as np
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.xrf.options import XRF2IDELoadOptions
+import pyxalign.io.loaders.xrf.options as xrf_options
 from pyxalign.io.loaders.xrf.utils import load_xrf_experiment
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
-def load_data_from_xrf_format(options: XRF2IDELoadOptions) -> tuple[dict[str, StandardData], dict]:
+def load_data_from_xrf_format(
+    options: xrf_options.XRF2IDELoadOptions,
+) -> tuple[dict[str, StandardData], dict]:
     file_names = os.listdir(options.base.folder)  # Temporary?
     xrf_standard_data_dict, extra_PVs = load_xrf_experiment(file_names, options)
     return xrf_standard_data_dict, extra_PVs

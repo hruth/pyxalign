@@ -33,6 +33,7 @@ from PyQt5.QtWidgets import (
     QTabWidget,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
+import sip
 from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.interactions.io.input_data_viewer import StandardDataViewer
 from pyxalign.io.loaders.base import StandardData
@@ -42,18 +43,13 @@ from pyxalign.io.loaders.maps import (
     get_experiment_type_enum_from_options,
     get_loader_options_by_enum,
 )
-from pyxalign.io.loaders.xrf.options import XRF2IDELoadOptions
-import sip
-
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.io.loaders.pear.options import (
-    LYNXLoadOptions,
-    Microprobe2IDELoadOptions,
-    BaseLoadOptions,
-    PEARLoadOptions,
-)
 from pyxalign.io.utils import OptionsClass
 from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
+
+import pyxalign.io.loaders.pear.options as pear_options
+import pyxalign.io.loaders.xrf.options as xrf_options
+
 
 advanced_options_list = [
     "base.only_include_files_with",
@@ -109,7 +105,7 @@ class SelectLoadSettingsWidget(QWidget):
             self.experiment_type_combo.addItem(key, val)
 
         # On changing the index, the displayed options should change between
-        # LYNXLoadOptions, Beamline2IDELoadOptions, and the xrf maps options!
+        # pear_options.LYNXLoadOptions, Beamline2IDELoadOptions, and the xrf maps options!
         self.experiment_type_combo.currentIndexChanged.connect(self.change_selected_options_editor)
 
         self.tabs.addTab(self.select_options_widget, "Select Options")
@@ -179,12 +175,12 @@ class SelectLoadSettingsWidget(QWidget):
 
     def load_data(self):
         try:
-            if isinstance(self.options, PEARLoadOptions):
+            if isinstance(self.options, pear_options.PEARLoadOptions):
                 standard_data = load_data_from_pear_format(
                     options=self.options,
                     n_processes=int(mp.cpu_count() * 0.8),
                 )
-            elif isinstance(self.options, XRF2IDELoadOptions):
+            elif isinstance(self.options, xrf_options.XRF2IDELoadOptions):
                 pass
             print("Data loading completed!")
             self.data_loaded_signal.emit(standard_data)
@@ -266,11 +262,11 @@ class MainLoadingWidget(QWidget):
 
 
 if __name__ == "__main__":
-    options = LYNXLoadOptions(
+    options = pear_options.LYNXLoadOptions(
         dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
         selected_sequences=(2,),
         selected_experiment_name="APS-D_3D",
-        base=BaseLoadOptions(
+        base=pear_options.BaseLoadOptions(
             parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
             file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
             select_all_by_default=True,

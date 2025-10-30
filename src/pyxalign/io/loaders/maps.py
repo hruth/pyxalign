@@ -1,18 +1,12 @@
 from typing import Union
 from pyxalign.io.loaders.pear.fold_slice_loader_2 import FoldSliceLoaderVersion2
 from pyxalign.io.loaders.pear.fold_slice_loader_1 import FoldSliceLoaderVersion1
-# from pyxalign.io.loaders.pear.options import (
-#     pear_options.BaseLoadOptions,
-#     pear_options.BNP2IDDLoadOptions,
-#     pear_options.Microprobe2IDELoadOptions,
-#     pear_options.LYNXLoadOptions,
-#     pear_options.LoaderType,
-# )
+
 import pyxalign.io.loaders.pear.options as pear_options
+import pyxalign.io.loaders.xrf.options as xrf_options
 
 from pyxalign.io.loaders.pear.pear_loader_1 import PearLoaderVersion1
 from pyxalign.io.loaders.enums import ExperimentType
-from pyxalign.io.loaders.xrf.options import XRF2IDELoadOptions
 from pyxalign.io.utils import OptionsClass
 
 LoaderClassType = Union[
@@ -41,7 +35,7 @@ def get_loader_options_by_enum(key: ExperimentType) -> OptionsClass:
             mda_folder=None,
             base=pear_options.BaseLoadOptions(parent_projections_folder=None),
         ),
-        ExperimentType.BEAMLINE_2IDE_XRF: XRF2IDELoadOptions(),
+        ExperimentType.BEAMLINE_2IDE_XRF: xrf_options.XRF2IDELoadOptions(),
     }[key]
 
 
@@ -52,5 +46,5 @@ def get_experiment_type_enum_from_options(options: OptionsClass) -> ExperimentTy
         return ExperimentType.BEAMLINE_2IDE_PTYCHO
     elif isinstance(options, pear_options.BNP2IDDLoadOptions):
         return ExperimentType.BEAMLINE_2IDD_PTYCHO
-    elif isinstance(options, XRF2IDELoadOptions):
+    elif isinstance(options, xrf_options.XRF2IDELoadOptions):
         return ExperimentType.BEAMLINE_2IDE_XRF

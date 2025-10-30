@@ -23,7 +23,7 @@ from pyxalign.interactions.io.loader import MainLoadingWidget
 from pyxalign.interactions.pma_runner import PMAMasterWidget
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
-from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
+import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign.io.utils import OptionsClass
 
 
@@ -123,11 +123,11 @@ def launch_master_gui(
 
 if __name__ == "__main__":
     # Pre-load with LYNX options
-    options = LYNXLoadOptions(
+    options = pear_options.LYNXLoadOptions(
         dat_file_path="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
         # selected_sequences=(2,),
         selected_experiment_name="APS-D_3D",
-        base=BaseLoadOptions(
+        base=pear_options.BaseLoadOptions(
             parent_projections_folder="/gdata/LYNX/lamni/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
             file_pattern="Ndp128_LSQML_c*_m0.5_p15_cp_mm_opr2_ic/recon_Niter3000.h5",
             select_all_by_default=True,
@@ -136,11 +136,11 @@ if __name__ == "__main__":
         ),
     )
 
-    # options = LYNXLoadOptions(
+    # options = pear_options.LYNXLoadOptions(
     #     dat_file_path="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/dat-files/tomography_scannumbers.txt",
     #     selected_sequences=(2,),
     #     selected_experiment_name="APS-D_3D",
-    #     base=BaseLoadOptions(
+    #     base=pear_options.BaseLoadOptions(
     #         parent_projections_folder="/gpfs/dfnt1/ecu/ecu05/2025-1/31ide_2025-03-05/ptychi_recons/APS_D_3D",
     #         file_pattern="Ndp128_LSQML_c*_m0.5_gaussian_p20_mm_opr2_ic_21/recon_Niter3000.h5",
     #         select_all_by_default=True,
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     # inputs_folder = os.path.join(
     #     os.environ["PYXALIGN_CI_TEST_DATA_DIR"], folder_name, "inputs"
     # )
-    # base_load_options = BaseLoadOptions(
+    # base_load_options = pear_options.BaseLoadOptions(
     #     parent_projections_folder=os.path.join(inputs_folder, "ptychi_recons"),
     #     file_pattern="Ndp64_LSQML_c*_m0.5_gaussian_p10_mm_ic_pc*ul0.1/recon_Niter5000.h5",
     #     select_all_by_default=True,

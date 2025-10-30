@@ -8,9 +8,8 @@ import numpy as np
 from scipy import stats
 from tqdm import tqdm
 from pyxalign.transformations.functions import image_crop_pad
-from pyxalign.io.loaders.pear.options import LoaderType
+import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign.api.constants import divisor
-from IPython import get_ipython
 
 from PyQt5.QtWidgets import (
     QDialog,
@@ -464,10 +463,10 @@ def convert_projection_dict_to_array(
     return projections_array
 
 
-def select_loader_type_from_prompt() -> LoaderType:
+def select_loader_type_from_prompt() -> pear_options.LoaderType:
     _, loader_type = generate_input_user_prompt(
         load_object_type_string="loader type",
-        options_list=list(LoaderType),
+        options_list=list(pear_options.LoaderType),
     )
     return loader_type
 
