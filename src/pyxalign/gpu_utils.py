@@ -26,6 +26,8 @@ from pyxalign.api.types import ArrayType
 
 T = TypeVar("T", bound=Callable[..., Any])
 
+# Define public API
+__all__ = ["get_available_gpus"]
 
 def get_available_gpus() -> tuple[int]:
     return tuple(range(cp.cuda.runtime.getDeviceCount()))
@@ -221,11 +223,6 @@ def fix_device_options(options: DeviceOptions):
         options.gpu.n_gpus = n_gpus
     if options.gpu.n_gpus > len(gpu_list):
         options.gpu.n_gpus = len(gpu_list)
-
-# Define public API
-__all__ = [
-    'get_available_gpus',
-]
 
 
 if __name__ == "__main__":
