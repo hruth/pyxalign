@@ -15,11 +15,15 @@ from PyQt5.QtWidgets import (
     QPushButton,
 )
 
+from pyxalign.api.enums import RoundType
 import pyxalign.data_structures.projections as p
 from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
 from pyxalign.mask import place_patches_fourier_batch
 from pyxalign.interactions.viewers.base import IndexSelectorWidget
 from pyxalign.mask import clip_masks
+from pyxalign.model_functions import symmetric_gaussian_2d
+from pyxalign.transformations.helpers import round_to_divisor
+from pyxalign.api import constants
 
 """
 Interactive mask threshold selector based on pyqtgraph and the shared
@@ -142,9 +146,6 @@ class ThresholdSelector(QWidget):
     def __init__(
         self,
         projections: "p.Projections",
-        # probe: np.ndarray,
-        # positions: List[np.ndarray],
-        # init_thresh: float = 0.01,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
@@ -152,8 +153,18 @@ class ThresholdSelector(QWidget):
         self.projections = projections
         self.options = self.projections.options.mask_from_positions
 
-        # should be optional depending on mask options
-        probe = self.projections.probe
+        # use simulated probe if specified by options; this typically
+        # gives better results
+        if self.options.use_simulated_probe:
+            shape = self.projections.probe.shape
+            probe_width = round_to_divisor(
+                shape[0] * self.options.probe.fractional_width,
+                round_type=RoundType.NEAREST,
+                divisor=constants.divisor
+            )
+            probe = symmetric_gaussian_2d(shape, amplitude=1, sigma=probe_width)
+        else:
+            probe = self.projections.probe
 
         # Precompute masks (floating-point values)
         load_bar_func_wrapper = loading_bar_wrapper("Initializing masks...")(

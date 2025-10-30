@@ -74,8 +74,33 @@ class VolumeWidthOptions:
 
 
 @dataclasses.dataclass
+class SimulatedProbe:
+    """
+    Parameters for creating a gaussian probe
+    """
+
+    fractional_width: float = 0.25
+    "Probe FWHM as a fraction of its total window size"
+
+
+@dataclasses.dataclass
 class ProbePositionMaskOptions:
+    """
+    Options for building projection masks from probe positions
+    """
+
     threshold: bool = 0.1
+    """
+    Masks are set to 1 above the threshold and 0 below the threshold
+    """
+
+    use_simulated_probe: bool = True
+    """
+    Whether or not to use a model gaussian probe. If false, it will
+    use the probe in the Projections object.
+    """
+
+    probe: SimulatedProbe = field(default_factory=SimulatedProbe)
 
 
 @dataclasses.dataclass
