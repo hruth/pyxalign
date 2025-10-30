@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import QApplication
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from pyxalign.api.options.options import MaskOptions
+from pyxalign.api.options.options import MorphologicalMaskOptions
 from pyxalign.gpu_utils import get_scipy_module, memory_releasing_error_handler
 from pyxalign.timing.timer_utils import timer, InlineTimer
 from pyxalign.api.types import ArrayType, r_type
@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import QWidget
 @memory_releasing_error_handler
 @timer()
 def estimate_reliability_region_mask(
-    images: np.ndarray, options: MaskOptions, enable_plotting=False
+    images: np.ndarray, options: MorphologicalMaskOptions, enable_plotting=False
 ):
     """Use flood-fill to get a mask for the actual object region in each projection"""
     # xp = cp.get_array_module(images)

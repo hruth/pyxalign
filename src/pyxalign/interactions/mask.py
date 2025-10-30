@@ -333,6 +333,7 @@ def launch_mask_builder(
     projections_array: np.ndarray,
     probe: np.ndarray,
     probe_positions: list[np.ndarray],
+    initial_threshold: Optional[float] = None,
     mask_receiver_function: Optional[Callable] = None,
     wait_until_closed: bool = False,
 ):
@@ -341,6 +342,7 @@ def launch_mask_builder(
         projections_array,
         probe,
         probe_positions,
+        init_thresh=initial_threshold,
     )
     if mask_receiver_function is not None:
         gui.masks_created.connect(mask_receiver_function)

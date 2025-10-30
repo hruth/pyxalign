@@ -20,7 +20,7 @@ class ExperimentOptions:
 
 
 @dataclasses.dataclass
-class MaskOptions:
+class MorphologicalMaskOptions:
     downsample: DownsampleOptions = field(
         default_factory=partial(
             DownsampleOptions, type=enums.DownsampleType.NEAREST, scale=4, enabled=True

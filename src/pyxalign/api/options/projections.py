@@ -5,7 +5,7 @@ from pyxalign.api import enums
 from pyxalign.api.options.alignment import InteractiveViewerOptions, ProjectionMatchingOptions
 from pyxalign.api.options.options import (
     ExperimentOptions,
-    MaskOptions,
+    MorphologicalMaskOptions,
     PhaseUnwrapOptions,
 )
 from pyxalign.api.options.plotting import UpdatePlotOptions
@@ -65,6 +65,7 @@ class ProjectionTransformOptions:
 
     shear: RotationOptions = field(default_factory=RotationOptions)
 
+
 @dataclasses.dataclass
 class VolumeWidthOptions:
     use_custom_width: bool = False
@@ -73,12 +74,21 @@ class VolumeWidthOptions:
 
 
 @dataclasses.dataclass
+class ProbePositionMaskOptions:
+    threshold: bool = 0.1
+
+
+@dataclasses.dataclass
 class ProjectionOptions:
     experiment: ExperimentOptions = field(default_factory=ExperimentOptions)
 
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
 
-    mask: MaskOptions = field(default_factory=MaskOptions)
+    masks_from_morphology: MorphologicalMaskOptions = field(
+        default_factory=MorphologicalMaskOptions
+    )
+
+    mask_from_positions: ProbePositionMaskOptions = field(default_factory=ProbePositionMaskOptions)
 
     # Technically this should really only be here for complex projections
     phase_unwrap: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)

@@ -171,6 +171,25 @@ class Projections:
     def pixel_size(self):
         return self.options.experiment.pixel_size * self.transform_tracker.scale
 
+    @property
+    def n_projections(self) -> int:
+        return self.data.__len__()
+
+    @property
+    def reconstructed_object_dimensions(self) -> np.ndarray:
+        sample_thickness = self.options.experiment.sample_thickness
+        # calculate volume size
+        n_lateral_pixels = self.data.shape[2]
+        if self.options.volume_width.use_custom_width:
+            n_lateral_pixels *= self.options.volume_width.multiplier
+        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
+        # n_pix = round_to_divisor(n_pix, "ceil", divisor)
+        return np.ceil(n_pix).astype(int)
+
+    @property
+    def size(self):
+        return self.data.shape[1:]
+
     @timer()
     def transform_projections(
         self,
@@ -364,19 +383,24 @@ class Projections:
     def get_masks_from_probe_positions(
         self, threshold: Optional[float] = None, wait_until_closed: bool = True
     ):
+        # have an option to skip gui
         if threshold is None:
             # open the window
             self.mask_gui = launch_mask_builder(
                 self.data,
                 self.probe,
                 self.probe_positions.data,
+                initial_threshold=self.options.mask_from_positions.threshold,
                 mask_receiver_function=self._receive_masks,
                 wait_until_closed=wait_until_closed,
             )
         else:
             # bypass the GUI if the threshold is known
             self.masks = build_masks_from_threshold(
-                self.data.shape, self.probe, self.probe_positions.data, threshold
+                self.data.shape,
+                self.probe,
+                self.probe_positions.data,
+                self.options.mask_from_positions.threshold,
             )
 
     def _receive_masks(self, masks: np.ndarray):
@@ -428,24 +452,6 @@ class Projections:
         for i, shift in enumerate(self.shift_manager.past_shifts):
             self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][keep_idx]
 
-    @property
-    def n_projections(self) -> int:
-        return self.data.__len__()
-
-    @property
-    def reconstructed_object_dimensions(self) -> np.ndarray:
-        sample_thickness = self.options.experiment.sample_thickness
-        # calculate volume size
-        n_lateral_pixels = self.data.shape[2]
-        if self.options.volume_width.use_custom_width:
-            n_lateral_pixels *= self.options.volume_width.multiplier
-        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
-        # n_pix = round_to_divisor(n_pix, "ceil", divisor)
-        return np.ceil(n_pix).astype(int)
-
-    @property
-    def size(self):
-        return self.data.shape[1:]
 
     def _post_init(self):
         "For running children specific code after instantiation"
@@ -477,31 +483,9 @@ class Projections:
             device_options=device_options,
         )
 
-    def plot_projections(self, process_function: callable = lambda x: x):
-        plotters.make_image_slider_plot(process_function(self.data))
-
-    def plot_shifted_projections(self, shift: np.ndarray, process_function: callable = lambda x: x):
-        "Plot the shifted projections using the shift that was passed in."
-        plotters.make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
-
-    def plot_sum_of_projections(
-        self, process_function: callable = lambda x: x, show_cor: bool = False
-    ):
-        plt.imshow(process_function(self.data).sum(0))
-        if show_cor:
-            plt.plot(
-                self.center_of_rotation[1],
-                self.center_of_rotation[0],
-                "*",
-                color="red",
-                markersize=10,
-                markeredgecolor="black",
-            )
-        plt.show()
-
-    def get_masks(self, enable_plotting: bool = False):
-        mask_options = self.options.mask
-        downsample_options = self.options.mask.downsample
+    def get_masks_morphologically(self, enable_plotting: bool = False):
+        mask_options = self.options.masks_from_morphology
+        downsample_options = self.options.masks_from_morphology.downsample
         if downsample_options.enabled:
             mask_options = copy.deepcopy(mask_options)
             scale = downsample_options.scale
@@ -512,7 +496,7 @@ class Projections:
             mask_options = mask_options
         # Calculate masks
         self.masks = estimate_reliability_region_mask(
-            images=Downsampler(self.options.mask.downsample).run(self.data),
+            images=Downsampler(self.options.masks_from_morphology.downsample).run(self.data),
             options=mask_options,
             enable_plotting=enable_plotting,
         )

@@ -31,7 +31,7 @@ from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions, Geomet
 from .task import AlignmentTaskOptions
 from .options import (
     ExperimentOptions,
-    MaskOptions,
+    MorphologicalMaskOptions,
     PhaseRampRemovalOptions,
     PhaseUnwrapOptions,
     RegularizationOptions,
@@ -83,7 +83,7 @@ __all__ = [
     "AlignmentTaskOptions",
     # General options
     "ExperimentOptions",
-    "MaskOptions",
+    "MorphologicalMaskOptions",
     "PhaseRampRemovalOptions",
     "PhaseUnwrapOptions",
     "RegularizationOptions",
