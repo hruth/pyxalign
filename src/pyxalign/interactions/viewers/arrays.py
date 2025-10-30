@@ -239,6 +239,7 @@ class ProjectionViewer(MultiThreadedWidget):
         self.projection_dropping_widget.show()
 
     def open_mask_creation_window(self):
+        # build masks from probe positions using the mask builder gui
         self.mask_gui = launch_mask_builder(
             self.projections,
             wait_until_closed=False,
@@ -246,13 +247,15 @@ class ProjectionViewer(MultiThreadedWidget):
         self.mask_gui.masks_created.connect(self.on_masks_created)
 
     def on_masks_created(self):
-        new_masks = self.mask_gui.masks
-        if self.projections.masks is None or self.projections.masks.shape != new_masks.shape:
-            self.projections.masks = new_masks
-        else:
-            self.projections.masks[:] = new_masks
-        self.projections.options.mask_from_positions.threshold = self.mask_gui.threshold
+        # # update masks Projection object masks
+        # new_masks = self.mask_gui.masks
+        # if self.projections.masks is None or self.projections.masks.shape != new_masks.shape:
+        #     self.projections.masks = new_masks
+        # else:
+        #     self.projections.masks[:] = new_masks
+        # self.projections.options.mask_from_positions.threshold = self.mask_gui.threshold
 
+        # update viewer so that new masks are shown
         self.update_array_selector()
         self.array_viewer.refresh_frame()
 
