@@ -1,14 +1,33 @@
 io
 ====
-The functions and options classes in this module are used to load laminography/tomography datasets into a standardized format.
-
-The following input formats are currently supported:
-
-* Ptychography reconstructions created using the PEAR wrapper for Pty-Chi (beamlines 31-ID-E, 2-ID-E, 2-ID-D)
-* XRF datasets (beamline 2-ID-E)
 
 File Loading/Preparation
 -------------------------
+
+The functions and options classes in this module are used to load laminography/tomography datasets into a standardized format.
+
+pyxalign currently supports ptychography and x-ray flourescence (XRF) data.
+
+**How to Load Data**
+
+Find the appropriate loading options class for your beamline:
+
+* Beamline 2-ID-E
+    * Ptychography data loading options: :class:`pyxalign.io.loaders.pear.Microprobe2IDELoadOptions`
+    * XRF data loading options: :class:`pyxalign.io.loaders.xrf.XRF2IDELoadOptions`
+* Beamline 2-ID-D
+    * Ptychography data loading options: :class:`pyxalign.io.loaders.pear.BNP2IDDLoadOptions`
+* Beamline 31-ID-E
+    * Ptychography data loading options: :class:`pyxalign.io.loaders.pear.LYNXLoadOptions`
+
+To load the data, you can either: 1) use the appropriate loading function or 2) use the data loading GUI.
+
+* Loading functions:
+    * Ptychography data processed by PEAR/Pty-Chi: :func:`pyxalign.io.loaders.pear.load_data_from_pear_format`
+    * XRF Data: :func:`pyxalign.io.loaders.pear.load_data_from_xrf_format`
+* Loading GUI:
+    * Any type of data: :func:`pyxalign.gui.launch_data_loader`
+
 
 PEAR
 ^^^^^

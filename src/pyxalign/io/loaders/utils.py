@@ -29,11 +29,11 @@ border = 60 * "-"
 
 
 def load_h5_group(file_path, group_path="/"):
-    """
-    Load and print the structure and data of a group in an HDF5 file.
+    """Load and print the structure and data of a group in an HDF5 file.
 
     :param file_path: Path to the HDF5 file.
-    :param group_path: Path to the group in the HDF5 file (default is root).
+    :param group_path: Path to the group in the HDF5 file (default is
+        root).
     :return: A dictionary representing the group structure and data.
     """
 
@@ -108,8 +108,7 @@ def get_user_input(
 def get_user_input_gui(
     options_list: list, prompt: str, allow_multiple_selections: bool
 ) -> tuple[int | list[int], str | list[str]]:
-    """
-    Get user input via PyQt5 dialogs.
+    """Get user input via PyQt5 dialogs.
 
     If allow_multiple_selections is False, show a QInputDialog to select a single option.
     If allow_multiple_selections is True, show a custom QDialog containing checkboxes
@@ -158,10 +157,9 @@ def get_user_input_gui(
 
 
 class MultipleSelectionDialog(QDialog):
-    """
-    A QDialog that displays a series of checkboxes for multiple selection from a list,
-    wrapped in a scroll area, including a "Select All" checkbox.
-    """
+    """A QDialog that displays a series of checkboxes for multiple selection
+    from a list, wrapped in a scroll area, including a "Select All"
+    checkbox."""
 
     def __init__(self, options_list: list, prompt: str, parent: QWidget = None):
         super().__init__(parent)
@@ -204,9 +202,11 @@ class MultipleSelectionDialog(QDialog):
         self.layout.addWidget(self.button_box)
 
     def on_select_all_changed(self, state: int):
-        """
-        When 'Select All' is checked, all individual checkboxes become checked and disabled.
-        When 'Select All' is unchecked, they become unchecked and re-enabled.
+        """When 'Select All' is checked, all individual checkboxes become
+        checked and disabled.
+
+        When 'Select All' is unchecked, they become unchecked and re-
+        enabled.
         """
         if state == Qt.Checked:
             for cb in self.option_checkboxes:
@@ -218,9 +218,10 @@ class MultipleSelectionDialog(QDialog):
                 cb.setChecked(False)
 
     def get_selected_indices(self) -> list[int]:
-        """
-        Returns a list of indices corresponding to checked options.
-        If 'Select All' is checked, return the indices of all option checkboxes.
+        """Returns a list of indices corresponding to checked options.
+
+        If 'Select All' is checked, return the indices of all option
+        checkboxes.
         """
         if self.cb_select_all.isChecked():
             return list(range(len(self.option_checkboxes)))
@@ -343,8 +344,7 @@ def generate_input_user_prompt(
 
 
 def parse_space_delimited_integers(input_string: str):
-    """
-    Parse a space-delimited string of integers.
+    """Parse a space-delimited string of integers.
 
     This function checks if the input string is a valid space-delimited
     string of integers. If valid, it converts the string into a list of integers.
@@ -386,8 +386,7 @@ def get_boolean_user_input_terminal(prompt: str) -> bool:
 
 
 def get_boolean_user_input_gui(prompt: str) -> bool:
-    """
-    Get a boolean user input via a Yes/No QMessageBox.
+    """Get a boolean user input via a Yes/No QMessageBox.
 
     Returns
     -------
@@ -410,8 +409,28 @@ def convert_projection_dict_to_array(
     repair_orientation: bool = False,
     pad_mode: str = "constant",
     pad_with_mode: bool = False,
-    delete_projection_dict: bool = False,
 ) -> np.ndarray:
+    """Function that creates a 3D array from a dictionary of 2D arrays.
+    Each array will be padded (or cropped) so that its new dimensions 
+    are equal to `new_shape`.
+
+    Args:
+        projections (dict[int, np.ndarray]): dictionary containing a 2D
+            projection array at each entry.
+        new_shape (Optional[tuple]): Shape of the new 3D array. If not
+            specified, the new size will be chosen automatically.
+        repair_orientation (bool): A legacy feature; some older datasets
+            contain projections with inconsistent orientations and
+            setting this to `True` fixes it. This argument should
+            generally be ignored. Defaults to `False`.
+        pad_mode (str): pad mode used by the `np.pad` function.
+        pad_with_mode (bool): if `True`, the 2D arrays will be padded by
+            their mode. Setting this to `True` forces the `pad_mode` to
+            be `constant`. Defaults to `False`.
+
+    Returns:
+        A 3D array of the projections.
+    """
     # Note: this always does some in-place replacement of the
     # passed in dict. I will fix this in a later version.
     if pad_with_mode:

@@ -13,6 +13,7 @@ from dataclasses import field
 @dataclasses.dataclass
 class XRFBaseLoadOptions:
     folder: str = ""
+    "Folder containing data to load"
 
     scan_start: Optional[int] = None
     "Lower bound of scans to include."
@@ -31,6 +32,10 @@ class XRFLoadOptions(ABC):
 
 @dataclasses.dataclass
 class XRF2IDELoadOptions(XRFLoadOptions):
+    """
+    Loading options for XRF data from the 2-ID-E beamline
+    """
+
     _channel_data_path: str = "/MAPS/XRF_roi"
 
     _channel_names_path: str = "/MAPS/channel_names"

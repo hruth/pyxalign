@@ -17,3 +17,5 @@ hello!
    :caption: Contents:
 
    api/index
+   examples/index
+

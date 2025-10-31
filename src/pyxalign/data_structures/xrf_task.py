@@ -24,14 +24,16 @@ class XRFTask:
         xrf_array_dict: dict[str, np.ndarray],
         angles: np.ndarray,
         scan_numbers: np.ndarray,
-        projection_options: ProjectionOptions,
-        alignment_options: AlignmentTaskOptions,
         primary_channel: str,
+        projection_options: ProjectionOptions,
+        alignment_options: Optional[AlignmentTaskOptions] = None,
         center_of_rotation: Optional[np.ndarray] = None,
         masks: Optional[np.ndarray] = None,
         _initialize_from_loaded_data: bool = False,
         _loaded_projections_dict: Optional[dict[str, XRFProjections]] = None,
     ):
+        if alignment_options is None:
+            alignment_options = AlignmentTaskOptions()
         self.projection_options = projection_options
         self.alignment_options = alignment_options
         # force proper typing

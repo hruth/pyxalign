@@ -61,7 +61,7 @@ class StandardData:
 
         Args:
             scan_numbers_to_drop (list[int]): List of scan numbers to be
-            removed.
+                removed.
 
         """
         # Update dictionaries
@@ -95,7 +95,7 @@ class StandardData:
 
         Returns:
             np.ndarray: Minimum size of the projection array as an 
-                array of two integers.
+            array of two integers.
 
         """
         return np.array(
