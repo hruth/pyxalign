@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 import cupy as cp
 import numpy as np
 import scipy
@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import QApplication
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from pyxalign.api.options.options import MaskOptions
+from pyxalign.api.options.options import MorphologicalMaskOptions
 from pyxalign.gpu_utils import get_scipy_module, memory_releasing_error_handler
 from pyxalign.timing.timer_utils import timer, InlineTimer
 from pyxalign.api.types import ArrayType, r_type
@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import QWidget
 @memory_releasing_error_handler
 @timer()
 def estimate_reliability_region_mask(
-    images: np.ndarray, options: MaskOptions, enable_plotting=False
+    images: np.ndarray, options: MorphologicalMaskOptions, enable_plotting=False
 ):
     """Use flood-fill to get a mask for the actual object region in each projection"""
     # xp = cp.get_array_module(images)
@@ -362,6 +362,29 @@ def place_patches_fourier_batch(
         masks_out = masks_out[:, a:-a, a:-a] * 1 
 
     return masks_out
+
+
+# ------------------------------------------------------------------------------
+# Utility helpers (kept from original file)
+# ------------------------------------------------------------------------------
+
+
+def clip_masks(masks: np.ndarray, threshold: float) -> np.ndarray:
+    """Binarise mask stack at *threshold* (in-place) and return it."""
+    clip_idx = masks > threshold
+    masks[:] = 0
+    masks[clip_idx] = 1
+    return masks
+
+
+def build_masks_from_threshold(
+    shape: tuple[int, int, int],
+    probe: np.ndarray,
+    positions: List[np.ndarray],
+    threshold: float,
+) -> np.ndarray:
+    masks = place_patches_fourier_batch(shape, probe, positions)
+    return clip_masks(masks, threshold)
 
 
 # class IlluminationMapMaskBuilder:

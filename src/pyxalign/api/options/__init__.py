@@ -1,4 +1,5 @@
 # Make it possible to import any option from pyxalign.api.options
+import pyxalign.api.options_utils as utils
 from .device import DeviceOptions, GPUOptions
 from .transform import (
     ShiftOptions,
@@ -31,7 +32,7 @@ from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions, Geomet
 from .task import AlignmentTaskOptions
 from .options import (
     ExperimentOptions,
-    MaskOptions,
+    MorphologicalMaskOptions,
     PhaseRampRemovalOptions,
     PhaseUnwrapOptions,
     RegularizationOptions,
@@ -46,3 +47,57 @@ from .plotting import (
     ProjectionViewerOptions,
 )
 from .tests import CITestOptions
+
+__all__ = [
+    # Device options
+    "DeviceOptions",
+    "GPUOptions",
+    # Transform options
+    "ShiftOptions",
+    "DownsampleOptions",
+    "CropOptions",
+    "UpsampleOptions",
+    "TransformOptions",
+    "RotationOptions",
+    "ShearOptions",
+    "PadOptions",
+    # Alignment options
+    "AlignmentOptions",
+    "CrossCorrelationOptions",
+    "ProjectionMatchingOptions",
+    "ProjectionMatchingPlotOptions",
+    "SecondaryMaskOptions",
+    "ReconstructionMaskOptions",
+    "StepMomentum",
+    "RefineGeometryOptions",
+    # Projection options
+    "CoordinateSearchOptions",
+    "EstimateCenterOptions",
+    "ProjectionOptions",
+    "ProjectionTransformOptions",
+    # Reconstruction options
+    "ReconstructOptions",
+    "FilterOptions",
+    "AstraOptions",
+    "GeometryOptions",
+    # Task options
+    "AlignmentTaskOptions",
+    # General options
+    "ExperimentOptions",
+    "MorphologicalMaskOptions",
+    "PhaseRampRemovalOptions",
+    "PhaseUnwrapOptions",
+    "RegularizationOptions",
+    "GradientIntegrationUnwrapOptions",
+    "IterativeResidualUnwrapOptions",
+    # Plotting options
+    "UpdatePlotOptions",
+    "PlotDataOptions",
+    "ScalebarOptions",
+    "ArrayViewerOptions",
+    "ProjectionViewerOptions",
+    # Test options
+    "CITestOptions",
+    # utility functions
+    "utils",
+]

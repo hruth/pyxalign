@@ -18,14 +18,16 @@ import pyxalign.api.enums as enums
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.reconstruct import AstraOptions
-from pyxalign.api.options_utils import print_options, set_all_device_options
-from pyxalign.io.utils import OptionsClass
+from pyxalign.api.options_utils import print_options
+# from pyxalign.io.utils import OptionsClass
 import pyxalign.timing.timer_utils as timer_utils
 
 from pyxalign.api.types import ArrayType
 
 T = TypeVar("T", bound=Callable[..., Any])
 
+# Define public API
+__all__ = ["get_available_gpus"]
 
 def get_available_gpus() -> tuple[int]:
     return tuple(range(cp.cuda.runtime.getDeviceCount()))
@@ -182,7 +184,7 @@ def return_cpu_array(array: ArrayType):
         return array
 
 
-def auto_update_gpu_options(options: OptionsClass):
+def auto_update_gpu_options(options):
     for k, v in options.__dict__.items():
         # I am not using isinstance here because it does not always work as expected when
         # using the reload_module_recursively and refresh_task function.

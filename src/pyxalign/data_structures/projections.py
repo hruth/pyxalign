@@ -1,15 +1,12 @@
-from multiprocessing import Value
 from typing import List, Optional, Sequence, Union
 import numpy as np
 import copy
 import h5py
 import matplotlib.pyplot as plt
-from PyQt5.QtWidgets import QApplication
 from pyxalign.alignment.utils import (
     get_center_of_rotation_from_different_resolution_alignment,
     get_shift_from_different_resolution_alignment,
 )
-from pyxalign.api.constants import divisor
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.estimate_center import (
     estimate_center_of_rotation,
@@ -20,7 +17,6 @@ from pyxalign.estimate_center import (
 from pyxalign.api import enums
 from pyxalign.api.options.alignment import AlignmentOptions
 from pyxalign.api.options.device import DeviceOptions
-from pyxalign.api.options import ProjectionViewerOptions
 
 from pyxalign.api.options.projections import (
     EstimateCenterOptions,
@@ -39,14 +35,12 @@ from pyxalign.api.options.transform import (
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
 from pyxalign.data_structures.volume import Volume
-from pyxalign.interactions.mask import ThresholdSelector, build_masks_from_threshold, launch_mask_builder
+from pyxalign.mask import build_masks_from_threshold
 from pyxalign.io.utils import load_list_of_arrays
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
-from pyxalign.mask import estimate_reliability_region_mask, blur_masks#, IlluminationMapMaskBuilder
+from pyxalign.mask import estimate_reliability_region_mask, blur_masks
 from pyxalign.model_functions import symmetric_gaussian_2d
-from pyxalign.plotting.interactive.arrays import ProjectionViewer
-from pyxalign.plotting.interactive.launchers import launch_projection_viewer
 import pyxalign.plotting.plotters as plotters
 from pyxalign.style.text import ordinal
 from pyxalign.timing.timer_utils import timer, clear_timer_globals
@@ -69,9 +63,8 @@ from pyxalign.transformations.helpers import is_array_real
 from pyxalign.unwrap import unwrap_phase
 from pyxalign.data_structures.positions import ProbePositions
 from pyxalign.api.types import ArrayType, r_type
-from pyxalign.transformations.helpers import round_to_divisor
-from pyxalign.api.constants import divisor
 
+__all__ = ["Projections", "PhaseProjections", "ComplexProjections"]
 
 class TransformTracker:
     def __init__(
@@ -119,6 +112,9 @@ class Projections:
         pin_arrays: bool = False,
         file_paths: Optional[list[str]] = None,
     ):
+        """
+        Test description for `Projections`
+        """
         self.options = options
         self.file_paths = file_paths
         self.angles = np.array(angles, dtype=r_type)
@@ -174,6 +170,25 @@ class Projections:
     @property
     def pixel_size(self):
         return self.options.experiment.pixel_size * self.transform_tracker.scale
+
+    @property
+    def n_projections(self) -> int:
+        return self.data.__len__()
+
+    @property
+    def reconstructed_object_dimensions(self) -> np.ndarray:
+        sample_thickness = self.options.experiment.sample_thickness
+        # calculate volume size
+        n_lateral_pixels = self.data.shape[2]
+        if self.options.volume_width.use_custom_width:
+            n_lateral_pixels *= self.options.volume_width.multiplier
+        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
+        # n_pix = round_to_divisor(n_pix, "ceil", divisor)
+        return np.ceil(n_pix).astype(int)
+
+    @property
+    def size(self):
+        return self.data.shape[1:]
 
     @timer()
     def transform_projections(
@@ -365,29 +380,13 @@ class Projections:
             self.probe_positions.shift_positions(shift)
 
     @timer()
-    def get_masks_from_probe_positions(
-        self, threshold: Optional[float] = None, wait_until_closed: bool = True
-    ):
-        if threshold is None:
-            # open the window
-            self.mask_gui = launch_mask_builder(
-                self.data,
-                self.probe,
-                self.probe_positions.data,
-                mask_receiver_function=self._receive_masks,
-                wait_until_closed=wait_until_closed,
-            )
-        else:
-            # bypass the GUI if the threshold is known
-            self.masks = build_masks_from_threshold(
-                self.data.shape, self.probe, self.probe_positions.data, threshold
-            )
-
-    def _receive_masks(self, masks: np.ndarray):
-        if self.masks is None or self.masks.shape != masks.shape:
-            self.masks = masks
-        else:
-            self.masks[:] = masks
+    def get_masks_from_probe_positions(self):
+        self.masks = build_masks_from_threshold(
+            self.data.shape,
+            self.probe,
+            self.probe_positions.data,
+            self.options.mask_from_positions.threshold,
+        )
 
     def drop_projections(self, remove_scans: list[int], repin_array: bool = False):
         "Permanently remove specific projections from object"
@@ -432,24 +431,6 @@ class Projections:
         for i, shift in enumerate(self.shift_manager.past_shifts):
             self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][keep_idx]
 
-    @property
-    def n_projections(self) -> int:
-        return self.data.__len__()
-
-    @property
-    def reconstructed_object_dimensions(self) -> np.ndarray:
-        sample_thickness = self.options.experiment.sample_thickness
-        # calculate volume size
-        n_lateral_pixels = self.data.shape[2]
-        if self.options.volume_width.use_custom_width:
-            n_lateral_pixels *= self.options.volume_width.multiplier
-        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
-        # n_pix = round_to_divisor(n_pix, "ceil", divisor)
-        return np.ceil(n_pix).astype(int)
-
-    @property
-    def size(self):
-        return self.data.shape[1:]
 
     def _post_init(self):
         "For running children specific code after instantiation"
@@ -481,31 +462,9 @@ class Projections:
             device_options=device_options,
         )
 
-    def plot_projections(self, process_function: callable = lambda x: x):
-        plotters.make_image_slider_plot(process_function(self.data))
-
-    def plot_shifted_projections(self, shift: np.ndarray, process_function: callable = lambda x: x):
-        "Plot the shifted projections using the shift that was passed in."
-        plotters.make_image_slider_plot(process_function(image_shift_fft(self.data, shift)))
-
-    def plot_sum_of_projections(
-        self, process_function: callable = lambda x: x, show_cor: bool = False
-    ):
-        plt.imshow(process_function(self.data).sum(0))
-        if show_cor:
-            plt.plot(
-                self.center_of_rotation[1],
-                self.center_of_rotation[0],
-                "*",
-                color="red",
-                markersize=10,
-                markeredgecolor="black",
-            )
-        plt.show()
-
-    def get_masks(self, enable_plotting: bool = False):
-        mask_options = self.options.mask
-        downsample_options = self.options.mask.downsample
+    def get_masks_morphologically(self, enable_plotting: bool = False):
+        mask_options = self.options.masks_from_morphology
+        downsample_options = self.options.masks_from_morphology.downsample
         if downsample_options.enabled:
             mask_options = copy.deepcopy(mask_options)
             scale = downsample_options.scale
@@ -516,7 +475,7 @@ class Projections:
             mask_options = mask_options
         # Calculate masks
         self.masks = estimate_reliability_region_mask(
-            images=Downsampler(self.options.mask.downsample).run(self.data),
+            images=Downsampler(self.options.masks_from_morphology.downsample).run(self.data),
             options=mask_options,
             enable_plotting=enable_plotting,
         )
@@ -528,7 +487,7 @@ class Projections:
         self.masks = Upsampler(upsample_options).run(self.masks)
         # return Upsampler(upsample_options).run(self.masks)
 
-    def blur_masks(
+    def _blur_masks(
         self, kernel_sigma: int, use_gpu: bool = False, masks: Optional[np.ndarray] = None
     ):
         if masks is None:
@@ -670,14 +629,14 @@ class Projections:
             print(shift_type)
             self.plot_shift(shift_type, plot_kwargs=plot_kwargs)
 
-    def replace_probe_with_gaussian(
-        self, amplitude: float, sigma: float, shape: Optional[float] = None
-    ):
-        if shape is None:
-            shape = self.probe.shape
-        self.probe = symmetric_gaussian_2d(shape, amplitude, sigma)
+    # def replace_probe_with_gaussian(
+    #     self, amplitude: float, sigma: float, shape: Optional[float] = None
+    # ):
+    #     if shape is None:
+    #         shape = self.probe.shape
+    #     self.probe = symmetric_gaussian_2d(shape, amplitude, sigma)
 
-    def save_projections_object(
+    def _save_projections_object(
         self,
         save_path: Optional[str] = None,
         h5_obj: Optional[Union[h5py.Group, h5py.File]] = None,
@@ -729,15 +688,6 @@ class Projections:
             print(f"projections saved to {h5_obj.file.filename}{h5_obj.name}")
         else:
             print(f"projections saved to {save_path}")
-
-    def launch_viewer(
-        self,
-        options: Optional[ProjectionViewerOptions] = None,
-        wait_until_closed: Optional[bool] = False,
-    ):
-        self.gui = launch_projection_viewer(
-            self, options, display_only=False, wait_until_closed=wait_until_closed
-        )
 
     def load_and_stage_shift(
         self,
@@ -807,8 +757,7 @@ class ComplexProjections(Projections):
         )
         # this method does not need a mask
         bool_2 = (
-            self.options.phase_unwrap.method
-            == enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION
+            self.options.phase_unwrap.method == enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION
         ) and (self.options.phase_unwrap.gradient_integration.use_masks)
         use_masks = bool_1 or bool_2
         if use_masks is True and self.masks is None:
@@ -893,28 +842,34 @@ class ShiftManager:
         self.staged_shift = np.zeros((n_projections, 2))
         self.past_shifts: List[np.ndarray] = []
         self.past_shift_functions: List[enums.ShiftType] = []
-        self.past_shift_options: List[AlignmentOptions] = []
+        self.past_eliminate_wrapping: List[bool] = []
+        self.past_alignment_options: List[AlignmentOptions] = []
         self.staged_function_type = None
+        self.staged_eliminate_wrapping = False
         self.staged_alignment_options = None
 
     def stage_shift(
         self,
         shift: np.ndarray,
         function_type: enums.ShiftType,
+        eliminate_wrapping: bool = False,
         alignment_options: Optional[AlignmentOptions] = None,
     ):
         self.staged_shift = shift
         self.staged_function_type = function_type
+        self.staged_eliminate_wrapping = eliminate_wrapping
         self.staged_alignment_options = alignment_options
 
     def unstage_shift(self):
         # Store staged values
         self.past_shifts += [self.staged_shift]
         self.past_shift_functions += [self.staged_function_type]
-        self.past_shift_options += [self.staged_alignment_options]
+        self.past_eliminate_wrapping += [self.staged_eliminate_wrapping]
+        self.past_alignment_options += [self.staged_alignment_options]
         # Clear the staged variables
         self.staged_shift = np.zeros_like(self.staged_shift)
         self.staged_function_type = None
+        self.staged_eliminate_wrapping = None
         self.staged_alignment_options = None
 
     def shift_arrays(
@@ -923,6 +878,7 @@ class ShiftManager:
         images: np.ndarray,
         masks: np.ndarray,
         function_type: enums.ShiftType,
+        eliminate_wrapping: bool,
         device_options: Optional[DeviceOptions] = None,
     ):
         if device_options is None:
@@ -932,6 +888,7 @@ class ShiftManager:
             enabled=True,
             type=function_type,
             device=device_options,
+            eliminate_wrapping=eliminate_wrapping,
         )
         images[:] = Shifter(shift_options).run(
             images=images,
@@ -962,6 +919,7 @@ class ShiftManager:
                 images=images,
                 masks=masks,
                 function_type=self.staged_function_type,
+                eliminate_wrapping=self.staged_eliminate_wrapping,
                 device_options=device_options,
             )
             self.unstage_shift()
@@ -977,11 +935,12 @@ class ShiftManager:
             images=images,
             masks=masks,
             function_type=self.past_shift_functions[-1],
+            eliminate_wrapping=False,
             device_options=device_options,
         )
         self.past_shifts = self.past_shifts[:-1]
         self.past_shift_functions = self.past_shift_functions[:-1]
-        self.past_shift_options = self.past_shift_options[:-1]
+        self.past_alignment_options = self.past_alignment_options[:-1]
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:
@@ -1019,3 +978,5 @@ def get_kwargs_for_copying_to_new_projections_object(
         kwargs["projections"] = projections.data * 1
 
     return kwargs
+
+

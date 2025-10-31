@@ -68,7 +68,6 @@ def cSAXS_e18044_LamNI_201907_pre_processing(
         new_shape = (2368, 1600)
         projection_array = convert_projection_dict_to_array(
             lamni_data.projections,
-            delete_projection_dict=False,
             pad_with_mode=True,
             new_shape=new_shape,
         )
@@ -149,10 +148,11 @@ def cSAXS_e18044_LamNI_201907_pre_processing(
         ci_test_helper.save_or_compare_results(task, "cross_corr_aligned_task")
 
         ### Get projection masks ###
-        # Use symmetric gaussian probe instead of measured probe
-        task.complex_projections.replace_probe_with_gaussian(amplitude=1, sigma=128)
+        # # Use symmetric gaussian probe instead of measured probe
+        # task.complex_projections.replace_probe_with_gaussian(amplitude=1, sigma=128)
         # Calculate masks from probe positions data
-        task.complex_projections.get_masks_from_probe_positions(threshold=3)
+        task.complex_projections.options.mask_from_positions.threshold = 3
+        task.complex_projections.get_masks_from_probe_positions()
 
         ### Unwrap phase ###
         # Unwrap phase and create phase_projections object

@@ -93,7 +93,7 @@ from PyQt5.QtWidgets import (
 
 # Local pyxalign imports
 from pyxalign.interactions.base import BaseWidget
-from pyxalign.plotting.interactive.base import IndexSelectorWidget
+from pyxalign.interactions.viewers.base import IndexSelectorWidget
 ```
 
 ### Import Sorting Rules

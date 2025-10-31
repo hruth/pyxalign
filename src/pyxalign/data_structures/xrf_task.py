@@ -1,9 +1,9 @@
-from ast import Str
 from typing import Optional
 import numpy as np
 import h5py
 import copy
-from pyxalign import LaminographyAlignmentTask
+
+# from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.alignment.cross_correlation import CrossCorrelationAligner
 from pyxalign.api import enums
 from pyxalign.api.options.device import DeviceOptions
@@ -24,14 +24,16 @@ class XRFTask:
         xrf_array_dict: dict[str, np.ndarray],
         angles: np.ndarray,
         scan_numbers: np.ndarray,
-        projection_options: ProjectionOptions,
-        alignment_options: AlignmentTaskOptions,
         primary_channel: str,
+        projection_options: ProjectionOptions,
+        alignment_options: Optional[AlignmentTaskOptions] = None,
         center_of_rotation: Optional[np.ndarray] = None,
         masks: Optional[np.ndarray] = None,
         _initialize_from_loaded_data: bool = False,
         _loaded_projections_dict: Optional[dict[str, XRFProjections]] = None,
-    ):  
+    ):
+        if alignment_options is None:
+            alignment_options = AlignmentTaskOptions()
         self.projection_options = projection_options
         self.alignment_options = alignment_options
         # force proper typing
@@ -54,9 +56,9 @@ class XRFTask:
             # reinforce references
             for channel, proj in self.projections_dict.items():
                 proj.options = self.projection_options
-            
+
         # if center_of_rotation is not None:
-            # self.center_of_rotation = center_of_rotation.astype(r_type)
+        # self.center_of_rotation = center_of_rotation.astype(r_type)
         # else:
         self._center_of_rotation = self.projections_dict[self._primary_channel].center_of_rotation
 
@@ -141,7 +143,6 @@ class XRFTask:
             )
             for channel in self.channels:
                 print(f"{channel}")
-
 
     def apply_staged_shift_to_all_channels(self, device_options: Optional[DeviceOptions] = None):
         for _, projections in self.projections_dict.items():
@@ -248,7 +249,7 @@ class XRFTask:
         with h5py.File(file_path, "w") as h5_obj:
             proj_channels_group = h5_obj.create_group("projections")
             for channel in save_channels:
-                self.projections_dict[channel].save_projections_object(
+                self.projections_dict[channel]._save_projections_object(
                     h5_obj=proj_channels_group.create_group(channel)
                 )
             save_generic_data_structure_to_h5(
@@ -262,30 +263,11 @@ class XRFTask:
             h5_obj["task_file_type"] = "xrf"
 
 
-#     # def launch_xrf_projections_viewer(self):
-
-# def load_task(file_path: str, exclude: list[str] = []) -> LaminographyAlignmentTask:
-#     print("Loading task from", file_path, "...")
-
-#     with h5py.File(file_path, "r") as h5_obj:
-#         # Load projections
-#         loaded_projections = load_projections(h5_obj, exclude)
-
-#         # Insert projections into task along with saved task options
-#         task = LaminographyAlignmentTask(
-#             options=load_options(h5_obj["options"], AlignmentTaskOptions),
-#             complex_projections=loaded_projections["complex_projections"],
-#             phase_projections=loaded_projections["phase_projections"],
-#         )
-
-#         print("Loading complete")
-
-#     return task
-
-
 def load_xrf_task(file_path: str, exclude_channels: Optional[list[str]] = None) -> XRFTask:
     with h5py.File(file_path, "r") as h5_obj:
-        xrf_projections_dict = load_xrf_projections(task_h5_obj=h5_obj, exclude_channels=exclude_channels)
+        xrf_projections_dict = load_xrf_projections(
+            task_h5_obj=h5_obj, exclude_channels=exclude_channels
+        )
         primary_channel = h5_obj["primary_channel"][()].decode()
         alignment_options = load_options(h5_obj["alignment_options"], AlignmentTaskOptions)
         projection_options = load_options(h5_obj["projection_options"], ProjectionOptions)
@@ -308,4 +290,3 @@ def load_xrf_task(file_path: str, exclude_channels: Optional[list[str]] = None) 
     )
 
     return xrf_task
-

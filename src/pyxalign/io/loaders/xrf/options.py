@@ -10,9 +10,10 @@ from dataclasses import field
 # angle_PV_string: str = "2xfm:m58.VAL"
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class XRFBaseLoadOptions:
-    folder: str
+    folder: str = ""
+    "Folder containing data to load"
 
     scan_start: Optional[int] = None
     "Lower bound of scans to include."
@@ -24,13 +25,17 @@ class XRFBaseLoadOptions:
     "List of scans to load."
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class XRFLoadOptions(ABC):
     base: XRFBaseLoadOptions = field(default_factory=XRFBaseLoadOptions)
 
 
-@dataclasses.dataclass(kw_only=True)
-class Beamline2IDEXRFLoadOptions(XRFLoadOptions):
+@dataclasses.dataclass
+class XRF2IDELoadOptions(XRFLoadOptions):
+    """
+    Loading options for XRF data from the 2-ID-E beamline
+    """
+
     _channel_data_path: str = "/MAPS/XRF_roi"
 
     _channel_names_path: str = "/MAPS/channel_names"

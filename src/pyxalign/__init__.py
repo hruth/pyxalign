@@ -1,14 +1,15 @@
-from .data_structures.projections import PhaseProjections, ComplexProjections
-from .data_structures.task import LaminographyAlignmentTask
-from .api import options, types
-from . import gpu_utils
+from . import data_structures
 from . import io
+from .api import options
+from .api import enums
+from . import gui
+from . import image_utils
 
 __all__ = [
-    "PhaseProjections",
-    "ComplexProjections",
-    "LaminographyAlignmentTask",
-    "options",
-    "gpu_utils",
+    "data_structures",
     "io",
+    "options",
+    "enums",
+    "gui",
+    "image_utils",
 ]

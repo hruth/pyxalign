@@ -29,8 +29,10 @@ from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.transform import CropOptions, ShiftOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.custom import action_button_style_sheet
-from pyxalign.plotting.interactive.base import ArrayViewer, MultiThreadedWidget
+from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 from pyxalign.transformations.classes import Cropper, Shifter
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 
 
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
@@ -85,7 +87,10 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         # to do
 
     def start_alignment(self):
-        shift = self.task.get_cross_correlation_shift(
+        wrapped_func = loading_bar_wrapper("Getting cross-correlation alignment")(
+            self.task.get_cross_correlation_shift
+        )
+        shift = wrapped_func(
             projection_type=self.projection_type,  # should perhaps move the type into "options"
             plot_results=False,
         )
@@ -103,7 +108,9 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             )
         ]
         self.results_collection_widget.update_table()
-        shift_func = Shifter(ShiftOptions(type=enums.ShiftType.FFT, enabled=True))
+        shift_func = Shifter(
+            ShiftOptions(type=enums.ShiftType.FFT, enabled=True, eliminate_wrapping=True)
+        )
         self.pinned_array = shift_func.run(
             images=self.projections.data,
             shift=shift.astype(r_type),
@@ -112,7 +119,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
 
         sort_idx = np.argsort(self.projections.angles)
         title_strings = [
-            f" scan {scan}, angle {angle:0.2f}"
+            f", scan {scan}, angle {angle:0.2f}"
             for scan, angle in zip(self.projections.scan_numbers, self.projections.angles)
         ]
         self.post_alignment_viewer.reinitialize_all(
@@ -132,9 +139,14 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             proj = self.task.complex_projections  # fixed
 
         # Make options editor
-        basic_options_list = ["binning", "filter_position", "filter_data", "crop"]
+        basic_options_list = [
+            "binning",
+            "remove_slow_variation",
+            "filter_position",
+            "filter_data",
+            "crop",
+        ]
         basic_options_list += get_all_attribute_names(CropOptions(), parent_prefix="crop")
-        print(basic_options_list)
         self.options_editor = BasicOptionsEditor(
             self.task.options.cross_correlation,
             skip_fields=["precision"],
@@ -169,11 +181,19 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         # inputs_layout.addWidget(self.start_button)
 
         # Make results display for showing before and after
-        self.pre_alignment_viewer = ArrayViewer(array3d=proj.data, sort_idx=np.argsort(proj.angles))
+        title_strings = [
+            f", scan {scan}, angle {angle:0.2f}"
+            for scan, angle in zip(self.projections.scan_numbers, self.projections.angles)
+        ]
+        self.pre_alignment_viewer = ArrayViewer(
+            array3d=proj.data,
+            sort_idx=np.argsort(proj.angles),
+            extra_title_strings_list=title_strings,
+        )
         pre_align_label = QLabel("Pre Alignment")
         pre_align_label.setStyleSheet("QLabel { font-size: 14pt;}")
         # viewer for showing aligned data
-        self.post_alignment_viewer = ArrayViewer()
+        self.post_alignment_viewer = ArrayViewer(hide_index_selector_controls=True)
         self.post_alignment_viewer.setEnabled(False)  # Initially disabled
         post_align_label = QLabel("Post Alignment")
         post_align_label.setStyleSheet("QLabel { font-size: 14pt;}")
@@ -233,6 +253,23 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.plot_item.addLegend()
 
     def show_cropped_projections_viewer(self):
+        """Example Google style docstrings.
+
+        This module demonstrates documentation as specified by the `Google Python
+        Style Guide`_. Docstrings may extend over multiple lines. Sections are created
+        with a section header and a colon followed by a block of indented text.
+
+        Example:
+            Examples can be given using either the ``Example`` or ``Examples``
+            sections. Sections support any reStructuredText formatting, including
+            literal blocks::
+
+                gui = pyxalign.gui.launch_cross_correlation_gui(task)
+
+            After you are happy with the alignment, shift the projections::
+
+                task.phase_projections.apply_staged_shift()
+        """
         self.crop_viewer = ArrayViewer(
             array3d=Cropper(self.options_editor._data.crop).run(self.projections.data),
             sort_idx=np.argsort(self.projections.angles),
@@ -241,16 +278,76 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.crop_viewer.show()
 
 
+@switch_to_matplotlib_qt_backend
+def launch_cross_correlation_gui(
+    task: "t.LaminographyAlignmentTask",
+    projection_type: Optional[enums.ProjectionType] = None,
+    wait_until_closed: bool = False,
+) -> CrossCorrelationMasterWidget:
+    """Launch the cross-correlation alignment GUI. This GUI lets you
+    interactively change the cross-correlation alignment options, view the
+    projections before and after alignment, and track alignment results for
+    different combinations of alignment options.
+
+    Args:
+        task (LaminographyAlignmentTask): The task with projections to
+            align.
+        projection_type (Optional[ProjectionType]): If the `task` has
+            both `phase_projections` and `complex_projections`,
+            `projection_type` specifies the projection to align.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        **Align the projections in a task object**
+
+        First, launch the cross-correlation gui::
+
+            gui = pyxalign.gui.launch_cross_correlation_gui(task, "PHASE")
+
+        Clicking the "start alignment" button will run the cross-
+        correlation alignment algorithm with the selected parameters.
+        Each time you run the alignment, the shift manager tool in the
+        `Projections` object will store the shift. Once you are happy
+        with the alignment, close the window and shift the projections::
+
+            task.phase_projections.apply_staged_shift()
+
+        To see the previously applied shifts, you can launch the
+        projection viewer and click on the tab titled "applied shifts"::
+
+            gui = pyxalign.gui.launch_projection_viewer(task.phase_projections)
+
+        If you want to undo a previously applied shift, you can do::
+
+            task.phase_projections.undo_last_shift()
+    """
+    app = QApplication.instance() or QApplication([])
+    if projection_type is None:
+        if task.complex_projections is not None and task.phase_projections is not None:
+            print("""Task has both phase_projections and complex_projections; 
+                  specify what you want to align using `projection_type`""")
+        if task.complex_projections is None:
+            projection_type = enums.ProjectionType.PHASE
+        elif task.phase_projections is None:
+            projection_type = enums.ProjectionType.COMPLEX
+    gui = CrossCorrelationMasterWidget(task=task, projection_type=projection_type)
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    gui.show()
+
+    if wait_until_closed:
+        app.exec_()
+
+    return gui
+
+
 if __name__ == "__main__":
     import sys
     import argparse
 
     # must enter a path to the task file
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "task_path",
-        help="Path to a task file"
-    )
+    parser.add_argument("task_path", help="Path to a task file")
     args = parser.parse_args()
     task_path = args.task_path
 

@@ -1,18 +1,13 @@
 import os
-import cupy as cp
 import numpy as np
 from PyQt5.QtWidgets import QApplication
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.data_structures.xrf_task import XRFTask
-from pyxalign.io.loaders.xrf.api import (
-    convert_xrf_projection_dicts_to_arrays,
-    load_data_from_xrf_format,
-)
-from pyxalign.io.loaders.xrf.options import Beamline2IDEXRFLoadOptions, XRFBaseLoadOptions
+from pyxalign.io.loaders.xrf.api import convert_xrf_projection_dicts_to_arrays
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
-from pyxalign.plotting.interactive.xrf import XRFProjectionsViewer, XRFVolumeViewer
+from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 import data_loaders
 from conftest import register_processing_function
@@ -40,7 +35,7 @@ def full_2ide_xrf_processing(
     # if not projection_matching_only:
     checkpoint_list = [enums.TestStartPoints.BEGINNING]
     if test_start_point in checkpoint_list:
-        ### Load ptycho input data ###
+        # load input data
         xrf_standard_data_dict, extra_PVs = data_loaders.load_2ide_xrf_test_data()
         scan_0 = list(extra_PVs.keys())[0]
         lamino_angle = float(extra_PVs[scan_0]["2xfm:m12.VAL"])
@@ -154,6 +149,7 @@ def full_2ide_xrf_processing(
         xrf_task.clear_pma_gui_list()
         ci_test_helper.save_checkpoint_task(xrf_task, "aligned_xrf_task.h5")
 
+        ci_test_helper.save_checkpoint_task(xrf_task, "aligned_xrf_task.h5")
         # print results of the test even when not running with pytest
         all_passed = ci_test_helper.finish_test()
 

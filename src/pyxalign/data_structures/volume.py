@@ -5,7 +5,6 @@ import cupy as cp
 import astra
 import copy
 import h5py
-from PyQt5.QtWidgets import QApplication
 
 from pyxalign.api.constants import divisor
 from pyxalign.api.options.device import DeviceOptions
@@ -16,8 +15,6 @@ from pyxalign.gpu_utils import create_empty_pinned_array_like, get_scipy_module,
 import pyxalign.image_processing as ip
 from pyxalign import reconstruct
 from pyxalign.io.save import save_array_as_tiff
-from pyxalign.plotting.interactive.arrays import VolumeViewer
-from pyxalign.plotting.interactive.launchers import launch_volume_viewer
 from pyxalign.plotting.plotters import plot_slice_of_3D_array
 import pyxalign.data_structures.projections as projections
 from pyxalign.timing.timer_utils import timer
@@ -338,9 +335,7 @@ class Volume:
             print("There is no volume data to save!")
         with h5py.File(file_path, "w") as F:
             F.create_dataset(name="volume", data=self.data)
-
-    def launch_viewer(self, wait_until_closed: bool = False):
-        self.gui = launch_volume_viewer(self.data, wait_until_closed=wait_until_closed)
+        print(f"File saved to: {file_path}")
 
 
 def get_tomogram_rotation_angles(

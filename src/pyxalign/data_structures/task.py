@@ -19,11 +19,12 @@ from pyxalign.api.types import r_type
 from pyxalign.io.load import load_ptycho_projections
 from pyxalign.io.save import save_generic_data_structure_to_h5
 from pyxalign.io.utils import load_options
-from pyxalign.plotting.interactive.projection_matching import ProjectionMatchingViewer
+from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
 from pyxalign.timing.timer_utils import clear_timer_globals
-# from pyxalign.plotting.interactive.task import TaskViewer # causes circular imports
-import pyxalign.plotting.interactive.task as task_viewer
-import pyxalign.interactions.pma_runner as pma_runner
+
+# from pyxalign.interactions.viewers.task import TaskViewer # causes circular imports
+# import pyxalign.interactions.viewers.task as task_viewer
+# import pyxalign.interactions.pma_runner as pma_runner
 
 
 class LaminographyAlignmentTask:
@@ -70,6 +71,7 @@ class LaminographyAlignmentTask:
             shift=shift,
             function_type=enums.ShiftType.CIRC,
             alignment_options=self.options.cross_correlation,
+            eliminate_wrapping=True,
         )
         if plot_results:
             projections.plot_shift(
@@ -124,10 +126,6 @@ class LaminographyAlignmentTask:
             gui.close()
         self.pma_gui_list = []
 
-    def get_complex_projection_masks(self, enable_plotting: bool = False):
-        clear_timer_globals()
-        self.complex_projections.get_masks(enable_plotting)
-
     def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
         if pinned_results is None:
             if (
@@ -157,15 +155,9 @@ class LaminographyAlignmentTask:
                 ):
                     # save_projections(getattr(self, attr), file_path, attr, h5_obj)
                     projection: Projections = getattr(self, attr)
-                    projection.save_projections_object(h5_obj=h5_obj.create_group(attr))
+                    projection._save_projections_object(h5_obj=h5_obj.create_group(attr))
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
-
-    # def launch_viewer(self) -> QApplication:
-    #     app = QApplication.instance() or QApplication([])
-    #     self.gui = TaskViewer(self)
-    #     self.gui.show()
-    #     return app
 
 
 def run_projection_matching(

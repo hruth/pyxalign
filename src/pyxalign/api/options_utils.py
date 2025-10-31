@@ -1,11 +1,11 @@
-import dataclasses
 from dataclasses import is_dataclass, fields
-import numpy as np
 import pyxalign.api.options as opts
+
+__all__ = ["set_all_device_options", "print_options"]
 
 
 def set_all_device_options(options, device_options: "opts.DeviceOptions"):
-    "Set all device options in the input `options` dataclass to the valeus in `device_options`"
+    "Set all device options in the input `options` dataclass to the values in `device_options`"
 
     for k, v in options.__dict__.items():
         # I am not using isinstance here because it does not always work as expectd when

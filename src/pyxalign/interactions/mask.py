@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, List
+from typing import Optional, List
 
 import numpy as np
 import pyqtgraph as pg
@@ -15,9 +15,16 @@ from PyQt5.QtWidgets import (
     QPushButton,
 )
 
-from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
+from pyxalign.api.enums import RoundType
+import pyxalign.data_structures.projections as p
+from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.mask import place_patches_fourier_batch
-from pyxalign.plotting.interactive.base import IndexSelectorWidget
+from pyxalign.interactions.viewers.base import IndexSelectorWidget
+from pyxalign.mask import clip_masks
+from pyxalign.model_functions import symmetric_gaussian_2d
+from pyxalign.transformations.helpers import round_to_divisor
+from pyxalign.api import constants
 
 """
 Interactive mask threshold selector based on pyqtgraph and the shared
@@ -27,29 +34,6 @@ This file replaces the previous Matplotlib-based implementation with a fast
 Qt/pyqtgraph GUI and removes the bespoke slider / play logic in favour of the
 centralised IndexSelectorWidget (see plotting/interactive/base.py).
 """
-
-
-# ------------------------------------------------------------------------------
-# Utility helpers (kept from original file)
-# ------------------------------------------------------------------------------
-
-
-def clip_masks(masks: np.ndarray, threshold: float) -> np.ndarray:
-    """Binarise mask stack at *threshold* (in-place) and return it."""
-    clip_idx = masks > threshold
-    masks[:] = 0
-    masks[clip_idx] = 1
-    return masks
-
-
-def build_masks_from_threshold(
-    shape: tuple[int, int, int],
-    probe: np.ndarray,
-    positions: List[np.ndarray],
-    threshold: float,
-) -> np.ndarray:
-    masks = place_patches_fourier_batch(shape, probe, positions)
-    return clip_masks(masks, threshold)
 
 
 # ------------------------------------------------------------------------------
@@ -104,8 +88,8 @@ class PGCanvas(QWidget):
         idx: int,
         threshold: float,
     ) -> None:
-        """
-        Update displayed images for frame *idx* and *threshold*.
+        """Update displayed images for frame *idx* and *threshold*.
+
         The logic matches the former Matplotlib implementation.
         """
         # build binary mask clip
@@ -143,8 +127,7 @@ class PGCanvas(QWidget):
 
 
 class ThresholdSelector(QWidget):
-    """
-    Interactive tool to choose a binary-threshold for automatically
+    """Interactive tool to choose a binary-threshold for automatically
     generated “probe-patch” masks.
 
     Signals
@@ -162,29 +145,41 @@ class ThresholdSelector(QWidget):
 
     def __init__(
         self,
-        projections: np.ndarray,
-        probe: np.ndarray,
-        positions: List[np.ndarray],
-        init_thresh: float = 0.01,
+        projections: "p.Projections",
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
+
+        self.projections = projections
+        self.options = self.projections.options.mask_from_positions
+
+        # use simulated probe if specified by options; this typically
+        # gives better results
+        if self.options.use_simulated_probe:
+            shape = self.projections.probe.shape
+            probe_width = round_to_divisor(
+                shape[0] * self.options.probe.fractional_width,
+                round_type=RoundType.NEAREST,
+                divisor=constants.divisor
+            )
+            probe = symmetric_gaussian_2d(shape, amplitude=1, sigma=probe_width)
+        else:
+            probe = self.projections.probe
 
         # Precompute masks (floating-point values)
         load_bar_func_wrapper = loading_bar_wrapper("Initializing masks...")(
             place_patches_fourier_batch
         )
         masks = load_bar_func_wrapper(
-            projections.shape,
+            self.projections.data.shape,
             probe,
-            positions,
+            self.projections.probe_positions.data,
         )
 
         # Basic state
         self.masks = masks
-        self.projections = projections
         self.num_frames = len(masks)
-        self.threshold = init_thresh
+        self.threshold = self.options.threshold
         self._playing = False
 
         # -------------------------------------------------------------- #
@@ -205,7 +200,7 @@ class ThresholdSelector(QWidget):
         self.threshold_spin = QDoubleSpinBox()
         self.threshold_spin.setRange(0.0, 1e9)
         self.threshold_spin.setDecimals(3)
-        self.threshold_spin.setValue(init_thresh)
+        self.threshold_spin.setValue(self.threshold)
         self.threshold_spin.valueChanged.connect(self._on_threshold_changed)
 
         # Finish / accept button
@@ -255,15 +250,15 @@ class ThresholdSelector(QWidget):
         self._update_plot()
 
     def _update_plot(self, value: int | None = None, *, initial: bool = False) -> None:
-        """
-        Refresh pyqtgraph images. Called when slider/spinbox changes or
-        threshold changes.
+        """Refresh pyqtgraph images.
+
+        Called when slider/spinbox changes or threshold changes.
         """
         if value is None:  # called from threshold change
             value = self.slider.value()
         self.pg_canvas.update_mask_plot(
             self.masks,
-            self.projections,
+            self.projections.data,
             idx=value,
             threshold=self.threshold,
         )
@@ -303,47 +298,44 @@ class ThresholdSelector(QWidget):
         wrapped_clip_masks = loading_bar_wrapper("Constructing masks...")(func=clip_masks)
         self.masks = wrapped_clip_masks(self.masks, self.threshold)
 
+        # update Projection object masks
+        new_masks = self.masks
+        if self.projections.masks is None or self.projections.masks.shape != new_masks.shape:
+            self.projections.masks = new_masks
+        else:
+            self.projections.masks[:] = new_masks
+        # update threshold in projection options
+        self.projections.options.mask_from_positions.threshold = self.threshold
+
         # Emit and close
         self.masks_created.emit(self.masks)
         self.close()
 
-    # ------------------------------------------------------------------ #
-    # Public convenience API
-    # ------------------------------------------------------------------ #
 
-    def get_final_masks_blocking(self) -> np.ndarray:
-        """
-        Utility for scripts – exec_() the widget and return masks once user
-        finishes.
-        """
-        # Blocking: show(), exec_() handled externally (depends on event-loop);
-        # We therefore provide a simple signal-to-property mechanism.
-        self._final_masks: Optional[np.ndarray] = None
-
-        def _receive(m):
-            self._final_masks = m
-
-        self.masks_created.connect(_receive)
-        self.show()  # non-modal; caller must start QApplication exec
-        # busy-wait loop could be added, but left out intentionally.
-        return self._final_masks
-
-
+@switch_to_matplotlib_qt_backend
 def launch_mask_builder(
-    projections_array: np.ndarray,
-    probe: np.ndarray,
-    probe_positions: list[np.ndarray],
-    mask_receiver_function: Optional[Callable] = None,
+    projections: "p.Projections",
     wait_until_closed: bool = False,
 ):
+    """Launch the GUI for interactively building masks from the probe
+    positions. This GUI first by places a probe at each probe position using
+    FFT-based convolution and then the user interactively sets the threshold
+    above which the mask is equal to 1.
+
+    Args:
+        projections (Projections): projections object to create masks
+            for. The projections object must have probe positions in
+            order to run this function.
+        wait_until_closed (bool): if `True`, the application starts a
+            blocking call until the GUI window is closed.
+
+    Example:
+        Launch the mask creation
+        GUI::
+            gui = pyxalign.gui.launch_mask_builder(task.complex_projections)
+    """
     app = QApplication.instance() or QApplication([])
-    gui = ThresholdSelector(
-        projections_array,
-        probe,
-        probe_positions,
-    )
-    if mask_receiver_function is not None:
-        gui.masks_created.connect(mask_receiver_function)
+    gui = ThresholdSelector(projections)
     gui.show()
     gui.setAttribute(Qt.WA_DeleteOnClose)
     if wait_until_closed:
