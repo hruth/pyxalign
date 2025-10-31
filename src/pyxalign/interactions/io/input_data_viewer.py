@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
+    QAbstractScrollArea
 )
 import pyqtgraph as pg
 
@@ -164,8 +165,8 @@ class StandardDataViewer(QWidget):
 
         # Right: table of scan numbers and angles
         self.scan_angles_table = QTableWidget()
-        self.scan_angles_table.setColumnCount(2)
-        self.scan_angles_table.setHorizontalHeaderLabels(["Scan #", "Angle"])
+        self.scan_angles_table.setColumnCount(3)
+        self.scan_angles_table.setHorizontalHeaderLabels(["scan #", "angle (deg)", "filepath"])
         self.scan_angles_table.verticalHeader().setVisible(False)
 
         # Put the left vbox and the table in the horizontal layout
@@ -201,6 +202,7 @@ class StandardDataViewer(QWidget):
         self.scan_angles_table.setRowCount(num_scans)
         for i, scan_num in enumerate(self.data.scan_numbers):
             angle_val = self.data.angles[i] if i < len(self.data.angles) else 0.0
+            file_path = self.data.file_paths[scan_num]
 
             # Column 0: Scan #
             sn_item = QTableWidgetItem(str(scan_num))
@@ -209,6 +211,12 @@ class StandardDataViewer(QWidget):
             # Column 1: Angle
             angle_item = QTableWidgetItem(str(angle_val))
             self.scan_angles_table.setItem(i, 1, angle_item)
+
+            # Column 2: Filepath
+            file_path_item = QTableWidgetItem(file_path)
+            self.scan_angles_table.setItem(i, 2, file_path_item)
+            # file_path_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable)
+
 
         # Pixel size & probe shape
         px_text = "Pixel Size: " + (str(self.data.pixel_size) if self.data.pixel_size else "None")

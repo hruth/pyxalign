@@ -48,3 +48,5 @@ def get_experiment_type_enum_from_options(options: OptionsClass) -> ExperimentTy
         return ExperimentType.BEAMLINE_2IDD_PTYCHO
     elif isinstance(options, xrf_options.XRF2IDELoadOptions):
         return ExperimentType.BEAMLINE_2IDE_XRF
+
+

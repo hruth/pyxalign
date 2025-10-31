@@ -32,7 +32,7 @@ from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 from pyxalign.transformations.classes import Cropper, Shifter
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
-from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
+from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 
 
 class CrossCorrelationMasterWidget(MultiThreadedWidget):

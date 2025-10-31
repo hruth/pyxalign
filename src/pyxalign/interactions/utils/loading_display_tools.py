@@ -5,7 +5,13 @@ import traceback
 from typing import Callable
 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, Qt, QEventLoop
-from PyQt5.QtWidgets import QApplication, QProgressDialog
+from PyQt5.QtWidgets import QApplication, QProgressDialog, QWidget, QVBoxLayout, QLabel
+
+
+#############################################################
+# Create wrapper that runs loading bar in main thread while 
+# the slow function is run in a seperate thread             
+#############################################################
 
 
 class Worker(QObject):
@@ -35,9 +41,7 @@ class Worker(QObject):
             self.done.emit(result, exception)
 
 
-def loading_bar_wrapper(
-    load_message: str = "Processing...", block_all_windows: bool = False
-):
+def loading_bar_wrapper(load_message: str = "Processing...", block_all_windows: bool = False):
     """
     Decorator that:
     1. Spawns a QThread to run `func` in the background.
@@ -127,3 +131,60 @@ def loading_bar_wrapper(
         return wrapper
 
     return middleman
+
+
+#############################################################
+# Create overlay widget that displays text over the window
+# This is useful when you cannot use the loadbar because the
+# spawned thread uses PyQt5 which would cause the kernel to 
+# crash
+#############################################################
+
+
+class OverlayWidget(QWidget):
+    """
+    A semi-transparent overlay widget that can display text
+    and block interaction with the underlying window.
+    """
+    def __init__(self, parent=None, text="Processing..."):
+        super().__init__(parent)
+        
+        # Make the overlay cover the entire parent widget
+        if parent:
+            self.setGeometry(parent.rect())
+        
+        # Set up the semi-transparent background
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        
+        # Create layout and label for text
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        self.label = QLabel(text)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-size: 24px;
+                font-weight: bold;
+                background-color: rgba(0, 0, 0, 180);
+                padding: 20px;
+                border-radius: 10px;
+            }
+        """)
+        
+        layout.addWidget(self.label)
+        
+        # Set the overall background with transparency
+        self.setStyleSheet("background-color: rgba(128, 128, 128, 100);")
+        
+    def setText(self, text):
+        """Update the overlay text."""
+        self.label.setText(text)
+    
+    def paintEvent(self, event):
+        """Ensure the overlay fills the parent widget."""
+        super().paintEvent(event)
+        if self.parent():
+            self.setGeometry(self.parent().rect())

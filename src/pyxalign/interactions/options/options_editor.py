@@ -2,10 +2,8 @@ from functools import wraps
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from tkinter import filedialog
-from typing import Optional, Union, TypeVar, get_origin, get_args, Any
+from typing import Optional, Union, get_origin, get_args, Any
 import cupy as cp
-import numpy as np
 import pyxalign.api.options as opts
 
 from PyQt5.QtWidgets import (
@@ -21,7 +19,6 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QComboBox,
     QPushButton,
-    QDialogButtonBox,
     QSizePolicy,
     QHBoxLayout,
     QLayout,

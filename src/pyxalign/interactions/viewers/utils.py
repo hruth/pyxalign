@@ -87,8 +87,8 @@ def add_dataclass_to_tree(parent_item: QTreeWidgetItem, data, path: str = ""):
 
 
 class OptionsDisplayWidget(QWidget):
-    def __init__(self, options: Optional[OptionsClass] = None):
-        super().__init__()
+    def __init__(self, options: Optional[OptionsClass] = None, parent=None):
+        super().__init__(parent)
         self.setWindowTitle("Options")
         self.options = options
 

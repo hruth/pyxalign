@@ -73,7 +73,11 @@ class BaseLoadOptions:
     ask_for_backup_files: bool = False
     "Whether or not the UI asks for backup files if a projection file is not found."
 
-    select_all_by_default: bool = False
+    select_all_by_default: bool = True
+    """
+    If `False`, when there are different filestrings that match the file_pattern then
+    a window will pop up asking you to select which files you want to load.
+    """
 
     loader_type: LoaderType = LoaderType.PEAR_V1
     """The PEAR style loading is compatible with some data saved using

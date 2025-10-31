@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 
 from pyxalign.api.enums import RoundType
 import pyxalign.data_structures.projections as p
-from pyxalign.interactions.utils.loading_decorator import loading_bar_wrapper
+from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.mask import place_patches_fourier_batch
 from pyxalign.interactions.viewers.base import IndexSelectorWidget
