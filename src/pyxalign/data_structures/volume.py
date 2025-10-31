@@ -335,6 +335,7 @@ class Volume:
             print("There is no volume data to save!")
         with h5py.File(file_path, "w") as F:
             F.create_dataset(name="volume", data=self.data)
+        print(f"File saved to: {file_path}")
 
 
 def get_tomogram_rotation_angles(

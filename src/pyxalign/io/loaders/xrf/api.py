@@ -14,7 +14,7 @@ def load_data_from_xrf_format(
     format.
 
     Args:
-        options (pear.options.XRFLoadOptions): Configuration options
+        options (xrf.options.XRFLoadOptions): Configuration options
             for loading data.
 
     Returns:

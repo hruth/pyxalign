@@ -68,7 +68,6 @@ def cSAXS_e18044_LamNI_201907_pre_processing(
         new_shape = (2368, 1600)
         projection_array = convert_projection_dict_to_array(
             lamni_data.projections,
-            delete_projection_dict=False,
             pad_with_mode=True,
             new_shape=new_shape,
         )

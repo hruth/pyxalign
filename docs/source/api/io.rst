@@ -24,7 +24,7 @@ To load the data, you can either: 1) use the appropriate loading function or 2) 
 
 * Loading functions:
     * Ptychography data processed by PEAR/Pty-Chi: :func:`pyxalign.io.loaders.pear.load_data_from_pear_format`
-    * XRF Data: :func:`pyxalign.io.loaders.pear.load_data_from_xrf_format`
+    * XRF Data: :func:`pyxalign.io.loaders.xrf.load_data_from_xrf_format`
 * Loading GUI:
     * Any type of data: :func:`pyxalign.gui.launch_data_loader`
 
@@ -69,19 +69,19 @@ XRF
 
 .. autofunction:: pyxalign.io.loaders.xrf.load_data_from_xrf_format
 
-.. autoclass:: pyxalign.io.loaders.xrf.XRFLoadOptions
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
-   :member-order: bysource
+.. .. autoclass:: pyxalign.io.loaders.xrf.XRFLoadOptions
+..    :members:
+..    :inherited-members:
+..    :undoc-members:
+..    :show-inheritance:
+..    :member-order: bysource
 
 .. automodule:: pyxalign.io.loaders.xrf
    :members:
    :inherited-members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: XRFLoadOptions, load_data_from_xrf_format
+   :exclude-members: load_data_from_xrf_format
 
 Data Structures
 ^^^^^^^^^^^^^^^^^^^

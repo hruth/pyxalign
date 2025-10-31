@@ -86,7 +86,6 @@ def run_full_test_TP2(
         # Convert projection dict to an array
         projection_array = convert_projection_dict_to_array(
             lamni_data.projections,
-            delete_projection_dict=False,
             pad_with_mode=True,
         )
 
