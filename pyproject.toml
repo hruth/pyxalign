@@ -1,6 +1,6 @@
 [project]
 name = "pyxalign"
-author = {name = "Hanna Ruth", email = "hruth@anl.gov"}
+authors = [{name = "Hanna Ruth", email = "hruth@anl.gov"}]
 version = "1.0.0"
 description = "Package for alignment and reconstruction of laminography data."
 dependencies = [
