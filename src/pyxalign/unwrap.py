@@ -51,10 +51,6 @@ def unwrap_phase(
     elif options.method == PhaseUnwrapMethods.GRADIENT_INTEGRATION:
         unwrapped_phase = xp.zeros(shape=images.shape, dtype=r_type)
         for i in range(len(images)):
-            # if options.gradient_integration.use_masks: # this should be default I think.
-            #     weight_map = weights[i]
-            # else:
-            #     weight_map = None
             if weights is not None:
                 weight_map = weights[i]
             else:
@@ -65,7 +61,6 @@ def unwrap_phase(
                 image_integration_method=options.gradient_integration.integration_method,
                 fourier_shift_step=options.gradient_integration.fourier_shift_step,
                 weight_map=weight_map,
-                # deramp_polyfit_order=options.gradient_integration.deramp_polyfit_order,
             )
 
     # remove phase ramp

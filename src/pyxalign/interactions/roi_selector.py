@@ -537,7 +537,7 @@ def launch_mask_selection_from_roi(
 def launch_crop_window_selection(
     projections: "p.Projections",
     crop_options: Optional[CropOptions] = None,
-) -> MaskFromROISelector:
+) -> CropOptions:
     """
     Launch a GUI that lets you interactively select a region of 
     interest. This function returns an instance of `CropOptions` with 

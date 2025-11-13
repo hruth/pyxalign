@@ -274,7 +274,6 @@ def launch_data_loader(
         Launch the data loader
         GUI::
 
-            import pyxalign
             loaded_data, load_options = pyxalign.gui.launch_data_loader()
     """
     app = QApplication.instance() or QApplication([])
