@@ -327,6 +327,10 @@ class LinkedArrayViewer(MultiThreadedWidget):
         # create array viewers
         self.array_viewer_list = []
         for i, array3d in enumerate(array_list):
+            if i == 0:
+                hide_index_selector_controls = False
+            else:
+                hide_index_selector_controls = True
             array_viewer = ArrayViewer(
                 array3d,
                 options=options,
@@ -334,6 +338,7 @@ class LinkedArrayViewer(MultiThreadedWidget):
                 multi_thread_func=multi_thread_func,
                 extra_title_strings_list=extra_title_strings_list,
                 process_func=process_func,
+                hide_index_selector_controls=hide_index_selector_controls,
             )
             self.array_viewer_list += [array_viewer]
             # connect all sliders

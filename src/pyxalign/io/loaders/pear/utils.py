@@ -142,6 +142,17 @@ def extract_info_from_lamni_dat_file(
 
     return (scan_numbers, angles, experiment_names, sequence_number)
 
+def extract_info_from_12ide_scan_file(
+    angles_file_path: str, sample_name: str
+) -> tuple[np.ndarray, np.ndarray]:
+    df = pd.read_csv(
+        angles_file_path, header=None, names=["scan_number", "angle", "sample_name"], delimiter=", "
+    )
+    idx = df["sample_name"] == sample_name
+    angles = np.array(df[idx]["angle"], dtype=r_type)
+    scan_numbers =  np.array(df[idx]["scan_number"], dtype=int)
+    return scan_numbers, angles
+
 
 @timer()
 def load_experiment(
@@ -150,7 +161,7 @@ def load_experiment(
     options: pear_options.PEARLoadOptions,
 ) -> PEARBaseLoader:
     """
-    Load an experiment that is saved with the lamni structure.
+    Load an experiment that is saved with the pear structure.
     """
     scan_numbers, angles, experiment_names, sequences = extract_experiment_info(options)
     # If there is only one experiment name found, automatically select that one
@@ -242,6 +253,12 @@ def extract_experiment_info(
         )
         # data of this type does not have experiment_names or sequences, so we have to
         # make dummy values
+        experiment_names = [""] * len(scan_numbers)
+        sequences = np.zeros(len(scan_numbers), dtype=int)
+    elif isinstance(options, pear_options.Ptycho12IDELoadOptions):
+        scan_numbers, angles = extract_info_from_12ide_scan_file(
+            options.angles_file_path, options.sample_name
+        )
         experiment_names = [""] * len(scan_numbers)
         sequences = np.zeros(len(scan_numbers), dtype=int)
 

@@ -346,9 +346,13 @@ class PEARBaseLoader(ABC):
         raise NotImplementedError
 
 
-def generate_single_projection_sub_folder(scan_number: int, n_digits) -> str:
+def generate_single_projection_sub_folder(
+    scan_number: int, n_digits: int, suffix: Optional[str] = None
+) -> str:
     "Generate name of subfolder corresponding to a single projection"
-    return f"S{str(scan_number).zfill(n_digits)}"
+    if suffix is None:
+        suffix = "S" 
+    return f"{suffix}{str(scan_number).zfill(n_digits)}"
 
 
 def filter_string(input_string: str) -> str:

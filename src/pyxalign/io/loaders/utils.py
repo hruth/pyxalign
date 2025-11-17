@@ -523,5 +523,11 @@ def count_digits(s):
 
 
 def extract_s_digit_strings(strings):
-    pattern = r"^S\d+$"  # Matches 'S' followed by one or more digits
-    return [s for s in strings if re.match(pattern, s)]
+    return [s for s in strings if re.match("\D+\d+", s)]
+    # pattern = r"^S\d+$"  # Matches 'S' followed by one or more digits
+    # return [s for s in strings if re.match(pattern, s)]
+    # if len(folder_strings) > 0:
+    #     return folder_strings
+    # pattern = r"^fly\d+$"
+    # folder_strings = [s for s in strings if re.match(pattern, s)]
+    # return folder_strings

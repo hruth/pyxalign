@@ -36,6 +36,7 @@ def get_loader_options_by_enum(key: ExperimentType) -> OptionsClass:
             base=pear_options.BaseLoadOptions(parent_projections_folder=""),
         ),
         ExperimentType.BEAMLINE_2IDE_XRF: xrf_options.XRF2IDELoadOptions(),
+        ExperimentType.BEAMLINE_12IDE_PTYCHO: pear_options.Ptycho12IDELoadOptions(),
     }[key]
 
 
@@ -48,17 +49,19 @@ def get_experiment_type_enum_from_options(options: OptionsClass) -> ExperimentTy
         return ExperimentType.BEAMLINE_2IDD_PTYCHO
     elif isinstance(options, xrf_options.XRF2IDELoadOptions):
         return ExperimentType.BEAMLINE_2IDE_XRF
+    elif isinstance(options, pear_options.Ptycho12IDELoadOptions):
+        return ExperimentType.BEAMLINE_12IDE_PTYCHO
 
-    # above part doesn't run right when using reloading features during development
-    # other users pls ignore
-    if options.__class__.__qualname__ == pear_options.LYNXLoadOptions.__qualname__:
-        return ExperimentType.LYNX
-    elif (
-        options.__class__.__qualname__
-        == pear_options.Microprobe2IDELoadOptions.__qualname__
-    ):
-        return ExperimentType.BEAMLINE_2IDE_PTYCHO
-    elif options.__class__.__qualname__ == pear_options.BNP2IDDLoadOptions.__qualname__:
-        return ExperimentType.BEAMLINE_2IDD_PTYCHO
-    elif options.__class__.__qualname__ == xrf_options.XRF2IDELoadOptions.__qualname__:
-        return ExperimentType.BEAMLINE_2IDE_XRF
+    # # above part doesn't run right when using reloading features during development
+    # # other users pls ignore
+    # if options.__class__.__qualname__ == pear_options.LYNXLoadOptions.__qualname__:
+    #     return ExperimentType.LYNX
+    # elif (
+    #     options.__class__.__qualname__
+    #     == pear_options.Microprobe2IDELoadOptions.__qualname__
+    # ):
+    #     return ExperimentType.BEAMLINE_2IDE_PTYCHO
+    # elif options.__class__.__qualname__ == pear_options.BNP2IDDLoadOptions.__qualname__:
+    #     return ExperimentType.BEAMLINE_2IDD_PTYCHO
+    # elif options.__class__.__qualname__ == xrf_options.XRF2IDELoadOptions.__qualname__:
+    #     return ExperimentType.BEAMLINE_2IDE_XRF

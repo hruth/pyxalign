@@ -147,6 +147,12 @@ class LYNXLoadOptions(PEARLoadOptions):
     allowed value is equal to the number of tiles.
     """
 
+@dataclasses.dataclass
+class Ptycho12IDELoadOptions(PEARLoadOptions):
+    angles_file_path: str = ""
+
+    sample_name: str = ""
+
 
 @dataclasses.dataclass
 class MDAPEARLoadOptions(PEARLoadOptions):
@@ -186,3 +192,5 @@ class BNP2IDDLoadOptions(MDAPEARLoadOptions):
     _mda_file_pattern: MDAFilePatterns = MDAFilePatterns.BNP_FLY_MDA
 
     _angle_pv_string: RotationAnglePVStrings = RotationAnglePVStrings.IDBTAU_SM_ST_ACTPOS
+
+

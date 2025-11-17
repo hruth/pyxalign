@@ -8,10 +8,11 @@ class ExperimentInfoSourceType(StrEnum):
 
 
 class ExperimentType(StrEnum):
-    LYNX = auto()
-    BEAMLINE_2IDE_PTYCHO = auto()
-    BEAMLINE_2IDD_PTYCHO = auto()
-    BEAMLINE_2IDE_XRF = auto()
+    LYNX = "LYNX: ptycho"
+    BEAMLINE_2IDE_PTYCHO = "2-ID-E: ptycho"
+    BEAMLINE_2IDD_PTYCHO = "2-ID-D: ptycho"
+    BEAMLINE_12IDE_PTYCHO = "12-ID-E: ptycho"
+    BEAMLINE_2IDE_XRF = "2-ID-E: XRF"
 
 
 class MDAFilePatterns(StrEnum):

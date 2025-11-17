@@ -103,14 +103,9 @@ class SelectLoadSettingsWidget(QWidget):
         self.experiment_type_combo = QComboBox()
         self.experiment_type_combo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         layout.addWidget(self.experiment_type_combo)
-        experiment_options = {
-            "LYNX": ExperimentType.LYNX,
-            "2IDE: ptycho": ExperimentType.BEAMLINE_2IDE_PTYCHO,
-            "2IDD: ptycho": ExperimentType.BEAMLINE_2IDD_PTYCHO,
-            "2IDE: XRF-maps": ExperimentType.BEAMLINE_2IDE_XRF,
-        }
-        for key, val in experiment_options.items():
-            self.experiment_type_combo.addItem(key, val)
+
+        for experiment_type in ExperimentType:
+            self.experiment_type_combo.addItem(experiment_type, experiment_type)
 
         # On changing the index, the displayed options should change between
         # pear_options.LYNXLoadOptions, Beamline2IDELoadOptions, and the xrf maps options!
