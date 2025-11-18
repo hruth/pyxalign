@@ -263,7 +263,7 @@ def launch_data_loader(
             opening the GUI.
 
     Returns:
-        The loaded data
+        Tuple containing the loaded data and the selected loading options
 
     Example:
         Launch the data loader
