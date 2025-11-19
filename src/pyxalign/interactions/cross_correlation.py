@@ -192,7 +192,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.title_strings = get_projection_title_strings(
                 self.projections.scan_numbers, self.projections.angles
             )
-        self.sort_idx = np.argsort(np.argsort(proj.angles))
+        self.sort_idx = np.argsort(proj.angles)
         self.pre_alignment_viewer = ArrayViewer(
             array3d=proj.data,
             sort_idx=self.sort_idx,
