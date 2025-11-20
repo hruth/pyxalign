@@ -884,6 +884,7 @@ class PhaseProjections(Projections):
         pinned_filtered_sinogram: Optional[np.ndarray] = None,
         reinitialize_astra: bool = True,
         n_pix: Optional[Sequence[int]] = None,
+        apply_positivity_constraint: bool = False,
     ):
         self.volume.generate_volume(
             filter_inputs=filter_inputs,
@@ -891,6 +892,8 @@ class PhaseProjections(Projections):
             reinitialize_astra=reinitialize_astra,
             n_pix=n_pix,
         )
+        if apply_positivity_constraint:
+            self.volume.apply_positivity_constraint()
 
     def estimate_center_of_rotation(self) -> CenterOfRotationEstimateResults:
         clear_timer_globals()

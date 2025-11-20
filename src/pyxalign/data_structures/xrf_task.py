@@ -140,9 +140,11 @@ class XRFTask:
         for _, projections in self.projections_dict.items():
             projections.drop_projections(remove_scans=remove_scans)
 
-    def get_3D_reconstructions_for_all_channels(self):
+    def get_3D_reconstructions_for_all_channels(self, apply_positivity_constraint: bool = False):
         for _, projections in self.projections_dict.items():
-            projections.get_3D_reconstruction(True)
+            projections.get_3D_reconstruction(
+                apply_positivity_constraint=apply_positivity_constraint
+            )
 
     def save_volumes_as_tiffs(self, results_folder: str, file_prefix: str):
         for channel, projections in self.projections_dict.items():
