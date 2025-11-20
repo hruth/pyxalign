@@ -9,6 +9,8 @@ import cupy as cp
 import traceback
 import bisect
 from pyxalign.api.options.plotting import ArrayViewerOptions
+from pyxalign.interactions import initialize_projections
+from pyxalign.interactions.viewers.climit_window import ClimitAdjustmentWindow
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from PyQt5.QtWidgets import (
     QWidget,
@@ -105,6 +107,7 @@ class ArrayViewer(MultiThreadedWidget):
         sort_idx: Optional[Sequence] = None,
         hide_index_selector_controls: bool = False,
         return_index_selector_seperately: bool = False,
+        hide_climit_controls: bool = False,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
         process_func: Optional[Callable] = None,
@@ -146,6 +149,7 @@ class ArrayViewer(MultiThreadedWidget):
             self.num_frames = 1
 
         self.playing = False
+        self.climit_window = None
 
         # Create a pyqtgraph GraphicsLayoutWidget to hold the image
         self.graphics_layout = pg.GraphicsLayoutWidget()
@@ -158,6 +162,20 @@ class ArrayViewer(MultiThreadedWidget):
         self.auto_clim_check_box = QCheckBox("Enable amplitude rescaling")
         self.auto_clim_check_box.setStyleSheet("QCheckBox {font-size: 15px;}")
         self.auto_clim_check_box.stateChanged.connect(self.refresh_frame)
+
+        # Create button for adjusting color limits
+        self.adjust_climit_button = QPushButton("Adjust Color Limits")
+        self.adjust_climit_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.adjust_climit_button.clicked.connect(self.open_climit_window)
+        if hide_climit_controls:
+            self.adjust_climit_button.hide()
+
+        # Create horizontal layout for checkbox and button
+        clim_controls_layout = QHBoxLayout()
+        clim_controls_layout.addWidget(self.auto_clim_check_box)
+        clim_controls_layout.addWidget(self.adjust_climit_button)
+        clim_controls_widget = QWidget()
+        clim_controls_widget.setLayout(clim_controls_layout)
 
         # Create index selection widget (slider, spinbox, play button, etc.)
         self.indexing_widget = IndexSelectorWidget(
@@ -182,7 +200,7 @@ class ArrayViewer(MultiThreadedWidget):
 
         # Main layout
         layout = QVBoxLayout()
-        layout.addWidget(self.auto_clim_check_box)
+        layout.addWidget(clim_controls_widget)
         layout.addWidget(self.graphics_layout)
         if not return_index_selector_seperately:
             layout.addWidget(self.indexing_widget)
@@ -207,6 +225,8 @@ class ArrayViewer(MultiThreadedWidget):
             self.display_frame(index=self.options.start_index)
             # force scaling
             self.image_item.setImage(autoLevels=True)
+            # initialize manual climit editing widget
+            self.initialize_climit_window()
 
     def display_frame(self, index=0, force_autolim: bool = False):
         """Display a given slice (frame) from array3d."""
@@ -300,6 +320,18 @@ class ArrayViewer(MultiThreadedWidget):
                     sort_idx=sort_idx,
                     new_selected_value_list=new_selected_value_list,
                 )
+            if self.climit_window is None:
+                self.initialize_climit_window()
+            else:
+                self.climit_window.load_current_levels()
+
+    def open_climit_window(self):
+        self.climit_window.show()
+
+    def initialize_climit_window(self):
+        if self.array3d is not None:
+            self.climit_window = ClimitAdjustmentWindow(self.image_item, parent=self)
+            self.climit_window.load_current_levels()
 
     def start(self):
         """Show the widget."""
@@ -759,7 +791,7 @@ def launch_linked_array_viewer(
 
     Args:
         array_list (np.ndarray): A list of 3-dimensional arrays. The GUI
-            indexes along the 0th axis of the input `array3d`. Each 
+            indexes along the 0th axis of the input `array3d`. Each
             array in the list must have the same length
         options (Optional[ArrayViewerOptions]): Optional settings for
             specifying the state that each `ArrayViewer` GUI is initialized in.
@@ -775,7 +807,7 @@ def launch_linked_array_viewer(
             blocking call until the GUI window is closed.
 
     Example:
-        Compare two different volume 
+        Compare two different volume
         arrays::
 
             gui = pyxalign.gui.launch_linked_array_viewer([volume_array_1, volume_array_2])

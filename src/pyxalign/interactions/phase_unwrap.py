@@ -10,7 +10,7 @@ import traceback
 from typing import Optional
 
 import numpy as np
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
@@ -102,7 +102,8 @@ class PhaseUnwrapWidget(QWidget):
             open_panels_list=["remove_ramp_using_air_gap"],
         )
         # add button for showing cropped projections
-        self.open_crop_viewer_button = QPushButton("Edit Air Gap ROI")
+        self.open_crop_viewer_button = QPushButton(" Edit Air Gap ROI ")
+        self.open_crop_viewer_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.open_crop_viewer_button.clicked.connect(self.show_cropped_projections_viewer)
         self.options_editor.form_layout.addRow("", self.open_crop_viewer_button)
         left_panel_layout.addWidget(self.options_editor, stretch=2)

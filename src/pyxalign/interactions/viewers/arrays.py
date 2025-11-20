@@ -11,7 +11,11 @@ from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.roi_selector import launch_mask_selection_from_roi
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
-from pyxalign.interactions.viewers.base import ArrayViewer, IndexSelectorWidget, MultiThreadedWidget
+from pyxalign.interactions.viewers.base import (
+    ArrayViewer,
+    IndexSelectorWidget,
+    MultiThreadedWidget,
+)
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
@@ -77,6 +81,7 @@ class VolumeViewer(MultiThreadedWidget):
                 slider_axis=1,
                 start_index=int(volume.shape[1] / 2),
             ),
+            hide_climit_controls=True,
         )
         self.side_viewer_2 = ArrayViewer(
             array3d=volume,
@@ -84,7 +89,20 @@ class VolumeViewer(MultiThreadedWidget):
                 slider_axis=2,
                 start_index=int(volume.shape[2] / 2),
             ),
+            hide_climit_controls=True,
         )
+        # connect climit spinboxes
+        main_climit_widget = self.depth_viewer.climit_window
+        for climit_widget in [
+            self.side_viewer_1.climit_window,
+            self.side_viewer_2.climit_window,
+        ]:
+            main_climit_widget.lower_limit_spinbox.valueChanged.connect(
+                climit_widget.lower_limit_spinbox.setValue
+            )
+            main_climit_widget.upper_limit_spinbox.valueChanged.connect(
+                climit_widget.upper_limit_spinbox.setValue
+            )
 
         # Remove clim auto-scale selector from all but one array
         self.side_viewer_1.auto_clim_check_box.hide()
@@ -189,7 +207,9 @@ class ProjectionViewer(MultiThreadedWidget):
             push_button_layout = QVBoxLayout()
             push_button_layout.addWidget(open_options_editor_button)
             push_button_layout.addWidget(open_scan_removal_button)
-            push_button_layout.addWidget(QLabel("Mask Creation:"), alignment=Qt.AlignCenter)
+            push_button_layout.addWidget(
+                QLabel("Mask Creation:"), alignment=Qt.AlignCenter
+            )
             push_button_layout.addWidget(open_mask_creation_button)
             push_button_layout.addWidget(open_mask_from_roi_button)
 
@@ -283,7 +303,9 @@ class ProjectionViewer(MultiThreadedWidget):
         self.array_viewer.refresh_frame()
 
     def update_array_selector(self):
-        add_masks = self.projections.masks is not None and (self.masks_name not in self.array_names)
+        add_masks = self.projections.masks is not None and (
+            self.masks_name not in self.array_names
+        )
         add_forward_projection = self.has_forward_projection() and (
             self.forward_projections_name not in self.array_names
         )
@@ -400,22 +422,30 @@ class ScanRemovalTool(QWidget):
         widget_layout = QVBoxLayout()
         # create the checkbox widget
         self.mark_for_removal_check_box = QCheckBox("Mark for removal", self)
-        self.mark_for_removal_check_box.clicked.connect(self.update_staged_for_removal_list)
-        self.array_viewer.slider.valueChanged.connect(self.update_mark_for_removal_check_box)
+        self.mark_for_removal_check_box.clicked.connect(
+            self.update_staged_for_removal_list
+        )
+        self.array_viewer.slider.valueChanged.connect(
+            self.update_mark_for_removal_check_box
+        )
         # create table widget for show scans staged for removal
         self.staged_for_removal_table = QTableWidget(self)
         self.staged_for_removal_table.setColumnCount(4)
         self.staged_for_removal_table.setHorizontalHeaderLabels(
             ["Index", "Scan Number", "Angle (deg)", "File Path"]
         )
-        self.staged_for_removal_table.currentCellChanged.connect(self.table_item_selected)
+        self.staged_for_removal_table.currentCellChanged.connect(
+            self.table_item_selected
+        )
         # create table widget for previously removed scans
         self.removed_scans_table = QTableWidget(self)
         self.removed_scans_table.setColumnCount(3)
         self.removed_scans_table.setHorizontalHeaderLabels(
             ["Scan Number", "Angle (deg)", "File Path"]
         )
-        for row_index, scan in enumerate(np.sort(self.projections.dropped_scan_numbers)):
+        for row_index, scan in enumerate(
+            np.sort(self.projections.dropped_scan_numbers)
+        ):
             self.removed_scans_table.insertRow(row_index)
             # insert scan num
             self.removed_scans_table.setItem(
@@ -447,8 +477,12 @@ class ScanRemovalTool(QWidget):
         index_selector_widget.slider.setMinimum(0)
         index_selector_widget.slider.setMaximum(self.array_viewer.slider.maximum())
         index_selector_widget.slider.setValue(self.array_viewer.slider.value())
-        index_selector_widget.slider.valueChanged.connect(self.array_viewer.slider.setValue)
-        self.array_viewer.slider.valueChanged.connect(index_selector_widget.slider.setValue)
+        index_selector_widget.slider.valueChanged.connect(
+            self.array_viewer.slider.setValue
+        )
+        self.array_viewer.slider.valueChanged.connect(
+            index_selector_widget.slider.setValue
+        )
 
         # insert widgets into layout
         widget_layout.addWidget(QLabel("Scans staged for removal", self))
@@ -474,7 +508,9 @@ class ScanRemovalTool(QWidget):
         remove_scan_numbers = []
         for row in range(self.staged_for_removal_table.rowCount()):
             remove_scan_numbers += [
-                int(self.staged_for_removal_table.item(row, self.scan_column + 1).text())
+                int(
+                    self.staged_for_removal_table.item(row, self.scan_column + 1).text()
+                )
             ]
         # drop projections
         drop_projections_wrapped = loading_bar_wrapper("Removing projections...")(
@@ -540,7 +576,9 @@ class ScanRemovalTool(QWidget):
             row_index = self.staged_for_removal_table.rowCount()
             self.staged_for_removal_table.insertRow(row_index)
             # add index
-            self.staged_for_removal_table.setItem(row_index, 0, QTableWidgetItem(str(index)))
+            self.staged_for_removal_table.setItem(
+                row_index, 0, QTableWidgetItem(str(index))
+            )
             # add scan number
             self.staged_for_removal_table.setItem(
                 row_index,
@@ -563,7 +601,9 @@ class ScanRemovalTool(QWidget):
         else:
             # find row and remove it
             for row in range(self.staged_for_removal_table.rowCount()):
-                current_scan_index = int(self.staged_for_removal_table.item(row, 0).text())
+                current_scan_index = int(
+                    self.staged_for_removal_table.item(row, 0).text()
+                )
                 if index == current_scan_index:
                     self.staged_for_removal_table.removeRow(row)
                     return
@@ -685,7 +725,9 @@ class AllShiftsViewer(MultiThreadedWidget):
         self.show()
 
 
-def get_projection_title_strings(scan_numbers: np.ndarray, angles: np.ndarray) -> list[str]:
+def get_projection_title_strings(
+    scan_numbers: np.ndarray, angles: np.ndarray
+) -> list[str]:
     whitespace = "&nbsp;" * 3
 
     def return_angle_string(angle):
