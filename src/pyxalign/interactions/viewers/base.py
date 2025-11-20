@@ -308,12 +308,15 @@ class ArrayViewer(MultiThreadedWidget):
                 self.climit_window.load_current_levels()
 
     def open_climit_window(self):
+        self.climit_window.load_current_levels()
         self.climit_window.show()
 
     def initialize_climit_window(self):
         if self.array3d is not None:
             self.climit_window = ClimitAdjustmentWindow(self.image_item, parent=self)
             self.climit_window.load_current_levels()
+            # make sure climit updates when slider is moving
+            self.slider.valueChanged.connect(self.climit_window.load_current_levels)
 
     def start(self):
         """Show the widget."""
