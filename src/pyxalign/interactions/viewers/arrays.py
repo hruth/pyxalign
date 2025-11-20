@@ -3,7 +3,7 @@ import cupy as cp
 from pyxalign.api.maps import get_process_func_by_enum
 from pyxalign.api.options import ProjectionViewerOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
-from pyxalign.api.options_utils import get_all_attribute_names
+from pyxalign.api.options_utils import get_all_attribute_names, print_options
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.mask import launch_mask_builder
@@ -301,6 +301,8 @@ class ProjectionViewer(MultiThreadedWidget):
         self.update_array_selector()
         self.update_arrays()
         self.array_viewer.refresh_frame()
+        print("Updated settings of mask_from_positions:")
+        print_options(self.projections.options.mask_from_positions)
 
     def update_array_selector(self):
         add_masks = self.projections.masks is not None and (

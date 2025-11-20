@@ -89,7 +89,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
 
     def start_alignment(self):
         wrapped_func = loading_bar_wrapper(
-            load_message="Getting cross-correlation alignment",
+            load_message="Getting cross-correlation alignment...",
             block_all_windows=True,
         )(func=self.task.get_cross_correlation_shift)
         shift = wrapped_func(
@@ -110,14 +110,24 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             )
         ]
         self.results_collection_widget.update_table()
-        shift_func = Shifter(
+
+        shifter = Shifter(
             ShiftOptions(type=enums.ShiftType.FFT, enabled=True, eliminate_wrapping=True)
         )
-        self.pinned_array = shift_func.run(
+        wrapped_shift_func = loading_bar_wrapper(
+            load_message="Shifting projections for display...",
+            block_all_windows=True,
+        )(func=shifter.run)
+        self.pinned_array = wrapped_shift_func(
             images=self.projections.data,
             shift=shift.astype(r_type),
             pinned_results=self.pinned_array,
         )
+        # self.pinned_array = shift_func.run(
+        #     images=self.projections.data,
+        #     shift=shift.astype(r_type),
+        #     pinned_results=self.pinned_array,
+        # )
 
         self.post_alignment_viewer.reinitialize_all(
             self.pinned_array,

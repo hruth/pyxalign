@@ -135,7 +135,7 @@ def format_coordinate_options(
 ) -> np.ndarray:
     center = options.center_estimate
 
-    if options.enabled is False:
+    if not options.enabled:
         coordinate_array = np.array([center], dtype=r_type)
         return coordinate_array, 1
 
