@@ -1,22 +1,15 @@
-from functools import wraps
 from ctypes import ArgumentError
-from operator import index
-from re import L
-from tkinter import Spinbox
 from typing import Optional, Sequence, Callable, TypeVar, ParamSpec
 import numpy as np
 import cupy as cp
-import traceback
 import bisect
 from pyxalign.api.options.plotting import ArrayViewerOptions
-from pyxalign.interactions import initialize_projections
 from pyxalign.interactions.viewers.climit_window import ClimitAdjustmentWindow
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QLayout,
     QSlider,
     QLabel,
     QSpinBox,
@@ -24,27 +17,16 @@ from PyQt5.QtWidgets import (
     QApplication,
     QSpacerItem,
     QSizePolicy,
-    QFrame,
     QCheckBox,
-    QScrollArea,
 )
 from PyQt5.QtCore import (
     Qt,
     QTimer,
-    QRunnable,
-    pyqtSlot,
-    QThreadPool,
     pyqtSignal,
-    QObject,
     QEventLoop,
     QThread,
 )
-from PyQt5.QtGui import QPalette, QColor, QValidator
-
-# Matplotlib imports remain here, but are not used in ArrayViewer anymore
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
+from PyQt5.QtGui import QValidator
 
 import pyqtgraph as pg
 
