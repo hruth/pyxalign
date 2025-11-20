@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 import numpy as np
 import tifffile
 import matplotlib.pyplot as plt
@@ -8,9 +8,10 @@ from pyxalign.transformations.functions import image_crop
 
 
 def plot_slice_comparison_with_insets(
-    volume_paths: list[str],
-    layer_indices: list[int],
-    pixel_sizes: list[float],
+    layer_indices: Union[int, list[int]],
+    pixel_sizes: Union[float, list[float]],
+    volume_arrays: Optional[list[np.ndarray]]=None,
+    volume_paths: Optional[list[str]]=None,
     outer_crop_width_m: float = 20e-6,
     zoom_width_m: float = 2e-6,
     inset_zoom: int = 4,
@@ -28,23 +29,29 @@ def plot_slice_comparison_with_insets(
     include_inset: bool = True,
 ):
     """
-    Plot a comparison of image slices from multiple TIFF volumes with
-    zoomed insets.
-
-    This function reads a specified layer (slice) from each TIFF volume
-    on disk, applies an outer crop to focus on a larger region, and then
-    adds a zoomed inset showing a smaller subregion centered at a
-    fractional position. Each subplot displays its own scalebar and
+    Plot a comparison of image slices from multiple TIFF volumes or 3D 
+    numpy arrays with zoomed insets. This function applies an outer crop 
+    to focus on a larger region, and then adds a zoomed inset showing a 
+    smaller subregion centered at some user specified position. 
+    
+    The inputs can be provided as a list of file paths to tiff files 
+    or as a list of 3D arrays. If `volume_paths` is provided, this function 
+    reads a specified layer (slice) from each TIFF volume on disk. If 
+    `volume_arrays` is provided, volume arrays are used in the plot
+    
+    Each subplot displays its own scalebar and
     optional contrast adjustment, and titles can be automatically
     generated or appended to.
 
     Args:
-        volume_paths (list[str]):
-            Paths to the TIFF volume files.
-        layer_indices (list[int]):
+        layer_indices:
             Slice indices to extract from each volume.
-        pixel_sizes (list[float]):
+        pixel_sizes:
             Physical pixel sizes (in meters) corresponding to each volume.
+        volume_arrays(Optional[list[np.ndarray]]):
+            List of arrays to plot.
+        volume_paths (Optional[list[str]])
+            Paths to the TIFF volume files.
         outer_crop_width_m (float):
             Side length (in meters) of the outer crop applied to each
             slice. Defaults to 20e-6.
@@ -82,16 +89,37 @@ def plot_slice_comparison_with_insets(
         matplotlib.figure.Figure:
             The figure object containing the grid of subplots, each with its inset.
     """
-    if clim_mult_list is None:
-        clim_mult_list = [None] * (len(volume_paths))
-    if invert is None:
-        invert = [False] * (len(volume_paths))
+    if volume_arrays is None and volume_paths is None:
+        raise ValueError("Must provide volume array or path to tiff of 3D volume")
+    elif volume_arrays is not None and volume_paths is not None:
+        raise ValueError("Must provide only volume_arrays OR volume_paths, not both")
+    elif volume_arrays is not None:
+        n_plots = len(volume_arrays)
+    elif volume_paths is not None:
+        n_plots = len(volume_paths)
 
-    n_cols = int(np.ceil(len(volume_paths) / n_rows))
-    fig, ax = plt.subplots(n_rows, n_cols, layout="compressed", figsize=figsize)
-    ax = ax.ravel()
+    if clim_mult_list is None:
+        clim_mult_list = [None] * n_plots
+    if invert is None:
+        invert = [False] * n_plots
+    if not hasattr(layer_indices, "__len__"):
+        layer_indices = [layer_indices] * n_plots
+    if not hasattr(pixel_sizes, "__len__"):
+        pixel_sizes = [pixel_sizes] * n_plots
+
+    n_cols = int(np.ceil(n_plots / n_rows))
+    fig, axs = plt.subplots(n_rows, n_cols, layout="compressed", figsize=figsize)
+    if n_plots > 1:
+        axs = axs.ravel()
+
+    array, path = None, None
     for i in range(n_cols * n_rows):
-        plt.sca(ax[i])
+        if n_plots > 1:
+            plt.sca(axs[i])
+            ax = axs[i]
+        else:
+            ax = axs
+            
         plot_title = rf"$\nu$ = {pixel_sizes[i] * 1e9:.1f} nm"
         if append_title_list is not None:
             plot_title += f"{append_title_list[i]}"
@@ -99,11 +127,16 @@ def plot_slice_comparison_with_insets(
         # pick exact pixel center on the shown (large-cropped) image
         outer_crop_width_px = int(outer_crop_width_m / pixel_sizes[i])
         zoom_width_px = int(zoom_width_m / pixel_sizes[i])
-        plot_tiff_layer(
-            ax[i],
-            volume_paths[i],
-            layer_indices[i],
-            zoom_width_px,
+        if volume_paths is not None:
+            path = volume_paths[i]
+        elif volume_arrays is not None:
+            array = volume_arrays[i]
+        plot_array_layer(
+            ax=ax,
+            layer_index=layer_indices[i],
+            plot_crop_width=zoom_width_px,
+            array=array,
+            filepath=path,
             pixel_size=pixel_sizes[i],
             inset_loc=inset_loc,
             inset_zoom=inset_zoom,
@@ -122,12 +155,13 @@ def plot_slice_comparison_with_insets(
     return fig
 
 
-def plot_tiff_layer(
+def plot_array_layer(
     ax,
-    filepath: str,
     layer_index: int,
     plot_crop_width: int,
     pixel_size: float,
+    array: Optional[np.ndarray]=None,
+    filepath: Optional[str]=None,
     inset_loc="upper right",
     inset_zoom=4,
     large_crop_size=1200,
@@ -149,8 +183,11 @@ def plot_tiff_layer(
       - plot_center_frac=(fy, fx) in [0,1].
     If neither is provided, center of the image is used.
     """
-    with tifffile.TiffFile(filepath) as tif:
-        layer = tif.pages[layer_index].asarray()
+    if filepath is not None:
+        with tifffile.TiffFile(filepath) as tif:
+            layer = tif.pages[layer_index].asarray()
+    elif array is not None:
+        layer = array[layer_index]
 
     # Apply your larger background crop first (your image_crop)
     layer = image_crop(layer, large_crop_size, large_crop_size)

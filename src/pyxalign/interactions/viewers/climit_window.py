@@ -45,7 +45,7 @@ class ClimitAdjustmentWindow(QDialog):
     def setup_ui(self):
         """Set up the user interface."""
         self.setWindowTitle("Adjust Color Limits")
-        self.setModal(True)
+        # self.setModal(True)
 
         # Main layout
         main_layout = QVBoxLayout()
