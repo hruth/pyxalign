@@ -113,11 +113,16 @@ class ProjectionMatchingAligner(Aligner):
         return shift
     
     def check_if_valid_options(self):
-        # if self.options.downsample.enabled and np.log2(self.options.downsample.scale) % 1 != 0:
+        # throw error if disallowed option is checked
+        if self.options.reconstruct.exclude_scans is not None:
+            raise ValueError(
+                "reconstruct.exclude_scans is not supported in the PMA algorithm yet and must have the value 'None'"
+            )
+        # check validity of downsampling options
         if np.log2(self.scale) % 1 != 0:
             raise ValueError(f"""Values for downsample.scale must be a power of 2.
                             Input downsampling value: {self.scale}""")
-        
+        # fix crop options
         if self.options.crop.enabled:
             self.options.crop = Cropper.fix_crop_range(
                 self.options.crop,

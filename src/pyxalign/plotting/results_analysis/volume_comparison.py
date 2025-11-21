@@ -10,8 +10,8 @@ from pyxalign.transformations.functions import image_crop
 def plot_slice_comparison_with_insets(
     layer_indices: Union[int, list[int]],
     pixel_sizes: Union[float, list[float]],
-    volume_arrays: Optional[list[np.ndarray]]=None,
-    volume_paths: Optional[list[str]]=None,
+    volume_arrays: Optional[list[np.ndarray]] = None,
+    volume_paths: Optional[list[str]] = None,
     outer_crop_width_m: float = 20e-6,
     zoom_width_m: float = 2e-6,
     inset_zoom: int = 4,
@@ -29,16 +29,16 @@ def plot_slice_comparison_with_insets(
     include_inset: bool = True,
 ):
     """
-    Plot a comparison of image slices from multiple TIFF volumes or 3D 
-    numpy arrays with zoomed insets. This function applies an outer crop 
-    to focus on a larger region, and then adds a zoomed inset showing a 
-    smaller subregion centered at some user specified position. 
-    
-    The inputs can be provided as a list of file paths to tiff files 
-    or as a list of 3D arrays. If `volume_paths` is provided, this function 
-    reads a specified layer (slice) from each TIFF volume on disk. If 
+    Plot a comparison of image slices from multiple TIFF volumes or 3D
+    numpy arrays with zoomed insets. This function applies an outer crop
+    to focus on a larger region, and then adds a zoomed inset showing a
+    smaller subregion centered at some user specified position.
+
+    The inputs can be provided as a list of file paths to tiff files
+    or as a list of 3D arrays. If `volume_paths` is provided, this function
+    reads a specified layer (slice) from each TIFF volume on disk. If
     `volume_arrays` is provided, volume arrays are used in the plot
-    
+
     Each subplot displays its own scalebar and
     optional contrast adjustment, and titles can be automatically
     generated or appended to.
@@ -119,7 +119,7 @@ def plot_slice_comparison_with_insets(
             ax = axs[i]
         else:
             ax = axs
-            
+
         plot_title = rf"$\nu$ = {pixel_sizes[i] * 1e9:.1f} nm"
         if append_title_list is not None:
             plot_title += f"{append_title_list[i]}"
@@ -160,8 +160,8 @@ def plot_array_layer(
     layer_index: int,
     plot_crop_width: int,
     pixel_size: float,
-    array: Optional[np.ndarray]=None,
-    filepath: Optional[str]=None,
+    array: Optional[np.ndarray] = None,
+    filepath: Optional[str] = None,
     inset_loc="upper right",
     inset_zoom=4,
     large_crop_size=1200,
@@ -250,7 +250,9 @@ def plot_array_layer(
             spine.set_linewidth(inset_linewidth)  # optional, to match thickness
             spine.set_linestyle(ls)
         plt.sca(axins)
-        add_scalebar(pixel_size, plot_crop_width, scalebar_fractional_width=scalebar_fractional_width)
+        add_scalebar(
+            pixel_size, plot_crop_width, scalebar_fractional_width=scalebar_fractional_width
+        )
         # Connect and outline the marked region on the parent
         if inset_loc == "upper right" or inset_loc == "upper left":
             loc1, loc2 = 3, 4

@@ -1,5 +1,6 @@
 import dataclasses
 from dataclasses import field
+from typing import Optional
 from pyxalign.api.options.device import DeviceOptions
 
 
@@ -29,3 +30,5 @@ class ReconstructOptions:
     filter: FilterOptions = field(default_factory=FilterOptions)
 
     geometry: GeometryOptions = field(default_factory=GeometryOptions)
+
+    exclude_scans: Optional[list[int]] = None
