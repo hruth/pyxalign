@@ -1,3 +1,4 @@
+import enum
 from typing import Optional, Sequence
 from matplotlib import pyplot as plt
 import numpy as np
@@ -10,7 +11,7 @@ from pyxalign.api.constants import divisor
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
-from pyxalign.gpu_utils import create_empty_pinned_array_like, get_scipy_module, pin_memory
+from pyxalign.gpu_utils import create_empty_pinned_array, create_empty_pinned_array_like, get_scipy_module, pin_memory
 
 import pyxalign.image_processing as ip
 from pyxalign import reconstruct
@@ -49,12 +50,22 @@ class Volume:
     def n_layers(self):
         return self.projections.reconstructed_object_dimensions[2]
 
-    def intialize_astra_reconstructor_inputs(self, n_pix: Optional[Sequence[int]] = None):
+    def intialize_astra_reconstructor_inputs(self, n_pix: Optional[Sequence[int]] = None) -> tuple:
+        if self.options.exclude_scans is not None:
+            idx_reconstruct = [
+                i
+                for i, scan in enumerate(self.projections.scan_numbers)
+                if scan not in self.options.exclude_scans
+            ]
+            angles = self.projections.angles[idx_reconstruct]
+        else:
+            idx_reconstruct = None
+            angles = self.projections.angles
         if n_pix is None:
             n_pix = self.projections.reconstructed_object_dimensions
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
             size=self.projections.size,
-            angles=self.projections.angles,
+            angles=angles,
             n_pix=n_pix,
             center_of_rotation=self.projections.center_of_rotation,
             lamino_angle=self.experiment_options.laminography_angle,
@@ -62,7 +73,7 @@ class Volume:
             skew_angle=self.options.geometry.skew_angle,
         )
         object_geometries = reconstruct.get_object_geometries(scan_geometry_config, vectors)
-        return scan_geometry_config, vectors, object_geometries
+        return scan_geometry_config, vectors, object_geometries, idx_reconstruct
 
     @timer()
     def generate_volume(
@@ -85,13 +96,13 @@ class Volume:
         # Re-initialize the inputs and clear outputs
         if reinitialize_astra or not self.is_initialized:
             self.clear_astra_objects()
-            self.scan_geometry_config, self.vectors, self.object_geometries = (
+            self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
             self.is_initialized = True
         elif update_geometries and not reinitialize_astra:
             # Re-initialize geometries, but not the whole astra object
-            self.scan_geometry_config, self.vectors, self.object_geometries = (
+            self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
             # update the geometries, but do not update the stored projections
@@ -105,15 +116,25 @@ class Volume:
             # if (sinogram is None) and update_stored_sinogram:
             if filter_inputs:
                 if pinned_filtered_sinogram is None:
-                    pinned_filtered_sinogram = create_empty_pinned_array_like(self.projections.data)
+                    if idx_reconstruct is None:
+                        pinned_filtered_sinogram = create_empty_pinned_array_like(self.projections.data)
+                        projections = self.projections.data
+                    else:
+                        pinned_filtered_sinogram = create_empty_pinned_array(
+                            shape=(len(idx_reconstruct), *self.projections.size),
+                            dtype=self.projections.data.dtype,
+                        )
+                        projections = self.projections.data[idx_reconstruct]
                 sinogram = reconstruct.filter_sinogram(
-                    sinogram=self.projections.data,
+                    sinogram=projections,
                     vectors=self.vectors,
                     device_options=self.options.filter.device,
                     pinned_results=pinned_filtered_sinogram,
                 )
             else:
                 sinogram = self.projections.data
+                if idx_reconstruct is not None:
+                    sinogram = sinogram[idx_reconstruct]
 
         if self.astra_config is None:
             # allocate memory for volume and projections, and store projections
@@ -206,7 +227,7 @@ class Volume:
         reconstruction_mask = self.get_circular_window(radial_smooth, rad_apod)
         reconstruction_mask = np.repeat(reconstruction_mask[None], self.n_layers, axis=0)
 
-        _, _, object_geometries = self.intialize_astra_reconstructor_inputs()
+        _, _, object_geometries, _ = self.intialize_astra_reconstructor_inputs()
         mask, sino_id = reconstruct.get_forward_projection(
             reconstruction=reconstruction_mask,
             object_geometries=object_geometries,
