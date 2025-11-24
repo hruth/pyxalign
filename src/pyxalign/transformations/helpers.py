@@ -3,7 +3,6 @@ from functools import wraps
 from numbers import Number
 from typing import Sequence
 import numpy as np
-from pytest import version_tuple
 from pyxalign.api.enums import RoundType
 from pyxalign.api.options.roi import RectangularROIOptions
 from pyxalign.api.types import ArrayType
