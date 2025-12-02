@@ -114,17 +114,12 @@ class Volume:
         if update_stored_sinogram:
             # Prepare the projections before doing the back-projection
             # if (sinogram is None) and update_stored_sinogram:
+            projections = self.projections.data
+            if idx_reconstruct is not None:
+                projections = self.projections.data[idx_reconstruct]
             if filter_inputs:
                 if pinned_filtered_sinogram is None:
-                    if idx_reconstruct is None:
-                        pinned_filtered_sinogram = create_empty_pinned_array_like(self.projections.data)
-                        projections = self.projections.data
-                    else:
-                        pinned_filtered_sinogram = create_empty_pinned_array(
-                            shape=(len(idx_reconstruct), *self.projections.size),
-                            dtype=self.projections.data.dtype,
-                        )
-                        projections = self.projections.data[idx_reconstruct]
+                    pinned_filtered_sinogram = create_empty_pinned_array_like(projections)
                 sinogram = reconstruct.filter_sinogram(
                     sinogram=projections,
                     vectors=self.vectors,
@@ -132,9 +127,7 @@ class Volume:
                     pinned_results=pinned_filtered_sinogram,
                 )
             else:
-                sinogram = self.projections.data
-                if idx_reconstruct is not None:
-                    sinogram = sinogram[idx_reconstruct]
+                sinogram = projections
 
         if self.astra_config is None:
             # allocate memory for volume and projections, and store projections
