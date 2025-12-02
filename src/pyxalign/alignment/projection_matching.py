@@ -171,7 +171,7 @@ class ProjectionMatchingAligner(Aligner):
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
         self.apply_window_to_masks(tukey_window)
-        if self.options.refine_geometry:
+        if self.options.refine_geometry: # needs to be changed to .enabled
             # When using geometry refinement, the astra vectors need
             # to be updated on every iteration.
             update_geometries = True
@@ -366,6 +366,15 @@ class ProjectionMatchingAligner(Aligner):
         self.shift_update[:, 0] = (
             self.shift_update[:, 0] - xp.matmul(orthbase.transpose(), coefs)[:, 0]
         )
+
+        # only shift those that are allowed to be shifted
+        if self.options.exclude_scans_from_alignment is not None:
+            idx = [
+                i
+                for i, scan in enumerate(self.aligned_projections.scan_numbers)
+                if scan in self.options.exclude_scans_from_alignment
+            ]
+            self.shift_update[idx] = 0
 
     @timer()
     def get_shift_momentum(self):
