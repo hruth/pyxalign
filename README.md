@@ -1,7 +1,7 @@
 ### Installation Instructions
 1. Create a conda environment with python 3.13*
 ```bash
-conda create -n pyxalign
+conda create -n pyxalign python=3.13
 ```
 then activate the environment
 ```bash
