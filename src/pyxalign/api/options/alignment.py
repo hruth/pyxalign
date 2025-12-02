@@ -2,6 +2,7 @@ from abc import ABC
 import dataclasses
 from dataclasses import field
 from functools import partial
+from typing import Optional
 import pyxalign.api.enums as enums
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.options import RegularizationOptions
@@ -132,6 +133,9 @@ class ProjectionMatchingOptions:
     step_relax: float = 0.1
 
     min_step_size: float = 0.01
+
+    exclude_scans_from_alignment: Optional[list[int]] = None
+    "These scans will not have their position updated"
 
     regularization: RegularizationOptions = field(default_factory=RegularizationOptions)
 
