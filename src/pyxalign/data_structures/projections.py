@@ -34,6 +34,7 @@ from pyxalign.api.options.transform import (
     UpsampleOptions,
     DownsampleOptions,
 )
+from pyxalign.fsc import FourierShellCorrelation
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
 from pyxalign.data_structures.volume import Volume
@@ -934,6 +935,73 @@ class PhaseProjections(Projections):
                 self.center_of_rotation[0]
             )
         return modified_options
+    
+    @timer()
+    def get_fourier_shell_correlation(
+        self,
+        volumes: list[np.ndarray],
+        n_bins: Optional[int] = None,
+        include_missing_cone: bool = False,
+    ):
+        if not include_missing_cone:
+            lamino_angle = self.options.experiment.laminography_angle
+        else:
+            lamino_angle = None
+        self.fsc = FourierShellCorrelation(
+            self.pixel_size, lamino_angle
+        )
+        print("Calculating fourier shell correlation...")
+        self.fsc.get_fourier_shell_correlation(
+            volumes[0], volumes[1], n_bins=n_bins,
+        )
+    
+    @timer()
+    def get_volumes_for_fourier_shell_correlation(
+        self, scramble_idx: Optional[np.ndarray] = None, return_scramble_idx: bool = False
+    ) -> Union[tuple[np.ndarray], tuple[tuple[np.ndarray], np.ndarray]]:
+        # hold onto current setting for excluding scans
+        saved_exclude_scans = self.options.reconstruct.exclude_scans
+        if saved_exclude_scans is not None:
+            scan_numbers = [
+                scan
+                for scan in self.scan_numbers
+                if scan not in self.options.reconstruct.exclude_scans
+            ]
+        else:
+            scan_numbers = self.scan_numbers
+        exclude_scans = [scan_numbers[0::2], scan_numbers[1::2]]
+        # randomly scramble exclude scans; this is so if there are
+        # multiple cycles of data you don't end up with specific
+        # sequences in one of the volumes (ex: without scrambling
+        # if there are 8 sequences then the first volume would mostly
+        # be sequences 1,3,5,7 and the second volume would be
+        # 2,4,6,8.
+        if scramble_idx is None:
+            scramble_idx = np.random.randint(size=len(exclude_scans[0]) - 1, low=0, high=2)
+        exclude_scans = [
+            [exclude_scans[x][i] for i, x in enumerate(scramble_idx)],
+            [exclude_scans[x - 1][i] for i, x in enumerate(scramble_idx)],
+        ]
+        # get volumes
+        n_pix = self.reconstructed_object_dimensions
+        if self.options.fsc.volume_width is not None:
+            n_pix[:2] = int(self.options.fsc.volume_width)
+        # if self.options.fsc.volume_thickness_px is not None:
+        #     n_pix[2] = self.options.fsc.volume_thickness_px
+        print(n_pix)
+        volumes = []
+        for i in range(2):
+            print(f"Calculating {["first", "second"][i]} 3D volume...")
+            self.options.reconstruct.exclude_scans = exclude_scans[i]
+            volume_object = Volume(self)
+            volume_object.generate_volume(n_pix=n_pix)
+            volumes += [volume_object.data]
+        # revert to original options
+        self.options.reconstruct.exclude_scans = saved_exclude_scans
+        if not return_scramble_idx:
+            return volumes
+        else:
+            return volumes, scramble_idx
 
 
 class ShiftManager:

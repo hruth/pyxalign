@@ -1,66 +1,110 @@
+from typing import Optional
+import matplotlib.pyplot as plt
 import h5py
 import numpy as np
-from pyxalign import options
-from pyxalign.api.options_utils import set_all_device_options
-from pyxalign.data_structures.task import load_task
-from pyxalign.gpu_utils import free_blocks_on_all_gpus
+
+# from pyxalign import options
+# from pyxalign.api.options_utils import set_all_device_options
+# from pyxalign.data_structures.projections import PhaseProjections
+# from pyxalign.data_structures.task import load_task
+# from pyxalign.gpu_utils import free_blocks_on_all_gpus
+from pyxalign.timing.timer_utils import timer
 
 gpu_list = (0,)
 
 
-def get_fsc(task_path: str, cropped_vol_width: int, pixel_size_str: str, save_results: bool = True):
-    print("get_fsc")
-    n_splits = 2
-    volumes = {}
-    for split_num in range(n_splits):
-        task = load_task(task_path)
-        drop_scans = task.phase_projections.scan_numbers[split_num::2]
-        task.phase_projections.drop_projections(drop_scans)
-        task.phase_projections.pin_arrays()
-        task.phase_projections.options.reconstruct.astra.back_project_gpu_indices = gpu_list
-        set_all_device_options(
-            task.phase_projections.options,
-            options.DeviceOptions(gpu=options.GPUOptions(chunk_length=2, gpu_indices=(split_num,))),
-        )
-        print(f"get 3D recon {split_num}")
-        task.phase_projections.get_3D_reconstruction()
-        volumes[split_num] = task.phase_projections.volume.data * 1
-        free_blocks_on_all_gpus(gpu_list)
+class FourierShellCorrelation:
+    def __init__(self, pixel_size: float, laminography_angle: Optional[float] = None):
+        self.pixel_size = pixel_size
+        self.laminography_angle = laminography_angle
 
-    if pixel_size_str == "22nm":
-        cropped_vol_width *= 2
-    elif pixel_size_str == "11nm":
-        cropped_vol_width *= 4
-
-    try:
-        volume_width = volumes[0].shape[1]
-        crop_by = (volume_width - cropped_vol_width) / 2
-        print("getting fsc...")
-        f, fsc, n_shell = fsc_version_2(
-            volumes[0],
-            volumes[1],
-            nbins=int(volume_width - crop_by * 2),
-            crop_by=int(crop_by),
+    def get_fourier_shell_correlation(
+        self,
+        volume_1: np.ndarray,
+        volume_2: np.ndarray,
+        crop_width: Optional[int] = None,
+        n_bins: Optional[int] = None,
+    ):
+        """Calculate FSC of two volumes"""
+        if volume_1.shape != volume_2.shape:
+            raise ValueError("Volume arrays must have the same shape")
+        volume_width = volume_1[0].shape[1]
+        if crop_width is None:
+            crop_width = volume_width
+        if n_bins is None:
+            self.n_bins = crop_width
+        else:
+            self.n_bins = n_bins
+        self.f, self.fsc, self.n_shell = calculate_fourier_shell_correlation(
+            volume_1,
+            volume_2,
+            n_bins=self.n_bins,
+            crop_by=int((volume_width - crop_width) / 2),
             rmax=0.5,
+            voxel_size=1,
+            laminography_angle=self.laminography_angle,
         )
-        print("fsc calculation finished")
-    except Exception as ex:
-        print("error when getiting fsc")
-        print("crop_by:", crop_by)
-        print("volume_width:", volume_width)
-        f, fsc, n_shell = 0, 0, 0
-    try:
-        if save_results:
-            with h5py.File(os.path.join(fsc_results_folder, f"fsc_{pixel_size_str}.h5"), "w") as F:
-                F["f"] = f
-                F["fsc"] = fsc
-                F["n_shell"] = n_shell
-                F["one_bit_curve"] = one_bit_threshold(n_shell, D_over_L=1)
-                F["pixel_size"] = task.phase_projections.pixel_size
-    except Exception as ex:
-        print("error when saving results")
+        # convert to meters
+        self.f = self.f / self.pixel_size
 
-    return f, fsc, n_shell, volumes
+    def plot_fsc(
+        self,
+        plot_half_bit_curve: bool = True,
+        plot_freq_crossing: bool = True,
+        label: Optional[str] = None,
+        show_plot: bool = True,
+    ):
+        plot_f = self.f * 1e-6
+        plt.title("Fourier Shell Correlation")
+        (ln,) = plt.plot(plot_f, self.fsc, label=label)
+        if plot_half_bit_curve:
+            half_bit_threshold = one_half_bit_threshold(self.n_shell, 1, 1)
+            plt.plot(
+                plot_f,
+                half_bit_threshold,
+                "k:",
+            )
+            if plot_freq_crossing:
+                f_crossing, resolution = get_resolution_crossing(
+                    self.fsc, half_bit_threshold, self.f
+                )
+                plt.axvline(f_crossing * 1e-6, color=ln.get_color(), ls="--")
+                res_string = f"resolution crossing: {resolution * 1e9:0.2f} nm"
+                if label is not None:
+                    res_string = label + " - " + res_string
+                print(res_string)
+        plt.xlabel("spatial frequency $\mu m ^{-1}$")
+        plt.ylabel("spatial frequency")
+        plt.grid(ls=":")
+        plt.autoscale(True, "x", True)
+        plt.ylim([0, 1.01])
+        if label is not None:
+            plt.legend()
+        if show_plot:
+            plt.show()
+
+    def save_fsc(self, file_path: str):
+        with h5py.File(file_path, "w") as F:
+            F.create_dataset(name="fsc", data=self.fsc)
+            F.create_dataset(name="f", data=self.f)
+            F.create_dataset(name="n_shell", data=self.n_shell)
+            F.create_dataset(name="pixel_size", data=self.pixel_size)
+            if self.laminography_angle is not None:
+                F.create_dataset(name="laminography_angle", data=self.laminography_angle)
+
+
+def load_fsc_object(file_path: str) -> FourierShellCorrelation:
+    with h5py.File(file_path, "r") as F:
+        if "laminography_angle" in F.keys():
+            lamino_angle = F["laminography_angle"][()]
+        fsc = FourierShellCorrelation(
+            pixel_size=F["pixel_size"][()], laminography_angle=lamino_angle
+        )
+        fsc.fsc = F["fsc"][()]
+        fsc.f = F["f"][()]
+        fsc.n_shell = F["n_shell"][()]
+
+    return fsc
 
 
 def _freq_radius(shape, voxel_size=1.0):
@@ -74,10 +118,19 @@ def _freq_radius(shape, voxel_size=1.0):
     FX = np.moveaxis(FX, -1, 0)
     FY = np.moveaxis(FY, -1, 0)
     FZ = np.moveaxis(FZ, -1, 0)
-    return np.sqrt(FX**2 + FY**2 + FZ**2)
+    return np.sqrt(FX**2 + FY**2 + FZ**2), FX, FY, FZ
 
 
-def fsc_version_2(vol1, vol2, nbins=200, rmax=None, voxel_size=1.0, crop_by: int = 0):
+@timer()
+def calculate_fourier_shell_correlation(
+    vol1,
+    vol2,
+    n_bins=200,
+    rmax=None,
+    voxel_size=1.0,
+    crop_by: int = 0,
+    laminography_angle: Optional[float] = None,
+):
     """
     Returns:
       f:      per-shell frequency (cycles per unit)
@@ -93,16 +146,24 @@ def fsc_version_2(vol1, vol2, nbins=200, rmax=None, voxel_size=1.0, crop_by: int
     V2 = np.fft.fftn(np.asarray(vol2, dtype=np.float32))
 
     # Radial frequency
-    r = _freq_radius(V1.shape, voxel_size=voxel_size)
+    r, FX, FY, FZ = _freq_radius(V1.shape, voxel_size=voxel_size)
     if rmax is None:
         # Up to the smallest-axis Nyquist radius is fine; r already reflects that
         rmax = r.max()
 
     # Bin edges and indices
-    edges = np.linspace(0.0, rmax, nbins + 1, dtype=np.float64)
-    # digitize returns 1..nbins; convert to 0..nbins-1 and mask out-of-range
+    edges = np.linspace(0.0, rmax, n_bins + 1, dtype=np.float64)
+    # digitize returns 1..n_bins; convert to 0..n_bins-1 and mask out-of-range
     shell = np.digitize(r.ravel(), edges) - 1
-    valid = (shell >= 0) & (shell < nbins)
+    valid = (shell >= 0) & (shell < n_bins)
+
+    # only include values not in the missing cone
+    if laminography_angle is not None:
+        print("removing missing cone data")
+        missing_cone_mask = create_missing_cone_mask(FX, FY, FZ, 90 - laminography_angle)
+        print(valid.sum())
+        valid = valid & missing_cone_mask.ravel()
+        print(valid.sum())
 
     # Values to accumulate
     v1 = V1.ravel()[valid]
@@ -115,13 +176,13 @@ def fsc_version_2(vol1, vol2, nbins=200, rmax=None, voxel_size=1.0, crop_by: int
     fr_vals = r.ravel()[valid]
 
     # Bin sums via bincount
-    n_shell = np.bincount(sh, minlength=nbins)
-    num_sum = np.bincount(sh, weights=num_vals, minlength=nbins)
-    den1_sum = np.bincount(sh, weights=den1_vals, minlength=nbins)
-    den2_sum = np.bincount(sh, weights=den2_vals, minlength=nbins)
+    n_shell = np.bincount(sh, minlength=n_bins)
+    num_sum = np.bincount(sh, weights=num_vals, minlength=n_bins)
+    den1_sum = np.bincount(sh, weights=den1_vals, minlength=n_bins)
+    den2_sum = np.bincount(sh, weights=den2_vals, minlength=n_bins)
 
     # Prefer the mean frequency in each shell (instead of mid-edge)
-    f_sum = np.bincount(sh, weights=fr_vals, minlength=nbins)
+    f_sum = np.bincount(sh, weights=fr_vals, minlength=n_bins)
     with np.errstate(invalid="ignore", divide="ignore"):
         f = np.where(n_shell > 0, f_sum / n_shell, np.nan)
         denom = np.sqrt(den1_sum * den2_sum)
@@ -131,6 +192,27 @@ def fsc_version_2(vol1, vol2, nbins=200, rmax=None, voxel_size=1.0, crop_by: int
     # f[0], fsc[0] = np.nan, np.nan
 
     return f, fsc, n_shell
+
+
+def create_missing_cone_mask(FX, FY, FZ, cone_angle_degrees) -> np.ndarray:
+    """
+    Create a 3D boolean mask for points inside a double cone (both directions).
+
+    Parameters are the same as create_cone_mask.
+    """
+
+    cone_angle = np.radians(cone_angle_degrees)
+    tan_angle = np.tan(cone_angle)
+
+    radial_distance = np.sqrt(FX**2 + FY**2)
+    axial_distance = np.abs(FZ)  # Already taking absolute value
+    # The abs() already makes this a double cone
+    cone_mask = radial_distance >= axial_distance * tan_angle
+
+    if cone_angle_degrees >= 90:
+        cone_mask = np.ones_like(FX, dtype=bool)
+
+    return cone_mask
 
 
 def one_bit_threshold(
@@ -195,11 +277,11 @@ def resolution_from_curve(freqs, curve, n_shell, threshold_curve_type="one-bit")
     return (1.0 / f) if f > 0 else None  # resolution in length units
 
 
-def get_resolution_crossing(fsc: np.ndarray, x_bit_curve: np.ndarray, f:np.ndarray):
-    idx = np.where((fsc < x_bit_curve))# and [not np.isnan(x) for x in one_bit_curve])
+def get_resolution_crossing(fsc: np.ndarray, x_bit_curve: np.ndarray, f: np.ndarray):
+    idx = np.where((fsc < x_bit_curve))  # and [not np.isnan(x) for x in one_bit_curve])
     if len(idx[0]) == 0:
         f_crossing = f[-1]
     else:
         f_crossing = f[idx[0][0]]
-    resolution = 1/f_crossing
+    resolution = 1 / f_crossing
     return f_crossing, resolution

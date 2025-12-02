@@ -117,6 +117,15 @@ class ProbePositionMaskOptions:
 
     probe: SimulatedProbeOptions = field(default_factory=SimulatedProbeOptions)
 
+@dataclasses.dataclass
+class FSCOptions:
+    """Options for calculating the fourier shell correlation of a volume"""
+    
+    volume_width: Optional[int] = None
+    """
+    Extent of the volume to be used in the FSC calculation.
+    """
+
 
 @dataclasses.dataclass
 class ProjectionOptions:
@@ -162,6 +171,8 @@ class ProjectionOptions:
     get masks from the probe positions, the functions are slow, and the
     results are often unsatisfactory.
     """
+
+    fsc: FSCOptions = field(default_factory=FSCOptions)
 
     estimate_center: EstimateCenterOptions = field(default_factory=EstimateCenterOptions)
     "Options used by the `PhaseProjections` method `estimate_center_of_rotation`"
