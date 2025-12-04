@@ -2,15 +2,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import h5py
 import numpy as np
-
-# from pyxalign import options
-# from pyxalign.api.options_utils import set_all_device_options
-# from pyxalign.data_structures.projections import PhaseProjections
-# from pyxalign.data_structures.task import load_task
-# from pyxalign.gpu_utils import free_blocks_on_all_gpus
 from pyxalign.timing.timer_utils import timer
-
-gpu_list = (0,)
 
 
 class FourierShellCorrelation:
