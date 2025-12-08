@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
     QCheckBox,
+    QGridLayout,
 )
 from PyQt5.QtCore import (
     Qt,
@@ -332,6 +333,7 @@ class LinkedArrayViewer(MultiThreadedWidget):
         sort_idx: Optional[Sequence] = None,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
+        n_rows: Optional[int] = None,
         process_func: Optional[Callable] = None,
         parent=None,
     ):
@@ -340,7 +342,11 @@ class LinkedArrayViewer(MultiThreadedWidget):
             parent=parent,
         )
         # main layout
-        layout = QHBoxLayout()
+        layout = QGridLayout()
+        n = len(array_list)
+        if n_rows is None:
+            n_rows = 1
+        n_cols = int(np.ceil(n / n_rows))
         # create array viewers
         self.array_viewer_list = []
         for i, array3d in enumerate(array_list):
@@ -362,7 +368,11 @@ class LinkedArrayViewer(MultiThreadedWidget):
             if i != 0:
                 array_viewer.slider.valueChanged.connect(self.array_viewer_list[0].slider.setValue)
                 self.array_viewer_list[0].slider.valueChanged.connect(array_viewer.slider.setValue)
-            layout.addWidget(array_viewer)
+
+            row, col = np.unravel_index(i, (n_rows, n_cols))
+            # layout.addWidget(array_viewer)
+
+            layout.addWidget(array_viewer, row, col)
         self.setLayout(layout)
 
 
@@ -768,6 +778,7 @@ def launch_linked_array_viewer(
     options: Optional[ArrayViewerOptions] = None,
     sort_idx: Optional[Sequence] = None,
     extra_title_strings_list: Optional[list[str]] = None,
+    n_rows: Optional[int] = None,
     process_func: Optional[Callable] = None,
     wait_until_closed: bool = False,
 ):
@@ -804,6 +815,7 @@ def launch_linked_array_viewer(
         options,
         sort_idx,
         extra_title_strings_list=extra_title_strings_list,
+        n_rows=n_rows,
         process_func=process_func,
     )
     gui.setAttribute(Qt.WA_DeleteOnClose)
