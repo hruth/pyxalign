@@ -409,7 +409,7 @@ def get_masks_from_roi(roi_options: ROIOptions, array_3d_size: tuple) -> np.ndar
     if roi_options.shape == ROIType.RECTANGULAR:
         roi_options = copy.deepcopy(roi_options)
         roi_options.rectangle = force_rectangular_roi_in_bounds(
-            roi_options.rectangle, array_3d_size[:2]
+            roi_options.rectangle,  array_3d_size[1:]
         )
         masks = np.zeros(array_3d_size, dtype=r_type)
         c_x, c_y, w_x, w_y = (
