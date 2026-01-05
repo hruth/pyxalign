@@ -25,6 +25,7 @@ from .alignment import (
 from .projections import (
     CoordinateSearchOptions,
     EstimateCenterOptions,
+    FSCOptions,
     ProjectionOptions,
     ProjectionTransformOptions,
     ProbePositionMaskOptions,
@@ -51,10 +52,8 @@ from .roi import ROIOptions, RectangularROIOptions
 from .tests import CITestOptions
 
 __all__ = [
-    # Device options
     "DeviceOptions",
     "GPUOptions",
-    # Transform options
     "ShiftOptions",
     "DownsampleOptions",
     "CropOptions",
@@ -63,7 +62,6 @@ __all__ = [
     "RotationOptions",
     "ShearOptions",
     "PadOptions",
-    # Alignment options
     "AlignmentOptions",
     "CrossCorrelationOptions",
     "ProjectionMatchingOptions",
@@ -72,21 +70,16 @@ __all__ = [
     "ReconstructionMaskOptions",
     "StepMomentum",
     "RefineGeometryOptions",
-    "PositivityConstraint"
-    # Projection options
-    "CoordinateSearchOptions",
+    "PositivityConstraintCoordinateSearchOptions",
     "EstimateCenterOptions",
     "ProjectionOptions",
     "ProjectionTransformOptions",
     "ProbePositionMaskOptions",
-    # Reconstruction options
     "ReconstructOptions",
     "FilterOptions",
     "AstraOptions",
     "GeometryOptions",
-    # Task options
     "AlignmentTaskOptions",
-    # General options
     "ExperimentOptions",
     "MorphologicalMaskOptions",
     "PhaseRampRemovalOptions",
@@ -94,16 +87,16 @@ __all__ = [
     "RegularizationOptions",
     "GradientIntegrationUnwrapOptions",
     "IterativeResidualUnwrapOptions",
-    # Plotting options
     "UpdatePlotOptions",
     "PlotDataOptions",
     "ScalebarOptions",
     "ArrayViewerOptions",
     "ProjectionViewerOptions",
-    # Test options
     "CITestOptions",
-    # utility functions
     "utils",
     "ROIOptions",
-    "RectangularROIOptions"
+    "RectangularROIOptions",
+    "PositivityConstraint",
+    "CoordinateSearchOptions",
+    "FSCOptions",
 ]
