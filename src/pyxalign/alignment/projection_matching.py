@@ -896,6 +896,7 @@ class ProjectionMatchingAligner(Aligner):
         numerator_clim: Optional[np.ndarray] = None,
         denominator_clim: Optional[np.ndarray] = None,
         use_colorbars: bool = False,
+        plot_shift: bool = False,
     ):
         if sort:
             sort_idx = np.argsort(self.aligned_projections.angles)
@@ -964,23 +965,24 @@ class ProjectionMatchingAligner(Aligner):
                 plt.colorbar()
         plt.show()
 
-        print((self.total_shift * self.scale)[sort_idx[i]])
-        fig, ax = plt.subplots(2, 1, layout="compressed")
-        for axis in ax.ravel():
-            plt.sca(axis)
-            plt.axvline(i, color="gray", label=f"Index {i}")
-            plt.grid(linestyle=":")
-            plt.autoscale(enable=True, axis="x", tight=True)
-            plt.ylabel("Shift (px)")
+        if plot_shift:
+            print((self.total_shift * self.scale)[sort_idx[i]])
+            fig, ax = plt.subplots(2, 1, layout="compressed")
+            for axis in ax.ravel():
+                plt.sca(axis)
+                plt.axvline(i, color="gray", label=f"Index {i}")
+                plt.grid(linestyle=":")
+                plt.autoscale(enable=True, axis="x", tight=True)
+                plt.ylabel("Shift (px)")
 
-        plt.sca(ax[0])
-        plt.title("Total Shift")
-        plt.plot((self.total_shift * self.scale)[sort_idx])
-        plt.sca(ax[1])
-        plt.title("Shift Update")
-        plt.plot(shift[sort_idx])
-        plt.legend()
-        plt.show()
+            plt.sca(ax[0])
+            plt.title("Total Shift")
+            plt.plot((self.total_shift * self.scale)[sort_idx])
+            plt.sca(ax[1])
+            plt.title("Shift Update")
+            plt.plot(shift[sort_idx])
+            plt.legend()
+            plt.show()
 
     @timer()
     def get_geometry_update(self):

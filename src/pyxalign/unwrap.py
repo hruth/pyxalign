@@ -3,6 +3,8 @@ import cupy as cp
 import numpy as np
 import scipy
 import math
+import tqdm
+import matplotlib.pyplot as plt
 from pyxalign.api.enums import ImageGradientMethods, ImageIntegrationMethods, PhaseUnwrapMethods
 from pyxalign.api.options.options import PhaseUnwrapOptions
 from pyxalign.api.options.roi import ROIOptions, RectangularROIOptions
@@ -958,3 +960,174 @@ def remove_phase_ramp(
             sinogram[i] *= weights[i]
 
     return sinogram
+
+
+def remove_ramp_using_adjacent_scans(
+    phase: np.ndarray,
+    masks: np.ndarray,
+    angles: np.ndarray,
+    ramp_threshold: int = 5,
+    plot_fits: bool = False,
+    apply_edge_compensation: bool = True,
+    order: int = 1,
+    angular_ranges: Optional[list[tuple[int]]] = None,
+    reset_ramp_after_n: int = 50,
+    # sort_data: bool = True,
+):
+    """Remove phase ramps from tomographic scans using adjacent scan comparison.
+
+    This function processes a series of phase images acquired at different angles,
+    identifying and removing systematic phase ramps by comparing adjacent scans.
+    The algorithm accumulates detected ramps and applies corrections while handling
+    edge cases and angular range restrictions.
+
+    Args:
+        phase: Phase data array of shape (n_scans, height, width) containing the
+            phase images to be corrected.
+        masks: Binary mask array of shape (n_scans, height, width) indicating
+            empty/reference regions for each scan used in ramp fitting.
+        angles: Array of shape (n_scans,) containing the acquisition angle for
+            each scan in degrees or radians.
+        ramp_threshold: Peak-to-peak threshold value for ramp detection. Ramps
+            with amplitude below this value are ignored. Defaults to 5.
+        plot_fits: If True, displays matplotlib plots showing the fitting results
+            for each detected ramp exceeding the threshold. Defaults to False.
+        apply_edge_compenstation: If True, applies edge compensation by distributing
+            the ramp difference between first and last scans evenly across all
+            projections. Defaults to True.
+        order: Polynomial order for ramp fitting (1 for linear, 2 for quadratic,
+            etc.). Defaults to 1.
+        angular_ranges: List of tuples defining angular ranges (min, max) where
+            ramp removal should be applied. If None, applies to all angles.
+            Defaults to None.
+        reset_ramp_after_n: Number of consecutive scans without detected ramps
+            after which the accumulated phase trend is reset to zero. Defaults to 50.
+
+    Returns:
+        tuple: A 4-element tuple containing:
+            - updated_phase (np.ndarray): Corrected phase data with ramps removed,
+            same shape as input phase array.
+            - ramp_fit (np.ndarray): Final edge compensation ramp fit of shape
+            (height, width).
+            - all_pk_to_pk (list): List of peak-to-peak amplitudes for each
+            scan-to-scan ramp fit.
+            - all_ramp_fits (np.ndarray): Array of shape (n_scans, height, width)
+            containing the ramp fit applied at each scan position.
+    """
+
+    # there is no ramp accumulation, which needs to change
+    # could try accumulating the ramp only when there is a ramp detected to prevent errors
+    n = len(angles)
+
+    if angular_ranges is None:
+        angular_ranges = [(angles.min(), angles.max())]
+    def in_angle_range(angle):
+        for ranges in angular_ranges:
+            if angle < ranges[1] and angle > ranges[0]:
+                return True
+        return False
+
+
+    sort_data = True
+    if sort_data:
+        sort_idx = np.argsort(angles)
+    else:
+        sort_idx = np.arange(0, n, dtype=int)
+
+    neighbor_diffs = phase[sort_idx[1:]] - phase[sort_idx[:-1]]
+    updated_phase = np.zeros_like(phase) # the remaining 0 will tell you the original reference?
+    updated_phase[sort_idx[0]] = phase[sort_idx[0]] * 1
+    # updated_phase = phase[sort_idx] * 1
+    phase_trend = 0
+    n_trend_updates = 0
+    all_pk_to_pk = []
+    all_ramp_fits = np.zeros_like(phase)
+
+    # reset_ramp_after_n = 50
+    no_ramp_counter = 0
+    # phase_trend_cutoff = 30
+    # apply_ramp_in_current_region = True
+    for i in tqdm.tqdm(range(n - 1)):
+        idx_ref, idx_upd = sort_idx[i], sort_idx[i + 1]
+        # if not in_angle_range(angles[idx_upd]):
+        #     phase_trend = 0
+        #     no_ramp_counter = 0
+        #     continue
+
+        if in_angle_range(angles[idx_upd]):
+            empty_region_mask = masks[idx_ref] * masks[idx_upd]
+            new_phase = remove_phase_ramp_using_empty_region(
+                cp.array(neighbor_diffs[i]),
+                cp.array(empty_region_mask.astype(bool)),
+                order=order,
+            ).get()
+
+            # phase_trend = neighbor_diffs[i] - new_phase
+            # accumulate thee phase trend (maybe add threshold later)
+            ramp_fit = neighbor_diffs[i] - new_phase
+            pk_to_pk = ramp_fit.max() - ramp_fit.min()
+            all_pk_to_pk += [pk_to_pk]
+
+            if pk_to_pk > ramp_threshold:
+                print(f"{i}: {pk_to_pk:.2f}")
+                print(f"ramp added at {i}")
+                phase_trend += ramp_fit
+                n_trend_updates += 1
+                if no_ramp_counter != 0:
+                    print(f"Ramp counter reset after {no_ramp_counter} fits")
+                no_ramp_counter = 0
+            else:
+                no_ramp_counter += 1
+                if (no_ramp_counter >= reset_ramp_after_n):
+                    # # only reset if the ramp is under a given threshold
+                    # if isinstance(phase_trend, np.ndarray):
+                    #     phase_trend_pk_to_pk = phase_trend.max() - phase_trend.min()
+                    # else:
+                    #     phase_trend_pk_to_pk = 0
+                    # if phase_trend_pk_to_pk < phase_trend_cutoff:
+                    phase_trend = 0
+                    no_ramp_counter = 0
+                    print(f"ramp reset at {i}")
+        else:
+            phase_trend = 0
+            no_ramp_counter = 0
+            ramp_fit = 0
+            pk_to_pk = 0
+        # needs thresholding of some sort
+        updated_phase[idx_upd] = phase[idx_upd] - phase_trend
+        # save ramp update
+        all_ramp_fits[idx_upd] = ramp_fit
+
+        # plot slice results
+        if pk_to_pk > ramp_threshold and plot_fits:
+            slice_idx = new_phase.shape[0] // 2
+            plt.plot(
+                (neighbor_diffs[i, slice_idx] * empty_region_mask[slice_idx]),
+                "k",
+                label="diff of neighbors",
+            )
+            plt.plot(new_phase[slice_idx] * empty_region_mask[slice_idx], label="fit to phase")
+            plt.plot(ramp_fit[slice_idx] * empty_region_mask[slice_idx])
+            plt.show()
+    plt.grid(ls=":")
+    plt.axhline(ramp_threshold, color="red")
+    plt.plot(all_pk_to_pk, ".", ms=3)
+    plt.autoscale(True, "x", True)
+    plt.show()
+    print(f"ramp accumulated {n_trend_updates} times")
+
+    # spread accumulation of ramp evenly across all projections
+    # incrementally remove ramps by using difference between first and last values
+    edge_neighbor_diff = updated_phase[sort_idx[0]] - updated_phase[sort_idx[-1]]
+    empty_region_mask  = masks[sort_idx[-1]] * masks[sort_idx[0]]
+    new_phase = remove_phase_ramp_using_empty_region(
+        cp.array(edge_neighbor_diff), cp.array(empty_region_mask.astype(bool)), order=order,
+    ).get()
+    ramp_fit = edge_neighbor_diff - new_phase
+    if apply_edge_compensation:
+        for i in range(n):
+            updated_phase[sort_idx[i]] += ramp_fit * i / n
+
+    # this function has only been tested with already sorted data
+
+    return updated_phase, ramp_fit, all_pk_to_pk, all_ramp_fits
