@@ -49,7 +49,8 @@ from pyxalign.interactions.viewers.utils import (
 
 from pyxalign.timing.timer_utils import timer
 
-color_list = list(matplotlib.colors.TABLEAU_COLORS.values())
+color_list = list(matplotlib.colors.XKCD_COLORS.values())
+
 
 
 class VolumeViewer(MultiThreadedWidget):
