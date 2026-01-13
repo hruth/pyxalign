@@ -185,7 +185,8 @@ def run_projection_matching(
         else:
             # Run PMA algorithm
             shift = pma_object.run(initial_shift=initial_shift)
-    except (Exception, KeyboardInterrupt):
+    except (Exception, KeyboardInterrupt) as ex:
+        print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
         shift = pma_object.total_shift * pma_object.scale
     finally:
         return pma_object, shift
