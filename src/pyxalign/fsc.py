@@ -54,13 +54,21 @@ class FourierShellCorrelation:
             plt.plot(
                 plot_f,
                 half_bit_threshold,
-                "k:",
+                "k",
+                label="half-bit threshold",
+                zorder=1
             )
             if plot_freq_crossing:
                 f_crossing, resolution = get_resolution_crossing(
                     self.fsc, half_bit_threshold, self.f
                 )
-                plt.axvline(f_crossing * 1e-6, color=ln.get_color(), ls="--")
+                plt.axvline(
+                    f_crossing * 1e-6,
+                    color=ln.get_color(),
+                    ls="--",
+                    label="resolution crossing",
+                    lw=.9,
+                )
                 res_string = f"resolution crossing: {resolution * 1e9:0.2f} nm"
                 if label is not None:
                     res_string = label + " - " + res_string
@@ -70,8 +78,7 @@ class FourierShellCorrelation:
         plt.grid(ls=":")
         plt.autoscale(True, "x", True)
         plt.ylim([0, 1.01])
-        if label is not None:
-            plt.legend()
+        plt.legend(fontsize=7.5)
         if show_plot:
             plt.show()
 
@@ -153,9 +160,9 @@ def calculate_fourier_shell_correlation(
     if laminography_angle is not None:
         print("removing missing cone data")
         missing_cone_mask = create_missing_cone_mask(FX, FY, FZ, 90 - laminography_angle)
-        print(valid.sum())
+        # print(valid.sum())
         valid = valid & missing_cone_mask.ravel()
-        print(valid.sum())
+        # print(valid.sum())
 
     # Values to accumulate
     v1 = V1.ravel()[valid]
