@@ -120,6 +120,10 @@ def plot_slice_comparison_with_insets(
         else:
             ax = axs
 
+        if i >= n_plots:
+            plt.axis("off")
+            continue
+
         plot_title = rf"$\nu$ = {pixel_sizes[i] * 1e9:.1f} nm"
         if append_title_list is not None:
             plot_title += f"{append_title_list[i]}"
