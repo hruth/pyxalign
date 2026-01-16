@@ -156,13 +156,12 @@ def calculate_fourier_shell_correlation(
     shell = np.digitize(r.ravel(), edges) - 1
     valid = (shell >= 0) & (shell < n_bins)
 
-    # only include values not in the missing cone
+    # only include values not in the missing cone #
+    # typically not very impactful whether true or false
     if laminography_angle is not None:
         print("removing missing cone data")
         missing_cone_mask = create_missing_cone_mask(FX, FY, FZ, 90 - laminography_angle)
-        # print(valid.sum())
         valid = valid & missing_cone_mask.ravel()
-        # print(valid.sum())
 
     # Values to accumulate
     v1 = V1.ravel()[valid]

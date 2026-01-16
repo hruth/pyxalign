@@ -322,10 +322,10 @@ class PEARBaseLoader(ABC):
         n_tiles = stats.mode(np.diff(self.scan_numbers)).mode
         tmp = np.repeat(self.scan_numbers, n_tiles)
         self.scan_numbers = np.array(
-            [scan - n_tiles + i % n_tiles for i, scan in enumerate(tmp)], dtype=int
+            [scan - n_tiles + 1 + (i % n_tiles) for i, scan in enumerate(tmp)], dtype=int
         )
         self.sequences = np.repeat(self.sequences, n_tiles)
-        self.tile_numbers = np.tile(range(n_tiles), int(len(self.scan_numbers) / n_tiles))
+        self.tile_numbers = np.tile(range(n_tiles), int(len(self.scan_numbers) / n_tiles)) + 1
         keep_idx = self.tile_numbers == selected_tile
 
         self.scan_numbers = self.scan_numbers[keep_idx]
