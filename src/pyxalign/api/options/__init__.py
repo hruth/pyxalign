@@ -30,7 +30,13 @@ from .projections import (
     ProjectionTransformOptions,
     ProbePositionMaskOptions,
 )
-from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions, GeometryOptions
+from .reconstruct import (
+    ReconstructOptions,
+    FilterOptions,
+    AstraOptions,
+    GeometryOptions,
+    SARTOptions,
+)
 from .task import AlignmentTaskOptions
 from .options import (
     ExperimentOptions,
@@ -99,4 +105,5 @@ __all__ = [
     "PositivityConstraint",
     "CoordinateSearchOptions",
     "FSCOptions",
+    "SARTOptions",
 ]

@@ -541,11 +541,19 @@ class ProjectionMatchingAligner(Aligner):
     @timer()
     def regularize_reconstruction(self):
         if self.options.regularization.enabled:
-            self.aligned_projections.volume.data[:] = chambolleLocalTV3D(
-                self.aligned_projections.volume.data,
+            if self.options.regularization.use_gpu:
+                volume_array = cp.array(self.aligned_projections.volume.data)
+            else:
+                volume_array  = self.aligned_projections.volume.data
+            volume_array = chambolleLocalTV3D(
+                volume_array,
                 self.options.regularization.local_TV_lambda,
                 self.options.regularization.iterations,
             )
+            if self.options.regularization.use_gpu:
+                self.aligned_projections.volume.data[:] = volume_array.get()
+            else:
+                self.aligned_projections.volume.data = volume_array
 
     @timer()
     def apply_positivity_constraint(self):

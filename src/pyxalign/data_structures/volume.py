@@ -6,18 +6,22 @@ import cupy as cp
 import astra
 import copy
 import h5py
+import scipy
+import tqdm
 
 from pyxalign.api.constants import divisor
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
-from pyxalign.gpu_utils import create_empty_pinned_array, create_empty_pinned_array_like, get_scipy_module, pin_memory
+from pyxalign.gpu_utils import create_empty_pinned_array, create_empty_pinned_array_like, get_scipy_module, memory_releasing_error_handler, pin_memory
 
 import pyxalign.image_processing as ip
 from pyxalign import reconstruct
 from pyxalign.io.save import save_array_as_tiff
 from pyxalign.plotting.plotters import plot_slice_of_3D_array
 import pyxalign.data_structures.projections as projections
+from pyxalign.regularization import chambolleLocalTV3D
+from pyxalign.sart import sart, sart_prepare
 from pyxalign.timing.timer_utils import timer
 import matplotlib.pyplot as plt
 
@@ -45,6 +49,7 @@ class Volume:
         self.optimal_rotation_angles: Sequence[float] = [0, 0, 0]
         self.data = None
         self.forward_projections = None
+        self.sart_error = None
 
     @property
     def n_layers(self):
@@ -157,6 +162,75 @@ class Volume:
         else:
             self.data[:] = reconstruct.get_3D_reconstruction(self.astra_config)
         cp.cuda.Device(device).use()
+
+    @timer()
+    def update_astra_stored_volume(self):
+        astra.data3d.store(
+            self.astra_config["ReconstructionDataId"],
+            self.data,
+        )
+
+    @timer()
+    def get_sart_solver_volume(self, initial_volume: Optional[np.ndarray] = None):
+        if initial_volume is None:
+            initial_volume = np.zeros(
+                shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+                dtype=r_type,
+            )
+
+        device = cp.cuda.Device()
+        astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
+        r, scan_geometry_config, vectors = sart_prepare(
+            volume=initial_volume,
+            projection_size=self.projections.size,
+            angles=self.projections.angles,
+            reconstruction_size=np.roll(initial_volume.shape, -1),
+            center_of_rotation=self.projections.center_of_rotation,
+            laminography_angle=self.experiment_options.laminography_angle,
+            tilt_angle=self.options.geometry.tilt_angle,
+            skew_angle=self.options.geometry.skew_angle,
+        )
+        cp.cuda.Device(device).use()
+
+        if self.options.sart.use_circular_constraint:
+            circulo = ip.apply_3D_apodization(
+                image=np.zeros(shape=(initial_volume.shape[1:])),
+                rad_apod=5,
+                radial_smooth=5,
+            ).astype(r_type)
+
+            def volume_constraint(volume):
+                return np.abs(volume) * (0.9 + 0.1 * circulo)
+        else:
+            volume_constraint = None
+
+        self.data, err = sart(
+            volume=initial_volume,
+            sinogram=self.projections.data,
+            scan_geometry_config=scan_geometry_config,
+            vectors=vectors,
+            r=r,
+            iterations=self.options.sart.iterations,
+            relaxation=self.options.sart.relaxation,
+            constraint=volume_constraint,
+            n_sets=self.options.sart.n_subtomograms,
+        )
+        self.sart_error = err
+
+    @memory_releasing_error_handler
+    @timer()
+    def get_regularized_reconstruction(self) -> np.ndarray:
+        data = self.data
+        if self.options.regularization.use_gpu:
+            data = cp.array(data)
+        regularized_data = chambolleLocalTV3D(
+            data,
+            alpha=self.options.regularization.local_TV_lambda,
+            Niter=self.options.regularization.iterations,
+        )
+        if self.options.regularization.use_gpu:
+            regularized_data = regularized_data.get()
+        return regularized_data
 
     @timer()
     def get_forward_projection(

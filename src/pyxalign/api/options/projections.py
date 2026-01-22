@@ -136,7 +136,8 @@ class ProjectionOptions:
 
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
     """
-    Options used by the `PhaseProjections` method `get_3D_reconstruction`.
+    Options related to reconstructing and modifying the 3D volume. Reconstructions
+    are only available for `PhaseProjections`.
     """
 
     volume_width: VolumeWidthOptions = field(default_factory=VolumeWidthOptions)

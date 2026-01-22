@@ -26,7 +26,7 @@ class CrossCorrelationOptions:
 
     filter_data: float = 0.005
 
-    remove_slow_variation: bool = False
+    remove_slow_variation: bool = False # change to True and update test scripts
 
     use_end_corrections: bool = True
 

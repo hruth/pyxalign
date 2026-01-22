@@ -143,3 +143,5 @@ class RegularizationOptions:
     local_TV_lambda: float = 1e-4
 
     iterations: int = 10
+
+    use_gpu: bool = False

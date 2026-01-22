@@ -1,7 +1,9 @@
 import dataclasses
 from dataclasses import field
 from typing import Optional
+from pyxalign.api.enums import ReconstructionMethods
 from pyxalign.api.options.device import DeviceOptions
+from pyxalign.api.options.options import RegularizationOptions
 
 
 @dataclasses.dataclass
@@ -17,14 +19,36 @@ class AstraOptions:
 
     algorithm_type: str = "BP3D_CUDA"
 
+
 @dataclasses.dataclass
 class GeometryOptions:
     tilt_angle: float = 0.0
 
     skew_angle: float = 0.0
 
+
+@dataclasses.dataclass
+class SARTOptions:
+    iterations: int = 10
+
+    use_circular_constraint: bool = True
+
+    relaxation: float = 0  # from 0 to 1
+
+    n_subtomograms: int = 1
+    """
+    Number of subtomograms to split the volume into.
+    """
+
+
+def enabled_regularization_options_factory() -> RegularizationOptions:
+    return RegularizationOptions(enabled=True)
+
+
 @dataclasses.dataclass
 class ReconstructOptions:
+    method: ReconstructionMethods = ReconstructionMethods.ASTRA
+
     astra: AstraOptions = field(default_factory=AstraOptions)
 
     filter: FilterOptions = field(default_factory=FilterOptions)
@@ -32,3 +56,9 @@ class ReconstructOptions:
     geometry: GeometryOptions = field(default_factory=GeometryOptions)
 
     exclude_scans: Optional[list[int]] = None
+
+    sart: SARTOptions = field(default_factory=SARTOptions)
+
+    regularization: RegularizationOptions = field(
+        default_factory=lambda: RegularizationOptions(enabled=True)
+    )
