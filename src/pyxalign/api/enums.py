@@ -101,3 +101,9 @@ class ImageIntegrationMethods(StrEnum):
     FOURIER = auto()
     DECONVOLUTION = auto()
     # DISCRETE = auto()
+
+
+class FSCBitCurveTypes(StrEnum):
+    HALF_BIT = auto()
+    ONE_BIT = auto()
+    NONE = auto()

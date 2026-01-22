@@ -943,10 +943,10 @@ class PhaseProjections(Projections):
         n_bins: Optional[int] = None,
         include_missing_cone: bool = False,
     ):
-        if not include_missing_cone:
-            lamino_angle = self.options.experiment.laminography_angle
-        else:
+        if include_missing_cone or self.options.experiment.laminography_angle == 90:
             lamino_angle = None
+        else:
+            lamino_angle = self.options.experiment.laminography_angle
         self.fsc = FourierShellCorrelation(
             self.pixel_size, lamino_angle
         )

@@ -2,6 +2,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import h5py
 import numpy as np
+from pyxalign.api.enums import FSCBitCurveTypes
 from pyxalign.timing.timer_utils import timer
 
 
@@ -41,7 +42,7 @@ class FourierShellCorrelation:
 
     def plot_fsc(
         self,
-        plot_half_bit_curve: bool = True,
+        which_bit_curve: FSCBitCurveTypes = FSCBitCurveTypes.HALF_BIT,
         plot_freq_crossing: bool = True,
         label: Optional[str] = None,
         show_plot: bool = True,
@@ -49,36 +50,36 @@ class FourierShellCorrelation:
         plot_f = self.f * 1e-6
         plt.title("Fourier Shell Correlation")
         (ln,) = plt.plot(plot_f, self.fsc, label=label)
-        if plot_half_bit_curve:
-            half_bit_threshold = one_half_bit_threshold(self.n_shell, 1, 1)
+        if which_bit_curve != FSCBitCurveTypes.NONE:
+            if which_bit_curve == FSCBitCurveTypes.HALF_BIT:
+                threshold_label = "1/2-bit threshold"
+                threshold_curve_func = one_half_bit_threshold
+            elif which_bit_curve == FSCBitCurveTypes.ONE_BIT:
+                threshold_curve_func = one_bit_threshold
+                threshold_label = "1-bit threshold"
+            threshold_curve = threshold_curve_func(self.n_shell, 1, 1)
             plt.plot(
                 plot_f,
-                half_bit_threshold,
-                "k",
-                label="half-bit threshold",
-                zorder=1
+                threshold_curve,
+                "k:",
+                label=threshold_label,
             )
             if plot_freq_crossing:
-                f_crossing, resolution = get_resolution_crossing(
-                    self.fsc, half_bit_threshold, self.f
+                f_crossing, resolution, crossing_exists = get_resolution_crossing(
+                    self.fsc, threshold_curve, self.f
                 )
-                plt.axvline(
-                    f_crossing * 1e-6,
-                    color=ln.get_color(),
-                    ls="--",
-                    label="resolution crossing",
-                    lw=.9,
-                )
-                res_string = f"resolution crossing: {resolution * 1e9:0.2f} nm"
-                if label is not None:
-                    res_string = label + " - " + res_string
-                print(res_string)
-        plt.xlabel("spatial frequency $\mu m ^{-1}$")
+                if crossing_exists:
+                    plt.axvline(f_crossing * 1e-6, color=ln.get_color(), ls="--")
+                    print(f"Resolution crossing: {resolution * 1e9:0.2f} nm")
+                else:
+                    print(f"No resolution crossing")
+        plt.xlabel(r"spatial frequency $\mu m ^{-1}$")
         plt.ylabel("spatial frequency")
         plt.grid(ls=":")
         plt.autoscale(True, "x", True)
         plt.ylim([0, 1.01])
-        plt.legend(fontsize=7.5)
+        # if label is not None:
+        plt.legend()
         if show_plot:
             plt.show()
 
@@ -275,11 +276,13 @@ def resolution_from_curve(freqs, curve, n_shell, threshold_curve_type="one-bit")
     return (1.0 / f) if f > 0 else None  # resolution in length units
 
 
-def get_resolution_crossing(fsc: np.ndarray, x_bit_curve: np.ndarray, f: np.ndarray):
+def get_resolution_crossing(fsc: np.ndarray, x_bit_curve: np.ndarray, f: np.ndarray) -> tuple:
     idx = np.where((fsc < x_bit_curve))  # and [not np.isnan(x) for x in one_bit_curve])
     if len(idx[0]) == 0:
         f_crossing = f[-1]
+        crossing_exists = False
     else:
         f_crossing = f[idx[0][0]]
+        crossing_exists = True
     resolution = 1 / f_crossing
-    return f_crossing, resolution
+    return f_crossing, resolution, crossing_exists
