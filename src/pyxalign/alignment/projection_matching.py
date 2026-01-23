@@ -460,11 +460,16 @@ class ProjectionMatchingAligner(Aligner):
                 self.pinned_error,
                 self.pinned_unfiltered_error,
             )
+
+        common_inputs_for_gpu_idx = [4]
+        if self.options.secondary_mask.enabled:
+            common_inputs_for_gpu_idx += [5]
+
         wrapped_func = device_handling_wrapper(
             func=self.calculate_shift_update,
             options=self.options.device,
             chunkable_inputs_for_gpu_idx=[0, 1, 2],
-            common_inputs_for_gpu_idx=[4, 5],
+            common_inputs_for_gpu_idx=common_inputs_for_gpu_idx,
             pinned_results=pinned_results,
         )
         return wrapped_func
@@ -476,12 +481,13 @@ class ProjectionMatchingAligner(Aligner):
         forward_projection_model: ArrayType,
         high_pass_filter: ArrayType,
         mass: float,
-        secondary_mask: ArrayType,
+        secondary_mask: Optional[ArrayType] = None,
         filter_directions: tuple[int] = (2,),
         debug: bool = False,
     ) -> tuple[ArrayType, ArrayType, ArrayType]:
         xp = cp.get_array_module(sinogram)
-        masks = secondary_mask * masks
+        if secondary_mask is not None:
+            masks = secondary_mask * masks
 
         projections_residuals = forward_projection_model - sinogram
 
@@ -644,6 +650,8 @@ class ProjectionMatchingAligner(Aligner):
         tukey_window = ip.get_tukey_window(
             self.aligned_projections.size, A=self.options.tukey_shape_parameter, xp=self.xp
         )
+        if self.memory_config == MemoryConfig.MIXED:
+            tukey_window = gutils.pin_memory(tukey_window)
 
         # Generate circular mask for reconstruction
         if self.options.reconstruction_mask.enabled:
@@ -662,14 +670,13 @@ class ProjectionMatchingAligner(Aligner):
                     rad_apod=self.options.secondary_mask.rad_apod / self.scale,
                 )
             )
-        else:
-            self.secondary_mask = np.ones_like(self.aligned_projections.data[0])
+            if self.memory_config == MemoryConfig.MIXED:
+                self.secondary_mask = gutils.pin_memory(self.secondary_mask)
+            elif self.memory_config == MemoryConfig.GPU_ONLY:
+                self.secondary_mask = cp.array(self.secondary_mask)
 
-        if self.memory_config == MemoryConfig.MIXED:
-            tukey_window = gutils.pin_memory(tukey_window)
-            self.secondary_mask = gutils.pin_memory(self.secondary_mask)
-        elif self.memory_config == MemoryConfig.GPU_ONLY:
-            self.secondary_mask = cp.array(self.secondary_mask)
+        else:
+            self.secondary_mask = None  # np.ones_like(self.aligned_projections.data[0])
 
         return tukey_window, circulo
 
@@ -684,7 +691,8 @@ class ProjectionMatchingAligner(Aligner):
         self.pinned_lamino_angle_correction = self.pinned_lamino_angle_correction.get()
         self.pinned_tilt_angle_correction = self.pinned_tilt_angle_correction.get()
         self.pinned_skew_angle_correction = self.pinned_skew_angle_correction.get()
-        self.secondary_mask = self.secondary_mask.get()
+        if self.secondary_mask is not None:
+            self.secondary_mask = self.secondary_mask.get()
 
     def get_step_size_update(self) -> float:
         # Check if the step size update is small enough to stop the loop
@@ -913,7 +921,9 @@ class ProjectionMatchingAligner(Aligner):
 
         proj = self.aligned_projections.data[sort_idx[i]]
         forward_proj = self.aligned_projections.volume.forward_projections.data[sort_idx[i]]
-        mask = self.aligned_projections.masks[sort_idx[i]] * self.secondary_mask
+        mask = self.aligned_projections.masks[sort_idx[i]]
+        if self.secondary_mask is not None:
+            mask *= self.secondary_mask
 
         fig, ax = plt.subplots(3, 4, layout="compressed", figsize=(15, 7.5))
         plt.suptitle(f"Arrays for {i}")
