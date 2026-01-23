@@ -171,7 +171,7 @@ class ProjectionMatchingAligner(Aligner):
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
         self.apply_window_to_masks(tukey_window)
-        if self.options.refine_geometry: # needs to be changed to .enabled
+        if self.options.refine_geometry.enabled: # needs to be changed to .enabled
             # When using geometry refinement, the astra vectors need
             # to be updated on every iteration.
             update_geometries = True

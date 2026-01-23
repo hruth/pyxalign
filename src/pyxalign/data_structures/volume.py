@@ -99,6 +99,7 @@ class Volume:
         # self.experiment_options = copy.deepcopy(self.projections.options.experiment)
         device = cp.cuda.Device()
         # Re-initialize the inputs and clear outputs
+        idx_reconstruct = None
         if reinitialize_astra or not self.is_initialized:
             self.clear_astra_objects()
             self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
@@ -106,7 +107,7 @@ class Volume:
             )
             self.is_initialized = True
         elif update_geometries and not reinitialize_astra:
-            # Re-initialize geometries, but not the whole astra object
+            # Re-initialize geometries, but not the whole astra object... this should only be run
             self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )

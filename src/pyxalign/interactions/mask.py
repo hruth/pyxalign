@@ -293,6 +293,8 @@ class ThresholdSelector(QWidget):
             self.projections.masks[:] = new_masks
         # update threshold in projection options
         self.projections.options.mask_from_positions.threshold = self.threshold
+        # print selected threshold value
+        print(f"Selected threshold value: {self.threshold}")
 
         # Emit and close
         self.masks_created.emit(self.masks)
