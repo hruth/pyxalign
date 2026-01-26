@@ -971,8 +971,7 @@ def remove_ramp_using_adjacent_scans(
     apply_edge_compensation: bool = True,
     order: int = 1,
     angular_ranges: Optional[list[tuple[int]]] = None,
-    reset_ramp_after_n: int = 50,
-    # sort_data: bool = True,
+    reset_ramp_after_n: Optional[int] = None,
 ):
     """Remove phase ramps from tomographic scans using adjacent scan comparison.
 
@@ -1001,7 +1000,7 @@ def remove_ramp_using_adjacent_scans(
             ramp removal should be applied. If None, applies to all angles.
             Defaults to None.
         reset_ramp_after_n: Number of consecutive scans without detected ramps
-            after which the accumulated phase trend is reset to zero. Defaults to 50.
+            after which the accumulated phase trend is reset to zero.
 
     Returns:
         tuple: A 4-element tuple containing:
@@ -1035,25 +1034,16 @@ def remove_ramp_using_adjacent_scans(
         sort_idx = np.arange(0, n, dtype=int)
 
     neighbor_diffs = phase[sort_idx[1:]] - phase[sort_idx[:-1]]
-    updated_phase = np.zeros_like(phase) # the remaining 0 will tell you the original reference?
+    updated_phase = np.zeros_like(phase)
     updated_phase[sort_idx[0]] = phase[sort_idx[0]] * 1
-    # updated_phase = phase[sort_idx] * 1
     phase_trend = 0
     n_trend_updates = 0
     all_pk_to_pk = []
     all_ramp_fits = np.zeros_like(phase)
 
-    # reset_ramp_after_n = 50
     no_ramp_counter = 0
-    # phase_trend_cutoff = 30
-    # apply_ramp_in_current_region = True
     for i in tqdm.tqdm(range(n - 1)):
         idx_ref, idx_upd = sort_idx[i], sort_idx[i + 1]
-        # if not in_angle_range(angles[idx_upd]):
-        #     phase_trend = 0
-        #     no_ramp_counter = 0
-        #     continue
-
         if in_angle_range(angles[idx_upd]):
             empty_region_mask = masks[idx_ref] * masks[idx_upd]
             new_phase = remove_phase_ramp_using_empty_region(
@@ -1062,8 +1052,7 @@ def remove_ramp_using_adjacent_scans(
                 order=order,
             ).get()
 
-            # phase_trend = neighbor_diffs[i] - new_phase
-            # accumulate thee phase trend (maybe add threshold later)
+            # accumulate the phase trend (maybe add threshold later)
             ramp_fit = neighbor_diffs[i] - new_phase
             pk_to_pk = ramp_fit.max() - ramp_fit.min()
             all_pk_to_pk += [pk_to_pk]
@@ -1078,13 +1067,7 @@ def remove_ramp_using_adjacent_scans(
                 no_ramp_counter = 0
             else:
                 no_ramp_counter += 1
-                if (no_ramp_counter >= reset_ramp_after_n):
-                    # # only reset if the ramp is under a given threshold
-                    # if isinstance(phase_trend, np.ndarray):
-                    #     phase_trend_pk_to_pk = phase_trend.max() - phase_trend.min()
-                    # else:
-                    #     phase_trend_pk_to_pk = 0
-                    # if phase_trend_pk_to_pk < phase_trend_cutoff:
+                if reset_ramp_after_n is not None and (no_ramp_counter >= reset_ramp_after_n):
                     phase_trend = 0
                     no_ramp_counter = 0
                     print(f"ramp reset at {i}")
@@ -1127,7 +1110,5 @@ def remove_ramp_using_adjacent_scans(
     if apply_edge_compensation:
         for i in range(n):
             updated_phase[sort_idx[i]] += ramp_fit * i / n
-
-    # this function has only been tested with already sorted data
 
     return updated_phase, ramp_fit, all_pk_to_pk, all_ramp_fits
