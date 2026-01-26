@@ -13,7 +13,7 @@ from pyxalign.api.constants import divisor
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
-from pyxalign.gpu_utils import create_empty_pinned_array, create_empty_pinned_array_like, get_scipy_module, memory_releasing_error_handler, pin_memory
+from pyxalign.gpu_utils import create_empty_pinned_array_like, get_scipy_module, memory_releasing_error_handler, pin_memory
 
 import pyxalign.image_processing as ip
 from pyxalign import reconstruct
@@ -107,7 +107,7 @@ class Volume:
             )
             self.is_initialized = True
         elif update_geometries and not reinitialize_astra:
-            # Re-initialize geometries, but not the whole astra object... this should only be run
+            # Re-initialize geometries, but not the whole astra object
             self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
