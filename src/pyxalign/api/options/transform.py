@@ -4,10 +4,11 @@ from dataclasses import field
 from typing import Optional, Union
 from pyxalign.api.enums import ShiftType, DownsampleType, UpsampleType, RotationType, ShearType
 from pyxalign.api.options.device import DeviceOptions
+from .base import BaseOptions
 
 
 # @dataclasses.dataclass
-class TransformOptions(ABC):
+class TransformOptions(ABC, BaseOptions):
     @property
     @abstractmethod
     def enabled(self) -> bool:

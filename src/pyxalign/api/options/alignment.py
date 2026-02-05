@@ -9,7 +9,7 @@ from pyxalign.api.options.options import RegularizationOptions
 from pyxalign.api.options.plotting import UpdatePlotOptions, PlotDataOptions
 from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.api.options.transform import CropOptions, DownsampleOptions
-
+from .base import BaseOptions
 
 @dataclasses.dataclass
 class AlignmentOptions(ABC):
@@ -17,7 +17,7 @@ class AlignmentOptions(ABC):
 
 
 @dataclasses.dataclass
-class CrossCorrelationOptions:
+class CrossCorrelationOptions(BaseOptions):
     iterations: int = 10
 
     binning: int = 4
@@ -42,7 +42,7 @@ class CrossCorrelationOptions:
 
 
 @dataclasses.dataclass
-class ProjectionMatchingPlotOptions:
+class ProjectionMatchingPlotOptions(BaseOptions):
     update: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)
 
     reconstruction: PlotDataOptions = field(default_factory=PlotDataOptions)
@@ -51,7 +51,7 @@ class ProjectionMatchingPlotOptions:
 
 
 @dataclasses.dataclass
-class ReconstructionMaskOptions:
+class ReconstructionMaskOptions(BaseOptions):
     enabled: bool = True
 
     rad_apod: int = 0
@@ -60,7 +60,7 @@ class ReconstructionMaskOptions:
 
 
 @dataclasses.dataclass
-class SecondaryMaskOptions:
+class SecondaryMaskOptions(BaseOptions):
     enabled: bool = False
 
     rad_apod: int = 100
@@ -69,7 +69,7 @@ class SecondaryMaskOptions:
 
 
 @dataclasses.dataclass
-class StepMomentum:
+class StepMomentum(BaseOptions):
     enabled: bool = False
 
     memory: int = 2
@@ -80,7 +80,7 @@ class StepMomentum:
 
 
 @dataclasses.dataclass
-class RefineGeometryOptions:
+class RefineGeometryOptions(BaseOptions):
     enabled: bool = False
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
@@ -93,7 +93,7 @@ class RefineGeometryOptions:
 
 
 @dataclasses.dataclass
-class InteractiveViewerOptions:
+class InteractiveViewerOptions(BaseOptions):
     close_old_windows: bool = True
 
     update: UpdatePlotOptions = field(
@@ -106,14 +106,14 @@ def downsample_factory_for_estimate_center_options() -> DownsampleOptions:
 
 
 @dataclasses.dataclass
-class PositivityConstraint:
+class PositivityConstraint(BaseOptions):
     enabled: bool = False
 
     threshold: float = 0.0
 
 
 @dataclasses.dataclass
-class ProjectionMatchingOptions:
+class ProjectionMatchingOptions(BaseOptions):
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
     keep_on_gpu: bool = False

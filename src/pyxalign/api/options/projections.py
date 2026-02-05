@@ -13,6 +13,7 @@ from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.api.options.roi import ROIOptions
 from pyxalign.api.options.transform import CropOptions, DownsampleOptions, RotationOptions
 from functools import partial
+from .base import BaseOptions
 
 
 def pma_factory_for_estimate_center_options() -> ProjectionMatchingOptions:
@@ -23,7 +24,7 @@ def pma_factory_for_estimate_center_options() -> ProjectionMatchingOptions:
 
 
 @dataclasses.dataclass
-class CoordinateSearchOptions:
+class CoordinateSearchOptions(BaseOptions):
     center_estimate: Optional[int] = None
 
     range: Optional[int] = None
@@ -34,7 +35,7 @@ class CoordinateSearchOptions:
 
 
 @dataclasses.dataclass
-class EstimateCenterOptions:
+class EstimateCenterOptions(BaseOptions):
     downsample: DownsampleOptions = field(
         default_factory=partial(
             DownsampleOptions, type=enums.DownsampleType.FFT, scale=4, enabled=True
@@ -53,7 +54,7 @@ class EstimateCenterOptions:
 
 
 @dataclasses.dataclass
-class ProjectionTransformOptions:
+class ProjectionTransformOptions(BaseOptions):
     crop: CropOptions = field(default_factory=CropOptions)
 
     downsample: DownsampleOptions = field(default_factory=DownsampleOptions)
@@ -68,7 +69,7 @@ class ProjectionTransformOptions:
 
 
 @dataclasses.dataclass
-class VolumeWidthOptions:
+class VolumeWidthOptions(BaseOptions):
     """
     Options for determining the reconstructed volume size. The
     reconstructed volume defaults to the width of the projection
@@ -89,7 +90,7 @@ class VolumeWidthOptions:
 
 
 @dataclasses.dataclass
-class SimulatedProbeOptions:
+class SimulatedProbeOptions(BaseOptions):
     """
     Parameters for creating a gaussian probe
     """
@@ -99,7 +100,7 @@ class SimulatedProbeOptions:
 
 
 @dataclasses.dataclass
-class ProbePositionMaskOptions:
+class ProbePositionMaskOptions(BaseOptions):
     """
     Options for building projection masks from probe positions
     """
@@ -118,7 +119,7 @@ class ProbePositionMaskOptions:
     probe: SimulatedProbeOptions = field(default_factory=SimulatedProbeOptions)
 
 @dataclasses.dataclass
-class FSCOptions:
+class FSCOptions(BaseOptions):
     """Options for calculating the fourier shell correlation of a volume"""
     
     volume_width: Optional[int] = None
@@ -128,7 +129,7 @@ class FSCOptions:
 
 
 @dataclasses.dataclass
-class ProjectionOptions:
+class ProjectionOptions(BaseOptions):
     experiment: ExperimentOptions = field(default_factory=ExperimentOptions)
     """
     Options related to the experimental configuration.

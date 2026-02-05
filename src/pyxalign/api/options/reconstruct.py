@@ -4,15 +4,16 @@ from typing import Optional
 from pyxalign.api.enums import ReconstructionMethods
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.options import RegularizationOptions
+from .base import BaseOptions
 
 
 @dataclasses.dataclass
-class FilterOptions:
+class FilterOptions(BaseOptions):
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
 
 @dataclasses.dataclass
-class AstraOptions:
+class AstraOptions(BaseOptions):
     back_project_gpu_indices: tuple[int] = (0,)
 
     forward_project_gpu_indices: tuple[int] = (0,)
@@ -21,14 +22,14 @@ class AstraOptions:
 
 
 @dataclasses.dataclass
-class GeometryOptions:
+class GeometryOptions(BaseOptions):
     tilt_angle: float = 0.0
 
     skew_angle: float = 0.0
 
 
 @dataclasses.dataclass
-class SARTOptions:
+class SARTOptions(BaseOptions):
     iterations: int = 10
 
     use_circular_constraint: bool = True
@@ -46,7 +47,7 @@ def enabled_regularization_options_factory() -> RegularizationOptions:
 
 
 @dataclasses.dataclass
-class ReconstructOptions:
+class ReconstructOptions(BaseOptions):
     method: ReconstructionMethods = ReconstructionMethods.ASTRA
 
     astra: AstraOptions = field(default_factory=AstraOptions)

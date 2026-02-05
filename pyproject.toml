@@ -78,5 +78,5 @@ blank = true
 # Updated: Include both src and examples directories
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["pyxalign*", "pyxalign_examples*"]
+include = ["pyxalign*", "autorunner*", "pyxalign_examples*"]
 
