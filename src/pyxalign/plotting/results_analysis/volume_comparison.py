@@ -1,8 +1,10 @@
 from typing import Optional, Sequence, Union
 import numpy as np
 import tifffile
+import tqdm
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
+from pyxalign.data_structures.task import load_task
 from pyxalign.plotting.plotters import add_scalebar
 from pyxalign.transformations.functions import image_crop
 
@@ -286,3 +288,28 @@ def _clamped_crop_bounds(h: int, w: int, crop: int, cy: int, cx: int):
     if y2 - y1 < 1:
         y2 = min(h, y1 + 1)
     return x1, x2, y1, y2
+
+
+def collect_volumes_from_task_files(
+    file_paths: list[str],
+    rotate_volumes: bool = False,
+    volume_width_multiplier: Optional[float] = None,
+    rotation_angles: Optional[list[float]] = None,
+):
+    volumes = []
+    for i, path in tqdm.tqdm(enumerate(file_paths)):
+        task = load_task(path, exclude="complex_projections")
+        if volume_width_multiplier is not None:
+            task.phase_projections.options.volume_width.use_custom_width = True
+            task.phase_projections.options.volume_width.multiplier = volume_width_multiplier 
+        task.phase_projections.masks = None
+        task.phase_projections.apply_staged_shift()
+        task.phase_projections.get_3D_reconstruction()
+        if i == 0 and rotate_volumes and (rotation_angles is None):
+            task.phase_projections.volume.get_optimal_rotation_of_reconstruction()
+            rotation_angles = task.phase_projections.volume.optimal_rotation_angles
+        if rotate_volumes:
+            task.phase_projections.volume.optimal_rotation_angles = rotation_angles
+            task.phase_projections.volume.rotate_reconstruction()
+        volumes += [task.phase_projections.volume.data]
+    return volumes
