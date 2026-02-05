@@ -89,6 +89,7 @@ class Volume:
         n_pix: Optional[Sequence[int]] = None,
         update_stored_sinogram: bool = True,
         update_geometries: bool = False,
+        clear_astra_objects_at_end: bool = True,
     ):
         # reinforce references
         self.options = self.projections.options.reconstruct
@@ -101,7 +102,7 @@ class Volume:
         # Re-initialize the inputs and clear outputs
         idx_reconstruct = None
         if reinitialize_astra or not self.is_initialized:
-            self.clear_astra_objects()
+            self.clear_astra_objects() # clear astra objects if they already exist
             self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
@@ -163,6 +164,8 @@ class Volume:
         else:
             self.data[:] = reconstruct.get_3D_reconstruction(self.astra_config)
         cp.cuda.Device(device).use()
+        if clear_astra_objects_at_end:
+            self.clear_astra_objects()
 
     @timer()
     def update_astra_stored_volume(self):
@@ -322,6 +325,7 @@ class Volume:
         self.scan_geometry_config = None
         self.vectors = None
         self.forward_projection_id = None
+        self.is_initialized = False
 
     @timer()
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):

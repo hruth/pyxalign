@@ -171,18 +171,13 @@ class ProjectionMatchingAligner(Aligner):
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
         self.apply_window_to_masks(tukey_window)
-        if self.options.refine_geometry.enabled: # needs to be changed to .enabled
-            # When using geometry refinement, the astra vectors need
-            # to be updated on every iteration.
-            update_geometries = True
-        else:
-            update_geometries = False
         self.aligned_projections.volume.generate_volume(
             filter_inputs=True,
             pinned_filtered_sinogram=self.pinned_filtered_sinogram,
             reinitialize_astra=False,
             n_pix=self.n_pix,
-            update_geometries=update_geometries,
+            update_geometries=self.options.refine_geometry.enabled,
+            clear_astra_objects_at_end=False,
         )
         # optionally apply mask, regularization, and thresholding to volume
         self.post_process_volume()
@@ -1032,6 +1027,7 @@ class ProjectionMatchingAligner(Aligner):
                 reinitialize_astra=False,
                 n_pix=self.n_pix,
                 update_geometries=True,
+                clear_astra_objects_at_end=False,
             )
             self.post_process_volume()
 

@@ -887,6 +887,7 @@ class PhaseProjections(Projections):
         n_pix: Optional[Sequence[int]] = None,
         apply_positivity_constraint: bool = False,
         initial_volume_sart: Optional[np.ndarray] = None,
+        clear_astra_objects_at_end: bool = True,
     ):
         if self.options.reconstruct.method == enums.ReconstructionMethods.ASTRA:
             self.volume.generate_volume(
@@ -894,6 +895,7 @@ class PhaseProjections(Projections):
                 pinned_filtered_sinogram=pinned_filtered_sinogram,
                 reinitialize_astra=reinitialize_astra,
                 n_pix=n_pix,
+                clear_astra_objects_at_end=clear_astra_objects_at_end,
             )
         elif self.options.reconstruct.method == enums.ReconstructionMethods.SART:
             self.volume.get_sart_solver_volume(initial_volume=initial_volume_sart)
