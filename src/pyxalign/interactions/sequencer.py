@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QPushButton,
     QScrollArea,
+    QMessageBox,
 )
 from PyQt5.QtCore import Qt
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
@@ -50,6 +51,7 @@ class SequencerWidget(QWidget):
         self.sequencer_items = [
             SequencerItem(self.options, basic_options_list=self.basic_options_list)
         ]
+        self._connect_item_signals(self.sequencer_items[0])
         self.sequencer_list_layout.addWidget(self.sequencer_items[0])
         self.sequencer_list_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Preferred, QSizePolicy.Expanding)
@@ -74,6 +76,68 @@ class SequencerWidget(QWidget):
         button_layout.addWidget(self.remove_sequencer_button)
         self.main_layout.addLayout(button_layout)
 
+    def _connect_item_signals(self, item: SequencerItem):
+        """Connect signals from a SequencerItem to the appropriate handlers."""
+        item.insert_above_requested.connect(self.insert_item_above)
+        item.insert_below_requested.connect(self.insert_item_below)
+        item.duplicate_requested.connect(self.duplicate_item)
+        item.remove_requested.connect(self.remove_item)
+
+    def insert_item_above(self, reference_item: SequencerItem):
+        """Insert a new SequencerItem above the reference item."""
+        index = self.sequencer_items.index(reference_item)
+        new_item = SequencerItem(self.options, basic_options_list=self.basic_options_list)
+        self._connect_item_signals(new_item)
+        self.sequencer_items.insert(index, new_item)
+        self.sequencer_list_layout.insertWidget(index, new_item)
+
+    def insert_item_below(self, reference_item: SequencerItem):
+        """Insert a new SequencerItem below the reference item."""
+        index = self.sequencer_items.index(reference_item)
+        new_item = SequencerItem(self.options, basic_options_list=self.basic_options_list)
+        self._connect_item_signals(new_item)
+        self.sequencer_items.insert(index + 1, new_item)
+        self.sequencer_list_layout.insertWidget(index + 1, new_item)
+
+    def duplicate_item(self, reference_item: SequencerItem):
+        """Duplicate the reference item and insert it below."""
+        index = self.sequencer_items.index(reference_item)
+        
+        # Get the current state of the reference item
+        initial_field = reference_item.full_field_path()
+        initial_value = reference_item.value()
+        checkbox_state = reference_item.checkbox_state()
+        
+        # Create new item with the same state
+        initial_state = None
+        if initial_field and initial_value is not None:
+            initial_state = (initial_field, initial_value, checkbox_state)
+        
+        new_item = SequencerItem(
+            self.options,
+            initial_state=initial_state,
+            basic_options_list=self.basic_options_list,
+        )
+        self._connect_item_signals(new_item)
+        self.sequencer_items.insert(index + 1, new_item)
+        self.sequencer_list_layout.insertWidget(index + 1, new_item)
+
+    def remove_item(self, item_to_remove: SequencerItem):
+        """Remove the specified SequencerItem."""
+        # Prevent removing the last item
+        if len(self.sequencer_items) <= 1:
+            QMessageBox.warning(
+                self,
+                "Cannot Remove",
+                "Cannot remove the last sequence item. At least one item must remain."
+            )
+            return
+        
+        index = self.sequencer_items.index(item_to_remove)
+        self.sequencer_items.pop(index)
+        self.sequencer_list_layout.removeWidget(item_to_remove)
+        item_to_remove.deleteLater()
+
     def add_new_sequencer(self, initial_state: Optional[tuple] = None):
         # new_item = SequencerItem(self.options, basic_options_list=self.basic_options_list)
         new_item = SequencerItem(
@@ -81,6 +145,7 @@ class SequencerWidget(QWidget):
             initial_state=initial_state,
             basic_options_list=self.basic_options_list,
         )
+        self._connect_item_signals(new_item)
         self.sequencer_items += [new_item]
         self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
 
@@ -93,6 +158,7 @@ class SequencerWidget(QWidget):
             initial_state=(initial_field, initial_value, checkbox_state),
             basic_options_list=self.basic_options_list,
         )
+        self._connect_item_signals(new_item)
         self.sequencer_items += [new_item]
         self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
 
@@ -182,5 +248,5 @@ if __name__ == "__main__":
         int(screen_geometry.height() / 2),
     )
     window.show()
-    window.generate_sequence_from_list_of_dicts()
+    # window.generate_sequence_from_list_of_dicts()
     sys.exit(app.exec_())
