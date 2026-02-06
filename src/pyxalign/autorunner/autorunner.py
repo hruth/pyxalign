@@ -32,7 +32,7 @@ class Autorunner(ABC):
         self._create_projections_object()
         self._get_cross_correlation_alignment()
         self._get_complex_projections_masks()
-        self._unwrap_phase
+        self._unwrap_phase()
 
     @abstractmethod
     def _get_load_options(self):
@@ -64,14 +64,12 @@ class AutorunnerLYNX(Autorunner):
 
         base_load_options = BaseLoadOptions(
             parent_projections_folder=cfg["InputReconstructionsFolder"],
-            loader_type=cfg["LoaderType"]["PEAR_V1"],
+            loader_type=cfg["LoaderType"],
             file_pattern=cfg["FilePattern"],
             select_all_by_default=True,
         )
         self._load_options = LYNXLoadOptions(
-            dat_file_path=os.path.join(
-                cfg["InputReconstructionsFolder"], "dat-files/tomography_scannumbers.txt"
-            ),
+            dat_file_path=cfg["TomographyScannumbersPath"],
             base=base_load_options,
             selected_experiment_name=cfg["ExperimentName"],
         )
@@ -154,7 +152,7 @@ class AutorunnerLYNX(Autorunner):
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
 
-    def _get_unwrapped_phase(self):
+    def _unwrap_phase(self):
         cfg = self._options_dict["PhaseUnwrapping"]
 
         if cfg["Interactive"]:
