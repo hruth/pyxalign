@@ -152,12 +152,12 @@ class SequencerItem(QWidget):
         self.duplicate_button.clicked.connect(lambda: self.duplicate_requested.emit(self))
         self.remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
         
-        # Add buttons to layout
+        # Add stretch to push buttons to the right, then add buttons
+        control_layout.addStretch()  # Push buttons to the right
         control_layout.addWidget(self.insert_above_button)
         control_layout.addWidget(self.insert_below_button)
         control_layout.addWidget(self.duplicate_button)
         control_layout.addWidget(self.remove_button)
-        control_layout.addStretch()  # Push buttons to the left
         
         # Add control layout to the frame
         self.frame_layout.addLayout(control_layout)

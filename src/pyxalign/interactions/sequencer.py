@@ -162,7 +162,7 @@ class SequencerWidget(QWidget):
         self.sequencer_items += [new_item]
         self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
 
-    def generate_sequence_from_list_of_dicts(self, list_of_updated_settings: list):
+    def generate_sequence_from_list_of_dicts(self, list_of_updated_settings: list[dict]):
         # list_of_updated_settings = [
         #     {
         #         "downsample": {"scale": 16},
