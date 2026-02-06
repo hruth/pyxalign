@@ -283,6 +283,7 @@ class PMAMasterWidget(MultiThreadedWidget):
     def __init__(
         self,
         task: Optional["t.LaminographyAlignmentTask"] = None,
+        list_of_updated_settings: Optional[list[dict]] = None,
         multi_thread_func: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -295,9 +296,13 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.results_collection_widget = None
 
         if task is not None:
-            self.initialize_page(task)
+            self.initialize_page(task, list_of_updated_settings)
 
-    def initialize_page(self, task: "t.LaminographyAlignmentTask"):
+    def initialize_page(
+        self,
+        task: "t.LaminographyAlignmentTask",
+        list_of_updated_settings: Optional[list[dict]] = None,
+    ):
         self.task = task
         tabs = QTabWidget()
         tabs.setObjectName("main_tabs")
@@ -308,7 +313,7 @@ class PMAMasterWidget(MultiThreadedWidget):
 
         self.generate_start_and_stop_buttons()
         self.generate_options_selection_widget()
-        self.generate_sequencer()
+        self.generate_sequencer(list_of_updated_settings)
         self.make_first_tab_layout(tabs)
         self.make_second_tab_layout(tabs)
         self.make_third_tab_layout(tabs)
@@ -366,9 +371,10 @@ class PMAMasterWidget(MultiThreadedWidget):
             label="Projection Matching Alignment Options"
         )
 
-    def generate_sequencer(self):
+    def generate_sequencer(self, list_of_updated_settings: Optional[list[dict]] = None):
         self.sequencer = SequencerWidget(
             self.task.options.projection_matching,
+            list_of_updated_settings,
             basic_options_list=basic_pma_settings,
             parent=self,
         )
@@ -414,11 +420,12 @@ class PMAMasterWidget(MultiThreadedWidget):
 @switch_to_matplotlib_qt_backend
 def launch_pma_runner(
     task: t.LaminographyAlignmentTask,
+    list_of_updated_settings: Optional[list[dict]] = None,
     wait_until_closed: bool = False,
 ):
     # may want to move this to the PMA runner tab
     app = QApplication.instance() or QApplication([])
-    gui = PMAMasterWidget(task)
+    gui = PMAMasterWidget(task, list_of_updated_settings)
     gui.show()
     gui.setAttribute(Qt.WA_DeleteOnClose)
     if wait_until_closed:

@@ -30,7 +30,11 @@ from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 
 class SequencerWidget(QWidget):
     def __init__(
-        self, options: BaseOptions, basic_options_list: Optional[list[str]] = None, parent=None
+        self,
+        options: BaseOptions,
+        list_of_updated_settings: Optional[list[dict]] = None,
+        basic_options_list: Optional[list[str]] = None,
+        parent=None,
     ):
         super().__init__(parent)
         self.options = options
@@ -75,6 +79,9 @@ class SequencerWidget(QWidget):
         button_layout.addWidget(self.copy_sequencer_button)
         button_layout.addWidget(self.remove_sequencer_button)
         self.main_layout.addLayout(button_layout)
+
+        if list_of_updated_settings is not None:
+            self.generate_sequence_from_list_of_dicts(list_of_updated_settings)
 
     def _connect_item_signals(self, item: SequencerItem):
         """Connect signals from a SequencerItem to the appropriate handlers."""
@@ -163,21 +170,9 @@ class SequencerWidget(QWidget):
         self.sequencer_list_layout.insertWidget(len(self.sequencer_items) - 1, new_item)
 
     def generate_sequence_from_list_of_dicts(self, list_of_updated_settings: list[dict]):
-        # list_of_updated_settings = [
-        #     {
-        #         "downsample": {"scale": 16},
-        #         "regularization": {"enabled": True, "use_gpu": True},
-        #         "keep_on_gpu": True,
-        #     },
-        #     {
-        #         "downsample": {"scale": 8},
-        #         "regularization": {"enabled": True, "use_gpu": True},
-        #         "keep_on_gpu": True,
-        #     },
-        # ]
         self.clear_all_sequences()
         for settings_dict in list_of_updated_settings:
-            value_pairs = get_settings_from_dict(settings_dict)
+            value_pairs = get_settings_from_dict(settings_dict, value_pairs=[])
             for i, pair in enumerate(value_pairs):
                 is_last_entry = i == len(value_pairs) - 1
                 initial_state = (*pair, is_last_entry)

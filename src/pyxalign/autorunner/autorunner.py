@@ -198,14 +198,14 @@ class AutorunnerLYNX(Autorunner):
 
     def _run_projection_matching_sequence(self):
         cfg = self._options_dict["ProjectionMatching"]
-        default_pma_options = load_options_from_yaml(
+        self.task.options.projection_matching = load_options_from_yaml(
             cfg["DefaultSettingsPath"], ProjectionMatchingOptions()
         )
 
         # list_of_pma_setting_updates = self._options_dict["ProjectionMatching"]["Sequence"]
         if not cfg["Interactive"]:
             pma_options_list = get_projection_matching_sequence_options(
-                default_pma_options, cfg["Sequence"]
+                self.task.options.projection_matching, cfg["Sequence"]
             )
             shift = None
             for pma_options in pma_options_list:
@@ -213,8 +213,9 @@ class AutorunnerLYNX(Autorunner):
                 self.task.get_projection_matching_shift(shift)
                 # need way to save intermediate results
         else:
-            gui = launch_pma_runner(self.task, self._options_dict["ProjectionMatching"]["Sequence"])
-            gui.sequencer.generate_sequence_from_list_of_dicts(
-                self._options_dict["ProjectionMatching"]["Sequence"]
+            gui = launch_pma_runner(
+                self.task,
+                self._options_dict["ProjectionMatching"]["Sequence"],
+                wait_until_closed=True,
             )
 
