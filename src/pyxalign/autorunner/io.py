@@ -21,14 +21,14 @@ def _update_options_recursively(options: BaseOptions, new_options_dict: dict):
 
 
 def get_projection_matching_sequence_options(
-    default_options: ProjectionMatchingOptions, file_path: str
+    default_options: ProjectionMatchingOptions, updated_settings_dicts: dict,#file_path: str
 ) -> list[ProjectionMatchingOptions]:
     """
-    - file path is the path to the view_opr_results.ipynbautorunner options path
+    - file path is the path to the autorunner options path
     """
-    with open(file_path, "r") as f:
-        autorunner_settings = yaml.safe_load(f)
-    updated_settings_dicts = autorunner_settings["ProjectionMatching"]["Sequence"]
+    # with open(file_path, "r") as f:
+    #     autorunner_settings = yaml.safe_load(f)
+    # updated_settings_dicts = autorunner_settings["ProjectionMatching"]["Sequence"]
     pma_options_sequence = []
     for d in updated_settings_dicts:
         pma_options_sequence += [get_updated_options(default_options, d)]

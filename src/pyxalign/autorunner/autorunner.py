@@ -3,16 +3,17 @@ from abc import ABC, abstractmethod
 import yaml
 import multiprocessing as mp
 
-from pyxalign.api.options.alignment import CrossCorrelationOptions
+from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.transform import RotationOptions, ShearOptions
-from pyxalign.autorunner.io import load_options_from_yaml
+from pyxalign.autorunner.io import get_projection_matching_sequence_options, load_options_from_yaml
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
+from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
-from pyxalign.interactions.pma_runner import PMAMasterWidget
+from pyxalign.interactions.pma_runner import PMAMasterWidget, launch_pma_runner
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.maps import get_loader_options_by_enum
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
@@ -26,13 +27,9 @@ class Autorunner(ABC):
         with open(file_path, "r") as f:
             self._options_dict = yaml.safe_load(f)
 
-    def run_reconstruction(self):
-        self._get_load_options()
-        self._load_data()
-        self._create_projections_object()
-        self._get_cross_correlation_alignment()
-        self._get_complex_projections_masks()
-        self._unwrap_phase()
+    @abstractmethod
+    def run(self):
+        pass
 
     @abstractmethod
     def _get_load_options(self):
@@ -42,23 +39,19 @@ class Autorunner(ABC):
     def _load_data(self):
         pass
 
-    @abstractmethod
-    def _create_projections_object(self):
-        pass
-
-    @abstractmethod
-    def _get_cross_correlation_alignment(self):
-        pass
-
-    @abstractmethod
-    def _get_complex_projections_masks(self):
-        pass
-
-    @abstractmethod
-    def _unwrap_phase(self):
-        pass
 
 class AutorunnerLYNX(Autorunner):
+    def run(self):
+        # self._get_load_options()
+        self._load_data()
+        self._create_projections_object()
+        self._get_cross_correlation_alignment()
+        self._get_complex_projections_masks()
+        self._unwrap_phase()
+        self._get_phase_projections_masks()
+        self._estimate_center_of_rotation()
+        self._run_projection_matching_sequence()
+
     def _get_load_options(self):
         cfg = self._options_dict["Loading"]
 
@@ -66,6 +59,8 @@ class AutorunnerLYNX(Autorunner):
             parent_projections_folder=cfg["InputReconstructionsFolder"],
             loader_type=cfg["LoaderType"],
             file_pattern=cfg["FilePattern"],
+            scan_start=cfg["ScanStart"],
+            scan_end=cfg["ScanEnd"],
             select_all_by_default=True,
         )
         self._load_options = LYNXLoadOptions(
@@ -76,11 +71,14 @@ class AutorunnerLYNX(Autorunner):
 
     def _load_data(self):
         cfg = self._options_dict["Loading"]
-
-        self._standardized_data = load_data_from_pear_format(
-            n_processes=int(mp.cpu_count() * 0.8),
-            options=self._load_options,
-        )
+        self._get_load_options()
+        if not cfg["Interactive"]:
+            self._standardized_data = load_data_from_pear_format(
+                n_processes=int(mp.cpu_count() * 0.8),
+                options=self._load_options,
+            )
+        else:
+            gui = launch_data_loader(self._load_options)
 
     def _create_projections_object(self):
         cfg = self._options_dict["Initialization"]
@@ -199,4 +197,24 @@ class AutorunnerLYNX(Autorunner):
             )
 
     def _run_projection_matching_sequence(self):
-        pass
+        cfg = self._options_dict["ProjectionMatching"]
+        default_pma_options = load_options_from_yaml(
+            cfg["DefaultSettingsPath"], ProjectionMatchingOptions()
+        )
+
+        # list_of_pma_setting_updates = self._options_dict["ProjectionMatching"]["Sequence"]
+        if not cfg["Interactive"]:
+            pma_options_list = get_projection_matching_sequence_options(
+                default_pma_options, cfg["Sequence"]
+            )
+            shift = None
+            for pma_options in pma_options_list:
+                self.task.options.projection_matching = pma_options
+                self.task.get_projection_matching_shift(shift)
+                # need way to save intermediate results
+        else:
+            gui = launch_pma_runner(self.task, self._options_dict["ProjectionMatching"]["Sequence"])
+            gui.sequencer.generate_sequence_from_list_of_dicts(
+                self._options_dict["ProjectionMatching"]["Sequence"]
+            )
+
