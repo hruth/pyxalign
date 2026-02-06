@@ -24,6 +24,7 @@ from pyxalign.api.types import OptionsClass
 from pyxalign.interactions.options.options_editor import set_option_from_field_path
 
 from pyxalign.interactions.sequencer_item import SequencerItem
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 
 
 class SequencerWidget(QWidget):
@@ -110,6 +111,27 @@ class SequencerWidget(QWidget):
             options_sequence += [options_item]
 
         return options_sequence
+    
+    def clear_all_sequences(self):
+        for i in range(len(self.sequencer_items)):
+            self.remove_last_sequence()
+
+    def create_sequence_from_list(self):
+        self.clear_all_sequences()
+        # continue here; cant use the 
+
+@switch_to_matplotlib_qt_backend
+def launch_pma_sequencer(
+    wait_until_closed: bool = False,
+):
+    # may want to move this to the PMA runner tab
+    app = QApplication.instance() or QApplication([])
+    gui = SequencerWidget(ProjectionMatchingOptions())
+    gui.show()
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    if wait_until_closed:
+        app.exec_()
+    return gui
 
 
 # For demonstration purposes only:

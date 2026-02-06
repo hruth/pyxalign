@@ -55,6 +55,7 @@ from PyQt5.QtWidgets import (
 
 from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.task as t
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 import pyxalign.io.load as load
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
@@ -408,6 +409,21 @@ class PMAMasterWidget(MultiThreadedWidget):
         self._results_collection_layout = QVBoxLayout()
         empty_widget.setLayout(self._results_collection_layout)
         tabs.addTab(self.results_collection_widget, "Collected Results")
+
+
+@switch_to_matplotlib_qt_backend
+def launch_pma_runner(
+    task: t.LaminographyAlignmentTask,
+    wait_until_closed: bool = False,
+):
+    # may want to move this to the PMA runner tab
+    app = QApplication.instance() or QApplication([])
+    gui = PMAMasterWidget(task)
+    gui.show()
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    if wait_until_closed:
+        app.exec_()
+    return gui
 
 
 if __name__ == "__main__":
