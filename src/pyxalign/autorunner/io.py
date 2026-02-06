@@ -40,3 +40,9 @@ def load_options_from_yaml(file_path: str, options: BaseOptions):
         options_dict = yaml.safe_load(f)
     options.load_from_dict(options_dict)
     return options
+
+
+def get_autorunner_options_dict(file_path: str):
+    with open(file_path, "r") as f:
+        options_dict = yaml.safe_load(f)
+    return options_dict
