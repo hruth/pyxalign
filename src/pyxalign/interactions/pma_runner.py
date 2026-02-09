@@ -349,7 +349,10 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.task.options.projection_matching
         )
         shift = None
-        for options in options_sequence:
+        suffix = self.task.options.projection_matching.save.suffix
+        for i, options in enumerate(options_sequence):
+            # update suffix
+            options.save.suffix = suffix + f"_{i}"
             shift = self.task.get_projection_matching_shift(initial_shift=shift, options=options)
             self.alignment_results_list += [
                 AlignmentResults(

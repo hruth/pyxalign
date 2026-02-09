@@ -1,18 +1,13 @@
 import sys
-import matplotlib
+from typing import TypeVar
 import copy
-from typing import Optional
+from typing import Optional, TypeVar
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
-    QCheckBox,
-    QComboBox,
-    QSpinBox,
     QLabel,
     QVBoxLayout,
     QHBoxLayout,
-    QFrame,
-    QGridLayout,
     QSpacerItem,
     QSizePolicy,
     QPushButton,
@@ -26,6 +21,8 @@ from pyxalign.interactions.options.options_editor import set_option_from_field_p
 
 from pyxalign.interactions.sequencer_item import SequencerItem
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+
+T = TypeVar("T")
 
 
 class SequencerWidget(QWidget):
@@ -183,7 +180,7 @@ class SequencerWidget(QWidget):
             self.sequencer_items[-1].deleteLater()
             self.sequencer_items = self.sequencer_items[:-1]
 
-    def generate_options_sequence(self, options: BaseOptions) -> list[BaseOptions]:
+    def generate_options_sequence(self, options: T) -> list[T]:
         options_sequence: list[BaseOptions] = []
         options_item = copy.deepcopy(options)
         for item in self.sequencer_items:

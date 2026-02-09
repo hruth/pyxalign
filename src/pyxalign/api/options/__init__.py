@@ -21,6 +21,7 @@ from .alignment import (
     StepMomentum,
     RefineGeometryOptions,
     PositivityConstraint,
+    SaveOptions,
 )
 from .projections import (
     CoordinateSearchOptions,
@@ -106,4 +107,5 @@ __all__ = [
     "CoordinateSearchOptions",
     "FSCOptions",
     "SARTOptions",
+    "SaveOptions",
 ]

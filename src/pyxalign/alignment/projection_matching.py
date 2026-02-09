@@ -1,8 +1,10 @@
+import os
 from functools import partial
 from typing import Callable, Optional
 import numpy as np
 import cupy as cp
 import copy
+import h5py
 from scipy.optimize import minimize
 from PyQt5.QtWidgets import QApplication
 
@@ -110,6 +112,10 @@ class ProjectionMatchingAligner(Aligner):
 
         # Clear astra objects
         self.aligned_projections.volume.clear_astra_objects()
+
+        # save results
+        if self.options.save.enabled:
+            self.save_results()
 
         return shift
     
@@ -1155,6 +1161,35 @@ class ProjectionMatchingAligner(Aligner):
             self.all_skew_angle_updates,
             self.aligned_projections.options.reconstruct.geometry.skew_angle,
         )
+
+    def save_results(self):
+        results_file = os.path.join(
+            self.options.save.folder, f"pma_results{self.options.save.suffix}.h5"
+        )
+        with h5py.File(results_file, "w") as F:
+            F["initial_shift"] = self.initial_shift
+            F["final_shift"] = self.initial_shift * self.scale
+            F["all_shift_updates"] = self.all_shift_updates[: self.iteration]
+            F["all_errors"] = self.all_errors[: self.iteration]
+            F["angles"] = self.aligned_projections.angles
+            F["scan_numbers"] = self.aligned_projections.scan_numbers
+            F["iterations"] = self.iteration
+            F["scale"] = self.scale
+            if self.options.save.save_pma_volume:
+                F["volume"] = self.aligned_projections.volume.data
+            if self.options.save.save_pma_projections:
+                F["volume"] = self.aligned_projections.data
+            if self.options.save.save_pma_forward_projections:
+                F["volume"] = self.aligned_projections.volume.forward_projections.data
+        self.options.save_to_dict(
+            os.path.join(self.options.save.folder, f"pma_options{self.options.save.suffix}.yaml")
+        )
+        self.projections.options.save_to_dict(
+            os.path.join(
+                self.options.save.folder, f"projection_options{self.options.save.suffix}.yaml"
+            )
+        )
+
 
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):
     xp = cp.get_array_module(projections_residuals)

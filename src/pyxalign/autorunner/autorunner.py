@@ -1,3 +1,4 @@
+import copy
 import os
 from abc import ABC, abstractmethod
 import yaml
@@ -28,6 +29,7 @@ class Autorunner(ABC):
     def __init__(self, file_path: str):
         with open(file_path, "r") as f:
             self._options_dict = yaml.safe_load(f)
+        self._setup_results_folders()
 
     @abstractmethod
     def run(self):
@@ -52,7 +54,8 @@ class Autorunner(ABC):
             self.results_folders["parent"], "temporary"
         )
         for folder in self.results_folders.values():
-            os.mkdir(folder)
+            if not os.path.exists(folder):
+                os.mkdir(folder)
 
 
 class AutorunnerLYNX(Autorunner):
@@ -218,19 +221,22 @@ class AutorunnerLYNX(Autorunner):
         self.task.options.projection_matching = load_options_from_yaml(
             cfg["DefaultSettingsPath"], ProjectionMatchingOptions()
         )
+        # update the results path
+        # self.task.options.projection_matching.save.enabled = True
+        self.task.options.projection_matching.save.folder = self.results_folders["projection_matching"]
 
         if not cfg["Interactive"]:
             pma_options_list = get_projection_matching_sequence_options(
                 self.task.options.projection_matching, cfg["Sequence"]
             )
             shift = None
+            suffix = self.task.options.projection_matching.save.suffix
             for i, pma_options in enumerate(pma_options_list):
-                self.task.options.projection_matching = pma_options
+                self.task.options.projection_matching = copy.deepcopy(pma_options)
+                # update suffix
+                self.task.options.projection_matching.save.suffix = suffix + f"_{i}"
                 self.task.get_projection_matching_shift(shift)
-                save_intermediate_pma_results(
-                    self.results_folders["projection_matching"],
-                    self.task,
-                )
+                
         else:
             gui = launch_pma_runner(
                 self.task,
@@ -253,27 +259,3 @@ class AutorunnerLYNX(Autorunner):
                 os.path.join(self.results_folders["final"], "aligned_volume_cropped.tiff"),
                 crop_to_single_file=True,
             )
-
-
-def save_intermediate_pma_results(
-    folder: str, task: LaminographyAlignmentTask, sequence_number: int, save_full_task: bool = False
-):
-    # save pma and projection options
-    results_file = os.path.join(folder, f"pma_results_{sequence_number}.h5")
-    with h5py.File(results_file, "w") as F:
-        F["initial_shift"] = task.pma_object.initial_shift
-        F["final_shift"] = task.pma_object.initial_shift
-        F["all_shift_updates"] = task.pma_object.all_shift_updates[: task.pma_object.iteration]
-        F["all_errors"] = task.pma_object.all_errors[: task.pma_object.iteration]
-        F["angles"] = task.pma_object.aligned_projections.angles
-        F["scan_numbers"] = task.pma_object.aligned_projections.scan_numbers
-        F["iterations"] = task.pma_object.iteration
-        F["scale"] = task.pma_object.scale
-    task.options.projection_matching.save_to_dict(
-        os.path.join(folder, f"pma_options_{sequence_number}.h5")
-    )
-    task.phase_projections.options.save_to_dict(
-        os.path.join(folder, f"projection_options_{sequence_number}.h5")
-    )
-    if save_full_task:
-        task.save_task(os.path.join(folder, f"pma_task_{sequence_number}.h5"))

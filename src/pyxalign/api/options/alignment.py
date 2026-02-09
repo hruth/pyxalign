@@ -3,6 +3,8 @@ import dataclasses
 from dataclasses import field
 from functools import partial
 from typing import Optional
+
+from numpy import save
 import pyxalign.api.enums as enums
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.options import RegularizationOptions
@@ -10,6 +12,7 @@ from pyxalign.api.options.plotting import UpdatePlotOptions, PlotDataOptions
 from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.api.options.transform import CropOptions, DownsampleOptions
 from .base import BaseOptions
+
 
 @dataclasses.dataclass
 class AlignmentOptions(ABC):
@@ -26,7 +29,7 @@ class CrossCorrelationOptions(BaseOptions):
 
     filter_data: float = 0.005
 
-    remove_slow_variation: bool = False # change to True and update test scripts
+    remove_slow_variation: bool = False  # change to True and update test scripts
 
     use_end_corrections: bool = True
 
@@ -113,6 +116,21 @@ class PositivityConstraint(BaseOptions):
 
 
 @dataclasses.dataclass
+class SaveOptions(BaseOptions):
+    enabled: bool = False
+
+    folder: str = ""
+
+    suffix: str = ""
+
+    save_pma_volume: bool = False
+
+    save_pma_projections: bool = False
+
+    save_pma_forward_projections: bool = False
+
+
+@dataclasses.dataclass
 class ProjectionMatchingOptions(BaseOptions):
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
@@ -166,5 +184,7 @@ class ProjectionMatchingOptions(BaseOptions):
     filter_directions: tuple[int] = (2,)
 
     positivity_constraint: PositivityConstraint = field(default_factory=PositivityConstraint)
+
+    save: SaveOptions = field(default_factory=SaveOptions)
 
     plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
