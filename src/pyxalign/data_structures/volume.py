@@ -374,9 +374,10 @@ class Volume:
         use_gpu: bool = True,
         slice_index: Optional[int] = None,
         pad_mult: int = 4,
+        show_plots: bool = False,
     ):
         self.optimal_rotation_angles = get_tomogram_rotation_angles(
-            self.data, use_gpu, slice_index, pad_mult
+            self.data, use_gpu, slice_index, pad_mult, show_plots,
         )
         print(
             "Optimal rotation values:\n"
@@ -427,7 +428,7 @@ class Volume:
         if data is None:
             data = self.data
 
-        save_array_as_tiff(data, file_path, min, max, crop_to_fit_single_file=crop_to_single_file)
+        save_array_as_tiff(data, file_path, min, max, crop_to_single_file=crop_to_single_file)
 
     def save_as_h5(self, file_path: str):
         if self.data is None:
@@ -467,13 +468,17 @@ def get_tomogram_rotation_angles(
         rotation_angle[i] = get_optimized_sparseness_angle(
             xp.array(reconstruction_slice),
             angle_search_bounds=[-max_search_angle, max_search_angle],
+            show_plots=show_plots,
         )
 
     return rotation_angle
 
 
 def get_optimized_sparseness_angle(
-    image_slice: ArrayType, angle_search_bounds: Sequence, n_iter: int = 500
+    image_slice: ArrayType,
+    angle_search_bounds: Sequence,
+    n_iter: int = 500,
+    show_plots: bool = False,
 ):
     """
     Find the rotation of the object that maximizes sparsity
@@ -538,18 +543,20 @@ def get_optimized_sparseness_angle(
 
     # Do grid search of the sparsity score and plot results
     # fig, ax = plt.subplots(2, 2, layout="compressed")
-    fig = plt.figure(layout="compressed")
-    gs = fig.add_gridspec(2, 2, height_ratios=[1, 2])
-    sparsity_axis = fig.add_subplot(gs[0, 0:2])
-    orig_slice_axis = fig.add_subplot(gs[1, 0])
-    rotated_slice_axis = fig.add_subplot(gs[1, 1])
+    if show_plots:
+        fig = plt.figure(layout="compressed")
+        gs = fig.add_gridspec(2, 2, height_ratios=[1, 2])
+        sparsity_axis = fig.add_subplot(gs[0, 0:2])
+        orig_slice_axis = fig.add_subplot(gs[1, 0])
+        rotated_slice_axis = fig.add_subplot(gs[1, 1])
 
-    # Find and plot the sparsity score
-    plt.sca(sparsity_axis)
-    plt.title("Hoyer Sparsity Score")
-    plt.xlabel("angle (deg)")
-    plt.grid(linestyle=":")
-    plt.autoscale(enable=True, axis="x", tight=True)
+        plt.sca(sparsity_axis)
+        plt.title("Hoyer Sparsity Score")
+        plt.xlabel("angle (deg)")
+        plt.grid(linestyle=":")
+        plt.autoscale(enable=True, axis="x", tight=True)
+
+    # find the sparsity score
     for i in range(3):
         score = get_score_vs_angle(test_image, angles)
         plt.plot(angles, score)
@@ -559,19 +566,20 @@ def get_optimized_sparseness_angle(
         next_range = next_range / 10
     angle = angles[np.argmin(score)]
 
-    # Plot the image slice
-    plt.title("Original slice")
-    plt.sca(orig_slice_axis)
-    if isinstance(image_slice, cp.ndarray):
-        plt.imshow(image_slice.get(), cmap="bone")
-    else:
-        plt.imshow(image_slice, cmap="bone")
-    # Plot the rotated image slice
-    plt.sca(rotated_slice_axis)
-    rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
-    if isinstance(rotated_image_slice, cp.ndarray):
-        rotated_image_slice = rotated_image_slice.get()
-    plt.imshow(rotated_image_slice, cmap="bone")
-    plt.show()
+    if show_plots:
+        # Plot the image slice
+        plt.title("Original slice")
+        plt.sca(orig_slice_axis)
+        if isinstance(image_slice, cp.ndarray):
+            plt.imshow(image_slice.get(), cmap="bone")
+        else:
+            plt.imshow(image_slice, cmap="bone")
+        # Plot the rotated image slice
+        plt.sca(rotated_slice_axis)
+        rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
+        if isinstance(rotated_image_slice, cp.ndarray):
+            rotated_image_slice = rotated_image_slice.get()
+        plt.imshow(rotated_image_slice, cmap="bone")
+        plt.show()
 
     return angle

@@ -52,6 +52,8 @@ class BaseOptions:
     def load_from_dict(self, d: dict) -> "BaseOptions":
         """Load options from a dictionary."""
         for k, v in d.items():
+            if not hasattr(self, k):
+                continue
             field_type = self.resolve_type(self.get_field_type(k))
             if isinstance(field_type, type) and issubclass(field_type, BaseOptions):
                 self.__setattr__(k, self.resolve_type(self.get_field_type(k))().load_from_dict(v))

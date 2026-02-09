@@ -74,6 +74,12 @@ basic_pma_settings = [
     "high_pass_filter",
     "downsample",
     "downsample.scale",
+    "save",
+    "save.enabled",
+    "save.folder",
+    "save.suffix",
+    "save.save_pma_volume",
+    "save.save_pma_projections",
 ]
 
 

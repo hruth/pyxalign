@@ -187,4 +187,4 @@ class ProjectionMatchingOptions(BaseOptions):
 
     save: SaveOptions = field(default_factory=SaveOptions)
 
-    plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
+    # plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)

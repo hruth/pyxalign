@@ -107,11 +107,8 @@ def create_empty_pinned_array_like(array: ArrayType):
 def is_pinned(array: ArrayType) -> bool:
     # Temporary -- this will only give the proper answer for large arrays
     min_array_size = 200
-    if array.nbytes < min_array_size:
-        print(f"Warning: pyxalign function is_pinned does not work for arrays smaller than {min_array_size} bytes.")
-        # raise NotImplementedError(
-        #     f"This function does not work to check if arrays smaller than {min_array_size} bytes"
-        # )
+    # if array.nbytes < min_array_size:
+    #     print(f"Warning: pyxalign function is_pinned does not work for arrays smaller than {min_array_size} bytes.")
     return array.nbytes > 2 * array.__sizeof__()
 
 

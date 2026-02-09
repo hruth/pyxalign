@@ -8,7 +8,11 @@ import multiprocessing as mp
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.transform import RotationOptions, ShearOptions
-from pyxalign.autorunner.io import get_projection_matching_sequence_options, load_options_from_yaml
+from pyxalign.autorunner.io import (
+    get_projection_matching_sequence_options,
+    get_updated_options,
+    load_options_from_yaml,
+)
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
@@ -101,7 +105,8 @@ class AutorunnerLYNX(Autorunner):
             gui = launch_data_loader(self._load_options)
 
     def _create_projections_object(self):
-        cfg = self._options_dict["Initialization"]
+        step_string = "initialization"
+        cfg = self._options_dict[step_string]
 
         # creat padded projection array
         new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
@@ -138,15 +143,19 @@ class AutorunnerLYNX(Autorunner):
             file_paths=list(self._standardized_data.file_paths.values()),
         )
         self.task = LaminographyAlignmentTask(complex_projections=complex_projections)
+        self.task.complex_projections.drop_projections(cfg["remove_scan_numbers"])
 
         self._standardized_data = None
 
+        self._save_checkpoint_task(step_string)
+
     def _get_cross_correlation_alignment(self):
-        cfg = self._options_dict["CrossCorrelationAlignment"]
-        if not cfg["Enabled"]:
+        step_string = "cross_correlation_alignment"
+        cfg = self._options_dict[step_string]
+        if not cfg["enabled"]:
             return
 
-        settings_path = cfg["DefaultSettingsPath"]
+        settings_path = cfg["default_settings_path"]
         if settings_path is not None and os.path.exists(settings_path):
             self.task.options.cross_correlation = load_options_from_yaml(
                 settings_path, CrossCorrelationOptions()
@@ -159,9 +168,10 @@ class AutorunnerLYNX(Autorunner):
         else:
             self.task.get_cross_correlation_shift(plot_results=False)
         self.task.complex_projections.apply_staged_shift()
+        self._save_checkpoint_task(step_string)
 
     def _get_complex_projections_masks(self):
-        cfg = self._options_dict["PhaseUnwrapping"]["Masks"]
+        cfg = self._options_dict["phase_unwrapping"]["Masks"]
 
         if cfg["Threshold"] is not None:
             self.task.complex_projections.options.mask_from_positions.threshold = cfg["Threshold"]
@@ -171,16 +181,19 @@ class AutorunnerLYNX(Autorunner):
             self.task.complex_projections.get_masks_from_probe_positions()
 
     def _unwrap_phase(self):
-        cfg = self._options_dict["PhaseUnwrapping"]
+        step_string = "phase_unwrapping"
+        cfg = self._options_dict[step_string]
 
         if cfg["Interactive"]:
             gui = launch_phase_unwrap_widget(self.task, wait_until_closed=True)
         else:
             self.task.get_unwrapped_phase()
         self.task.complex_projections = None
+        self._save_checkpoint_task(step_string)
 
     def _get_phase_projections_masks(self):
-        cfg = self._options_dict["PhaseProjectionMasks"]
+        step_string = "phase_projections_masks"
+        cfg = self._options_dict["phase_projections_masks"]
 
         if cfg["Threshold"] is not None:
             self.task.phase_projections.options.mask_from_positions.threshold = cfg["Threshold"]
@@ -188,42 +201,63 @@ class AutorunnerLYNX(Autorunner):
             launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
+        self._save_checkpoint_task(step_string)
 
     def _estimate_center_of_rotation(self):
-        cfg = self._options_dict["EstimateCenter"]
+        step_string = "estimate_center"
+        cfg = self._options_dict["estimate_center"]
         if not cfg["Enabled"]:
             return
+        
+        estimate_center_options = copy.deepcopy(self.task.phase_projections.options.estimate_center)
 
-        estimate_center_options = self.task.phase_projections.options.estimate_center
-        if cfg["Scale"] is not None:
-            estimate_center_options.projection_matching.downsample.scale = cfg["Scale"]
-        params = zip(
-            cfg["HorizontalRanges"],
-            cfg["HorizontalSpacings"],
-            cfg["VerticalRanges"],
-            cfg["VerticalSpacings"],
-        )
-        estimate_center_options.horizontal_coordinate.enabled = True
-        estimate_center_options.vertical_coordinate.enabled = True
-        for h_range, h_spc, v_range, v_spc in params:
-            estimate_center_options.horizontal_coordinate.range = h_range
-            estimate_center_options.vertical_coordinate.range = v_range
-            estimate_center_options.horizontal_coordinate.spacing = h_spc
-            estimate_center_options.horizontal_coordinate.spacing = v_spc
+        for new_options_dict in cfg["sequence"]:
+            self.task.phase_projections.options.estimate_center = get_updated_options(
+                estimate_center_options, new_options_dict
+            )
             # run center estimation code
             center_estimate_results = self.task.phase_projections.estimate_center_of_rotation()
             self.task.phase_projections.center_of_rotation[:] = (
                 center_estimate_results.optimal_center_of_rotation
             )
 
+        # estimate_center_options = self.task.phase_projections.options.estimate_center
+        # if cfg["Scale"] is not None:
+        #     estimate_center_options.projection_matching.downsample.scale = cfg["Scale"]
+        # params = zip(
+        #     cfg["HorizontalRanges"],
+        #     cfg["HorizontalSpacings"],
+        #     cfg["VerticalRanges"],
+        #     cfg["VerticalSpacings"],
+        # )
+        # estimate_center_options.horizontal_coordinate.enabled = True
+        # estimate_center_options.vertical_coordinate.enabled = True
+        # for h_range, h_spc, v_range, v_spc in params:
+        #     estimate_center_options.horizontal_coordinate.range = h_range
+        #     estimate_center_options.vertical_coordinate.range = v_range
+        #     estimate_center_options.horizontal_coordinate.spacing = h_spc
+        #     estimate_center_options.vertical_coordinate.spacing = v_spc
+        #     # run center estimation code
+        #     center_estimate_results = self.task.phase_projections.estimate_center_of_rotation()
+        #     self.task.phase_projections.center_of_rotation[:] = (
+        #         center_estimate_results.optimal_center_of_rotation
+        #     )
+        self._save_checkpoint_task(step_string)
+
     def _run_projection_matching_sequence(self):
-        cfg = self._options_dict["ProjectionMatching"]
+        cfg = self._options_dict["projection_matching_alignment"]
         self.task.options.projection_matching = load_options_from_yaml(
-            cfg["DefaultSettingsPath"], ProjectionMatchingOptions()
+            cfg["default_settings_path"], ProjectionMatchingOptions()
         )
+        # update defaults
+        self.task.options.projection_matching = get_updated_options(
+            self.task.options.projection_matching, cfg["UpdateDefaults"]
+        )
+
         # update the results path
-        # self.task.options.projection_matching.save.enabled = True
-        self.task.options.projection_matching.save.folder = self.results_folders["projection_matching"]
+        self.task.options.projection_matching.save.folder = self.results_folders[
+            "projection_matching"
+        ]
 
         if not cfg["Interactive"]:
             pma_options_list = get_projection_matching_sequence_options(
@@ -236,11 +270,11 @@ class AutorunnerLYNX(Autorunner):
                 # update suffix
                 self.task.options.projection_matching.save.suffix = suffix + f"_{i}"
                 self.task.get_projection_matching_shift(shift)
-                
+
         else:
             gui = launch_pma_runner(
                 self.task,
-                self._options_dict["ProjectionMatching"]["Sequence"],
+                self._options_dict["projection_matching_alignment"]["Sequence"],
                 wait_until_closed=True,
             )
         self.task.phase_projections.apply_staged_shift()
@@ -258,4 +292,13 @@ class AutorunnerLYNX(Autorunner):
             self.task.phase_projections.volume.save_as_tiff(
                 os.path.join(self.results_folders["final"], "aligned_volume_cropped.tiff"),
                 crop_to_single_file=True,
+            )
+
+    def _save_aligned_task(self):
+        self.task.save_task(os.path.join(self.results_folders["final"], "aligned_task.h5"))
+
+    def _save_checkpoint_task(self, step_string: str):
+        if self._options_dict["Results"]["checkpoints"][step_string]:
+            self.task.save_task(
+                os.path.join(self.results_folders["temporary"], f"task_after_{step_string}.h5")
             )
