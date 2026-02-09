@@ -176,6 +176,7 @@ def save_array_as_tiff(
     divide_into_smaller_files: bool = True,
     numbers: np.ndarray = None,
     text_scale: float = 2.0,
+    crop_to_single_file: bool = False,
 ):
     """
     Save a 3D NumPy array (images) to a TIFF file. Optionally, pass a 1D array (numbers)
@@ -191,6 +192,15 @@ def save_array_as_tiff(
     :param numbers: 1D array of length N, containing numeric values to overlay on each slice.
     :param text_scale: Factor by which to scale the default font size (>= 1.0).
     """
+    if crop_to_single_file:
+        max_size_gb = 4
+        bytes_per_entry = 2  # uint16
+        uncropped_file_size_gb = np.prod(images.shape) * bytes_per_entry * 1e-9
+        c = images.shape[1] // 2
+        w = max_size_gb / uncropped_file_size_gb 
+        w = int(np.sqrt(w) * c)
+        images = images[:, c - w : c + w, c - w : c + w]
+
     # 1) Convert the input data to uint16
     images_uint16 = convert_to_uint_16(images, min_val, max_val)
 
@@ -238,3 +248,10 @@ def save_array_as_tiff(
     else:
         tiff.imwrite(file_path, images_uint16)
         print(f"File saved to: {file_path}")
+
+
+def can_fit_in_single_tiff_file(images) -> bool:
+    max_size_gb = 4
+    bytes_per_entry = 2  # uint16
+    uncropped_file_size_gb = np.prod(images.shape) * bytes_per_entry * 1e-9
+    return uncropped_file_size_gb < max_size_gb

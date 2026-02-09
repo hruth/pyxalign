@@ -420,13 +420,14 @@ class Volume:
         min: Optional[float] = None,
         max: Optional[float] = None,
         data: Optional[np.ndarray] = None,
+        crop_to_single_file: bool = False,
     ):
         if data is None and self.data is None:
             print("There is no volume data to save!")
         if data is None:
             data = self.data
 
-        save_array_as_tiff(data, file_path, min, max)
+        save_array_as_tiff(data, file_path, min, max, crop_to_fit_single_file=crop_to_single_file)
 
     def save_as_h5(self, file_path: str):
         if self.data is None:
