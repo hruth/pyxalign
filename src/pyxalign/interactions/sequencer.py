@@ -194,6 +194,8 @@ class SequencerWidget(QWidget):
             )
             if item.checkbox_state():
                 options_sequence += [options_item]
+                # revert back to defaults
+                options_item = copy.deepcopy(options)
         if len(options_sequence) == 0:
             options_sequence += [options_item]
 

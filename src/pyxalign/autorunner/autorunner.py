@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 import yaml
+import h5py
 import multiprocessing as mp
 
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
@@ -43,9 +44,13 @@ class Autorunner(ABC):
     def _setup_results_folders(self):
         self.results_folders = {}
         self.results_folders["parent"] = self._options_dict["Results"]["ResultsFolder"]
-        self.results_folders["final"] =  os.path.join(self.results_folders["parent"], "final")
-        self.results_folders["projection_matching"] =  os.path.join(self.results_folders["parent"], "projection_matching")
-        self.results_folders["temporary"] =  os.path.join(self.results_folders["parent"], "temporary")
+        self.results_folders["final"] = os.path.join(self.results_folders["parent"], "final")
+        self.results_folders["projection_matching"] = os.path.join(
+            self.results_folders["parent"], "projection_matching"
+        )
+        self.results_folders["temporary"] = os.path.join(
+            self.results_folders["parent"], "temporary"
+        )
         for folder in self.results_folders.values():
             os.mkdir(folder)
 
@@ -219,10 +224,13 @@ class AutorunnerLYNX(Autorunner):
                 self.task.options.projection_matching, cfg["Sequence"]
             )
             shift = None
-            for pma_options in pma_options_list:
+            for i, pma_options in enumerate(pma_options_list):
                 self.task.options.projection_matching = pma_options
                 self.task.get_projection_matching_shift(shift)
-                # need way to save intermediate results without saving whole task
+                save_intermediate_pma_results(
+                    self.results_folders["projection_matching"],
+                    self.task,
+                )
         else:
             gui = launch_pma_runner(
                 self.task,
@@ -247,6 +255,25 @@ class AutorunnerLYNX(Autorunner):
             )
 
 
-def save_intermediate_pma_results(folder: str):
+def save_intermediate_pma_results(
+    folder: str, task: LaminographyAlignmentTask, sequence_number: int, save_full_task: bool = False
+):
     # save pma and projection options
-    pass
+    results_file = os.path.join(folder, f"pma_results_{sequence_number}.h5")
+    with h5py.File(results_file, "w") as F:
+        F["initial_shift"] = task.pma_object.initial_shift
+        F["final_shift"] = task.pma_object.initial_shift
+        F["all_shift_updates"] = task.pma_object.all_shift_updates[: task.pma_object.iteration]
+        F["all_errors"] = task.pma_object.all_errors[: task.pma_object.iteration]
+        F["angles"] = task.pma_object.aligned_projections.angles
+        F["scan_numbers"] = task.pma_object.aligned_projections.scan_numbers
+        F["iterations"] = task.pma_object.iteration
+        F["scale"] = task.pma_object.scale
+    task.options.projection_matching.save_to_dict(
+        os.path.join(folder, f"pma_options_{sequence_number}.h5")
+    )
+    task.phase_projections.options.save_to_dict(
+        os.path.join(folder, f"projection_options_{sequence_number}.h5")
+    )
+    if save_full_task:
+        task.save_task(os.path.join(folder, f"pma_task_{sequence_number}.h5"))

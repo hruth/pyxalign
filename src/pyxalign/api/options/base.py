@@ -3,6 +3,7 @@ import dataclasses
 from dataclasses import fields
 import logging
 import enum
+import yaml
 
 from numpy import ndarray
 import numpy as np
@@ -70,6 +71,10 @@ class BaseOptions:
             if f.name == name:
                 return f.type
         raise ValueError(f"Field {name} not found in {self.__class__.__name__}.")
+
+    def save_to_dict(self, path: str):
+        with open(path, "w") as f:
+            yaml.safe_dump(self.get_dict(), f, default_flow_style=False, sort_keys=False)
 
 
 def jsonize(val):

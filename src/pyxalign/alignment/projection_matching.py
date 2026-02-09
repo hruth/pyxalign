@@ -1156,7 +1156,6 @@ class ProjectionMatchingAligner(Aligner):
             self.aligned_projections.options.reconstruct.geometry.skew_angle,
         )
 
-
 def get_pm_error(projections_residuals: ArrayType, masks: ArrayType, mass: float):
     xp = cp.get_array_module(projections_residuals)
     error = xp.sqrt(xp.mean((masks * projections_residuals) ** 2, axis=(1, 2))) / mass
