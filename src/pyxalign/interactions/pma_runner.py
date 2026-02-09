@@ -294,6 +294,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.alignment_results_list: list[AlignmentResults] = []
         self.pma_viewer = None
         self.results_collection_widget = None
+        self.stop_alignment_sequence_flag = False
 
         if task is not None:
             self.initialize_page(task, list_of_updated_settings)
@@ -328,6 +329,8 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
 
         self.start_sequence_button.pressed.connect(self.start_alignment_sequence)
+        self.stop_sequence_button.pressed.connect(self.on_stop_sequence_button_pushed)
+        self.stop_alignment_button.pressed.connect(self.on_stop_alignment_button_pushed)
 
         self.start_sequence_button.setStyleSheet("QPushButton { background-color: green;}")
         self.stop_alignment_button.setStyleSheet("QPushButton { background-color: red;}")
@@ -359,6 +362,17 @@ class PMAMasterWidget(MultiThreadedWidget):
             ]
             self.update_pma_viewer_tab()
             self.update_results_collection_tab()
+            if self.stop_alignment_sequence_flag:
+                break
+        # reset flags
+        self.stop_alignment_sequence_flag = False
+
+    def on_stop_sequence_button_pushed(self):
+        self.stop_alignment_sequence_flag = True
+        self.task.pma_object.external_stop_flag = True
+
+    def on_stop_alignment_button_pushed(self):
+        self.task.pma_object.external_stop_flag = True
 
     def generate_options_selection_widget(self):
         # create options editor

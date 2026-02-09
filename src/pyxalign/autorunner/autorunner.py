@@ -19,6 +19,7 @@ from pyxalign.io.loaders.maps import get_loader_options_by_enum
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
+from pyxalign.io.save import can_fit_in_single_tiff_file
 from pyxalign.transformations.functions import shear_positions
 
 
@@ -39,6 +40,15 @@ class Autorunner(ABC):
     def _load_data(self):
         pass
 
+    def _setup_results_folders(self):
+        self.results_folders = {}
+        self.results_folders["parent"] = self._options_dict["Results"]["ResultsFolder"]
+        self.results_folders["final"] =  os.path.join(self.results_folders["parent"], "final")
+        self.results_folders["projection_matching"] =  os.path.join(self.results_folders["parent"], "projection_matching")
+        self.results_folders["temporary"] =  os.path.join(self.results_folders["parent"], "temporary")
+        for folder in self.results_folders.values():
+            os.mkdir(folder)
+
 
 class AutorunnerLYNX(Autorunner):
     def run(self):
@@ -51,6 +61,8 @@ class AutorunnerLYNX(Autorunner):
         self._get_phase_projections_masks()
         self._estimate_center_of_rotation()
         self._run_projection_matching_sequence()
+        self._get_volume()
+        self._save_volume()
 
     def _get_load_options(self):
         cfg = self._options_dict["Loading"]
@@ -202,7 +214,6 @@ class AutorunnerLYNX(Autorunner):
             cfg["DefaultSettingsPath"], ProjectionMatchingOptions()
         )
 
-        # list_of_pma_setting_updates = self._options_dict["ProjectionMatching"]["Sequence"]
         if not cfg["Interactive"]:
             pma_options_list = get_projection_matching_sequence_options(
                 self.task.options.projection_matching, cfg["Sequence"]
@@ -211,11 +222,31 @@ class AutorunnerLYNX(Autorunner):
             for pma_options in pma_options_list:
                 self.task.options.projection_matching = pma_options
                 self.task.get_projection_matching_shift(shift)
-                # need way to save intermediate results
+                # need way to save intermediate results without saving whole task
         else:
             gui = launch_pma_runner(
                 self.task,
                 self._options_dict["ProjectionMatching"]["Sequence"],
                 wait_until_closed=True,
             )
+        self.task.phase_projections.apply_staged_shift()
 
+    def _get_volume(self):
+        self.task.phase_projections.get_3D_reconstruction()
+        self.task.phase_projections.volume.get_optimal_rotation_of_reconstruction()
+
+    def _save_volume(self):
+        self.task.phase_projections.volume.save_as_tiff(
+            os.path.join(self.results_folders["final"], "aligned_volume.tiff"),
+            crop_to_single_file=True,
+        )
+        if not can_fit_in_single_tiff_file(self.task.phase_projections.volume.data):
+            self.task.phase_projections.volume.save_as_tiff(
+                os.path.join(self.results_folders["final"], "aligned_volume_cropped.tiff"),
+                crop_to_single_file=True,
+            )
+
+
+def save_intermediate_pma_results(folder: str):
+    # save pma and projection options
+    pass

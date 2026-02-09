@@ -45,6 +45,7 @@ class ProjectionMatchingAligner(Aligner):
         self.options: ProjectionMatchingOptions = copy.deepcopy(self.options)
         self.print_updates = print_updates
         self.gui: ProjectionMatchingViewer = None
+        self.external_stop_flag = False
 
     @gutils.memory_releasing_error_handler
     @timer()
@@ -154,7 +155,7 @@ class ProjectionMatchingAligner(Aligner):
                 )
                 loop_prog_bar.set_description(prog_bar_update_string)
             stopping_condition_met = self.check_stopping_condition(max_shift_step_size)
-            if stopping_condition_met:
+            if stopping_condition_met or self.external_stop_flag:
                 break
             self.check_for_error()
 
