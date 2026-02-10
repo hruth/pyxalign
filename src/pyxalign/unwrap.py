@@ -972,6 +972,7 @@ def remove_ramp_using_adjacent_scans(
     order: int = 1,
     angular_ranges: Optional[list[tuple[int]]] = None,
     reset_ramp_after_n: Optional[int] = None,
+    low_memory_mode: bool = False,
 ):
     """Remove phase ramps from tomographic scans using adjacent scan comparison.
 
@@ -1033,27 +1034,31 @@ def remove_ramp_using_adjacent_scans(
     else:
         sort_idx = np.arange(0, n, dtype=int)
 
-    neighbor_diffs = phase[sort_idx[1:]] - phase[sort_idx[:-1]]
+    # neighbor_diffs = phase[sort_idx[1:]] - phase[sort_idx[:-1]]
     updated_phase = np.zeros_like(phase)
     updated_phase[sort_idx[0]] = phase[sort_idx[0]] * 1
     phase_trend = 0
     n_trend_updates = 0
     all_pk_to_pk = []
-    all_ramp_fits = np.zeros_like(phase)
+    if not low_memory_mode:
+        all_ramp_fits = np.zeros_like(phase)
 
     no_ramp_counter = 0
     for i in tqdm.tqdm(range(n - 1)):
         idx_ref, idx_upd = sort_idx[i], sort_idx[i + 1]
         if in_angle_range(angles[idx_upd]):
+            neighbor_diff = phase[idx_upd] - phase[idx_ref]
             empty_region_mask = masks[idx_ref] * masks[idx_upd]
             new_phase = remove_phase_ramp_using_empty_region(
-                cp.array(neighbor_diffs[i]),
+                # cp.array(neighbor_diffs[i]),
+                cp.array(neighbor_diff),
                 cp.array(empty_region_mask.astype(bool)),
                 order=order,
             ).get()
 
             # accumulate the phase trend (maybe add threshold later)
-            ramp_fit = neighbor_diffs[i] - new_phase
+            # ramp_fit = neighbor_diffs[i] - new_phase
+            ramp_fit = neighbor_diff - new_phase
             pk_to_pk = ramp_fit.max() - ramp_fit.min()
             all_pk_to_pk += [pk_to_pk]
 
@@ -1079,13 +1084,15 @@ def remove_ramp_using_adjacent_scans(
         # needs thresholding of some sort
         updated_phase[idx_upd] = phase[idx_upd] - phase_trend
         # save ramp update
-        all_ramp_fits[idx_upd] = ramp_fit
+        if not low_memory_mode:
+            all_ramp_fits[idx_upd] = ramp_fit
 
         # plot slice results
         if pk_to_pk > ramp_threshold and plot_fits:
             slice_idx = new_phase.shape[0] // 2
             plt.plot(
-                (neighbor_diffs[i, slice_idx] * empty_region_mask[slice_idx]),
+                (neighbor_diff[slice_idx] * empty_region_mask[slice_idx]),
+                # (neighbor_diffs[i, slice_idx] * empty_region_mask[slice_idx]),
                 "k",
                 label="diff of neighbors",
             )
@@ -1101,14 +1108,16 @@ def remove_ramp_using_adjacent_scans(
 
     # spread accumulation of ramp evenly across all projections
     # incrementally remove ramps by using difference between first and last values
-    edge_neighbor_diff = updated_phase[sort_idx[0]] - updated_phase[sort_idx[-1]]
-    empty_region_mask  = masks[sort_idx[-1]] * masks[sort_idx[0]]
-    new_phase = remove_phase_ramp_using_empty_region(
-        cp.array(edge_neighbor_diff), cp.array(empty_region_mask.astype(bool)), order=order,
-    ).get()
-    ramp_fit = edge_neighbor_diff - new_phase
     if apply_edge_compensation:
+        edge_neighbor_diff = updated_phase[sort_idx[0]] - updated_phase[sort_idx[-1]]
+        empty_region_mask  = masks[sort_idx[-1]] * masks[sort_idx[0]]
+        new_phase = remove_phase_ramp_using_empty_region(
+            cp.array(edge_neighbor_diff), cp.array(empty_region_mask.astype(bool)), order=order,
+        ).get()
+        ramp_fit = edge_neighbor_diff - new_phase
         for i in range(n):
             updated_phase[sort_idx[i]] += ramp_fit * i / n
 
+    if low_memory_mode: 
+        all_ramp_fits = None
     return updated_phase, ramp_fit, all_pk_to_pk, all_ramp_fits
