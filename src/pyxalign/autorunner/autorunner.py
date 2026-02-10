@@ -76,31 +76,31 @@ class AutorunnerLYNX(Autorunner):
         self._save_volume()
 
     def _get_load_options(self):
-        cfg = self._options_dict["Loading"]
+        cfg = self._options_dict["loading"]
 
         base_load_options = BaseLoadOptions(
-            parent_projections_folder=cfg["InputReconstructionsFolder"],
-            loader_type=cfg["LoaderType"],
-            file_pattern=cfg["FilePattern"],
-            scan_start=cfg["ScanStart"],
-            scan_end=cfg["ScanEnd"],
+            parent_projections_folder=cfg["parent_projections_folder"],
+            loader_type=cfg["loader_type"],
+            file_pattern=cfg["file_pattern"],
+            scan_start=cfg["scan_start"],
+            scan_end=cfg["scan_end"],
             select_all_by_default=True,
         )
         self._load_options = LYNXLoadOptions(
-            dat_file_path=cfg["TomographyScannumbersPath"],
+            dat_file_path=cfg["tomo_scannumbers_path"],
             base=base_load_options,
-            selected_experiment_name=cfg["ExperimentName"],
+            selected_experiment_name=cfg["experiment_name"],
         )
 
     def _load_data(self):
-        if self._options_dict["Loading"]["start_from_checkpoint"]["enabled"]:
+        if self._options_dict["loading"]["start_from_checkpoint"]["enabled"]:
             self._load_checkpoint_task(
-                self._options_dict["Loading"]["start_from_checkpoint"]["checkpoint"]
+                self._options_dict["loading"]["start_from_checkpoint"]["checkpoint"]
             )
         else:
-            cfg = self._options_dict["Loading"]
+            cfg = self._options_dict["loading"]
             self._get_load_options()
-            if not cfg["Interactive"]:
+            if not cfg["interactive"]:
                 self._standardized_data = load_data_from_pear_format(
                     n_processes=int(mp.cpu_count() * 0.8),
                     options=self._load_options,
@@ -118,7 +118,7 @@ class AutorunnerLYNX(Autorunner):
 
         # create padded projection array
         new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
-        new_array_size += cfg["Pad"]
+        new_array_size += cfg["pad"]
         projection_array = convert_projection_dict_to_array(
             self._standardized_data.projections, new_array_size, pad_with_mode=True
         )
@@ -126,17 +126,17 @@ class AutorunnerLYNX(Autorunner):
         # define projection options
         projection_options = ProjectionOptions()
         # experiment parameters
-        projection_options.experiment.laminography_angle = cfg["LaminographyAngle"]
-        projection_options.experiment.sample_thickness = cfg["SampleThickness"]
+        projection_options.experiment.laminography_angle = cfg["laminography_angle"]
+        projection_options.experiment.sample_thickness = cfg["sample_thickness"]
         projection_options.experiment.pixel_size = self._standardized_data.pixel_size
         # input processing
-        if cfg["RotationAngle"] != 0:
+        if cfg["rotation_angle"] != 0:
             projection_options.input_processing.rotation = RotationOptions(
-                enabled=True, angle=cfg["RotationAngle"]
+                enabled=True, angle=cfg["rotation_angle"]
             )
-        if cfg["ShearAngle"] != 0:
+        if cfg["shear_angle"] != 0:
             projection_options.input_processing.shear = ShearOptions(
-                enabled=True, angle=cfg["ShearAngle"]
+                enabled=True, angle=cfg["shear_angle"]
             )
 
         # create complex_projections object
@@ -171,7 +171,7 @@ class AutorunnerLYNX(Autorunner):
                 settings_path, CrossCorrelationOptions()
             )
 
-        if cfg["Interactive"]:
+        if cfg["interactive"]:
             launch_cross_correlation_gui(
                 self.task, projection_type="complex", wait_until_closed=True
             )
@@ -188,7 +188,7 @@ class AutorunnerLYNX(Autorunner):
 
         if cfg["Threshold"] is not None:
             self.task.complex_projections.options.mask_from_positions.threshold = cfg["Threshold"]
-        if cfg["Interactive"]:
+        if cfg["interactive"]:
             launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
@@ -201,7 +201,7 @@ class AutorunnerLYNX(Autorunner):
         if self._skip_to_checkpoint():
             return
 
-        if cfg["Interactive"]:
+        if cfg["interactive"]:
             gui = launch_phase_unwrap_widget(self.task, wait_until_closed=True)
         else:
             self.task.get_unwrapped_phase()
@@ -218,7 +218,7 @@ class AutorunnerLYNX(Autorunner):
 
         if cfg["Threshold"] is not None:
             self.task.phase_projections.options.mask_from_positions.threshold = cfg["Threshold"]
-        if cfg["Interactive"]:
+        if cfg["interactive"]:
             launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
@@ -269,7 +269,7 @@ class AutorunnerLYNX(Autorunner):
             "projection_matching"
         ]
 
-        if not cfg["Interactive"]:
+        if not cfg["interactive"]:
             pma_options_list = get_projection_matching_sequence_options(
                 self.task.options.projection_matching, cfg["Sequence"]
             )
@@ -317,11 +317,11 @@ class AutorunnerLYNX(Autorunner):
         return os.path.join(self.results_folders["temporary"], f"task_after_{step_string}.h5")
 
     def _skip_to_checkpoint(self):
-        if not self._options_dict["Loading"]["start_from_checkpoint"]["enabled"]:
+        if not self._options_dict["loading"]["start_from_checkpoint"]["enabled"]:
             return False
         else:
             current_checkpoint_val = get_checkpoint_order_value(self._current_checkpoint)
             loaded_checkpoint_val = get_checkpoint_order_value(
-                self._options_dict["Loading"]["start_from_checkpoint"]["checkpoint"]
+                self._options_dict["loading"]["start_from_checkpoint"]["checkpoint"]
             )
             return current_checkpoint_val <= loaded_checkpoint_val
