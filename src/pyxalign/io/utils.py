@@ -3,6 +3,7 @@ import enum
 from typing import Optional, Type, Union
 import h5py
 from difflib import get_close_matches
+import numpy as np
 
 from pyxalign.api.enums import SpecialValuePlaceholder
 from pyxalign.api.types import OptionsClass

@@ -77,13 +77,19 @@ class ProjectionMatchingAligner(Aligner):
 
         # projection_options.reconstruct = self.options.reconstruct
         projection_options.reconstruct = copy.deepcopy(self.options.reconstruct)
+
+        center_of_rotation = self.projections.center_of_rotation + np.array(
+            [self.options.vertical_offset, self.options.horizontal_offset]
+        )
+        if self.options.sample_thickness is not None:
+            projection_options.experiment.sample_thickness = self.options.sample_thickness
         self.aligned_projections = projections.PhaseProjections(
             projections=self.projections.data,
             angles=self.projections.angles,
             scan_numbers=self.projections.scan_numbers,
             options=projection_options,
             masks=self.projections.masks,
-            center_of_rotation=self.projections.center_of_rotation,
+            center_of_rotation=center_of_rotation,
         )
 
         # When cropping and not downsampling, you need to make a new copy

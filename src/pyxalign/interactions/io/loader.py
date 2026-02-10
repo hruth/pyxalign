@@ -299,6 +299,18 @@ def launch_data_loader(
 
     return loaded_data, gui.options
 
+@switch_to_matplotlib_qt_backend
+def launch_load_options_editor(
+    load_options: Optional[OptionsClass] = None,
+    wait_until_closed: bool = False,
+) -> SelectLoadSettingsWidget:
+    app = QApplication.instance() or QApplication([])
+    gui = SelectLoadSettingsWidget(load_options)
+    gui.show()
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    if wait_until_closed:
+        app.exec_()
+
 
 if __name__ == "__main__":
     options = pear_options.LYNXLoadOptions(

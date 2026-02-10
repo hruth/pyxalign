@@ -185,6 +185,12 @@ class ProjectionMatchingOptions(BaseOptions):
 
     positivity_constraint: PositivityConstraint = field(default_factory=PositivityConstraint)
 
+    horizontal_offset: float = 0
+
+    vertical_offset: float = 0
+
+    sample_thickness: Optional[float] = None
+
     save: SaveOptions = field(default_factory=SaveOptions)
 
     # plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)

@@ -8,25 +8,24 @@ import multiprocessing as mp
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.transform import RotationOptions, ShearOptions
+from pyxalign.autorunner.enums import Checkpoints, get_checkpoint_order_value
 from pyxalign.autorunner.io import (
     get_projection_matching_sequence_options,
     get_updated_options,
     load_options_from_yaml,
 )
 from pyxalign.data_structures.projections import ComplexProjections
-from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
+from pyxalign.estimate_center import plot_center_of_rotation_estimate_results
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
-from pyxalign.interactions.io.loader import launch_data_loader
+from pyxalign.interactions.io.loader import launch_data_loader, launch_load_options_editor
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
-from pyxalign.interactions.pma_runner import PMAMasterWidget, launch_pma_runner
-from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.maps import get_loader_options_by_enum
+from pyxalign.interactions.pma_runner import launch_pma_runner
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
-from pyxalign.transformations.functions import shear_positions
 
 
 class Autorunner(ABC):
@@ -94,21 +93,30 @@ class AutorunnerLYNX(Autorunner):
         )
 
     def _load_data(self):
-        cfg = self._options_dict["Loading"]
-        self._get_load_options()
-        if not cfg["Interactive"]:
-            self._standardized_data = load_data_from_pear_format(
-                n_processes=int(mp.cpu_count() * 0.8),
-                options=self._load_options,
+        if self._options_dict["Loading"]["start_from_checkpoint"]["enabled"]:
+            self._load_checkpoint_task(
+                self._options_dict["Loading"]["start_from_checkpoint"]["checkpoint"]
             )
         else:
-            gui = launch_data_loader(self._load_options)
+            cfg = self._options_dict["Loading"]
+            self._get_load_options()
+            if not cfg["Interactive"]:
+                self._standardized_data = load_data_from_pear_format(
+                    n_processes=int(mp.cpu_count() * 0.8),
+                    options=self._load_options,
+                )
+            else:
+                gui = launch_data_loader(self._load_options)
 
     def _create_projections_object(self):
+        self._current_checkpoint = Checkpoints.INITIALIZATION
         step_string = "initialization"
         cfg = self._options_dict[step_string]
 
-        # creat padded projection array
+        if self._skip_to_checkpoint():
+            return
+
+        # create padded projection array
         new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
         new_array_size += cfg["Pad"]
         projection_array = convert_projection_dict_to_array(
@@ -150,9 +158,11 @@ class AutorunnerLYNX(Autorunner):
         self._save_checkpoint_task(step_string)
 
     def _get_cross_correlation_alignment(self):
+        self._current_checkpoint = Checkpoints.CROSS_CORRELATION_ALIGNMENT
         step_string = "cross_correlation_alignment"
         cfg = self._options_dict[step_string]
-        if not cfg["enabled"]:
+
+        if self._skip_to_checkpoint() or not cfg["enabled"]:
             return
 
         settings_path = cfg["default_settings_path"]
@@ -173,6 +183,9 @@ class AutorunnerLYNX(Autorunner):
     def _get_complex_projections_masks(self):
         cfg = self._options_dict["phase_unwrapping"]["Masks"]
 
+        if self._skip_to_checkpoint() or not cfg["enabled"]:
+            return
+
         if cfg["Threshold"] is not None:
             self.task.complex_projections.options.mask_from_positions.threshold = cfg["Threshold"]
         if cfg["Interactive"]:
@@ -181,8 +194,12 @@ class AutorunnerLYNX(Autorunner):
             self.task.complex_projections.get_masks_from_probe_positions()
 
     def _unwrap_phase(self):
+        self._current_checkpoint = Checkpoints.PHASE_UNWRAPPING
         step_string = "phase_unwrapping"
         cfg = self._options_dict[step_string]
+
+        if self._skip_to_checkpoint():
+            return
 
         if cfg["Interactive"]:
             gui = launch_phase_unwrap_widget(self.task, wait_until_closed=True)
@@ -192,8 +209,12 @@ class AutorunnerLYNX(Autorunner):
         self._save_checkpoint_task(step_string)
 
     def _get_phase_projections_masks(self):
+        self._current_checkpoint = Checkpoints.PHASE_PROJECTIONS_MASKS
         step_string = "phase_projections_masks"
         cfg = self._options_dict["phase_projections_masks"]
+
+        if self._skip_to_checkpoint():
+            return
 
         if cfg["Threshold"] is not None:
             self.task.phase_projections.options.mask_from_positions.threshold = cfg["Threshold"]
@@ -204,14 +225,16 @@ class AutorunnerLYNX(Autorunner):
         self._save_checkpoint_task(step_string)
 
     def _estimate_center_of_rotation(self):
+        self._current_checkpoint = Checkpoints.ESTIMATE_CENTER
         step_string = "estimate_center"
         cfg = self._options_dict["estimate_center"]
-        if not cfg["Enabled"]:
+
+        if self._skip_to_checkpoint() or not cfg["Enabled"]:
             return
-        
+
         estimate_center_options = copy.deepcopy(self.task.phase_projections.options.estimate_center)
 
-        for new_options_dict in cfg["sequence"]:
+        for i, new_options_dict in enumerate(cfg["sequence"]):
             self.task.phase_projections.options.estimate_center = get_updated_options(
                 estimate_center_options, new_options_dict
             )
@@ -220,28 +243,15 @@ class AutorunnerLYNX(Autorunner):
             self.task.phase_projections.center_of_rotation[:] = (
                 center_estimate_results.optimal_center_of_rotation
             )
-
-        # estimate_center_options = self.task.phase_projections.options.estimate_center
-        # if cfg["Scale"] is not None:
-        #     estimate_center_options.projection_matching.downsample.scale = cfg["Scale"]
-        # params = zip(
-        #     cfg["HorizontalRanges"],
-        #     cfg["HorizontalSpacings"],
-        #     cfg["VerticalRanges"],
-        #     cfg["VerticalSpacings"],
-        # )
-        # estimate_center_options.horizontal_coordinate.enabled = True
-        # estimate_center_options.vertical_coordinate.enabled = True
-        # for h_range, h_spc, v_range, v_spc in params:
-        #     estimate_center_options.horizontal_coordinate.range = h_range
-        #     estimate_center_options.vertical_coordinate.range = v_range
-        #     estimate_center_options.horizontal_coordinate.spacing = h_spc
-        #     estimate_center_options.vertical_coordinate.spacing = v_spc
-        #     # run center estimation code
-        #     center_estimate_results = self.task.phase_projections.estimate_center_of_rotation()
-        #     self.task.phase_projections.center_of_rotation[:] = (
-        #         center_estimate_results.optimal_center_of_rotation
-        #     )
+            plot_center_of_rotation_estimate_results(
+                center_of_rotation_estimate_results=center_estimate_results,
+                projections=self.task.phase_projections.data,
+                plot_projection_sum=True,
+                save_plot=True,
+                save_path=os.path.join(
+                    self.results_folders["temporary"], f"estimate_center_{i}.pdf"
+                ),
+            )
         self._save_checkpoint_task(step_string)
 
     def _run_projection_matching_sequence(self):
@@ -270,7 +280,6 @@ class AutorunnerLYNX(Autorunner):
                 # update suffix
                 self.task.options.projection_matching.save.suffix = suffix + f"_{i}"
                 self.task.get_projection_matching_shift(shift)
-
         else:
             gui = launch_pma_runner(
                 self.task,
@@ -299,6 +308,20 @@ class AutorunnerLYNX(Autorunner):
 
     def _save_checkpoint_task(self, step_string: str):
         if self._options_dict["Results"]["checkpoints"][step_string]:
-            self.task.save_task(
-                os.path.join(self.results_folders["temporary"], f"task_after_{step_string}.h5")
+            self.task.save_task(self._return_checkpoint_path(step_string))
+
+    def _load_checkpoint_task(self, step_string: str):
+        self.task = load_task(self._return_checkpoint_path(step_string))
+
+    def _return_checkpoint_path(self, step_string: str):
+        return os.path.join(self.results_folders["temporary"], f"task_after_{step_string}.h5")
+
+    def _skip_to_checkpoint(self):
+        if not self._options_dict["Loading"]["start_from_checkpoint"]["enabled"]:
+            return False
+        else:
+            current_checkpoint_val = get_checkpoint_order_value(self._current_checkpoint)
+            loaded_checkpoint_val = get_checkpoint_order_value(
+                self._options_dict["Loading"]["start_from_checkpoint"]["checkpoint"]
             )
+            return current_checkpoint_val <= loaded_checkpoint_val

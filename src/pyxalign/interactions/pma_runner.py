@@ -80,6 +80,15 @@ basic_pma_settings = [
     "save.suffix",
     "save.save_pma_volume",
     "save.save_pma_projections",
+    "regularization",
+    "regularization.enabled",
+    "regularization.iterations",
+    "regularization.local_TV_lambda",
+    "regularization.use_gpu",
+    "horizontal_offset",
+    "vertical_offset",
+    "sample_thickness",
+    "keep_on_gpu",
 ]
 
 
@@ -333,6 +342,11 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.start_sequence_button = QPushButton("Start Alignment")
         self.stop_alignment_button = QPushButton("Stop Current Alignment")
         self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
+        self.initial_shift_type_checkbox = QCheckBox()
+        checkbox_widget = QWidget()
+        checkbox_widget.setLayout(QVBoxLayout())
+        checkbox_widget.layout().addWidget(self.initial_shift_type_checkbox)
+        checkbox_widget.layout().addWidget(QLabel("use initial shift"))
 
         self.start_sequence_button.pressed.connect(self.start_alignment_sequence)
         self.stop_sequence_button.pressed.connect(self.on_stop_sequence_button_pushed)
@@ -345,6 +359,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         button_layout.addWidget(self.start_sequence_button)
         button_layout.addWidget(self.stop_alignment_button)
         button_layout.addWidget(self.stop_sequence_button)
+        button_layout.addWidget(checkbox_widget)
         button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
 
         # "QPushButton { font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
@@ -359,7 +374,13 @@ class PMAMasterWidget(MultiThreadedWidget):
         for i, options in enumerate(options_sequence):
             # update suffix
             options.save.suffix = suffix + f"_{i}"
-            shift = self.task.get_projection_matching_shift(initial_shift=shift, options=options)
+            if self.initial_shift_type_checkbox.isChecked():
+                initial_shift = shift
+            else:
+                initial_shift = None
+            shift = self.task.get_projection_matching_shift(
+                initial_shift=initial_shift, options=options
+            )
             self.alignment_results_list += [
                 AlignmentResults(
                     shift,
