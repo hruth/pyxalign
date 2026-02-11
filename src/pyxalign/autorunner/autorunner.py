@@ -2,7 +2,6 @@ import copy
 import os
 from abc import ABC, abstractmethod
 import yaml
-import h5py
 import multiprocessing as mp
 
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
@@ -18,7 +17,7 @@ from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
 from pyxalign.estimate_center import plot_center_of_rotation_estimate_results
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
-from pyxalign.interactions.io.loader import launch_data_loader, launch_load_options_editor
+from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.pma_runner import launch_pma_runner
@@ -48,7 +47,7 @@ class Autorunner(ABC):
 
     def _setup_results_folders(self):
         self.results_folders = {}
-        self.results_folders["parent"] = self._options_dict["Results"]["ResultsFolder"]
+        self.results_folders["parent"] = self._options_dict["results"]["results_folder"]
         self.results_folders["final"] = os.path.join(self.results_folders["parent"], "final")
         self.results_folders["projection_matching"] = os.path.join(
             self.results_folders["parent"], "projection_matching"
@@ -181,13 +180,13 @@ class AutorunnerLYNX(Autorunner):
         self._save_checkpoint_task(step_string)
 
     def _get_complex_projections_masks(self):
-        cfg = self._options_dict["phase_unwrapping"]["Masks"]
+        cfg = self._options_dict["phase_unwrapping"]["masks"]
 
         if self._skip_to_checkpoint() or not cfg["enabled"]:
             return
 
-        if cfg["Threshold"] is not None:
-            self.task.complex_projections.options.mask_from_positions.threshold = cfg["Threshold"]
+        if cfg["threshold"] is not None:
+            self.task.complex_projections.options.mask_from_positions.threshold = cfg["threshold"]
         if cfg["interactive"]:
             launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
         else:
@@ -216,8 +215,8 @@ class AutorunnerLYNX(Autorunner):
         if self._skip_to_checkpoint():
             return
 
-        if cfg["Threshold"] is not None:
-            self.task.phase_projections.options.mask_from_positions.threshold = cfg["Threshold"]
+        if cfg["threshold"] is not None:
+            self.task.phase_projections.options.mask_from_positions.threshold = cfg["threshold"]
         if cfg["interactive"]:
             launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
         else:
@@ -229,7 +228,7 @@ class AutorunnerLYNX(Autorunner):
         step_string = "estimate_center"
         cfg = self._options_dict["estimate_center"]
 
-        if self._skip_to_checkpoint() or not cfg["Enabled"]:
+        if self._skip_to_checkpoint() or not cfg["enabled"]:
             return
 
         estimate_center_options = copy.deepcopy(self.task.phase_projections.options.estimate_center)
@@ -261,7 +260,7 @@ class AutorunnerLYNX(Autorunner):
         )
         # update defaults
         self.task.options.projection_matching = get_updated_options(
-            self.task.options.projection_matching, cfg["UpdateDefaults"]
+            self.task.options.projection_matching, cfg["update_defaults"]
         )
 
         # update the results path
@@ -271,7 +270,7 @@ class AutorunnerLYNX(Autorunner):
 
         if not cfg["interactive"]:
             pma_options_list = get_projection_matching_sequence_options(
-                self.task.options.projection_matching, cfg["Sequence"]
+                self.task.options.projection_matching, cfg["sequence"]
             )
             shift = None
             suffix = self.task.options.projection_matching.save.suffix
@@ -283,7 +282,7 @@ class AutorunnerLYNX(Autorunner):
         else:
             gui = launch_pma_runner(
                 self.task,
-                self._options_dict["projection_matching_alignment"]["Sequence"],
+                self._options_dict["projection_matching_alignment"]["sequence"],
                 wait_until_closed=True,
             )
         self.task.phase_projections.apply_staged_shift()
@@ -307,7 +306,7 @@ class AutorunnerLYNX(Autorunner):
         self.task.save_task(os.path.join(self.results_folders["final"], "aligned_task.h5"))
 
     def _save_checkpoint_task(self, step_string: str):
-        if self._options_dict["Results"]["checkpoints"][step_string]:
+        if self._options_dict["results"]["checkpoints"][step_string]:
             self.task.save_task(self._return_checkpoint_path(step_string))
 
     def _load_checkpoint_task(self, step_string: str):
