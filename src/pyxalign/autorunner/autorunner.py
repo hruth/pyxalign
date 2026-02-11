@@ -3,6 +3,7 @@ import os
 from abc import ABC, abstractmethod
 import yaml
 import multiprocessing as mp
+import numpy as np
 
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
 from pyxalign.api.options.projections import ProjectionOptions
@@ -21,6 +22,7 @@ from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.pma_runner import launch_pma_runner
+from pyxalign.interactions.point_selector import launch_point_selector
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
@@ -71,6 +73,7 @@ class AutorunnerPtycho(Autorunner):
         self._get_complex_projections_masks()
         self._unwrap_phase()
         self._get_phase_projections_masks()
+        self._select_center_of_rotation()
         self._estimate_center_of_rotation()
         self._run_projection_matching_sequence()
         self._get_volume()
@@ -151,7 +154,7 @@ class AutorunnerPtycho(Autorunner):
     def _get_complex_projections_masks(self):
         cfg = self._options_dict["phase_unwrapping"]["masks"]
 
-        if self._skip_to_checkpoint() or not cfg["enabled"]:
+        if self._skip_to_checkpoint():
             return
 
         if cfg["threshold"] is not None:
@@ -191,6 +194,16 @@ class AutorunnerPtycho(Autorunner):
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
         self._save_checkpoint_task(step_string)
+
+    def _select_center_of_rotation(self):
+        cfg = self._options_dict["select_center_of_rotation"]
+
+        if self._skip_to_checkpoint():
+            return
+        
+        if cfg["enabled"]:
+            x, y = launch_point_selector(np.angle(self.task.phase_projections.data).sum(0))
+            self.task.phase_projections.center_of_rotation[:] = y, x
 
     def _estimate_center_of_rotation(self):
         self._current_checkpoint = Checkpoints.ESTIMATE_CENTER
