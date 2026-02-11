@@ -21,8 +21,9 @@ from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.pma_runner import launch_pma_runner
+from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
-from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions
+from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
 
@@ -32,6 +33,8 @@ class Autorunner(ABC):
         with open(file_path, "r") as f:
             self._options_dict = yaml.safe_load(f)
         self._setup_results_folders()
+
+        self._standardized_data: StandardData
 
     @abstractmethod
     def run(self):
@@ -62,7 +65,6 @@ class Autorunner(ABC):
 
 class AutorunnerPtycho(Autorunner):
     def run(self):
-        # self._get_load_options()
         self._load_data()
         self._create_projections_object()
         self._get_cross_correlation_alignment()
@@ -300,7 +302,7 @@ class AutorunnerLYNX(AutorunnerPtycho):
         base_load_options = BaseLoadOptions(
             parent_projections_folder=cfg["base"]["parent_projections_folder"],
             loader_type=cfg["base"]["loader_type"],
-            file_pattern=cfg["base"]["base"]["file_pattern"],
+            file_pattern=cfg["base"]["file_pattern"],
             scan_start=cfg["base"]["scan_start"],
             scan_end=cfg["base"]["scan_end"],
             select_all_by_default=True,
@@ -324,3 +326,32 @@ class AutorunnerLYNX(AutorunnerPtycho):
                 )
             else:
                 gui = launch_data_loader(self._load_options)
+
+
+class Autorunner12IDE(AutorunnerPtycho):
+    def _get_load_options(self):
+        cfg = self._options_dict["loading"]
+
+        base_load_options = BaseLoadOptions(
+            parent_projections_folder=cfg["base"]["parent_projections_folder"],
+            loader_type=cfg["base"]["loader_type"],
+            file_pattern=cfg["base"]["file_pattern"],
+            scan_start=cfg["base"]["scan_start"],
+            scan_end=cfg["base"]["scan_end"],
+            select_all_by_default=True,
+        )
+        self._load_options = Ptycho12IDELoadOptions(base=base_load_options)
+
+    def _load_data(self):
+        cfg = self._options_dict["loading"]
+        if cfg["start_from_checkpoint"]["enabled"]:
+            self._load_checkpoint_task(cfg["start_from_checkpoint"]["checkpoint"])
+        else:
+            self._get_load_options()
+            if not cfg["interactive"]:
+                self._standardized_data = load_data_from_pear_format(
+                    n_processes=int(mp.cpu_count() * 0.8),
+                    options=self._load_options,
+                )
+            else:
+                self._standardized_data, self._load_options = launch_data_loader(self._load_options)
