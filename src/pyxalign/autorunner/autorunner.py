@@ -60,7 +60,7 @@ class Autorunner(ABC):
                 os.mkdir(folder)
 
 
-class AutorunnerLYNX(Autorunner):
+class AutorunnerPtycho(Autorunner):
     def run(self):
         # self._get_load_options()
         self._load_data()
@@ -73,39 +73,6 @@ class AutorunnerLYNX(Autorunner):
         self._run_projection_matching_sequence()
         self._get_volume()
         self._save_volume()
-
-    def _get_load_options(self):
-        cfg = self._options_dict["loading"]
-
-        base_load_options = BaseLoadOptions(
-            parent_projections_folder=cfg["parent_projections_folder"],
-            loader_type=cfg["loader_type"],
-            file_pattern=cfg["file_pattern"],
-            scan_start=cfg["scan_start"],
-            scan_end=cfg["scan_end"],
-            select_all_by_default=True,
-        )
-        self._load_options = LYNXLoadOptions(
-            dat_file_path=cfg["tomo_scannumbers_path"],
-            base=base_load_options,
-            selected_experiment_name=cfg["experiment_name"],
-        )
-
-    def _load_data(self):
-        if self._options_dict["loading"]["start_from_checkpoint"]["enabled"]:
-            self._load_checkpoint_task(
-                self._options_dict["loading"]["start_from_checkpoint"]["checkpoint"]
-            )
-        else:
-            cfg = self._options_dict["loading"]
-            self._get_load_options()
-            if not cfg["interactive"]:
-                self._standardized_data = load_data_from_pear_format(
-                    n_processes=int(mp.cpu_count() * 0.8),
-                    options=self._load_options,
-                )
-            else:
-                gui = launch_data_loader(self._load_options)
 
     def _create_projections_object(self):
         self._current_checkpoint = Checkpoints.INITIALIZATION
@@ -324,3 +291,36 @@ class AutorunnerLYNX(Autorunner):
                 self._options_dict["loading"]["start_from_checkpoint"]["checkpoint"]
             )
             return current_checkpoint_val <= loaded_checkpoint_val
+
+
+class AutorunnerLYNX(AutorunnerPtycho):
+    def _get_load_options(self):
+        cfg = self._options_dict["loading"]
+
+        base_load_options = BaseLoadOptions(
+            parent_projections_folder=cfg["base"]["parent_projections_folder"],
+            loader_type=cfg["base"]["loader_type"],
+            file_pattern=cfg["base"]["base"]["file_pattern"],
+            scan_start=cfg["base"]["scan_start"],
+            scan_end=cfg["base"]["scan_end"],
+            select_all_by_default=True,
+        )
+        self._load_options = LYNXLoadOptions(
+            base=base_load_options,
+            dat_file_path=cfg["lynx"]["tomo_scannumbers_path"],
+            selected_experiment_name=cfg["lynx"]["experiment_name"],
+        )
+
+    def _load_data(self):
+        cfg = self._options_dict["loading"]
+        if cfg["start_from_checkpoint"]["enabled"]:
+            self._load_checkpoint_task(cfg["start_from_checkpoint"]["checkpoint"])
+        else:
+            self._get_load_options()
+            if not cfg["interactive"]:
+                self._standardized_data = load_data_from_pear_format(
+                    n_processes=int(mp.cpu_count() * 0.8),
+                    options=self._load_options,
+                )
+            else:
+                gui = launch_data_loader(self._load_options)
