@@ -30,6 +30,7 @@ from .projections import (
     ProjectionOptions,
     ProjectionTransformOptions,
     ProbePositionMaskOptions,
+    VolumeWidthOptions,
 )
 from .reconstruct import (
     ReconstructOptions,
@@ -108,4 +109,5 @@ __all__ = [
     "FSCOptions",
     "SARTOptions",
     "SaveOptions",
+    "VolumeWidthOptions",
 ]

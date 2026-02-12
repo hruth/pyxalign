@@ -18,6 +18,8 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QSizePolicy,
     QSpacerItem,
+    QCheckBox,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt
 from pyxalign.interactions.viewers.base import ArrayViewer
@@ -25,6 +27,7 @@ from pyxalign.api.options.plotting import ArrayViewerOptions
 from pyxalign.interactions.point_selector import PointSelector
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 import pyxalign.data_structures.projections as p
+from pyxalign.api import enums
 
 
 class ReconstructionParameterTuner(QWidget):
@@ -93,6 +96,93 @@ class ReconstructionParameterTuner(QWidget):
         param_layout.addLayout(thickness_layout)
         param_group.setLayout(param_layout)
 
+        # Volume Width Controls Group
+        width_group = QGroupBox("Width")
+        width_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
+        width_layout = QVBoxLayout()
+
+        # Use custom width checkbox
+        use_custom_width_layout = QHBoxLayout()
+        use_custom_width_label = QLabel("Use Custom Width:")
+        use_custom_width_label.setStyleSheet("font-size: 11pt;")
+        self.use_custom_width_checkbox = QCheckBox()
+        self.use_custom_width_checkbox.setChecked(
+            self.phase_projections.options.volume_width.use_custom_width
+        )
+        self.use_custom_width_checkbox.setStyleSheet("font-size: 11pt;")
+        self.use_custom_width_checkbox.stateChanged.connect(self.on_use_custom_width_changed)
+        use_custom_width_layout.addWidget(use_custom_width_label)
+        use_custom_width_layout.addWidget(self.use_custom_width_checkbox)
+        use_custom_width_layout.addStretch()
+
+        # Width type dropdown
+        width_type_layout = QHBoxLayout()
+        self.width_type_label = QLabel("Width Type:")
+        self.width_type_label.setStyleSheet("font-size: 11pt;")
+        self.width_type_combobox = QComboBox()
+        for width_type in enums.VolumeWidthTypes:
+            self.width_type_combobox.addItem(width_type.value, width_type)
+        # Set current value
+        current_width_type = self.phase_projections.options.volume_width.width_type
+        index = self.width_type_combobox.findData(current_width_type)
+        if index >= 0:
+            self.width_type_combobox.setCurrentIndex(index)
+        self.width_type_combobox.setStyleSheet("font-size: 11pt;")
+        self.width_type_combobox.currentIndexChanged.connect(self.on_width_type_changed)
+        width_type_layout.addWidget(self.width_type_label)
+        width_type_layout.addWidget(self.width_type_combobox)
+        width_type_layout.addStretch()
+
+        # Multiplier spinbox
+        self.multiplier_layout = QHBoxLayout()
+        self.multiplier_label = QLabel("Multiplier:")
+        self.multiplier_label.setStyleSheet("font-size: 11pt;")
+        self.multiplier_spinbox = QDoubleSpinBox()
+        self.multiplier_spinbox.setDecimals(6)
+        self.multiplier_spinbox.setMinimum(0.0)
+        self.multiplier_spinbox.setMaximum(100.0)
+        self.multiplier_spinbox.setSingleStep(0.1)
+        self.multiplier_spinbox.setValue(
+            self.phase_projections.options.volume_width.multiplier
+        )
+        self.multiplier_spinbox.setStyleSheet("font-size: 11pt;")
+        self.multiplier_spinbox.valueChanged.connect(self.on_multiplier_changed)
+        self.multiplier_layout.addWidget(self.multiplier_label)
+        self.multiplier_layout.addWidget(self.multiplier_spinbox)
+        self.multiplier_layout.addStretch()
+
+        # Width meters spinbox
+        self.width_meters_layout = QHBoxLayout()
+        self.width_meters_label = QLabel("Width (meters):")
+        self.width_meters_label.setStyleSheet("font-size: 11pt;")
+        self.width_meters_spinbox = QDoubleSpinBox()
+        self.width_meters_spinbox.setDecimals(9)
+        self.width_meters_spinbox.setMinimum(0.0)
+        self.width_meters_spinbox.setMaximum(1.0)
+        self.width_meters_spinbox.setSingleStep(1e-6)
+        # Handle None value
+        width_meters_value = self.phase_projections.options.volume_width.width_meters
+        if width_meters_value is not None:
+            self.width_meters_spinbox.setValue(width_meters_value)
+        else:
+            self.width_meters_spinbox.setValue(0.0)
+        self.width_meters_spinbox.setStyleSheet("font-size: 11pt;")
+        self.width_meters_spinbox.valueChanged.connect(self.on_width_meters_changed)
+        self.width_meters_layout.addWidget(self.width_meters_label)
+        self.width_meters_layout.addWidget(self.width_meters_spinbox)
+        self.width_meters_layout.addStretch()
+
+        # Add width controls to width group layout
+        width_layout.addLayout(use_custom_width_layout)
+        width_layout.addLayout(width_type_layout)
+        width_layout.addLayout(self.multiplier_layout)
+        width_layout.addLayout(self.width_meters_layout)
+        width_group.setLayout(width_layout)
+
+        # Update visibility and enabled state based on initial values
+        self.update_width_controls_visibility()
+        self.update_width_controls_enabled_state()
+
         # Create point selector for center of rotation
         # Use sum of projections as the image for point selection
         projection_sum = np.sum(self.phase_projections.data, axis=0)
@@ -124,6 +214,7 @@ class ReconstructionParameterTuner(QWidget):
 
         # Add widgets to left panel
         left_layout.addWidget(param_group)
+        left_layout.addWidget(width_group)
         left_layout.addWidget(cor_group)
         left_layout.addWidget(self.reconstruct_button)
         left_layout.addSpacerItem(
@@ -135,17 +226,21 @@ class ReconstructionParameterTuner(QWidget):
         right_layout = QVBoxLayout()
         right_panel.setLayout(right_layout)
 
-        # Create label for volume viewer
-        volume_label = QLabel("3D Reconstruction Volume")
-        volume_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        volume_label.setAlignment(Qt.AlignCenter)
-        right_layout.addWidget(volume_label)
+        # Create group box for volume display
+        volume_group = QGroupBox("3D Reconstruction Volume")
+        volume_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
+        volume_group_layout = QVBoxLayout()
 
         # Create placeholder for array viewer
         self.viewer_container = QWidget()
         self.viewer_layout = QVBoxLayout()
+        self.viewer_layout.setContentsMargins(0, 0, 0, 0)
         self.viewer_container.setLayout(self.viewer_layout)
-        right_layout.addWidget(self.viewer_container)
+        volume_group_layout.addWidget(self.viewer_container)
+        volume_group.setLayout(volume_group_layout)
+
+        # Add volume group to right panel
+        right_layout.addWidget(volume_group)
 
         # Add left and right panels to main layout
         main_layout.addWidget(left_panel, stretch=1)
@@ -167,6 +262,50 @@ class ReconstructionParameterTuner(QWidget):
         # PointSelector returns (x, y), but center_of_rotation is stored as [y, x]
         self.phase_projections.center_of_rotation[1] = x
         self.phase_projections.center_of_rotation[0] = y
+
+    def on_use_custom_width_changed(self, state: int):
+        """Update use_custom_width when checkbox state changes."""
+        self.phase_projections.options.volume_width.use_custom_width = bool(state)
+        self.update_width_controls_enabled_state()
+
+    def on_width_type_changed(self, index: int):
+        """Update width_type when combobox selection changes."""
+        width_type = self.width_type_combobox.itemData(index)
+        self.phase_projections.options.volume_width.width_type = width_type
+        self.update_width_controls_visibility()
+
+    def on_multiplier_changed(self, value: float):
+        """Update multiplier when spinbox value changes."""
+        self.phase_projections.options.volume_width.multiplier = value
+
+    def on_width_meters_changed(self, value: float):
+        """Update width_meters when spinbox value changes."""
+        self.phase_projections.options.volume_width.width_meters = value
+
+    def update_width_controls_visibility(self):
+        """Show/hide width controls based on width_type selection."""
+        width_type = self.width_type_combobox.currentData()
+
+        # Show/hide multiplier controls
+        is_multiplier = width_type == enums.VolumeWidthTypes.MULTIPLIER
+        self.multiplier_label.setVisible(is_multiplier)
+        self.multiplier_spinbox.setVisible(is_multiplier)
+
+        # Show/hide meters controls
+        is_meters = width_type == enums.VolumeWidthTypes.METERS
+        self.width_meters_label.setVisible(is_meters)
+        self.width_meters_spinbox.setVisible(is_meters)
+
+    def update_width_controls_enabled_state(self):
+        """Enable/disable width controls based on use_custom_width checkbox."""
+        enabled = self.use_custom_width_checkbox.isChecked()
+
+        self.width_type_label.setEnabled(enabled)
+        self.width_type_combobox.setEnabled(enabled)
+        self.multiplier_label.setEnabled(enabled)
+        self.multiplier_spinbox.setEnabled(enabled)
+        self.width_meters_label.setEnabled(enabled)
+        self.width_meters_spinbox.setEnabled(enabled)
 
     def on_reconstruct_clicked(self):
         """Generate 3D reconstruction and display it."""
