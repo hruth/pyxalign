@@ -326,6 +326,7 @@ class ReconstructionParameterTuner(QWidget):
                         slider_axis=0,
                         start_index=int(self.phase_projections.volume.data.shape[0] / 2),
                     ),
+                    hide_axis_controls=False,
                 )
                 self.viewer_layout.addWidget(self.array_viewer)
             else:

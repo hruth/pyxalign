@@ -91,7 +91,7 @@ class ArrayViewer(MultiThreadedWidget):
         hide_index_selector_controls: bool = False,
         return_index_selector_seperately: bool = False,
         hide_climit_controls: bool = False,
-        hide_axis_controls: bool = False,
+        hide_axis_controls: bool = True,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
         process_func: Optional[Callable] = None,
