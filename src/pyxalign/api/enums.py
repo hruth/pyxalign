@@ -112,3 +112,7 @@ class FSCBitCurveTypes(StrEnum):
 class ReconstructionMethods(StrEnum):
     ASTRA = auto()
     SART = auto()
+
+class VolumeWidthTypes(StrEnum):
+    MULTIPLIER = auto()
+    METERS = auto()

@@ -91,6 +91,7 @@ class ArrayViewer(MultiThreadedWidget):
         hide_index_selector_controls: bool = False,
         return_index_selector_seperately: bool = False,
         hide_climit_controls: bool = False,
+        hide_axis_controls: bool = False,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
         process_func: Optional[Callable] = None,
@@ -181,12 +182,51 @@ class ArrayViewer(MultiThreadedWidget):
         self.play_button.clicked.connect(self.toggle_play)
         self.timer.timeout.connect(self.next_frame)
 
+        # Create buttons for cycling slider axis
+        self.prev_axis_button = QPushButton("←")
+        self.prev_axis_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.prev_axis_button.setFixedWidth(30)
+        self.prev_axis_button.clicked.connect(self.cycle_axis_backward)
+
+        self.next_axis_button = QPushButton("→")
+        self.next_axis_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.next_axis_button.setFixedWidth(30)
+        self.next_axis_button.clicked.connect(self.cycle_axis_forward)
+
+        # Create label for current axis
+        self.axis_label = QLabel(f"axis: {self.options.slider_axis}")
+        self.axis_label.setStyleSheet("QLabel {font-size: 14px;}")
+
+        # Create horizontal layout for axis controls
+        axis_controls_layout = QHBoxLayout()
+        axis_controls_layout.addWidget(self.prev_axis_button)
+        axis_controls_layout.addWidget(self.next_axis_button)
+        axis_controls_layout.addWidget(self.axis_label)
+        axis_controls_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        axis_controls_widget = QWidget()
+        axis_controls_widget.setLayout(axis_controls_layout)
+
+        # Hide axis controls if requested
+        if hide_axis_controls:
+            self.prev_axis_button.hide()
+            self.next_axis_button.hide()
+            self.axis_label.hide()
+
+        # Create a container for indexing and axis controls to keep them together
+        controls_container = QWidget()
+        controls_container_layout = QVBoxLayout()
+        controls_container_layout.setContentsMargins(0, 0, 0, 0)
+        controls_container_layout.addWidget(self.indexing_widget)
+        controls_container_layout.addWidget(axis_controls_widget)
+        controls_container.setLayout(controls_container_layout)
+        controls_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+
         # Main layout
         layout = QVBoxLayout()
         layout.addWidget(clim_controls_widget)
         layout.addWidget(self.graphics_layout)
         if not return_index_selector_seperately:
-            layout.addWidget(self.indexing_widget)
+            layout.addWidget(controls_container)
         self.setLayout(layout)
 
         # Font and style adjustments
@@ -318,6 +358,42 @@ class ArrayViewer(MultiThreadedWidget):
             self.climit_window.load_current_levels()
             # make sure climit updates when slider is moving
             self.slider.valueChanged.connect(self.climit_window.load_current_levels)
+
+    def cycle_axis_forward(self):
+        """Cycle to the next axis."""
+        if self.array3d is None:
+            return
+
+        # Cycle forward through axes (0 -> 1 -> 2 -> 0)
+        self.options.slider_axis = (self.options.slider_axis + 1) % 3
+        self._update_after_axis_change()
+
+    def cycle_axis_backward(self):
+        """Cycle to the previous axis."""
+        if self.array3d is None:
+            return
+
+        # Cycle backward through axes (0 -> 2 -> 1 -> 0)
+        self.options.slider_axis = (self.options.slider_axis - 1) % 3
+        self._update_after_axis_change()
+
+    def _update_after_axis_change(self):
+        """Update the viewer after the slider axis has changed."""
+        # Update num_frames based on new axis
+        self.num_frames = self.array3d.shape[self.options.slider_axis]
+
+        # Update slider and spinbox ranges
+        self.slider.setMaximum(self.num_frames - 1)
+        self.spinbox.setMaximum(self.num_frames - 1)
+
+        # Update axis label
+        self.axis_label.setText(f"axis: {self.options.slider_axis}")
+
+        # Reset to first frame
+        self.slider.setValue(0)
+
+        # Refresh the display
+        self.refresh_frame(force_autolim=True)
 
     def start(self):
         """Show the widget."""

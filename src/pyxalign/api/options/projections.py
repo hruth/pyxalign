@@ -82,11 +82,15 @@ class VolumeWidthOptions(BaseOptions):
     volume width or not.
     """
 
+    width_type: enums.VolumeWidthTypes = enums.VolumeWidthTypes.MULTIPLIER
+
     multiplier: float = 1
     """
     If `use_custom_width` is `True`, the reconstructed volume size is 
     equal to the projection width multiplied by `multiplier`.
     """
+
+    width_meters: Optional[float] = None
 
 
 @dataclasses.dataclass

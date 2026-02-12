@@ -75,6 +75,7 @@ class VolumeViewer(MultiThreadedWidget):
                 slider_axis=0,
                 start_index=int(volume.shape[0] / 2),
             ),
+            hide_axis_controls=True,
         )
         self.side_viewer_1 = ArrayViewer(
             array3d=volume,
@@ -83,6 +84,7 @@ class VolumeViewer(MultiThreadedWidget):
                 start_index=int(volume.shape[1] / 2),
             ),
             hide_climit_controls=True,
+            hide_axis_controls=True,
         )
         self.side_viewer_2 = ArrayViewer(
             array3d=volume,
@@ -91,6 +93,7 @@ class VolumeViewer(MultiThreadedWidget):
                 start_index=int(volume.shape[2] / 2),
             ),
             hide_climit_controls=True,
+            hide_axis_controls=True,
         )
         # connect climit spinboxes
         main_climit_widget = self.depth_viewer.climit_window
