@@ -835,12 +835,18 @@ class AllShiftsViewer(MultiThreadedWidget):
 
     def apply_staged_shift(self):
         """Apply the staged shift and refresh the display."""
-        self.projections.apply_staged_shift()
+        apply_staged_shift_wrapped = loading_bar_wrapper(load_message="Applying shift...")(
+            func=self.projections.apply_staged_shift
+        )
+        apply_staged_shift_wrapped()
         self.refresh_data()
 
     def undo_last_shift(self):
         """Undo the last applied shift and refresh the display."""
-        self.projections.undo_last_shift()
+        undo_last_shift_wrapped = loading_bar_wrapper(load_message="Undoing shift...")(
+            func=self.projections.undo_last_shift
+        )
+        undo_last_shift_wrapped()
         self.refresh_data()
 
     def start(self):

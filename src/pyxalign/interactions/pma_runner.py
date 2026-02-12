@@ -28,7 +28,6 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QAbstractItemView,
     QApplication,
-    QCheckBox,
     QComboBox,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -108,6 +107,8 @@ class AlignmentResults:
         Initial shift values used as starting point for alignment.
     angles : np.ndarray
         Projection angles corresponding to the alignment results.
+    scan_numbers : np.ndarray
+        Scan numbers corresponding to each projection.
     pma_options : ProjectionMatchingOptions
         Projection matching options used for this alignment run.
     projection_options : ProjectionOptions
@@ -121,10 +122,12 @@ class AlignmentResults:
         angles: np.ndarray,
         options: OptionsClass,
         projection_options: ProjectionOptions,
+        scan_numbers: Optional[np.ndarray] = None,
     ):
         self.shift = shift
         self.initial_shift = initial_shift
         self.angles = angles
+        self.scan_numbers = scan_numbers
         self.pma_options = options
         self.projection_options = projection_options
 
@@ -344,11 +347,14 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.start_sequence_button = QPushButton("Start Alignment")
         self.stop_alignment_button = QPushButton("Stop Current Alignment")
         self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
-        self.initial_shift_type_checkbox = QCheckBox()
-        checkbox_widget = QWidget()
-        checkbox_widget.setLayout(QVBoxLayout())
-        checkbox_widget.layout().addWidget(self.initial_shift_type_checkbox)
-        checkbox_widget.layout().addWidget(QLabel("use initial shift"))
+
+        # Create dropdown for initial shift selection
+        initial_shift_widget = QWidget()
+        initial_shift_widget.setLayout(QVBoxLayout())
+        initial_shift_widget.layout().addWidget(QLabel("Initial shift:"))
+        self.initial_shift_combobox = QComboBox()
+        self.initial_shift_combobox.addItem("None")
+        initial_shift_widget.layout().addWidget(self.initial_shift_combobox)
 
         self.start_sequence_button.pressed.connect(self.start_alignment_sequence)
         self.stop_sequence_button.pressed.connect(self.on_stop_sequence_button_pushed)
@@ -361,11 +367,64 @@ class PMAMasterWidget(MultiThreadedWidget):
         button_layout.addWidget(self.start_sequence_button)
         button_layout.addWidget(self.stop_alignment_button)
         button_layout.addWidget(self.stop_sequence_button)
-        button_layout.addWidget(checkbox_widget)
+        button_layout.addWidget(initial_shift_widget)
         button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
 
         # "QPushButton { font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
         self.button_widget.setStyleSheet(action_button_style_sheet)
+
+    def filter_shift_by_scan_numbers(
+        self, shift: np.ndarray, source_scan_numbers: np.ndarray, target_scan_numbers: np.ndarray
+    ) -> np.ndarray:
+        """
+        Filter a shift array to match the current scan numbers.
+
+        When using a previous alignment result as the initial shift, some scans
+        may have been removed. This method removes entries from the shift array
+        that correspond to removed scans.
+
+        Parameters
+        ----------
+        shift : np.ndarray
+            The shift array from a previous alignment result.
+        source_scan_numbers : np.ndarray
+            Scan numbers from the previous alignment result.
+        target_scan_numbers : np.ndarray
+            Current scan numbers in phase_projections.
+
+        Returns
+        -------
+        np.ndarray
+            Filtered shift array matching current scan numbers.
+        """
+        if source_scan_numbers is None or target_scan_numbers is None:
+            # If scan numbers aren't available, return original shift
+            return shift
+
+        # Find which scans from the source are still present in the target
+        mask = np.isin(source_scan_numbers, target_scan_numbers)
+
+        # Check if all target scans are in source
+        if not np.all(np.isin(target_scan_numbers, source_scan_numbers)):
+            print(
+                "Warning: Some current scans were not present in the selected "
+                "initial shift. These will be initialized with zero shift."
+            )
+            # Create a new shift array initialized to zeros
+            filtered_shift = np.zeros((len(target_scan_numbers), shift.shape[1]))
+            # Find indices where target scans match source scans
+            for i, scan in enumerate(target_scan_numbers):
+                source_indices = np.where(source_scan_numbers == scan)[0]
+                if len(source_indices) > 0:
+                    filtered_shift[i] = shift[source_indices[0]]
+            return filtered_shift
+        else:
+            # All target scans are in source, just filter out removed scans
+            filtered_shift = shift[mask]
+            # Reorder to match target scan order
+            source_filtered = source_scan_numbers[mask]
+            reorder_indices = np.array([np.where(source_filtered == scan)[0][0] for scan in target_scan_numbers])
+            return filtered_shift[reorder_indices]
 
     def start_alignment_sequence(self):
         options_sequence = self.sequencer.generate_options_sequence(
@@ -376,10 +435,28 @@ class PMAMasterWidget(MultiThreadedWidget):
         for i, options in enumerate(options_sequence):
             # update suffix
             options.save.suffix = suffix + f"_{i}"
-            if self.initial_shift_type_checkbox.isChecked():
+            # Get initial shift based on combobox selection
+            selected_text = self.initial_shift_combobox.currentText()
+            if selected_text == "None":
+                initial_shift = None
+            elif selected_text == "Previous":
                 initial_shift = shift
             else:
-                initial_shift = None
+                # Parse the index from the text (e.g., "Result 0" -> 0)
+                try:
+                    result_index = int(selected_text.split()[-1])
+                    if 0 <= result_index < len(self.alignment_results_list):
+                        selected_result = self.alignment_results_list[result_index]
+                        # Filter the shift to match current scan numbers
+                        initial_shift = self.filter_shift_by_scan_numbers(
+                            shift=selected_result.shift,
+                            source_scan_numbers=selected_result.scan_numbers,
+                            target_scan_numbers=self.task.phase_projections.scan_numbers,
+                        )
+                    else:
+                        initial_shift = None
+                except (ValueError, IndexError):
+                    initial_shift = None
             shift = self.task.get_projection_matching_shift(
                 initial_shift=initial_shift, options=options
             )
@@ -390,6 +467,7 @@ class PMAMasterWidget(MultiThreadedWidget):
                     self.task.pma_object.aligned_projections.angles,
                     options=options,
                     projection_options=self.task.phase_projections.options,
+                    scan_numbers=self.task.phase_projections.scan_numbers.copy(),
                 )
             ]
             self.update_pma_viewer_tab()
@@ -440,6 +518,26 @@ class PMAMasterWidget(MultiThreadedWidget):
 
     def update_results_collection_tab(self):
         self.results_collection_widget.update_table()
+        self.update_initial_shift_combobox()
+
+    def update_initial_shift_combobox(self):
+        """Update the initial shift combobox with current results."""
+        # Store current selection
+        current_text = self.initial_shift_combobox.currentText()
+
+        # Clear and rebuild
+        self.initial_shift_combobox.clear()
+        self.initial_shift_combobox.addItem("None")
+        self.initial_shift_combobox.addItem("Previous")
+
+        # Add all results from the collection
+        for i in range(len(self.alignment_results_list)):
+            self.initial_shift_combobox.addItem(f"Result {i}")
+
+        # Try to restore previous selection
+        index = self.initial_shift_combobox.findText(current_text)
+        if index >= 0:
+            self.initial_shift_combobox.setCurrentIndex(index)
 
     def make_first_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
