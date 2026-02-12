@@ -23,6 +23,7 @@ from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.pma_runner import launch_pma_runner
 from pyxalign.interactions.point_selector import launch_point_selector
+from pyxalign.interactions.reconstruction_parameter_tuner import launch_reconstruction_parameter_tuner
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
@@ -202,8 +203,9 @@ class AutorunnerPtycho(Autorunner):
             return
         
         if cfg["enabled"]:
-            x, y = launch_point_selector(np.angle(self.task.phase_projections.data).sum(0))
-            self.task.phase_projections.center_of_rotation[:] = y, x
+            gui = launch_reconstruction_parameter_tuner(self.task.phase_projections, wait_until_closed=True)
+            # x, y = launch_point_selector(np.angle(self.task.phase_projections.data).sum(0))
+            # self.task.phase_projections.center_of_rotation[:] = y, x
 
     def _estimate_center_of_rotation(self):
         self._current_checkpoint = Checkpoints.ESTIMATE_CENTER
@@ -237,9 +239,11 @@ class AutorunnerPtycho(Autorunner):
 
     def _run_projection_matching_sequence(self):
         cfg = self._options_dict["projection_matching_alignment"]
-        self.task.options.projection_matching = load_options_from_yaml(
-            cfg["default_settings_path"], ProjectionMatchingOptions()
-        )
+
+        if cfg["load_default_settings_from_file"]:
+            self.task.options.projection_matching = load_options_from_yaml(
+                cfg["default_settings_path"], ProjectionMatchingOptions()
+            )
         # update defaults
         self.task.options.projection_matching = get_updated_options(
             self.task.options.projection_matching, cfg["update_defaults"]
