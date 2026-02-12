@@ -60,6 +60,7 @@ class CombinedAlignmentWidget(SidebarNavigator):
     def __init__(
         self,
         task: "t.LaminographyAlignmentTask",
+        updated_settings_for_pma_widget: Optional[list[dict]] = None,
         parent: Optional[QWidget] = None
     ):
         """
@@ -81,13 +82,13 @@ class CombinedAlignmentWidget(SidebarNavigator):
         self.task = task
 
         # Initialize the widgets
-        self._initialize_widgets()
+        self._initialize_widgets(updated_settings_for_pma_widget)
 
         # Set window properties
         self.setWindowTitle("Laminography Alignment Tool")
         self.resize(1200, 800)
 
-    def _initialize_widgets(self):
+    def _initialize_widgets(self, updated_settings_for_pma_widget: Optional[list[dict]] = None):
         """
         Initialize and add the ProjectionViewer and PMAMasterWidget pages.
         """
@@ -113,7 +114,11 @@ class CombinedAlignmentWidget(SidebarNavigator):
             projection_viewer_for_pma = None
 
         # Create PMAMasterWidget with the full task
-        self.pma_widget = PMAMasterWidget(task=self.task, projection_viewer=projection_viewer_for_pma)
+        self.pma_widget = PMAMasterWidget(
+            task=self.task,
+            projection_viewer=projection_viewer_for_pma,
+            list_of_updated_settings=updated_settings_for_pma_widget,
+        )
 
         # Add pages to the sidebar navigator
         # You can use standard Qt icons or provide custom icon paths
@@ -167,6 +172,7 @@ class CombinedAlignmentWidget(SidebarNavigator):
 @switch_to_matplotlib_qt_backend
 def launch_combined_alignment_widget(
     task: "t.LaminographyAlignmentTask",
+    updated_settings_for_pma_widget: Optional[list[dict]] = None,
     wait_until_closed: bool = False,
 ) -> CombinedAlignmentWidget:
     """Launch the combined alignment widget GUI.
@@ -190,7 +196,9 @@ def launch_combined_alignment_widget(
             gui = pyxalign.gui.launch_combined_alignment_widget(task)
     """
     app = QApplication.instance() or QApplication([])
-    gui = CombinedAlignmentWidget(task=task)
+    gui = CombinedAlignmentWidget(
+        task=task, updated_settings_for_pma_widget=updated_settings_for_pma_widget
+    )
     gui.show()
     if wait_until_closed:
         app.exec_()

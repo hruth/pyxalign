@@ -109,6 +109,8 @@ class AlignmentResults:
         Projection angles corresponding to the alignment results.
     scan_numbers : np.ndarray
         Scan numbers corresponding to each projection.
+    initial_shift_source : str
+        Description of the source of the initial shift (e.g., "None", "Previous", "Result 0").
     pma_options : ProjectionMatchingOptions
         Projection matching options used for this alignment run.
     projection_options : ProjectionOptions
@@ -123,11 +125,13 @@ class AlignmentResults:
         options: OptionsClass,
         projection_options: ProjectionOptions,
         scan_numbers: Optional[np.ndarray] = None,
+        initial_shift_source: str = "None",
     ):
         self.shift = shift
         self.initial_shift = initial_shift
         self.angles = angles
         self.scan_numbers = scan_numbers
+        self.initial_shift_source = initial_shift_source
         self.pma_options = options
         self.projection_options = projection_options
 
@@ -197,8 +201,8 @@ class AlignmentResultsCollection(QWidget):
             QWidget: A QWidget containing the described UI components.
         """
         # Create the table
-        self.results_table = QTableWidget(0, 1)
-        self.results_table.setHorizontalHeaderLabels(["Index"])
+        self.results_table = QTableWidget(0, 2)
+        self.results_table.setHorizontalHeaderLabels(["Index", "Initial Shift"])
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.results_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.results_table.verticalHeader().setVisible(False)
@@ -229,12 +233,16 @@ class AlignmentResultsCollection(QWidget):
         num_results = len(self.alignment_results_list)
         table_length = self.results_table.rowCount()
 
-        # Fill the table with row indices
+        # Fill the table with row indices and initial shift sources
         for i in range(num_results):
             if i >= table_length:
                 self.results_table.insertRow(i)
-                item = QTableWidgetItem(str(i))
-                self.results_table.setItem(i, 0, item)
+                # Column 0: Index
+                index_item = QTableWidgetItem(str(i))
+                self.results_table.setItem(i, 0, index_item)
+                # Column 1: Initial Shift Source
+                shift_source_item = QTableWidgetItem(self.alignment_results_list[i].initial_shift_source)
+                self.results_table.setItem(i, 1, shift_source_item)
 
     def on_table_cell_changed(self, row: int, column: int):
         self.change_shift_plot_index(row)
@@ -439,8 +447,10 @@ class PMAMasterWidget(MultiThreadedWidget):
             selected_text = self.initial_shift_combobox.currentText()
             if selected_text == "None":
                 initial_shift = None
+                initial_shift_source = "None"
             elif selected_text == "Previous":
                 initial_shift = shift
+                initial_shift_source = "Previous"
             else:
                 # Parse the index from the text (e.g., "Result 0" -> 0)
                 try:
@@ -453,10 +463,13 @@ class PMAMasterWidget(MultiThreadedWidget):
                             source_scan_numbers=selected_result.scan_numbers,
                             target_scan_numbers=self.task.phase_projections.scan_numbers,
                         )
+                        initial_shift_source = selected_text
                     else:
                         initial_shift = None
+                        initial_shift_source = "None"
                 except (ValueError, IndexError):
                     initial_shift = None
+                    initial_shift_source = "None"
             shift = self.task.get_projection_matching_shift(
                 initial_shift=initial_shift, options=options
             )
@@ -468,6 +481,7 @@ class PMAMasterWidget(MultiThreadedWidget):
                     options=options,
                     projection_options=self.task.phase_projections.options,
                     scan_numbers=self.task.phase_projections.scan_numbers.copy(),
+                    initial_shift_source=initial_shift_source,
                 )
             ]
             self.update_pma_viewer_tab()

@@ -17,6 +17,7 @@ from pyxalign.autorunner.io import (
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
 from pyxalign.estimate_center import plot_center_of_rotation_estimate_results
+from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
 from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
@@ -266,7 +267,7 @@ class AutorunnerPtycho(Autorunner):
                 self.task.options.projection_matching.save.suffix = suffix + f"_{i}"
                 self.task.get_projection_matching_shift(shift)
         else:
-            gui = launch_pma_runner(
+            gui = launch_combined_alignment_widget(
                 self.task,
                 self._options_dict["projection_matching_alignment"]["sequence"],
                 wait_until_closed=True,
