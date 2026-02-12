@@ -8,6 +8,7 @@ import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
+from pyxalign.interactions.reconstruction_parameter_tuner import ReconstructionParameterTuner
 from pyxalign.interactions.roi_selector import launch_mask_selection_from_roi
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
@@ -163,6 +164,7 @@ class ProjectionViewer(MultiThreadedWidget):
         self.options = options
         self.projection_dropping_widget = None
         self.options_editor = None
+        self.reconstruction_parameter_tuner = None
         self.resize(1300, 900)
 
         if np.iscomplexobj(projections.data) and options.process_func is None:
@@ -202,11 +204,18 @@ class ProjectionViewer(MultiThreadedWidget):
                 open_mask_creation_button.setDisabled(True)
             open_mask_from_roi_button = QPushButton("Get Masks from ROI")
             open_mask_from_roi_button.clicked.connect(self.open_mask_from_roi_window)
+            # create button for updating reconstruction parameters
+            open_reconstruction_tuner_button = QPushButton("Update Reconstruction Parameters")
+            open_reconstruction_tuner_button.clicked.connect(self.open_reconstruction_parameter_tuner)
+            # Only enable for PhaseProjections
+            if self.projections.__class__.__qualname__ != "PhaseProjections":
+                open_reconstruction_tuner_button.setDisabled(True)
             # create button for editing properties
             open_options_editor_button = QPushButton("Edit Projection Parameters")
             open_options_editor_button.clicked.connect(self.open_options_editor)
 
             push_button_layout = QVBoxLayout()
+            push_button_layout.addWidget(open_reconstruction_tuner_button)
             push_button_layout.addWidget(open_options_editor_button)
             push_button_layout.addWidget(open_scan_removal_button)
             push_button_layout.addWidget(
@@ -272,6 +281,23 @@ class ProjectionViewer(MultiThreadedWidget):
             )
             print([x for x in all_attributes if "reconstruct" in x])
         self.options_editor.show()
+
+    def open_reconstruction_parameter_tuner(self):
+        """Open the reconstruction parameter tuner window."""
+        # Check if the window exists and hasn't been deleted
+        try:
+            if self.reconstruction_parameter_tuner is not None:
+                # Try to access a property to see if it's been deleted
+                self.reconstruction_parameter_tuner.isVisible()
+        except RuntimeError:
+            # Window was deleted, set to None so we recreate it
+            self.reconstruction_parameter_tuner = None
+
+        if self.reconstruction_parameter_tuner is None:
+            self.reconstruction_parameter_tuner = ReconstructionParameterTuner(
+                phase_projections=self.projections,
+            )
+        self.reconstruction_parameter_tuner.show()
 
     def open_scan_removal_window(self):
         if self.projection_dropping_widget is None:

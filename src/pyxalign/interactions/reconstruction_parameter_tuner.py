@@ -21,13 +21,42 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QRegExp
+from PyQt5.QtGui import QRegExpValidator
 from pyxalign.interactions.viewers.base import ArrayViewer
 from pyxalign.api.options.plotting import ArrayViewerOptions
 from pyxalign.interactions.point_selector import PointSelector
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 import pyxalign.data_structures.projections as p
 from pyxalign.api import enums
+
+
+class ScientificDoubleSpinBox(QDoubleSpinBox):
+    """QDoubleSpinBox that displays values in scientific notation."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setDecimals(10)  # Set high precision for internal calculations
+        # Set a validator that accepts scientific notation
+        validator = QRegExpValidator(QRegExp(r"[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?"))
+        self.lineEdit().setValidator(validator)
+
+    def textFromValue(self, value: float) -> str:
+        """Convert value to scientific notation string."""
+        return f"{value:.2e}"
+
+    def valueFromText(self, text: str) -> float:
+        """Convert text to float value."""
+        try:
+            return float(text)
+        except ValueError:
+            return 0.0
+
+    def validate(self, text: str, pos: int):
+        """Override validate to accept scientific notation."""
+        # Allow scientific notation during input
+        validator = QRegExpValidator(QRegExp(r"[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?"))
+        return validator.validate(text, pos)
 
 
 class ReconstructionParameterTuner(QWidget):
@@ -78,8 +107,7 @@ class ReconstructionParameterTuner(QWidget):
         thickness_layout = QHBoxLayout()
         thickness_label = QLabel("Sample Thickness (m):")
         thickness_label.setStyleSheet("font-size: 11pt;")
-        self.thickness_spinbox = QDoubleSpinBox()
-        self.thickness_spinbox.setDecimals(9)
+        self.thickness_spinbox = ScientificDoubleSpinBox()
         self.thickness_spinbox.setMinimum(0.0)
         self.thickness_spinbox.setMaximum(1.0)
         self.thickness_spinbox.setSingleStep(1e-6)
@@ -155,8 +183,7 @@ class ReconstructionParameterTuner(QWidget):
         self.width_meters_layout = QHBoxLayout()
         self.width_meters_label = QLabel("Width (meters):")
         self.width_meters_label.setStyleSheet("font-size: 11pt;")
-        self.width_meters_spinbox = QDoubleSpinBox()
-        self.width_meters_spinbox.setDecimals(9)
+        self.width_meters_spinbox = ScientificDoubleSpinBox()
         self.width_meters_spinbox.setMinimum(0.0)
         self.width_meters_spinbox.setMaximum(1.0)
         self.width_meters_spinbox.setSingleStep(1e-6)
