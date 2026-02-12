@@ -20,6 +20,9 @@ from PyQt5.QtWidgets import (
     QSpacerItem,
     QCheckBox,
     QComboBox,
+    QScrollArea,
+    QSpinBox,
+    QLineEdit,
 )
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator
@@ -104,6 +107,135 @@ class ReconstructionParameterTuner(QWidget):
         param_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
         param_layout = QVBoxLayout()
 
+        # Reconstruction Method subsection
+        method_group = QGroupBox("Reconstruction Method")
+        method_group.setStyleSheet("QGroupBox { font-size: 12pt; font-weight: bold; }")
+        method_group_layout = QVBoxLayout()
+
+        # Reconstruction method dropdown
+        method_layout = QHBoxLayout()
+        method_label = QLabel("Method:")
+        method_label.setStyleSheet("font-size: 11pt;")
+        self.method_combobox = QComboBox()
+        for method in enums.ReconstructionMethods:
+            self.method_combobox.addItem(method.value, method)
+        # Set current value
+        current_method = self.phase_projections.options.reconstruct.method
+        index = self.method_combobox.findData(current_method)
+        if index >= 0:
+            self.method_combobox.setCurrentIndex(index)
+        self.method_combobox.setStyleSheet("font-size: 11pt;")
+        self.method_combobox.currentIndexChanged.connect(self.on_method_changed)
+        method_layout.addWidget(method_label)
+        method_layout.addWidget(self.method_combobox)
+        method_layout.addStretch()
+        method_group_layout.addLayout(method_layout)
+
+        # ASTRA Options
+        self.astra_controls = []
+
+        # Algorithm Type
+        astra_algorithm_layout = QHBoxLayout()
+        astra_algorithm_label = QLabel("Algorithm Type:")
+        astra_algorithm_label.setStyleSheet("font-size: 11pt;")
+        self.astra_algorithm_lineedit = QLineEdit()
+        self.astra_algorithm_lineedit.setText(
+            self.phase_projections.options.reconstruct.astra.algorithm_type
+        )
+        self.astra_algorithm_lineedit.setStyleSheet("font-size: 11pt;")
+        self.astra_algorithm_lineedit.setEnabled(False)
+        self.astra_algorithm_lineedit.textChanged.connect(self.on_astra_algorithm_changed)
+        astra_algorithm_layout.addWidget(astra_algorithm_label)
+        astra_algorithm_layout.addWidget(self.astra_algorithm_lineedit)
+        astra_algorithm_layout.addStretch()
+        method_group_layout.addLayout(astra_algorithm_layout)
+        self.astra_controls.extend([astra_algorithm_label, self.astra_algorithm_lineedit])
+
+        # SART Options
+        self.sart_controls = []
+
+        # Iterations
+        sart_iterations_layout = QHBoxLayout()
+        sart_iterations_label = QLabel("Iterations:")
+        sart_iterations_label.setStyleSheet("font-size: 11pt;")
+        self.sart_iterations_spinbox = QSpinBox()
+        self.sart_iterations_spinbox.setMinimum(1)
+        self.sart_iterations_spinbox.setMaximum(1000)
+        self.sart_iterations_spinbox.setValue(
+            self.phase_projections.options.reconstruct.sart.iterations
+        )
+        self.sart_iterations_spinbox.setStyleSheet("font-size: 11pt;")
+        self.sart_iterations_spinbox.valueChanged.connect(self.on_sart_iterations_changed)
+        sart_iterations_layout.addWidget(sart_iterations_label)
+        sart_iterations_layout.addWidget(self.sart_iterations_spinbox)
+        sart_iterations_layout.addStretch()
+        method_group_layout.addLayout(sart_iterations_layout)
+        self.sart_controls.extend([sart_iterations_label, self.sart_iterations_spinbox])
+
+        # Use Circular Constraint
+        sart_circular_layout = QHBoxLayout()
+        sart_circular_label = QLabel("Use Circular Constraint:")
+        sart_circular_label.setStyleSheet("font-size: 11pt;")
+        self.sart_circular_checkbox = QCheckBox()
+        self.sart_circular_checkbox.setChecked(
+            self.phase_projections.options.reconstruct.sart.use_circular_constraint
+        )
+        self.sart_circular_checkbox.setStyleSheet("font-size: 11pt;")
+        self.sart_circular_checkbox.stateChanged.connect(self.on_sart_circular_changed)
+        sart_circular_layout.addWidget(sart_circular_label)
+        sart_circular_layout.addWidget(self.sart_circular_checkbox)
+        sart_circular_layout.addStretch()
+        method_group_layout.addLayout(sart_circular_layout)
+        self.sart_controls.extend([sart_circular_label, self.sart_circular_checkbox])
+
+        # Relaxation
+        sart_relaxation_layout = QHBoxLayout()
+        sart_relaxation_label = QLabel("Relaxation:")
+        sart_relaxation_label.setStyleSheet("font-size: 11pt;")
+        self.sart_relaxation_spinbox = QDoubleSpinBox()
+        self.sart_relaxation_spinbox.setDecimals(6)
+        self.sart_relaxation_spinbox.setMinimum(0.0)
+        self.sart_relaxation_spinbox.setMaximum(1.0)
+        self.sart_relaxation_spinbox.setSingleStep(0.01)
+        self.sart_relaxation_spinbox.setValue(
+            self.phase_projections.options.reconstruct.sart.relaxation
+        )
+        self.sart_relaxation_spinbox.setStyleSheet("font-size: 11pt;")
+        self.sart_relaxation_spinbox.valueChanged.connect(self.on_sart_relaxation_changed)
+        sart_relaxation_layout.addWidget(sart_relaxation_label)
+        sart_relaxation_layout.addWidget(self.sart_relaxation_spinbox)
+        sart_relaxation_layout.addStretch()
+        method_group_layout.addLayout(sart_relaxation_layout)
+        self.sart_controls.extend([sart_relaxation_label, self.sart_relaxation_spinbox])
+
+        # N Subtomograms
+        sart_subtomograms_layout = QHBoxLayout()
+        sart_subtomograms_label = QLabel("N Subtomograms:")
+        sart_subtomograms_label.setStyleSheet("font-size: 11pt;")
+        self.sart_subtomograms_spinbox = QSpinBox()
+        self.sart_subtomograms_spinbox.setMinimum(1)
+        self.sart_subtomograms_spinbox.setMaximum(100)
+        self.sart_subtomograms_spinbox.setValue(
+            self.phase_projections.options.reconstruct.sart.n_subtomograms
+        )
+        self.sart_subtomograms_spinbox.setStyleSheet("font-size: 11pt;")
+        self.sart_subtomograms_spinbox.valueChanged.connect(self.on_sart_subtomograms_changed)
+        sart_subtomograms_layout.addWidget(sart_subtomograms_label)
+        sart_subtomograms_layout.addWidget(self.sart_subtomograms_spinbox)
+        sart_subtomograms_layout.addStretch()
+        method_group_layout.addLayout(sart_subtomograms_layout)
+        self.sart_controls.extend([sart_subtomograms_label, self.sart_subtomograms_spinbox])
+
+        method_group.setLayout(method_group_layout)
+
+        # Add method group to main param layout
+        param_layout.addWidget(method_group)
+
+        # Reconstruction Size subsection
+        size_group = QGroupBox("Reconstruction Size")
+        size_group.setStyleSheet("QGroupBox { font-size: 12pt; font-weight: bold; }")
+        size_layout = QVBoxLayout()
+
         # Sample thickness spinbox
         thickness_layout = QHBoxLayout()
         thickness_label = QLabel("Sample Thickness (m):")
@@ -120,15 +252,6 @@ class ReconstructionParameterTuner(QWidget):
         thickness_layout.addWidget(thickness_label)
         thickness_layout.addWidget(self.thickness_spinbox)
         thickness_layout.addStretch()
-
-        # Add parameter controls to layout
-        param_layout.addLayout(thickness_layout)
-        param_group.setLayout(param_layout)
-
-        # Volume Width Controls Group
-        width_group = QGroupBox("Width")
-        width_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
-        width_layout = QVBoxLayout()
 
         # Use custom width checkbox
         use_custom_width_layout = QHBoxLayout()
@@ -200,14 +323,20 @@ class ReconstructionParameterTuner(QWidget):
         self.width_meters_layout.addWidget(self.width_meters_spinbox)
         self.width_meters_layout.addStretch()
 
-        # Add width controls to width group layout
-        width_layout.addLayout(use_custom_width_layout)
-        width_layout.addLayout(width_type_layout)
-        width_layout.addLayout(self.multiplier_layout)
-        width_layout.addLayout(self.width_meters_layout)
-        width_group.setLayout(width_layout)
+        # Add size controls to size group layout
+        size_layout.addLayout(thickness_layout)
+        size_layout.addLayout(use_custom_width_layout)
+        size_layout.addLayout(width_type_layout)
+        size_layout.addLayout(self.multiplier_layout)
+        size_layout.addLayout(self.width_meters_layout)
+        size_group.setLayout(size_layout)
+
+        # Add size group to main param layout
+        param_layout.addWidget(size_group)
+        param_group.setLayout(param_layout)
 
         # Update visibility and enabled state based on initial values
+        self.update_method_controls_visibility()
         self.update_width_controls_visibility()
         self.update_width_controls_enabled_state()
 
@@ -242,12 +371,18 @@ class ReconstructionParameterTuner(QWidget):
 
         # Add widgets to left panel
         left_layout.addWidget(param_group)
-        left_layout.addWidget(width_group)
         left_layout.addWidget(cor_group)
         left_layout.addWidget(self.reconstruct_button)
         left_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
+
+        # Wrap left panel in a scroll area
+        left_scroll_area = QScrollArea()
+        left_scroll_area.setWidget(left_panel)
+        left_scroll_area.setWidgetResizable(True)
+        left_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        left_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         # ===== RIGHT PANEL: Volume Display =====
         right_panel = QWidget()
@@ -271,10 +406,36 @@ class ReconstructionParameterTuner(QWidget):
         right_layout.addWidget(volume_group)
 
         # Add left and right panels to main layout
-        main_layout.addWidget(left_panel, stretch=1)
+        main_layout.addWidget(left_scroll_area, stretch=1)
         main_layout.addWidget(right_panel, stretch=2)
 
         self.setLayout(main_layout)
+
+    def on_method_changed(self, index: int):
+        """Update reconstruction method when combobox selection changes."""
+        method = self.method_combobox.itemData(index)
+        self.phase_projections.options.reconstruct.method = method
+        self.update_method_controls_visibility()
+
+    def on_astra_algorithm_changed(self, text: str):
+        """Update ASTRA algorithm type when text changes."""
+        self.phase_projections.options.reconstruct.astra.algorithm_type = text
+
+    def on_sart_iterations_changed(self, value: int):
+        """Update SART iterations when spinbox value changes."""
+        self.phase_projections.options.reconstruct.sart.iterations = value
+
+    def on_sart_circular_changed(self, state: int):
+        """Update SART use_circular_constraint when checkbox state changes."""
+        self.phase_projections.options.reconstruct.sart.use_circular_constraint = bool(state)
+
+    def on_sart_relaxation_changed(self, value: float):
+        """Update SART relaxation when spinbox value changes."""
+        self.phase_projections.options.reconstruct.sart.relaxation = value
+
+    def on_sart_subtomograms_changed(self, value: int):
+        """Update SART n_subtomograms when spinbox value changes."""
+        self.phase_projections.options.reconstruct.sart.n_subtomograms = value
 
     def on_thickness_changed(self, value: float):
         """Update sample thickness when spinbox value changes."""
@@ -309,6 +470,20 @@ class ReconstructionParameterTuner(QWidget):
     def on_width_meters_changed(self, value: float):
         """Update width_meters when spinbox value changes."""
         self.phase_projections.options.volume_width.width_meters = value
+
+    def update_method_controls_visibility(self):
+        """Show/hide method-specific controls based on selected reconstruction method."""
+        method = self.method_combobox.currentData()
+
+        # Show/hide ASTRA controls
+        is_astra = method == enums.ReconstructionMethods.ASTRA
+        for control in self.astra_controls:
+            control.setVisible(is_astra)
+
+        # Show/hide SART controls
+        is_sart = method == enums.ReconstructionMethods.SART
+        for control in self.sart_controls:
+            control.setVisible(is_sart)
 
     def update_width_controls_visibility(self):
         """Show/hide width controls based on width_type selection."""
