@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator
+from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.viewers.base import ArrayViewer
 from pyxalign.api.options.plotting import ArrayViewerOptions
 from pyxalign.interactions.point_selector import PointSelector
@@ -342,7 +343,10 @@ class ReconstructionParameterTuner(QWidget):
 
         try:
             # Run reconstruction
-            self.phase_projections.get_3D_reconstruction()
+            load_bar_func_wrapper = loading_bar_wrapper(
+                "Getting 3D reconstruction...", block_all_windows=True
+            )(self.phase_projections.get_3D_reconstruction)
+            load_bar_func_wrapper()
 
             # Update or create array viewer
             if self.array_viewer is None:
