@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
-    QGridLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLayout,
@@ -348,38 +348,102 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.make_third_tab_layout(tabs)
 
     def generate_start_and_stop_buttons(self):
-        self.button_widget = QWidget(self)
-        button_layout = QHBoxLayout()
-        self.button_widget.setLayout(button_layout)
+        # Left button widget (underneath options editor)
+        self.left_button_widget = QWidget(self)
+        left_button_layout = QHBoxLayout()
+        self.left_button_widget.setLayout(left_button_layout)
 
-        self.start_sequence_button = QPushButton("Start Alignment")
+        self.start_sequence_button = QPushButton("Start Alignment Sequence")
         self.stop_alignment_button = QPushButton("Stop Current Alignment")
-        self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
 
-        # Create dropdown for initial shift selection
+        # Set fixed width for buttons
+        button_width = 250
+        self.start_sequence_button.setFixedWidth(button_width)
+        self.stop_alignment_button.setFixedWidth(button_width)
+
+        # Create dropdown for initial shift selection (on the left, aligned left)
         initial_shift_widget = QWidget()
-        initial_shift_widget.setLayout(QVBoxLayout())
-        initial_shift_widget.layout().addWidget(QLabel("Initial shift:"))
+        initial_shift_layout = QVBoxLayout()
+        initial_shift_layout.setContentsMargins(0, 0, 0, 0)
+        initial_shift_widget.setLayout(initial_shift_layout)
+        initial_shift_layout.addWidget(QLabel("Initial shift:"), alignment=Qt.AlignLeft)
         self.initial_shift_combobox = QComboBox()
         self.initial_shift_combobox.addItem("None")
-        initial_shift_widget.layout().addWidget(self.initial_shift_combobox)
+        self.initial_shift_combobox.setFixedWidth(button_width)
+        initial_shift_layout.addWidget(self.initial_shift_combobox, alignment=Qt.AlignLeft)
+
+        # Create vertical layout for stop button (on the right, aligned right)
+        buttons_container = QWidget()
+        buttons_layout = QVBoxLayout()
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_container.setLayout(buttons_layout)
 
         self.start_sequence_button.pressed.connect(self.start_alignment_sequence)
-        self.stop_sequence_button.pressed.connect(self.on_stop_sequence_button_pushed)
         self.stop_alignment_button.pressed.connect(self.on_stop_alignment_button_pushed)
 
         self.start_sequence_button.setStyleSheet("QPushButton { background-color: green;}")
         self.stop_alignment_button.setStyleSheet("QPushButton { background-color: red;}")
+
+        buttons_layout.addWidget(self.stop_alignment_button, alignment=Qt.AlignRight)
+
+        # Add dropdown on the left, spacer in middle, stop button on the right
+        left_button_layout.addWidget(initial_shift_widget, alignment=Qt.AlignLeft)
+        left_button_layout.addStretch()
+        left_button_layout.addWidget(buttons_container, alignment=Qt.AlignRight)
+
+        # Right button widget (underneath sequencer)
+        self.right_button_widget = QWidget(self)
+        right_button_layout = QHBoxLayout()
+        self.right_button_widget.setLayout(right_button_layout)
+
+        self.stop_sequence_button = QPushButton("Stop Alignment Sequence")
+        self.stop_sequence_button.setFixedWidth(button_width)
+        self.stop_sequence_button.pressed.connect(self.on_stop_sequence_button_pushed)
         self.stop_sequence_button.setStyleSheet("QPushButton { background-color: red;}")
 
-        button_layout.addWidget(self.start_sequence_button)
-        button_layout.addWidget(self.stop_alignment_button)
-        button_layout.addWidget(self.stop_sequence_button)
-        button_layout.addWidget(initial_shift_widget)
-        button_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
+        right_button_layout.addWidget(self.start_sequence_button)
+        right_button_layout.addWidget(self.stop_sequence_button)
+        right_button_layout.addStretch()
 
-        # "QPushButton { font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
-        self.button_widget.setStyleSheet(action_button_style_sheet)
+        # Apply button style sheet
+        self.left_button_widget.setStyleSheet(action_button_style_sheet)
+        self.right_button_widget.setStyleSheet(action_button_style_sheet)
+
+    def set_configure_tab_enabled(self, enabled: bool):
+        """
+        Enable or disable widgets on the Configure & Start tab.
+
+        When disabled, only the stop buttons remain enabled to allow
+        cancellation of running alignments.
+
+        Parameters
+        ----------
+        enabled : bool
+            If True, enable all widgets. If False, disable all except stop buttons.
+        """
+        # Disable/enable the options editor
+        self.options_editor.setEnabled(enabled)
+
+        # Disable/enable the sequencer
+        self.sequencer.setEnabled(enabled)
+
+        # Disable/enable the start button and initial shift selector
+        self.start_sequence_button.setEnabled(enabled)
+        self.initial_shift_combobox.setEnabled(enabled)
+
+        # Update start button appearance based on enabled state
+        if enabled:
+            # Re-enable with green background
+            self.start_sequence_button.setStyleSheet("QPushButton { background-color: green;}")
+        else:
+            # Disabled appearance - gray background
+            self.start_sequence_button.setStyleSheet("QPushButton { background-color: gray; color: darkgray;}")
+
+        # Stop buttons should always be enabled (opposite of the enabled state)
+        # When alignment is running (enabled=False), stop buttons should be enabled (True)
+        # When alignment is not running (enabled=True), stop buttons should be disabled (False)
+        self.stop_alignment_button.setEnabled(not enabled)
+        self.stop_sequence_button.setEnabled(not enabled)
 
     def filter_shift_by_scan_numbers(
         self, shift: np.ndarray, source_scan_numbers: np.ndarray, target_scan_numbers: np.ndarray
@@ -435,64 +499,71 @@ class PMAMasterWidget(MultiThreadedWidget):
             return filtered_shift[reorder_indices]
 
     def start_alignment_sequence(self):
-        options_sequence = self.sequencer.generate_options_sequence(
-            self.task.options.projection_matching
-        )
-        shift = None
-        suffix = self.task.options.projection_matching.save.suffix
-        for i, options in enumerate(options_sequence):
-            # update suffix
-            options.save.suffix = suffix + f"_{i}"
-            # Get initial shift based on combobox selection
-            selected_text = self.initial_shift_combobox.currentText()
-            if selected_text == "None":
-                initial_shift = None
-                initial_shift_source = "None"
-            elif selected_text == "Previous":
-                initial_shift = shift
-                initial_shift_source = "Previous"
-            else:
-                # Parse the index from the text (e.g., "Result 0" -> 0)
-                try:
-                    result_index = int(selected_text.split()[-1])
-                    if 0 <= result_index < len(self.alignment_results_list):
-                        selected_result = self.alignment_results_list[result_index]
-                        # Filter the shift to match current scan numbers
-                        initial_shift = self.filter_shift_by_scan_numbers(
-                            shift=selected_result.shift,
-                            source_scan_numbers=selected_result.scan_numbers,
-                            target_scan_numbers=self.task.phase_projections.scan_numbers,
-                        )
-                        initial_shift_source = selected_text
-                    else:
-                        initial_shift = None
-                        initial_shift_source = "None"
-                except (ValueError, IndexError):
+        # Disable configure tab widgets during execution
+        self.set_configure_tab_enabled(False)
+
+        try:
+            options_sequence = self.sequencer.generate_options_sequence(
+                self.task.options.projection_matching
+            )
+            shift = None
+            suffix = self.task.options.projection_matching.save.suffix
+            for i, options in enumerate(options_sequence):
+                # update suffix
+                options.save.suffix = suffix + f"_{i}"
+                # Get initial shift based on combobox selection
+                selected_text = self.initial_shift_combobox.currentText()
+                if selected_text == "None":
                     initial_shift = None
                     initial_shift_source = "None"
-            shift = self.task.get_projection_matching_shift(
-                initial_shift=initial_shift, options=options
-            )
-            self.alignment_results_list += [
-                AlignmentResults(
-                    shift,
-                    self.task.pma_object.initial_shift,
-                    self.task.pma_object.aligned_projections.angles,
-                    options=options,
-                    projection_options=self.task.phase_projections.options,
-                    scan_numbers=self.task.phase_projections.scan_numbers.copy(),
-                    initial_shift_source=initial_shift_source,
+                elif selected_text == "Previous":
+                    initial_shift = shift
+                    initial_shift_source = "Previous"
+                else:
+                    # Parse the index from the text (e.g., "Result 0" -> 0)
+                    try:
+                        result_index = int(selected_text.split()[-1])
+                        if 0 <= result_index < len(self.alignment_results_list):
+                            selected_result = self.alignment_results_list[result_index]
+                            # Filter the shift to match current scan numbers
+                            initial_shift = self.filter_shift_by_scan_numbers(
+                                shift=selected_result.shift,
+                                source_scan_numbers=selected_result.scan_numbers,
+                                target_scan_numbers=self.task.phase_projections.scan_numbers,
+                            )
+                            initial_shift_source = selected_text
+                        else:
+                            initial_shift = None
+                            initial_shift_source = "None"
+                    except (ValueError, IndexError):
+                        initial_shift = None
+                        initial_shift_source = "None"
+                shift = self.task.get_projection_matching_shift(
+                    initial_shift=initial_shift, options=options
                 )
-            ]
-            self.update_pma_viewer_tab()
-            self.update_results_collection_tab()
-            # Refresh the Applied Shifts tab in the projection viewer
-            if self.projection_viewer is not None:
-                self.projection_viewer.refresh_applied_shifts_tab()
-            if self.stop_alignment_sequence_flag:
-                break
-        # reset flags
-        self.stop_alignment_sequence_flag = False
+                self.alignment_results_list += [
+                    AlignmentResults(
+                        shift,
+                        self.task.pma_object.initial_shift,
+                        self.task.pma_object.aligned_projections.angles,
+                        options=options,
+                        projection_options=self.task.phase_projections.options,
+                        scan_numbers=self.task.phase_projections.scan_numbers.copy(),
+                        initial_shift_source=initial_shift_source,
+                    )
+                ]
+                self.update_pma_viewer_tab()
+                self.update_results_collection_tab()
+                # Refresh the Applied Shifts tab in the projection viewer
+                if self.projection_viewer is not None:
+                    self.projection_viewer.refresh_applied_shifts_tab()
+                if self.stop_alignment_sequence_flag:
+                    break
+        finally:
+            # Always re-enable configure tab widgets when done (even if error occurs)
+            self.set_configure_tab_enabled(True)
+            # reset flags
+            self.stop_alignment_sequence_flag = False
 
     def on_stop_sequence_button_pushed(self):
         self.stop_alignment_sequence_flag = True
@@ -556,10 +627,31 @@ class PMAMasterWidget(MultiThreadedWidget):
     def make_first_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
 
-        layout = QGridLayout()
-        layout.addWidget(self.options_editor, 0, 0)
-        layout.addWidget(self.sequencer, 0, 1)
-        layout.addWidget(self.button_widget, 1, 0, 1, 2)
+        # Create left side container
+        left_container = QWidget()
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(self.options_editor, stretch=1)  # Expand to fill vertical space
+        left_layout.addWidget(self.left_button_widget, stretch=0)  # Keep at minimum size
+        left_container.setLayout(left_layout)
+
+        # Create vertical separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.VLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setLineWidth(2)
+
+        # Create right side container
+        right_container = QWidget()
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(self.sequencer, stretch=1)  # Expand to fill vertical space
+        right_layout.addWidget(self.right_button_widget, stretch=0)  # Keep at minimum size
+        right_container.setLayout(right_layout)
+
+        # Main layout with both containers and separator
+        layout = QHBoxLayout()
+        layout.addWidget(left_container)
+        layout.addWidget(separator)
+        layout.addWidget(right_container)
 
         alignment_setup_widget.setLayout(layout)
         tabs.addTab(alignment_setup_widget, "Configure && Start")
