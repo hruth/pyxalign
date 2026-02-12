@@ -250,8 +250,10 @@ class ProjectionViewer(MultiThreadedWidget):
         # add tabs
         tabs.addTab(array_view_widget, "Array Viewer")
         # add tab showing past shifts
+        self.all_shifts_viewer = None
         if include_shifts:
-            tabs.addTab(AllShiftsViewer(projections), "Applied Shifts")
+            self.all_shifts_viewer = AllShiftsViewer(projections)
+            tabs.addTab(self.all_shifts_viewer, "Applied Shifts")
         if include_options:
             # create options viewer
             self.options_display = OptionsDisplayWidget(projections.options)
@@ -418,6 +420,11 @@ class ProjectionViewer(MultiThreadedWidget):
             )
         # update the viewer display
         self.array_viewer.refresh_frame()
+
+    def refresh_applied_shifts_tab(self):
+        """Refresh the Applied Shifts tab if it exists."""
+        if self.all_shifts_viewer is not None:
+            self.all_shifts_viewer.refresh_data()
 
     def start(self):
         self.show()
@@ -656,6 +663,7 @@ class AllShiftsViewer(MultiThreadedWidget):
             parent=parent,
         )
 
+        self.projections = projections
         self.shifts_list = projections.shift_manager.past_shifts
         self.staged_shift = projections.shift_manager.staged_shift
         self.sort_idx = np.argsort(projections.angles)
@@ -715,6 +723,31 @@ class AllShiftsViewer(MultiThreadedWidget):
 
         control_layout.addWidget(button_group_box)
 
+        # === Action buttons ===
+        action_buttons_layout = QVBoxLayout()
+
+        # Refresh button
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.clicked.connect(self.refresh_data)
+        action_buttons_layout.addWidget(self.refresh_button)
+
+        # Apply staged shift button
+        self.apply_staged_shift_button = QPushButton("Apply Staged Shift")
+        self.apply_staged_shift_button.clicked.connect(self.apply_staged_shift)
+        action_buttons_layout.addWidget(self.apply_staged_shift_button)
+
+        # Undo last shift button
+        self.undo_last_shift_button = QPushButton("Undo Last Shift")
+        self.undo_last_shift_button.clicked.connect(self.undo_last_shift)
+        action_buttons_layout.addWidget(self.undo_last_shift_button)
+
+        # wrap the action buttons in a QGroupBox
+        action_buttons_group_box = QGroupBox("Actions")
+        action_buttons_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
+        action_buttons_group_box.setLayout(action_buttons_layout)
+
+        control_layout.addWidget(action_buttons_group_box)
+
         # === Right panel: matplotlib plot ===
         self.figure = Figure(layout="compressed")
         self.canvas = FigureCanvas(self.figure)
@@ -750,6 +783,65 @@ class AllShiftsViewer(MultiThreadedWidget):
         self.ax[1].set_title("Vertical Shifts")
         self.ax[0].legend(bbox_to_anchor=(1.1, 1.05))
         self.canvas.draw()
+
+    def refresh_data(self):
+        """Refresh the shift data from the projections object and update the UI."""
+        # Get updated data from projections
+        self.shifts_list = self.projections.shift_manager.past_shifts
+        self.staged_shift = self.projections.shift_manager.staged_shift
+        self.angles = self.projections.angles
+        self.sort_idx = np.argsort(self.projections.angles)
+
+        # Clear existing checkboxes
+        for cb in self.checkboxes:
+            self.checkbox_layout.removeWidget(cb)
+            cb.deleteLater()
+        self.checkboxes.clear()
+
+        # Rebuild checkboxes with updated shift data
+        if len(self.shifts_list) > 0:
+            # Add checkbox for total shift
+            self.shifts_list = [np.sum(self.shifts_list, 0)] + self.shifts_list
+            cb = QCheckBox("Total of applied shifts")
+            cb.setChecked(True)
+            cb.stateChanged.connect(self.update_plot)
+            self.checkboxes.append(cb)
+            self.checkbox_layout.insertWidget(
+                self.checkbox_layout.count() - 1, cb
+            )  # Insert before spacer
+            # Add checkboxes for the rest of the shifts
+            for i in range(1, len(self.shifts_list)):
+                cb = QCheckBox(f"Applied shift {i}")
+                cb.setChecked(True)
+                cb.stateChanged.connect(self.update_plot)
+                self.checkboxes.append(cb)
+                self.checkbox_layout.insertWidget(self.checkbox_layout.count() - 1, cb)
+
+        if np.any(self.staged_shift != 0):
+            # Add checkbox for the staged shift
+            self.shifts_list = self.shifts_list + [self.staged_shift]
+            cb = QCheckBox("Staged shift")
+            cb.setChecked(True)
+            cb.stateChanged.connect(self.update_plot)
+            self.checkboxes.append(cb)
+            self.checkbox_layout.insertWidget(self.checkbox_layout.count() - 1, cb)
+
+        # Format checkboxes
+        for cb in self.checkboxes:
+            cb.setStyleSheet("font-size: 12pt;")
+
+        # Update the plot with new data
+        self.update_plot()
+
+    def apply_staged_shift(self):
+        """Apply the staged shift and refresh the display."""
+        self.projections.apply_staged_shift()
+        self.refresh_data()
+
+    def undo_last_shift(self):
+        """Undo the last applied shift and refresh the display."""
+        self.projections.undo_last_shift()
+        self.refresh_data()
 
     def start(self):
         self.show()

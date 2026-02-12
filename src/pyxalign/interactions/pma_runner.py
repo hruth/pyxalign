@@ -301,6 +301,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         list_of_updated_settings: Optional[list[dict]] = None,
         multi_thread_func: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
+        projection_viewer=None,
     ):
         super().__init__(
             multi_thread_func=multi_thread_func,
@@ -310,6 +311,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.pma_viewer = None
         self.results_collection_widget = None
         self.stop_alignment_sequence_flag = False
+        self.projection_viewer = projection_viewer
 
         if task is not None:
             self.initialize_page(task, list_of_updated_settings)
@@ -392,6 +394,9 @@ class PMAMasterWidget(MultiThreadedWidget):
             ]
             self.update_pma_viewer_tab()
             self.update_results_collection_tab()
+            # Refresh the Applied Shifts tab in the projection viewer
+            if self.projection_viewer is not None:
+                self.projection_viewer.refresh_applied_shifts_tab()
             if self.stop_alignment_sequence_flag:
                 break
         # reset flags
