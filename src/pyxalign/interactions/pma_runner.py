@@ -353,6 +353,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         left_button_layout = QHBoxLayout()
         self.left_button_widget.setLayout(left_button_layout)
 
+        self.start_alignment_defaults_button = QPushButton("Start Alignment (Defaults)")
         self.start_sequence_button = QPushButton("Start Alignment Sequence")
         self.stop_alignment_button = QPushButton("Stop Current Alignment")
 
@@ -361,7 +362,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.start_sequence_button.setFixedWidth(button_width)
         self.stop_alignment_button.setFixedWidth(button_width)
 
-        # Create dropdown for initial shift selection (on the left, aligned left)
+        # Create dropdown for initial shift selection for defaults (on the left, aligned left)
         initial_shift_widget = QWidget()
         initial_shift_layout = QVBoxLayout()
         initial_shift_layout.setContentsMargins(0, 0, 0, 0)
@@ -372,6 +373,22 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.initial_shift_combobox.setFixedWidth(button_width)
         initial_shift_layout.addWidget(self.initial_shift_combobox, alignment=Qt.AlignLeft)
 
+        # Create dropdown for initial shift selection for sequence (on the right)
+        sequence_initial_shift_widget = QWidget()
+        sequence_initial_shift_layout = QVBoxLayout()
+        sequence_initial_shift_layout.setContentsMargins(0, 0, 0, 0)
+        sequence_initial_shift_widget.setLayout(sequence_initial_shift_layout)
+        sequence_initial_shift_layout.addWidget(QLabel("Initial shift:"), alignment=Qt.AlignLeft)
+        self.sequence_initial_shift_combobox = QComboBox()
+        self.sequence_initial_shift_combobox.addItem("None")
+        self.sequence_initial_shift_combobox.addItem("Previous")
+        self.sequence_initial_shift_combobox.addItem("Default")
+        self.sequence_initial_shift_combobox.setFixedWidth(button_width)
+        sequence_initial_shift_layout.addWidget(
+            self.sequence_initial_shift_combobox, alignment=Qt.AlignLeft
+        )
+
+
         # Create vertical layout for stop button (on the right, aligned right)
         buttons_container = QWidget()
         buttons_layout = QVBoxLayout()
@@ -380,10 +397,15 @@ class PMAMasterWidget(MultiThreadedWidget):
 
         self.start_sequence_button.pressed.connect(self.start_alignment_sequence)
         self.stop_alignment_button.pressed.connect(self.on_stop_alignment_button_pushed)
+        self.start_alignment_defaults_button.pressed.connect(
+            self.on_start_alignment_with_defaults_pushed
+        )
 
         self.start_sequence_button.setStyleSheet("QPushButton { background-color: green;}")
+        self.start_alignment_defaults_button.setStyleSheet("QPushButton { background-color: green;}")
         self.stop_alignment_button.setStyleSheet("QPushButton { background-color: red;}")
 
+        buttons_layout.addWidget(self.start_alignment_defaults_button, alignment=Qt.AlignRight)
         buttons_layout.addWidget(self.stop_alignment_button, alignment=Qt.AlignRight)
 
         # Add dropdown on the left, spacer in middle, stop button on the right
@@ -403,6 +425,7 @@ class PMAMasterWidget(MultiThreadedWidget):
 
         right_button_layout.addWidget(self.start_sequence_button)
         right_button_layout.addWidget(self.stop_sequence_button)
+        right_button_layout.addWidget(sequence_initial_shift_widget)
         right_button_layout.addStretch()
 
         # Apply button style sheet
@@ -512,51 +535,17 @@ class PMAMasterWidget(MultiThreadedWidget):
                 # update suffix
                 options.save.suffix = suffix + f"_{i}"
                 # Get initial shift based on combobox selection
-                selected_text = self.initial_shift_combobox.currentText()
-                if selected_text == "None":
-                    initial_shift = None
-                    initial_shift_source = "None"
-                elif selected_text == "Previous":
-                    initial_shift = shift
-                    initial_shift_source = "Previous"
+                if i == 0:
+                    # defaults button determines shift on first iteration
+                    initial_shift_source = self.initial_shift_combobox.currentText()
                 else:
-                    # Parse the index from the text (e.g., "Result 0" -> 0)
-                    try:
-                        result_index = int(selected_text.split()[-1])
-                        if 0 <= result_index < len(self.alignment_results_list):
-                            selected_result = self.alignment_results_list[result_index]
-                            # Filter the shift to match current scan numbers
-                            initial_shift = self.filter_shift_by_scan_numbers(
-                                shift=selected_result.shift,
-                                source_scan_numbers=selected_result.scan_numbers,
-                                target_scan_numbers=self.task.phase_projections.scan_numbers,
-                            )
-                            initial_shift_source = selected_text
-                        else:
-                            initial_shift = None
-                            initial_shift_source = "None"
-                    except (ValueError, IndexError):
-                        initial_shift = None
-                        initial_shift_source = "None"
-                shift = self.task.get_projection_matching_shift(
-                    initial_shift=initial_shift, options=options
+                    # sequence button determines initial shift on following runs
+                    initial_shift_source = self.sequence_initial_shift_combobox.currentText()
+                    if initial_shift_source == "Default":
+                        initial_shift_source = self.initial_shift_combobox.currentText()
+                self.run_projection_matching_instance(
+                    options, initial_shift_source, run_type="sequence"
                 )
-                self.alignment_results_list += [
-                    AlignmentResults(
-                        shift,
-                        self.task.pma_object.initial_shift,
-                        self.task.pma_object.aligned_projections.angles,
-                        options=options,
-                        projection_options=self.task.phase_projections.options,
-                        scan_numbers=self.task.phase_projections.scan_numbers.copy(),
-                        initial_shift_source=initial_shift_source,
-                    )
-                ]
-                self.update_pma_viewer_tab()
-                self.update_results_collection_tab()
-                # Refresh the Applied Shifts tab in the projection viewer
-                if self.projection_viewer is not None:
-                    self.projection_viewer.refresh_applied_shifts_tab()
                 if self.stop_alignment_sequence_flag:
                     break
         finally:
@@ -564,6 +553,59 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.set_configure_tab_enabled(True)
             # reset flags
             self.stop_alignment_sequence_flag = False
+
+    def run_projection_matching_instance(
+        self,
+        # initial_shift: np.ndarray,
+        options: ProjectionMatchingOptions,
+        initial_shift_source: str,
+        run_type: Optional[str] = None,
+    ):
+        initial_shift, initial_shift_source = self.get_initial_shift(shift_text=initial_shift_source)
+        shift = self.task.get_projection_matching_shift(
+            initial_shift=initial_shift, options=options
+        )
+        self.alignment_results_list += [
+            AlignmentResults(
+                shift,
+                self.task.pma_object.initial_shift,
+                self.task.pma_object.aligned_projections.angles,
+                options=options,
+                projection_options=self.task.phase_projections.options,
+                scan_numbers=self.task.phase_projections.scan_numbers.copy(),
+                initial_shift_source=initial_shift_source,
+            )
+        ]
+        self.update_pma_viewer_tab()
+        self.update_results_collection_tab()
+        # Refresh the Applied Shifts tab in the projection viewer
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
+
+    def get_initial_shift(self, shift_text: str) -> tuple[np.ndarray, str]:
+        if shift_text == "None":
+            return None, shift_text
+        elif shift_text == "Previous":
+            # result_index = -1
+            result_index = len(self.alignment_results_list) - 1
+        else:
+            result_index = int(shift_text.split()[-1])
+            # if 0 <= result_index < len(self.alignment_results_list):
+        selected_result = self.alignment_results_list[result_index]
+        # Filter the shift to match current scan numbers
+        initial_shift = self.filter_shift_by_scan_numbers(
+            shift=selected_result.shift,
+            source_scan_numbers=selected_result.scan_numbers,
+            target_scan_numbers=self.task.phase_projections.scan_numbers,
+        )
+        shift_text = f"Result {result_index}"
+        return initial_shift, shift_text
+
+    def on_start_alignment_with_defaults_pushed(self):
+        initial_shift_source = self.initial_shift_combobox.currentText()
+        self.run_projection_matching_instance(
+            self.task.options.projection_matching, initial_shift_source, run_type="defaults"
+        )
 
     def on_stop_sequence_button_pushed(self):
         self.stop_alignment_sequence_flag = True
