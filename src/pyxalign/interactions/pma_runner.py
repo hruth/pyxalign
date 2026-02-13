@@ -383,6 +383,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.sequence_initial_shift_combobox.addItem("None")
         self.sequence_initial_shift_combobox.addItem("Previous")
         self.sequence_initial_shift_combobox.addItem("Default")
+        self.sequence_initial_shift_combobox.setCurrentText("Previous")
         self.sequence_initial_shift_combobox.setFixedWidth(button_width)
         sequence_initial_shift_layout.addWidget(
             self.sequence_initial_shift_combobox, alignment=Qt.AlignLeft
@@ -423,26 +424,38 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.stop_sequence_button.pressed.connect(self.on_stop_sequence_button_pushed)
         self.stop_sequence_button.setStyleSheet("QPushButton { background-color: red;}")
 
-        right_button_layout.addWidget(self.start_sequence_button)
-        right_button_layout.addWidget(self.stop_sequence_button)
-        right_button_layout.addWidget(sequence_initial_shift_widget)
+        # Create vertical layout for sequence buttons (on the right, aligned right)
+        sequence_buttons_container = QWidget()
+        sequence_buttons_layout = QVBoxLayout()
+        sequence_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        sequence_buttons_container.setLayout(sequence_buttons_layout)
+
+        sequence_buttons_layout.addWidget(self.start_sequence_button, alignment=Qt.AlignRight)
+        sequence_buttons_layout.addWidget(self.stop_sequence_button, alignment=Qt.AlignRight)
+
+        # Add initial shift dropdown on the left, spacer in middle, sequence buttons on the right
+        right_button_layout.addWidget(sequence_initial_shift_widget, alignment=Qt.AlignLeft)
         right_button_layout.addStretch()
+        right_button_layout.addWidget(sequence_buttons_container, alignment=Qt.AlignRight)
 
         # Apply button style sheet
         self.left_button_widget.setStyleSheet(action_button_style_sheet)
         self.right_button_widget.setStyleSheet(action_button_style_sheet)
 
-    def set_configure_tab_enabled(self, enabled: bool):
+    def set_configure_tab_enabled(self, enabled: bool, run_mode: Optional[str] = None):
         """
         Enable or disable widgets on the Configure & Start tab.
 
-        When disabled, only the stop buttons remain enabled to allow
+        When disabled, only the appropriate stop button remains enabled to allow
         cancellation of running alignments.
 
         Parameters
         ----------
         enabled : bool
-            If True, enable all widgets. If False, disable all except stop buttons.
+            If True, enable all widgets. If False, disable all except appropriate stop button.
+        run_mode : str, optional
+            Type of alignment run: 'defaults' or 'sequence'. Determines which stop button
+            remains enabled when disabled. If None, both stop buttons are controlled together.
         """
         # Disable/enable the options editor
         self.options_editor.setEnabled(enabled)
@@ -450,23 +463,47 @@ class PMAMasterWidget(MultiThreadedWidget):
         # Disable/enable the sequencer
         self.sequencer.setEnabled(enabled)
 
-        # Disable/enable the start button and initial shift selector
+        # Disable/enable the start buttons and initial shift selectors
+        self.start_alignment_defaults_button.setEnabled(enabled)
         self.start_sequence_button.setEnabled(enabled)
         self.initial_shift_combobox.setEnabled(enabled)
+        self.sequence_initial_shift_combobox.setEnabled(enabled)
 
-        # Update start button appearance based on enabled state
+        # Update start button appearances based on enabled state
         if enabled:
             # Re-enable with green background
+            self.start_alignment_defaults_button.setStyleSheet("QPushButton { background-color: green;}")
             self.start_sequence_button.setStyleSheet("QPushButton { background-color: green;}")
         else:
             # Disabled appearance - gray background
+            self.start_alignment_defaults_button.setStyleSheet("QPushButton { background-color: gray; color: darkgray;}")
             self.start_sequence_button.setStyleSheet("QPushButton { background-color: gray; color: darkgray;}")
 
-        # Stop buttons should always be enabled (opposite of the enabled state)
-        # When alignment is running (enabled=False), stop buttons should be enabled (True)
-        # When alignment is not running (enabled=True), stop buttons should be disabled (False)
-        self.stop_alignment_button.setEnabled(not enabled)
-        self.stop_sequence_button.setEnabled(not enabled)
+        # Handle stop buttons based on mode
+        if enabled:
+            # When re-enabling everything, disable both stop buttons
+            self.stop_alignment_button.setEnabled(False)
+            self.stop_sequence_button.setEnabled(False)
+        else:
+            # When disabling, only enable the appropriate stop button based on run mode
+            if run_mode == 'defaults':
+                # Only enable the single alignment stop button, disable sequence stop button
+                self.stop_alignment_button.setEnabled(True)
+                self.stop_sequence_button.setEnabled(False)
+                self.stop_sequence_button.setStyleSheet("QPushButton { background-color: gray; color: darkgray;}")
+            elif run_mode == 'sequence':
+                # Enable both stop buttons for sequence mode
+                self.stop_alignment_button.setEnabled(True)
+                self.stop_sequence_button.setEnabled(True)
+            else:
+                # Default behavior: enable both stop buttons
+                self.stop_alignment_button.setEnabled(True)
+                self.stop_sequence_button.setEnabled(True)
+
+        # Reset stop button styles when re-enabling
+        if enabled:
+            self.stop_alignment_button.setStyleSheet("QPushButton { background-color: red;}")
+            self.stop_sequence_button.setStyleSheet("QPushButton { background-color: red;}")
 
     def filter_shift_by_scan_numbers(
         self, shift: np.ndarray, source_scan_numbers: np.ndarray, target_scan_numbers: np.ndarray
@@ -522,8 +559,8 @@ class PMAMasterWidget(MultiThreadedWidget):
             return filtered_shift[reorder_indices]
 
     def start_alignment_sequence(self):
-        # Disable configure tab widgets during execution
-        self.set_configure_tab_enabled(False)
+        # Disable configure tab widgets during execution, enable only sequence stop button
+        self.set_configure_tab_enabled(False, run_mode='sequence')
 
         try:
             options_sequence = self.sequencer.generate_options_sequence(
@@ -586,11 +623,9 @@ class PMAMasterWidget(MultiThreadedWidget):
         if shift_text == "None":
             return None, shift_text
         elif shift_text == "Previous":
-            # result_index = -1
             result_index = len(self.alignment_results_list) - 1
         else:
             result_index = int(shift_text.split()[-1])
-            # if 0 <= result_index < len(self.alignment_results_list):
         selected_result = self.alignment_results_list[result_index]
         # Filter the shift to match current scan numbers
         initial_shift = self.filter_shift_by_scan_numbers(
@@ -602,10 +637,17 @@ class PMAMasterWidget(MultiThreadedWidget):
         return initial_shift, shift_text
 
     def on_start_alignment_with_defaults_pushed(self):
-        initial_shift_source = self.initial_shift_combobox.currentText()
-        self.run_projection_matching_instance(
-            self.task.options.projection_matching, initial_shift_source, run_type="defaults"
-        )
+        # Disable configure tab widgets during execution, enable only defaults stop button
+        self.set_configure_tab_enabled(False, run_mode='defaults')
+
+        try:
+            initial_shift_source = self.initial_shift_combobox.currentText()
+            self.run_projection_matching_instance(
+                self.task.options.projection_matching, initial_shift_source, run_type="defaults"
+            )
+        finally:
+            # Always re-enable configure tab widgets when done (even if error occurs)
+            self.set_configure_tab_enabled(True)
 
     def on_stop_sequence_button_pushed(self):
         self.stop_alignment_sequence_flag = True
