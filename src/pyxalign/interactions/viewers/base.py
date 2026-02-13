@@ -213,20 +213,20 @@ class ArrayViewer(MultiThreadedWidget):
             self.axis_label.hide()
 
         # Create a container for indexing and axis controls to keep them together
-        controls_container = QWidget()
+        self.controls_container = QWidget()
         controls_container_layout = QVBoxLayout()
         controls_container_layout.setContentsMargins(0, 0, 0, 0)
         controls_container_layout.addWidget(self.indexing_widget)
         controls_container_layout.addWidget(axis_controls_widget)
-        controls_container.setLayout(controls_container_layout)
-        controls_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.controls_container.setLayout(controls_container_layout)
+        self.controls_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         # Main layout
         layout = QVBoxLayout()
         layout.addWidget(clim_controls_widget)
         layout.addWidget(self.graphics_layout)
         if not return_index_selector_seperately:
-            layout.addWidget(controls_container)
+            layout.addWidget(self.controls_container)
         self.setLayout(layout)
 
         # Font and style adjustments
