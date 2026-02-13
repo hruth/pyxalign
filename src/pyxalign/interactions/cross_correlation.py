@@ -25,7 +25,7 @@ from pyxalign.api.types import r_type
 import pyxalign.data_structures.task as t
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import create_empty_pinned_array_like
-from pyxalign.interactions.pma_runner import AlignmentResults, AlignmentResultsCollection
+from pyxalign.interactions.alignment_results import AlignmentResults, AlignmentResultsCollection
 from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.transform import CropOptions, ShiftOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
