@@ -126,6 +126,7 @@ class AlignmentResults:
         projection_options: ProjectionOptions,
         scan_numbers: Optional[np.ndarray] = None,
         initial_shift_source: str = "None",
+        run_type: Optional[str] = None,
     ):
         self.shift = shift
         self.initial_shift = initial_shift
@@ -134,6 +135,7 @@ class AlignmentResults:
         self.initial_shift_source = initial_shift_source
         self.pma_options = options
         self.projection_options = projection_options
+        self.run_type = run_type if run_type is not None else "unknown"
 
 
 class AlignmentResultsCollection(QWidget):
@@ -201,8 +203,8 @@ class AlignmentResultsCollection(QWidget):
             QWidget: A QWidget containing the described UI components.
         """
         # Create the table
-        self.results_table = QTableWidget(0, 2)
-        self.results_table.setHorizontalHeaderLabels(["Index", "Initial Shift"])
+        self.results_table = QTableWidget(0, 3)
+        self.results_table.setHorizontalHeaderLabels(["Index", "Initial Shift", "Run Type"])
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.results_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.results_table.verticalHeader().setVisible(False)
@@ -233,7 +235,7 @@ class AlignmentResultsCollection(QWidget):
         num_results = len(self.alignment_results_list)
         table_length = self.results_table.rowCount()
 
-        # Fill the table with row indices and initial shift sources
+        # Fill the table with row indices, initial shift sources, and run types
         for i in range(num_results):
             if i >= table_length:
                 self.results_table.insertRow(i)
@@ -243,6 +245,9 @@ class AlignmentResultsCollection(QWidget):
                 # Column 1: Initial Shift Source
                 shift_source_item = QTableWidgetItem(self.alignment_results_list[i].initial_shift_source)
                 self.results_table.setItem(i, 1, shift_source_item)
+                # Column 2: Run Type
+                run_type_item = QTableWidgetItem(self.alignment_results_list[i].run_type)
+                self.results_table.setItem(i, 2, run_type_item)
 
     def on_table_cell_changed(self, row: int, column: int):
         self.change_shift_plot_index(row)
@@ -388,7 +393,6 @@ class PMAMasterWidget(MultiThreadedWidget):
         sequence_initial_shift_layout.addWidget(
             self.sequence_initial_shift_combobox, alignment=Qt.AlignLeft
         )
-
 
         # Create vertical layout for stop button (on the right, aligned right)
         buttons_container = QWidget()
@@ -611,6 +615,7 @@ class PMAMasterWidget(MultiThreadedWidget):
                 projection_options=self.task.phase_projections.options,
                 scan_numbers=self.task.phase_projections.scan_numbers.copy(),
                 initial_shift_source=initial_shift_source,
+                run_type=run_type,
             )
         ]
         self.update_pma_viewer_tab()
