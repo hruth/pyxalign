@@ -95,6 +95,7 @@ class ArrayViewer(MultiThreadedWidget):
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
         process_func: Optional[Callable] = None,
+        include_array_saving_widget: bool = False,
         parent=None,
     ):
         super().__init__(
@@ -134,6 +135,8 @@ class ArrayViewer(MultiThreadedWidget):
 
         self.playing = False
         self.climit_window = None
+        self.include_array_saving_widget = include_array_saving_widget
+        self.save_array_window = None
 
         # Create a pyqtgraph GraphicsLayoutWidget to hold the image
         self.graphics_layout = pg.GraphicsLayoutWidget()
@@ -154,10 +157,23 @@ class ArrayViewer(MultiThreadedWidget):
         if hide_climit_controls:
             self.adjust_climit_button.hide()
 
-        # Create horizontal layout for checkbox and button
-        clim_controls_layout = QHBoxLayout()
-        clim_controls_layout.addWidget(self.auto_clim_check_box)
-        clim_controls_layout.addWidget(self.adjust_climit_button)
+        # Create Save Array button if enabled
+        if include_array_saving_widget:
+            self.save_array_button = QPushButton("Save Array")
+            self.save_array_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            self.save_array_button.clicked.connect(self.open_save_array_window)
+
+        # Create grid layout for checkbox and buttons
+        clim_controls_layout = QGridLayout()
+        clim_controls_layout.addWidget(self.auto_clim_check_box, 0, 0, alignment=Qt.AlignLeft)
+
+        if include_array_saving_widget:
+            # Add spacer to push Save Array button to the right
+            spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+            clim_controls_layout.addItem(spacer, 0, 1)
+            clim_controls_layout.addWidget(self.save_array_button, 0, 2, alignment=Qt.AlignRight)
+
+        clim_controls_layout.addWidget(self.adjust_climit_button, 1, 0, 1, 3)
         clim_controls_widget = QWidget()
         clim_controls_widget.setLayout(clim_controls_layout)
 
@@ -281,6 +297,41 @@ class ArrayViewer(MultiThreadedWidget):
         title = "<b>" + title + "</b>"
         self.plot_item.setTitle(title)
 
+    def get_current_frame_data(self) -> np.ndarray:
+        """
+        Extract the currently displayed frame as a 2D numpy array.
+
+        Returns:
+            2D numpy array with processing function and transpose applied
+            (matches what is displayed on screen)
+
+        Raises:
+            ValueError: If no array data is loaded
+        """
+        if self.array3d is None:
+            raise ValueError("No array data loaded")
+
+        index = self.slider.value()
+        if self.sort_idx is not None:
+            plot_index = self.sort_idx[index]
+        else:
+            plot_index = index
+
+        # Extract frame along current axis
+        image = self.array3d.take(indices=plot_index, axis=self.options.slider_axis)
+
+        # Convert from GPU if needed
+        if cp.get_array_module(image) == cp:
+            image = image.get()
+
+        # Apply processing function (e.g., np.angle for complex arrays)
+        image = self.process_func(image)
+
+        # Apply transpose to match displayed image
+        image = np.transpose(image)
+
+        return image
+
     def update_frame(self, value, force_autolim: bool = False):
         self.display_frame(index=value, force_autolim=force_autolim)
 
@@ -351,6 +402,14 @@ class ArrayViewer(MultiThreadedWidget):
     def open_climit_window(self):
         self.climit_window.load_current_levels()
         self.climit_window.show()
+
+    def open_save_array_window(self):
+        """Open the array save dialog window."""
+        if self.save_array_window is None:
+            from pyxalign.interactions.viewers.array_save_window import ArraySaveWindow
+
+            self.save_array_window = ArraySaveWindow(self, parent=self)
+        self.save_array_window.show()
 
     def initialize_climit_window(self):
         if self.array3d is not None:
@@ -811,6 +870,8 @@ def launch_array_viewer(
     options: Optional[ArrayViewerOptions] = None,
     sort_idx: Optional[Sequence] = None,
     extra_title_strings_list: Optional[list[str]] = None,
+    include_array_saving_widget: bool = False,
+    hide_axis_controls: bool = True,
     process_func: Optional[Callable] = None,
     wait_until_closed: bool = False,
 ) -> ArrayViewer:
@@ -839,6 +900,8 @@ def launch_array_viewer(
         options,
         sort_idx,
         extra_title_strings_list=extra_title_strings_list,
+        include_array_saving_widget=include_array_saving_widget,
+        hide_axis_controls=hide_axis_controls,
         process_func=process_func,
     )
     gui.setAttribute(Qt.WA_DeleteOnClose)
