@@ -94,8 +94,8 @@ class ArrayViewer(MultiThreadedWidget):
         hide_axis_controls: bool = True,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
-        process_func: Optional[Callable] = None,
         include_array_saving_widget: bool = False,
+        process_func: Optional[Callable] = None,
         parent=None,
     ):
         super().__init__(
