@@ -2,7 +2,7 @@ from functools import wraps
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from typing import Optional, Union, get_origin, get_args, Any
+from typing import Optional, Union, get_origin, get_args, Any, TypeVar
 import cupy as cp
 import pyxalign.api.options as opts
 
@@ -29,15 +29,18 @@ from PyQt5.QtWidgets import (
     QTabWidget,
 )
 from PyQt5.QtCore import Qt, QTimer
+from pyxalign.api.options.base import BaseOptions
 from pyxalign.interactions.custom import NoScrollSpinBox, CustomDoubleSpinBox
 
 from pyxalign.api.options_utils import get_all_attribute_names
-from pyxalign.api.types import OptionsClass
+# from pyxalign.api.types import T
 from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
+
+T = TypeVar("T", bound=BaseOptions)
 
 
 class IntTupleInputWidget(QWidget):
-    def __init__(self, field_value, field_name: str, data_obj: OptionsClass):
+    def __init__(self, field_value, field_name: str, data_obj: T):
         super().__init__()
 
         checkbox_layout = QHBoxLayout()
@@ -581,7 +584,7 @@ class BasicOptionsEditor(QWidget):
 
     def __init__(
         self,
-        data: OptionsClass,
+        data: BaseOptions,
         skip_fields: list[str] = [],
         file_dialog_fields: list[str] = [],
         folder_dialog_fields: list[str] = [],
@@ -791,7 +794,7 @@ class BasicOptionsEditor(QWidget):
 
     def _add_dataclass_fields(
         self,
-        data_obj: OptionsClass,
+        data_obj: T,
         form_layout: QFormLayout,
         parent_name: str = "",
         file_dialog_fields: Optional[list[str]] = None,
@@ -917,7 +920,7 @@ class BasicOptionsEditor(QWidget):
         self.options_display.show()
 
 
-def return_parent_option(options: OptionsClass, field_path: str) -> OptionsClass:
+def return_parent_option(options: T, field_path: str) -> T:
     field_names = field_path.split(".")
     current_item = options
     for i, name in enumerate(field_names):
@@ -926,15 +929,15 @@ def return_parent_option(options: OptionsClass, field_path: str) -> OptionsClass
         current_item = getattr(current_item, name)
 
 
-def get_option_from_field_path(options: OptionsClass, field_path: str) -> Any:
+def get_option_from_field_path(options: T, field_path: str) -> Any:
     parent_options = return_parent_option(options, field_path)
     field_name = field_path.split(".")[-1]
     return getattr(parent_options, field_name)
 
 
 def set_option_from_field_path(
-    options: OptionsClass, field_path: str, value: Any
-) -> OptionsClass:
+    options: T, field_path: str, value: Any
+) -> T:
     parent_options = return_parent_option(options, field_path)
     field_name = field_path.split(".")[-1]
     setattr(parent_options, field_name, value)
