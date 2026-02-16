@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QWidget,
+    QCheckBox,
 )
 from PyQt5.QtCore import Qt
 import numpy as np
@@ -59,6 +60,16 @@ class ArraySaveWindow(QDialog):
         mode_group.setLayout(mode_layout)
         main_layout.addWidget(mode_group)
 
+        # Section 1.5: Sort order selection (only shown if sort_idx is present)
+        self.sort_checkbox = QCheckBox("Save sorted array")
+        self.sort_checkbox.setChecked(True)  # Default to sorted
+
+        # Only show if array_viewer has a sort_idx
+        if self.array_viewer.sort_idx is not None:
+            main_layout.addWidget(self.sort_checkbox)
+        else:
+            self.sort_checkbox.hide()
+
         # Section 2: Format selection (for single frame)
         format_layout = QHBoxLayout()
         format_layout.addWidget(QLabel("Format:"))
@@ -93,11 +104,18 @@ class ArraySaveWindow(QDialog):
         main_layout.addLayout(button_layout)
 
     def on_save_mode_changed(self):
-        """Show/hide format dropdown based on selected mode."""
+        """Show/hide format dropdown and sort checkbox based on selected mode."""
         if self.radio_current_frame.isChecked():
             self.format_widget.show()
+            # Hide sort checkbox for single frame saves
+            self.sort_checkbox.hide()
         else:
             self.format_widget.hide()
+            # Show sort checkbox only if sort_idx exists
+            if self.array_viewer.sort_idx is not None:
+                self.sort_checkbox.show()
+            else:
+                self.sort_checkbox.hide()
 
     def browse_file_path(self):
         """Open file dialog to select save path."""
@@ -155,14 +173,26 @@ class ArraySaveWindow(QDialog):
                 if slider_axis != 0:
                     array = np.moveaxis(array, slider_axis, 0)
 
+                # Apply sorting if checkbox is checked and sort_idx exists
+                if self.sort_checkbox.isChecked() and self.array_viewer.sort_idx is not None:
+                    # Reorder the array using sort_idx along axis 0 (after moveaxis)
+                    array = array[self.array_viewer.sort_idx]
+
                 # Transpose each 2D slice to match displayed orientation
                 # This transposes the last two axes (height, width) for all slices
                 array = np.transpose(array, (0, 2, 1))
+
+                # Rotate 90 degrees counterclockwise
+                array = np.rot90(array, k=1, axes=(1, 2))
 
                 save_array_as_tiff(array, file_path)
             else:
                 # Save current frame
                 current_frame = self.array_viewer.get_current_frame_data()
+
+                # Rotate 90 degrees counterclockwise
+                current_frame = np.rot90(current_frame, k=1)
+
                 format_type = self.format_combo.currentText()
 
                 if format_type == "PNG":

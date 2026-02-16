@@ -239,6 +239,8 @@ class ArrayViewer(MultiThreadedWidget):
 
         # Main layout
         layout = QVBoxLayout()
+        layout.setSpacing(2)  # Reduce spacing between widgets
+        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
         layout.addWidget(clim_controls_widget)
         layout.addWidget(self.graphics_layout)
         if not return_index_selector_seperately:

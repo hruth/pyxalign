@@ -150,6 +150,7 @@ class ProjectionViewer(MultiThreadedWidget):
         multi_thread_func: Optional[Callable] = None,
         include_options: bool = True,
         include_shifts: bool = True,
+        include_array_saving_widget: bool = False,
         display_only: bool = True,
         parent=None,
     ):
@@ -188,6 +189,7 @@ class ProjectionViewer(MultiThreadedWidget):
                 additional_spinbox_titles=["scan number"],
             ),
             hide_axis_controls=True,
+            include_array_saving_widget=include_array_saving_widget,
         )
 
         # build the array selection widget
@@ -875,6 +877,7 @@ def get_projection_title_strings(
 def launch_projection_viewer(
     projections: "p.Projections",
     display_only: bool = False,
+    include_array_saving_widget: bool = True,
     wait_until_closed: bool = False,
 ) -> ProjectionViewer:
     """Launch a GUI for interactively viewing and updating a `Projections`
@@ -894,7 +897,11 @@ def launch_projection_viewer(
             gui = pyxalign.gui.launch_projection_viewer(task.complex_projections)
     """
     app = QApplication.instance() or QApplication([])
-    gui = ProjectionViewer(projections, display_only=display_only)
+    gui = ProjectionViewer(
+        projections,
+        display_only=display_only,
+        include_array_saving_widget=include_array_saving_widget,
+    )
     gui.show()
     if wait_until_closed:
         app.exec_()
