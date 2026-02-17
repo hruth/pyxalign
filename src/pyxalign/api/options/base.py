@@ -63,6 +63,7 @@ class BaseOptions:
                 and isinstance(v, str)
             ):
                 self.__setattr__(k, field_type(v))
+                # self.__setattr__(k, field_type[v.upper()])
             else:
                 self.__setattr__(k, v)
         return self
@@ -77,6 +78,12 @@ class BaseOptions:
     def save_to_dict(self, path: str):
         with open(path, "w") as f:
             yaml.safe_dump(self.get_dict(), f, default_flow_style=False, sort_keys=False)
+
+    def load_from_path(self, path:str)-> "BaseOptions":
+        with open(path, "r") as f:
+            d = yaml.safe_load(f)
+        return self.load_from_dict(d)
+
 
 
 def jsonize(val):

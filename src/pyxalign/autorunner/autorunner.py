@@ -1,3 +1,4 @@
+from ast import Interactive
 import copy
 import os
 from abc import ABC, abstractmethod
@@ -6,8 +7,10 @@ import multiprocessing as mp
 import numpy as np
 
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
+from pyxalign.api.options.base import BaseOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.transform import RotationOptions, ShearOptions
+from pyxalign.autorunner.config import AutorunnerConfig
 from pyxalign.autorunner.enums import Checkpoints, get_checkpoint_order_value
 from pyxalign.autorunner.io import (
     get_projection_matching_sequence_options,
@@ -26,6 +29,8 @@ from pyxalign.interactions.pma_runner import launch_pma_runner
 from pyxalign.interactions.point_selector import launch_point_selector
 from pyxalign.interactions.reconstruction_parameter_tuner import launch_reconstruction_parameter_tuner
 from pyxalign.io.loaders.base import StandardData
+from pyxalign.io.loaders.enums import ExperimentType
+from pyxalign.io.loaders.maps import get_loader_options_by_enum
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 # from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
@@ -36,21 +41,21 @@ class Autorunner(ABC):
     def __init__(self, file_path: str):
         with open(file_path, "r") as f:
             self._options_dict = yaml.safe_load(f)
-        self._setup_results_folders()
+        # self._setup_results_folders()
 
         self._standardized_data: StandardData
 
-    @abstractmethod
-    def run(self):
-        pass
+    # @abstractmethod
+    # def run(self):
+    #     pass
 
-    @abstractmethod
-    def _get_load_options(self):
-        pass
+    # @abstractmethod
+    # def _get_load_options(self):
+    #     pass
 
-    @abstractmethod
-    def _load_data(self):
-        pass
+    # @abstractmethod
+    # def _load_data(self):
+    #     pass
 
     def _setup_results_folders(self):
         self.results_folders = {}
@@ -65,6 +70,44 @@ class Autorunner(ABC):
         for folder in self.results_folders.values():
             if not os.path.exists(folder):
                 os.mkdir(folder)
+
+class AutorunnerPtychoV2(Autorunner):
+    def __init__(self, file_path: str, use_state_file: bool):
+        self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
+        self._use_state_file = use_state_file
+        self._standardized_data: StandardData
+
+    def run(self):
+        self._create_state_file()
+        self._get_loading_options()
+        self._load_data()
+
+    def _create_state_file(self):
+        self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
+        if not os.path.exists(self._state_file_path):
+            self.config.save_to_dict(self._state_file_path)
+        if self.config.use_state_file:
+            # use settings saved to the state file instead
+            self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
+
+    def _get_loading_options(self):
+        path = self.config.loading.initial_options_path
+        options_type = self.config.loading.experiment_type
+        self.loading_options: BaseOptions = get_loader_options_by_enum(options_type)
+        if path is not None:
+            self.loading_options.load_from_path(path)
+
+    def _load_data(self):
+        if self.config.loading.interactive or self.loading_options is None:
+            self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
+
+        if self.config.update_state_file:
+            # save options
+            initial_options_path = os.path.join(self.config.state_folder, "loading_options.yaml")
+            self.loading_options.save_to_dict(initial_options_path)
+            # update autorunner config
+            self.config.loading.initial_options_path = initial_options_path
+            self.config.save_to_dict(self._state_file_path)
 
 
 class AutorunnerPtycho(Autorunner):
