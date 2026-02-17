@@ -2,6 +2,8 @@ from enum import StrEnum, auto
 import dataclasses
 from dataclasses import field
 from typing import Optional
+from pyxalign.alignment import cross_correlation
+from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.base import BaseOptions
 from pyxalign.interactions import initialize_projections
 from pyxalign.io.loaders.enums import ExperimentType
@@ -41,6 +43,14 @@ class AutorunnerConfig(BaseOptions):
 
     update_state_file: bool = True
 
+    interactive_initialization: bool = True
+
+    interactive_cross_correlation: bool = True
+
+    cross_correlation_enabled: bool = True
+
     loading: LoadingConfig = field(default_factory=LoadingConfig)
 
     initialize: InitializationConfig = field(default_factory=InitializationConfig)
+
+    cross_correlation: CrossCorrelationOptions = field(default_factory=CrossCorrelationOptions)

@@ -88,6 +88,8 @@ class AutorunnerPtychoV2(Autorunner):
         self._get_loading_options()
         self._load_data()
         self._get_initialization_options()
+        self._create_projections_object()
+        self._get_cross_correlation_alignment()
 
     def _create_state_file(self):
         self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
@@ -117,9 +119,10 @@ class AutorunnerPtychoV2(Autorunner):
             self.config.save_to_dict(self._state_file_path)
 
     def _get_initialization_options(self):
-        self.config.initialize = launch_initialization_config_widget(
-            self._standardized_data, self.config.initialize
-        )
+        if self.config.interactive_initialization:
+            self.config.initialize = launch_initialization_config_widget(
+                self._standardized_data, self.config.initialize
+            )
 
         if self.config.update_state_file:
             # update state file with initialization options
@@ -162,9 +165,28 @@ class AutorunnerPtychoV2(Autorunner):
         )
         self.task = LaminographyAlignmentTask(complex_projections=complex_projections)
         if self.config.initialize.remove_scan_numbers is not None:
-            self.task.complex_projections.drop_projections(self.config.initialize.remove_scan_numbers)
+            self.task.complex_projections.drop_projections(
+                self.config.initialize.remove_scan_numbers
+            )
 
         self._standardized_data = None
+
+    def _get_cross_correlation_alignment(self):
+        self.task.options.cross_correlation = self.config.cross_correlation
+        if not self.config.cross_correlation_enabled:
+            return
+
+        if self.config.interactive_cross_correlation:
+            launch_cross_correlation_gui(
+                self.task, projection_type="complex", wait_until_closed=True
+            )
+        else:
+            self.task.get_cross_correlation_shift(plot_results=False)
+
+        if self.config.update_state_file:
+            self.config.save_to_dict(self._state_file_path)
+
+        self.task.complex_projections.apply_staged_shift()
 
 
 class AutorunnerPtycho(Autorunner):
