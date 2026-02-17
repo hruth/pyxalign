@@ -90,6 +90,7 @@ class AutorunnerPtychoV2(Autorunner):
         self._get_initialization_options()
         self._create_projections_object()
         self._get_cross_correlation_alignment()
+        self._unwrap_phase()
 
     def _create_state_file(self):
         self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
@@ -187,6 +188,45 @@ class AutorunnerPtychoV2(Autorunner):
             self.config.save_to_dict(self._state_file_path)
 
         self.task.complex_projections.apply_staged_shift()
+    
+    def _get_complex_projections_masks(self):
+        self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
+
+        if self.config.interactive_phase_unwrap_masks:
+            launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
+        else:
+            self.task.complex_projections.get_masks_from_probe_positions()
+
+        if self.config.update_state_file:
+            self.config.save_to_dict(self._state_file_path)
+
+    def _unwrap_phase(self):
+        self.task.complex_projections.options.phase_unwrap = self.config.unwrap_phase
+
+        if self.config.interactive_phase_unwrapping:
+            gui = launch_phase_unwrap_widget(self.task, wait_until_closed=True)
+        else:
+            self.task.get_unwrapped_phase()
+        self.task.complex_projections = None
+
+        if self.config.update_state_file:
+            self.config.save_to_dict(self._state_file_path)
+
+    # def _get_phase_projections_masks(self):
+    #     self._current_checkpoint = Checkpoints.PHASE_PROJECTIONS_MASKS
+    #     step_string = "phase_projections_masks"
+    #     cfg = self._options_dict["phase_projections_masks"]
+
+    #     if self._skip_to_checkpoint():
+    #         return
+
+    #     if cfg["threshold"] is not None:
+    #         self.task.phase_projections.options.mask_from_positions.threshold = cfg["threshold"]
+    #     if cfg["interactive"]:
+    #         launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
+    #     else:
+    #         self.task.phase_projections.get_masks_from_probe_positions()
+    #     self._save_checkpoint_task(step_string)
 
 
 class AutorunnerPtycho(Autorunner):

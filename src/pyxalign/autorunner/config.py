@@ -3,10 +3,14 @@ import dataclasses
 from dataclasses import field
 from typing import Optional
 from pyxalign.alignment import cross_correlation
+from pyxalign.api.enums import PhaseUnwrapMethods
 from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.base import BaseOptions
+from pyxalign.api.options.options import PhaseUnwrapOptions
+from pyxalign.api.options.projections import ProbePositionMaskOptions
 from pyxalign.interactions import initialize_projections
 from pyxalign.io.loaders.enums import ExperimentType
+from pyxalign.unwrap import unwrap_phase
 
 
 @dataclasses.dataclass
@@ -47,6 +51,10 @@ class AutorunnerConfig(BaseOptions):
 
     interactive_cross_correlation: bool = True
 
+    interactive_phase_unwrapping: bool = True
+
+    interactive_phase_unwrap_masks: bool = True
+
     cross_correlation_enabled: bool = True
 
     loading: LoadingConfig = field(default_factory=LoadingConfig)
@@ -54,3 +62,9 @@ class AutorunnerConfig(BaseOptions):
     initialize: InitializationConfig = field(default_factory=InitializationConfig)
 
     cross_correlation: CrossCorrelationOptions = field(default_factory=CrossCorrelationOptions)
+
+    unwrap_phase: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)
+
+    phase_unwrap_masks: ProbePositionMaskOptions = field(
+        default_factory=ProbePositionMaskOptions
+    )
