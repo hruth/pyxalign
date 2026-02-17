@@ -5,6 +5,7 @@ import numpy as np
 import dataclasses
 from dataclasses import field
 
+from pyxalign.api.options.base import BaseOptions
 from pyxalign.io.loaders.enums import MDAFilePatterns, RotationAnglePVStrings
 
 
@@ -17,7 +18,7 @@ class LoaderType(StrEnum):
 
 
 @dataclasses.dataclass
-class BaseLoadOptions:
+class BaseLoadOptions(BaseOptions):
     """Options for loading ptychography reconstructions saved using the PEAR
     wrapper for Pty-Chi."""
 
@@ -101,7 +102,7 @@ class BaseLoadOptions:
 
 
 @dataclasses.dataclass
-class PEARLoadOptions(ABC):
+class PEARLoadOptions(ABC, BaseOptions):
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
 
 

@@ -641,10 +641,23 @@ class BasicOptionsEditor(QWidget):
                 open_panels_list=open_panels_list,
             )
 
+        # Create a horizontal layout for buttons
+        button_layout = QHBoxLayout()
+
         self.open_display_button = QPushButton("view selections")
         self.open_display_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         self.open_display_button.clicked.connect(self.open_options_display_window)
-        main_layout.addWidget(self.open_display_button)
+        button_layout.addWidget(self.open_display_button)
+
+        self.save_button = QPushButton("save as YAML")
+        self.save_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.save_button.clicked.connect(self.save_options_to_yaml)
+        button_layout.addWidget(self.save_button)
+
+        # Add spacer to push buttons to the left
+        button_layout.addStretch()
+
+        main_layout.addLayout(button_layout)
 
         self.initialize_viewer()
 
@@ -918,6 +931,20 @@ class BasicOptionsEditor(QWidget):
     def open_options_display_window(self):
         self.options_display.resize(550, 700)
         self.options_display.show()
+
+    def save_options_to_yaml(self):
+        """Open a file dialog and save the current options to a YAML file."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Options as YAML",
+            "",
+            "YAML Files (*.yaml *.yml);;All Files (*)"
+        )
+        if file_path:
+            # Ensure the file has a .yaml or .yml extension
+            if not file_path.endswith(('.yaml', '.yml')):
+                file_path += '.yaml'
+            self._data.save_to_dict(file_path)
 
 
 def return_parent_option(options: T, field_path: str) -> T:
