@@ -212,21 +212,29 @@ class AutorunnerPtychoV2(Autorunner):
         if self.config.update_state_file:
             self.config.save_to_dict(self._state_file_path)
 
-    # def _get_phase_projections_masks(self):
-    #     self._current_checkpoint = Checkpoints.PHASE_PROJECTIONS_MASKS
-    #     step_string = "phase_projections_masks"
-    #     cfg = self._options_dict["phase_projections_masks"]
+    def _get_phase_projections_masks(self):
+        self.task.phase_projections.options.mask_from_positions = (
+            self.config.projection_matching_masks
+        )
 
-    #     if self._skip_to_checkpoint():
-    #         return
+        if self.config.interactive_pma_masks:
+            launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
+        else:
+            self.task.phase_projections.get_masks_from_probe_positions()
 
-    #     if cfg["threshold"] is not None:
-    #         self.task.phase_projections.options.mask_from_positions.threshold = cfg["threshold"]
-    #     if cfg["interactive"]:
-    #         launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
-    #     else:
-    #         self.task.phase_projections.get_masks_from_probe_positions()
-    #     self._save_checkpoint_task(step_string)
+        if self.config.update_state_file:
+            self.config.save_to_dict(self._state_file_path)
+
+    def _select_center_of_rotation(self):
+        pass
+        # need some custom tools for specifying CoR in the 
+        # config file due to not being contained all in the same options
+
+        # if cfg["enabled"]:
+        #     gui = launch_reconstruction_parameter_tuner(
+        #         self.task.phase_projections, wait_until_closed=True
+        #     )
+
 
 
 class AutorunnerPtycho(Autorunner):

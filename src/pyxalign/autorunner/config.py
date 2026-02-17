@@ -55,6 +55,8 @@ class AutorunnerConfig(BaseOptions):
 
     interactive_phase_unwrap_masks: bool = True
 
+    interactive_pma_masks: bool = True
+
     cross_correlation_enabled: bool = True
 
     loading: LoadingConfig = field(default_factory=LoadingConfig)
@@ -66,5 +68,9 @@ class AutorunnerConfig(BaseOptions):
     unwrap_phase: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)
 
     phase_unwrap_masks: ProbePositionMaskOptions = field(
+        default_factory=ProbePositionMaskOptions
+    )
+
+    projection_matching_masks: ProbePositionMaskOptions = field(
         default_factory=ProbePositionMaskOptions
     )
