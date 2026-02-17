@@ -20,6 +20,7 @@ from pyxalign.autorunner.io import (
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
 from pyxalign.estimate_center import plot_center_of_rotation_estimate_results
+from pyxalign.interactions.autorunner.initialization_widget import launch_initialization_config_widget
 from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
 from pyxalign.interactions.io.loader import launch_data_loader
@@ -27,15 +28,19 @@ from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.pma_runner import launch_pma_runner
 from pyxalign.interactions.point_selector import launch_point_selector
-from pyxalign.interactions.reconstruction_parameter_tuner import launch_reconstruction_parameter_tuner
+from pyxalign.interactions.reconstruction_parameter_tuner import (
+    launch_reconstruction_parameter_tuner,
+)
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.enums import ExperimentType
 from pyxalign.io.loaders.maps import get_loader_options_by_enum
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
+
 # from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
 import pyxalign.io.loaders.pear as pear
+
 
 class Autorunner(ABC):
     def __init__(self, file_path: str):
@@ -71,6 +76,7 @@ class Autorunner(ABC):
             if not os.path.exists(folder):
                 os.mkdir(folder)
 
+
 class AutorunnerPtychoV2(Autorunner):
     def __init__(self, file_path: str, use_state_file: bool):
         self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
@@ -81,6 +87,7 @@ class AutorunnerPtychoV2(Autorunner):
         self._create_state_file()
         self._get_loading_options()
         self._load_data()
+        self._get_initialization_options()
 
     def _create_state_file(self):
         self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
@@ -108,6 +115,56 @@ class AutorunnerPtychoV2(Autorunner):
             # update autorunner config
             self.config.loading.initial_options_path = initial_options_path
             self.config.save_to_dict(self._state_file_path)
+
+    def _get_initialization_options(self):
+        self.config.initialize = launch_initialization_config_widget(
+            self._standardized_data, self.config.initialize
+        )
+
+        if self.config.update_state_file:
+            # update state file with initialization options
+            self.config.save_to_dict(self._state_file_path)
+
+    def _create_projections_object(self):
+        # create padded projection array
+        new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
+        new_array_size += self.config.initialize.pad
+        projection_array = convert_projection_dict_to_array(
+            self._standardized_data.projections, new_array_size, pad_with_mode=True
+        )
+
+        # define projection options
+        projection_options = ProjectionOptions()
+        # experiment parameters
+        projection_options.experiment.laminography_angle = self.config.initialize.laminography_angle
+        projection_options.experiment.sample_thickness = self.config.initialize.sample_thickness
+        projection_options.experiment.pixel_size = self._standardized_data.pixel_size
+        # input processing
+        if self.config.initialize.rotation_angle != 0:
+            projection_options.input_processing.rotation = RotationOptions(
+                enabled=True, angle=self.config.initialize.rotation_angle
+            )
+        if self.config.initialize.shear_angle != 0:
+            projection_options.input_processing.shear = ShearOptions(
+                enabled=True, angle=self.config.initialize.shear_angle
+            )
+
+        # create complex_projections object
+        complex_projections = ComplexProjections(
+            projections=projection_array,
+            angles=self._standardized_data.angles,
+            scan_numbers=self._standardized_data.scan_numbers,
+            options=projection_options,
+            probe_positions=list(self._standardized_data.probe_positions.values()),
+            probe=self._standardized_data.probe,
+            skip_pre_processing=False,
+            file_paths=list(self._standardized_data.file_paths.values()),
+        )
+        self.task = LaminographyAlignmentTask(complex_projections=complex_projections)
+        if self.config.initialize.remove_scan_numbers is not None:
+            self.task.complex_projections.drop_projections(self.config.initialize.remove_scan_numbers)
+
+        self._standardized_data = None
 
 
 class AutorunnerPtycho(Autorunner):
@@ -245,9 +302,11 @@ class AutorunnerPtycho(Autorunner):
 
         if self._skip_to_checkpoint():
             return
-        
+
         if cfg["enabled"]:
-            gui = launch_reconstruction_parameter_tuner(self.task.phase_projections, wait_until_closed=True)
+            gui = launch_reconstruction_parameter_tuner(
+                self.task.phase_projections, wait_until_closed=True
+            )
             # x, y = launch_point_selector(np.angle(self.task.phase_projections.data).sum(0))
             # self.task.phase_projections.center_of_rotation[:] = y, x
 
