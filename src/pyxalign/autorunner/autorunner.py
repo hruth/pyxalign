@@ -27,10 +27,10 @@ from pyxalign.interactions.point_selector import launch_point_selector
 from pyxalign.interactions.reconstruction_parameter_tuner import launch_reconstruction_parameter_tuner
 from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
-from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
+# from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
-
+import pyxalign.io.loaders.pear as pear
 
 class Autorunner(ABC):
     def __init__(self, file_path: str):
@@ -317,15 +317,15 @@ class AutorunnerLYNX(AutorunnerPtycho):
     def _get_load_options(self):
         cfg = self._options_dict["loading"]
 
-        base_load_options = BaseLoadOptions(
-            parent_projections_folder=cfg["base"]["parent_projections_folder"],
-            loader_type=cfg["base"]["loader_type"],
-            file_pattern=cfg["base"]["file_pattern"],
-            scan_start=cfg["base"]["scan_start"],
-            scan_end=cfg["base"]["scan_end"],
+        base_load_options = pear.BaseLoadOptions(
+            parent_projections_folder=cfg["pear_base"]["parent_projections_folder"],
+            loader_type=cfg["pear_base"]["loader_type"],
+            file_pattern=cfg["pear_base"]["file_pattern"],
+            scan_start=cfg["pear_base"]["scan_start"],
+            scan_end=cfg["pear_base"]["scan_end"],
             select_all_by_default=True,
         )
-        self._load_options = LYNXLoadOptions(
+        self._load_options = pear.LYNXLoadOptions(
             base=base_load_options,
             dat_file_path=cfg["lynx"]["tomo_scannumbers_path"],
             selected_experiment_name=cfg["lynx"]["experiment_name"],
@@ -350,15 +350,15 @@ class Autorunner12IDE(AutorunnerPtycho):
     def _get_load_options(self):
         cfg = self._options_dict["loading"]
 
-        base_load_options = BaseLoadOptions(
-            parent_projections_folder=cfg["base"]["parent_projections_folder"],
-            loader_type=cfg["base"]["loader_type"],
-            file_pattern=cfg["base"]["file_pattern"],
-            scan_start=cfg["base"]["scan_start"],
-            scan_end=cfg["base"]["scan_end"],
+        base_load_options = pear.BaseLoadOptions(
+            parent_projections_folder=cfg["pear_base"]["parent_projections_folder"],
+            loader_type=cfg["pear_base"]["loader_type"],
+            file_pattern=cfg["pear_base"]["file_pattern"],
+            scan_start=cfg["pear_base"]["scan_start"],
+            scan_end=cfg["pear_base"]["scan_end"],
             select_all_by_default=True,
         )
-        self._load_options = Ptycho12IDELoadOptions(base=base_load_options)
+        self._load_options = pear.Ptycho12IDELoadOptions(base=base_load_options)
 
     def _load_data(self):
         cfg = self._options_dict["loading"]
