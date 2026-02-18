@@ -2,6 +2,7 @@ from ast import Interactive
 import copy
 import os
 from abc import ABC, abstractmethod
+from functools import wraps
 import yaml
 import multiprocessing as mp
 import numpy as np
@@ -41,6 +42,17 @@ from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
 import pyxalign.io.loaders.pear as pear
 from pyxalign.api.types import r_type
+
+
+def save_state_file(func):
+    """Decorator that saves the config to the state file after method execution."""
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        result = func(self, *args, **kwargs)
+        if self.config.update_state_file:
+            self.config.save_to_dict(self._state_file_path)
+        return result
+    return wrapper
 
 
 class Autorunner(ABC):
@@ -108,6 +120,7 @@ class AutorunnerPtychoV2(Autorunner):
         if path is not None:
             self.loading_options.load_from_path(path)
 
+    @save_state_file
     def _load_data(self):
         if self.config.loading.interactive or self.loading_options is None:
             self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
@@ -118,18 +131,15 @@ class AutorunnerPtychoV2(Autorunner):
             self.loading_options.save_to_dict(initial_options_path)
             # update autorunner config
             self.config.loading.initial_options_path = initial_options_path
-            self.config.save_to_dict(self._state_file_path)
 
+    @save_state_file
     def _get_initialization_options(self):
         if self.config.interactivity.initialization:
             self.config.initialize = launch_initialization_config_widget(
                 self._standardized_data, self.config.initialize
             )
 
-        if self.config.update_state_file:
-            # update state file with initialization options
-            self.config.save_to_dict(self._state_file_path)
-
+    @save_state_file # unecessary for this method at the moment
     def _create_projections_object(self):
         # create padded projection array
         new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
@@ -173,6 +183,7 @@ class AutorunnerPtychoV2(Autorunner):
 
         self._standardized_data = None
 
+    @save_state_file
     def _get_cross_correlation_alignment(self):
         self.task.options.cross_correlation = self.config.cross_correlation
         if not self.config.cross_correlation_enabled:
@@ -185,11 +196,9 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.get_cross_correlation_shift(plot_results=False)
 
-        if self.config.update_state_file:
-            self.config.save_to_dict(self._state_file_path)
-
         self.task.complex_projections.apply_staged_shift()
     
+    @save_state_file
     def _get_complex_projections_masks(self):
         self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
 
@@ -198,9 +207,7 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
 
-        if self.config.update_state_file:
-            self.config.save_to_dict(self._state_file_path)
-
+    @save_state_file
     def _unwrap_phase(self):
         self.task.complex_projections.options.phase_unwrap = self.config.unwrap_phase
 
@@ -210,9 +217,7 @@ class AutorunnerPtychoV2(Autorunner):
             self.task.get_unwrapped_phase()
         self.task.complex_projections = None
 
-        if self.config.update_state_file:
-            self.config.save_to_dict(self._state_file_path)
-
+    @save_state_file
     def _get_phase_projections_masks(self):
         self.task.phase_projections.options.mask_from_positions = (
             self.config.projection_matching_masks
@@ -223,9 +228,7 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
 
-        if self.config.update_state_file:
-            self.config.save_to_dict(self._state_file_path)
-
+    @save_state_file
     def _select_center_of_rotation(self):
         # need some custom tools for specifying CoR in the
         # config file due to not being contained all in the same options..
@@ -260,9 +263,6 @@ class AutorunnerPtychoV2(Autorunner):
         self.config.reconstruct.center_vertical_offset = (
             self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
         )
-
-        if self.config.update_state_file:
-            self.config.save_to_dict(self._state_file_path)
 
 
 class AutorunnerPtycho(Autorunner):
