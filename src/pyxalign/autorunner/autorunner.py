@@ -121,7 +121,7 @@ class AutorunnerPtychoV2(Autorunner):
             self.config.save_to_dict(self._state_file_path)
 
     def _get_initialization_options(self):
-        if self.config.interactive_initialization:
+        if self.config.interactivity.initialization:
             self.config.initialize = launch_initialization_config_widget(
                 self._standardized_data, self.config.initialize
             )
@@ -178,7 +178,7 @@ class AutorunnerPtychoV2(Autorunner):
         if not self.config.cross_correlation_enabled:
             return
 
-        if self.config.interactive_cross_correlation:
+        if self.config.interactivity.cross_correlation:
             launch_cross_correlation_gui(
                 self.task, projection_type="complex", wait_until_closed=True
             )
@@ -193,7 +193,7 @@ class AutorunnerPtychoV2(Autorunner):
     def _get_complex_projections_masks(self):
         self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
 
-        if self.config.interactive_phase_unwrap_masks:
+        if self.config.interactivity.phase_unwrap_masks:
             launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
@@ -204,7 +204,7 @@ class AutorunnerPtychoV2(Autorunner):
     def _unwrap_phase(self):
         self.task.complex_projections.options.phase_unwrap = self.config.unwrap_phase
 
-        if self.config.interactive_phase_unwrapping:
+        if self.config.interactivity.phase_unwrapping:
             gui = launch_phase_unwrap_widget(self.task, wait_until_closed=True)
         else:
             self.task.get_unwrapped_phase()
@@ -218,7 +218,7 @@ class AutorunnerPtychoV2(Autorunner):
             self.config.projection_matching_masks
         )
 
-        if self.config.interactive_pma_masks:
+        if self.config.interactivity.pma_masks:
             launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
@@ -245,7 +245,7 @@ class AutorunnerPtychoV2(Autorunner):
             unshifted_center_of_rotation[0] + self.config.reconstruct.center_vertical_offset
         )
 
-        if self.config.interactive_reconstruction_tuning:
+        if self.config.interactivity.reconstruction_tuning:
             gui = launch_reconstruction_parameter_tuner(
                 self.task.phase_projections, wait_until_closed=True
             )

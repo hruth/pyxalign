@@ -52,6 +52,20 @@ class ReconstructionGeometryConfig(BaseOptions):
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
 
 @dataclasses.dataclass
+class InteractivityConfig(BaseOptions):
+    initialization: bool = True
+
+    cross_correlation: bool = True
+
+    phase_unwrapping: bool = True
+
+    phase_unwrap_masks: bool = True
+
+    pma_masks: bool = True
+
+    reconstruction_tuning: bool = True
+
+@dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):
     state_folder: Optional[str] = None
     "Where state files get automatically saved to"
@@ -60,19 +74,21 @@ class AutorunnerConfig(BaseOptions):
 
     update_state_file: bool = True
 
-    interactive_initialization: bool = True
+    # interactive_initialization: bool = True
 
-    interactive_cross_correlation: bool = True
+    # interactive_cross_correlation: bool = True
 
-    interactive_phase_unwrapping: bool = True
+    # interactive_phase_unwrapping: bool = True
 
-    interactive_phase_unwrap_masks: bool = True
+    # interactive_phase_unwrap_masks: bool = True
 
-    interactive_pma_masks: bool = True
+    # interactive_pma_masks: bool = True
 
-    interactive_reconstruction_tuning: bool = True
+    # interactive_reconstruction_tuning: bool = True
 
     cross_correlation_enabled: bool = True
+
+    interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
 
     loading: LoadingConfig = field(default_factory=LoadingConfig)
 
