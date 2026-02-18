@@ -18,6 +18,7 @@ import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
 from typing import Callable, Optional, Union
+import time
 
 import cupy as cp
 import numpy as np
@@ -46,6 +47,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from zmq import has
 
 from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.task as t
@@ -532,7 +534,7 @@ class PMAMasterWidget(MultiThreadedWidget):
             # Get the changed settings for each sequence item
             changed_settings_sequence = self.sequencer.get_changed_settings_sequence()
 
-            shift = None
+            # shift = None
             suffix = self.task.options.projection_matching.save.suffix
             for i, options in enumerate(options_sequence):
                 # update suffix
@@ -548,10 +550,15 @@ class PMAMasterWidget(MultiThreadedWidget):
                         initial_shift_source = self.initial_shift_combobox.currentText()
 
                 # Get the changed settings for this particular sequence item
-                changed_settings = changed_settings_sequence[i] if i < len(changed_settings_sequence) else {}
+                changed_settings = (
+                    changed_settings_sequence[i] if i < len(changed_settings_sequence) else {}
+                )
 
                 self.run_projection_matching_instance(
-                    options, initial_shift_source, run_type="sequence", changed_settings=changed_settings
+                    options,
+                    initial_shift_source,
+                    run_type="sequence",
+                    changed_settings=changed_settings,
                 )
                 if self.stop_alignment_sequence_flag:
                     break
@@ -591,6 +598,8 @@ class PMAMasterWidget(MultiThreadedWidget):
         # Refresh the Applied Shifts tab in the projection viewer
         if self.projection_viewer is not None:
             self.projection_viewer.refresh_applied_shifts_tab()
+        if self.task.pma_object.gui is not None:
+            self.task.pma_object.gui.close()
 
     def get_initial_shift(self, shift_text: str) -> tuple[np.ndarray, str]:
         if shift_text == "None":
@@ -624,9 +633,18 @@ class PMAMasterWidget(MultiThreadedWidget):
 
     def on_stop_sequence_button_pushed(self):
         self.stop_alignment_sequence_flag = True
-        self.task.pma_object.external_stop_flag = True
+        self.send_alignment_stop_flag()
 
     def on_stop_alignment_button_pushed(self):
+        self.send_alignment_stop_flag()
+
+    def send_alignment_stop_flag(self):
+        loop_started = False
+        while not loop_started:
+            loop_started = (
+                hasattr(self.task, "pma_object") and self.task.pma_object.alignment_loop_started
+            )
+            time.sleep(0.1)
         self.task.pma_object.external_stop_flag = True
 
     def generate_options_selection_widget(self):
@@ -637,7 +655,7 @@ class PMAMasterWidget(MultiThreadedWidget):
             enable_advanced_tab=True,
             basic_options_list=basic_pma_settings,
             open_panels_list=["downsample"],
-            label="Projection Matching Alignment Options"
+            label="Projection Matching Alignment Options",
         )
 
     def generate_sequencer(self, list_of_updated_settings: Optional[list[dict]] = None):

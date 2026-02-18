@@ -48,6 +48,8 @@ class ProjectionMatchingAligner(Aligner):
         self.print_updates = print_updates
         self.gui: ProjectionMatchingViewer = None
         self.external_stop_flag = False
+        self.alignment_loop_started = False
+        self.gui = None
 
     @gutils.memory_releasing_error_handler
     @timer()
@@ -157,6 +159,7 @@ class ProjectionMatchingAligner(Aligner):
             loop_prog_bar = tqdm(range(self.options.iterations), desc="projection matching loop")
         else:
             loop_prog_bar = range(self.options.iterations)
+        self.alignment_loop_started = True
         for self.iteration in loop_prog_bar:
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
             max_shift_step_size = self.get_step_size_update()
