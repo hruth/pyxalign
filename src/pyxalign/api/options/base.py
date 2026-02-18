@@ -99,6 +99,8 @@ def jsonize(val):
     elif isinstance(val, list):
         if isinstance(val[0], np.int64):
             val = [int(x) for x in val]
+        else:
+            return val
     elif isinstance(val, (list, dict, str, int, float, bool, type(None))):
         return val
     else:

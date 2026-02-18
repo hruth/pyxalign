@@ -2,12 +2,14 @@ from enum import StrEnum, auto
 import dataclasses
 from dataclasses import field
 from typing import Optional
+from pyxalign import reconstruct
 from pyxalign.alignment import cross_correlation
 from pyxalign.api.enums import PhaseUnwrapMethods
 from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.base import BaseOptions
 from pyxalign.api.options.options import PhaseUnwrapOptions
-from pyxalign.api.options.projections import ProbePositionMaskOptions
+from pyxalign.api.options.projections import ProbePositionMaskOptions, VolumeWidthOptions
+from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.interactions import initialize_projections
 from pyxalign.io.loaders.enums import ExperimentType
 from pyxalign.unwrap import unwrap_phase
@@ -33,10 +35,21 @@ class InitializationConfig(BaseOptions):
 
     shear_angle: float = 0
 
-    sample_thickness: float = 7e-6
+    sample_thickness: float = 7e-6 # Move to reconstruction geometry?
 
     remove_scan_numbers: Optional[list] = None
 
+@dataclasses.dataclass
+class ReconstructionGeometryConfig(BaseOptions):
+    center_horizontal_offset: float = 0
+
+    center_vertical_offset: float = 0
+
+    sample_thickness: float = 7e-6
+
+    volume_width: VolumeWidthOptions = field(default_factory=VolumeWidthOptions)
+
+    reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
 
 @dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):
@@ -57,6 +70,8 @@ class AutorunnerConfig(BaseOptions):
 
     interactive_pma_masks: bool = True
 
+    interactive_reconstruction_tuning: bool = True
+
     cross_correlation_enabled: bool = True
 
     loading: LoadingConfig = field(default_factory=LoadingConfig)
@@ -74,3 +89,5 @@ class AutorunnerConfig(BaseOptions):
     projection_matching_masks: ProbePositionMaskOptions = field(
         default_factory=ProbePositionMaskOptions
     )
+
+    reconstruct: ReconstructionGeometryConfig = field(default_factory=ReconstructionGeometryConfig)

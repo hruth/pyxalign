@@ -40,6 +40,7 @@ from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
 import pyxalign.io.loaders.pear as pear
+from pyxalign.api.types import r_type
 
 
 class Autorunner(ABC):
@@ -226,15 +227,42 @@ class AutorunnerPtychoV2(Autorunner):
             self.config.save_to_dict(self._state_file_path)
 
     def _select_center_of_rotation(self):
-        pass
-        # need some custom tools for specifying CoR in the 
-        # config file due to not being contained all in the same options
+        # need some custom tools for specifying CoR in the
+        # config file due to not being contained all in the same options..
+        # I also need some way to update the state file when this is running
+        # from the pma runner combined widget!!
+        self.task.phase_projections.options.reconstruct = self.config.reconstruct.reconstruct
+        self.task.phase_projections.options.volume_width = self.config.reconstruct.volume_width
+        self.task.phase_projections.options.experiment.sample_thickness = (
+            self.config.reconstruct.sample_thickness
+        )
+        # update center of rotation # this will probably change/need to be considered later
+        unshifted_center_of_rotation = np.array(self.task.phase_projections.data.shape[1:], dtype=r_type) / 2
+        self.task.phase_projections.center_of_rotation[1] = (
+            unshifted_center_of_rotation[1] + self.config.reconstruct.center_horizontal_offset
+        )
+        self.task.phase_projections.center_of_rotation[0] = (
+            unshifted_center_of_rotation[0] + self.config.reconstruct.center_vertical_offset
+        )
 
-        # if cfg["enabled"]:
-        #     gui = launch_reconstruction_parameter_tuner(
-        #         self.task.phase_projections, wait_until_closed=True
-        #     )
+        if self.config.interactive_reconstruction_tuning:
+            gui = launch_reconstruction_parameter_tuner(
+                self.task.phase_projections, wait_until_closed=True
+            )
+        # update sample thickness in config
+        self.config.reconstruct.sample_thickness = (
+            self.task.phase_projections.options.experiment.sample_thickness
+        )
+        # update cor offsets in config
+        self.config.reconstruct.center_horizontal_offset = (
+            self.task.phase_projections.center_of_rotation[1] - unshifted_center_of_rotation[1]
+        )
+        self.config.reconstruct.center_vertical_offset = (
+            self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
+        )
 
+        if self.config.update_state_file:
+            self.config.save_to_dict(self._state_file_path)
 
 
 class AutorunnerPtycho(Autorunner):
@@ -377,8 +405,6 @@ class AutorunnerPtycho(Autorunner):
             gui = launch_reconstruction_parameter_tuner(
                 self.task.phase_projections, wait_until_closed=True
             )
-            # x, y = launch_point_selector(np.angle(self.task.phase_projections.data).sum(0))
-            # self.task.phase_projections.center_of_rotation[:] = y, x
 
     def _estimate_center_of_rotation(self):
         self._current_checkpoint = Checkpoints.ESTIMATE_CENTER
