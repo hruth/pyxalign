@@ -56,7 +56,7 @@ from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api.options.transform import DownsampleOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.interactions.sequencer import SequencerWidget
+from pyxalign.interactions.sequencer_v2 import SequencerWidgetV2
 from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.api.types import OptionsClass
 from pyxalign.interactions.viewers.base import MultiThreadedWidget
@@ -641,7 +641,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         )
 
     def generate_sequencer(self, list_of_updated_settings: Optional[list[dict]] = None):
-        self.sequencer = SequencerWidget(
+        self.sequencer = SequencerWidgetV2(
             self.task.options.projection_matching,
             list_of_updated_settings,
             basic_options_list=basic_pma_settings,

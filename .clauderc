@@ -1,0 +1,15 @@
+# Claude Code Configuration for PyXAlign
+
+# This file is read by Claude Code at the start of each session.
+#
+# KEY RESOURCE: Please read claude_docs/CODING_PREFERENCES.md to understand
+# project-specific coding conventions, architectural patterns, and preferences.
+#
+# Quick links:
+# - Coding preferences: claude_docs/CODING_PREFERENCES.md
+# - Implementation notes: claude_docs/implementation_notes/
+# - Test scripts: claude_docs/tests/
+# - Project README: README.md
+
+echo "📚 Project documentation available in claude_docs/"
+echo "⚙️  Coding preferences: claude_docs/CODING_PREFERENCES.md"

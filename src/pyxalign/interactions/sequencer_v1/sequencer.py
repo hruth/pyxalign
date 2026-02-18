@@ -19,7 +19,7 @@ from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.base import BaseOptions
 from pyxalign.interactions.options.options_editor import set_option_from_field_path
 
-from pyxalign.interactions.sequencer_item import SequencerItem
+from pyxalign.interactions.sequencer_v1.sequencer_item import SequencerItem
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 
 T = TypeVar("T")
