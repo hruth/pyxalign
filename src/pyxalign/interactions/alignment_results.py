@@ -119,11 +119,26 @@ class AlignmentResultsCollection(QWidget):
         left_layout.addWidget(table_title)
         left_layout.addWidget(self.results_table)
         options_title = QLabel("Alignment Options")
-        table_title.setStyleSheet("QLabel {font-size: 18px;}")
+        options_title.setStyleSheet("QLabel {font-size: 18px;}")
         left_layout.addWidget(options_title)
         left_layout.addWidget(self.options_display)
+
+        # Allow subclasses to add additional widgets to the left layout
+        self._add_custom_widgets_to_left_layout(left_layout)
+
         main_layout.addLayout(left_layout, stretch=1)
         main_layout.addWidget(display_widget, stretch=3)
+
+    def _add_custom_widgets_to_left_layout(self, left_layout: QVBoxLayout):
+        """
+        Hook for subclasses to add custom widgets to the left layout.
+
+        Parameters
+        ----------
+        left_layout : QVBoxLayout
+            The left layout where custom widgets can be added.
+        """
+        pass
 
     def create_shift_plots(self):
         """

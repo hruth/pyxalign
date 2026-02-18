@@ -198,6 +198,42 @@ class SequencerWidget(QWidget):
 
         return options_sequence
 
+    def get_changed_settings_sequence(self) -> list[dict]:
+        """
+        Generate a list of dictionaries tracking which settings were changed for each sequence item.
+
+        Returns
+        -------
+        list[dict]
+            List of dictionaries where each dict contains the changed settings for that sequence item.
+            Each dict maps field paths (e.g., "downsample.scale") to their values.
+        """
+        changed_settings_sequence: list[dict] = []
+        current_changes: dict = {}
+
+        for item in self.sequencer_items:
+            field_path = item.full_field_path()
+            value = item.value()
+
+            # Skip items without a value
+            if value is None or not field_path:
+                continue
+
+            # Track this change
+            current_changes[field_path] = value
+
+            # If checkbox is checked, this is a run point - save accumulated changes
+            if item.checkbox_state():
+                changed_settings_sequence.append(current_changes.copy())
+                # Reset for next sequence
+                current_changes = {}
+
+        # If there are no run points but we have changes, create one entry
+        if len(changed_settings_sequence) == 0 and current_changes:
+            changed_settings_sequence.append(current_changes)
+
+        return changed_settings_sequence
+
     def clear_all_sequences(self):
         for i in range(len(self.sequencer_items)):
             self.remove_last_sequence()

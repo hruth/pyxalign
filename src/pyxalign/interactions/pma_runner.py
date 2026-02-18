@@ -112,6 +112,8 @@ class PMAResults(AlignmentResults):
         Projection configuration options used for this alignment run.
     run_type : str, optional
         Type of alignment run (e.g., "defaults", "sequence"). Default is "unknown".
+    changed_settings : dict, optional
+        Dictionary of settings that were changed via the sequencer for this alignment instance.
     """
 
     def __init__(
@@ -124,6 +126,7 @@ class PMAResults(AlignmentResults):
         scan_numbers: Optional[np.ndarray] = None,
         initial_shift_source: str = "None",
         run_type: Optional[str] = None,
+        changed_settings: Optional[dict] = None,
     ):
         super().__init__(
             shift=shift,
@@ -135,6 +138,7 @@ class PMAResults(AlignmentResults):
         )
         self.initial_shift_source = initial_shift_source
         self.run_type = run_type if run_type is not None else "unknown"
+        self.changed_settings = changed_settings if changed_settings is not None else {}
 
 
 class PMAResultsCollection(AlignmentResultsCollection):
@@ -143,7 +147,7 @@ class PMAResultsCollection(AlignmentResultsCollection):
 
     This widget extends AlignmentResultsCollection to add a "Run Type" column
     to the results table, showing whether each alignment was run with defaults
-    or as part of a sequence.
+    or as part of a sequence, and displays changed sequencer settings.
 
     Parameters
     ----------
@@ -154,6 +158,62 @@ class PMAResultsCollection(AlignmentResultsCollection):
     parent : QWidget, optional
         Parent widget for this interface.
     """
+
+    def __init__(
+        self,
+        alignment_results_list: list[AlignmentResults],
+        display_initial_shift: bool = True,
+        parent: Optional[QWidget] = None,
+    ):
+        # Store parameters for manual layout construction
+        self.alignment_results_list = alignment_results_list
+        self.display_initial_shift = display_initial_shift
+
+        # Call QWidget.__init__ directly, not the parent AlignmentResultsCollection
+        QWidget.__init__(self, parent)
+
+        # Create changed settings display widget
+        self.changed_settings_display = QLabel()
+        self.changed_settings_display.setStyleSheet(
+            "QLabel { background-color: #f0f0f0; padding: 10px; border: 1px solid #ccc; }"
+        )
+        self.changed_settings_display.setWordWrap(True)
+        self.changed_settings_display.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+
+        # Build the layout manually to control widget order
+        self.create_shift_plots()
+        self.create_options_display()
+        self.update_table()
+
+        main_layout = QHBoxLayout(self)
+
+        display_widget = QWidget()
+        display_layout = QHBoxLayout()
+        display_widget.setLayout(display_layout)
+        display_layout.addWidget(self.canvas)
+
+        left_layout = QVBoxLayout()
+
+        # Add table section
+        table_title = QLabel("Select Alignment Results Index")
+        table_title.setStyleSheet("QLabel {font-size: 18px;}")
+        left_layout.addWidget(table_title)
+        left_layout.addWidget(self.results_table)
+
+        # Add changed settings section BEFORE alignment options
+        changed_settings_title = QLabel("Sequencer Changed Settings")
+        changed_settings_title.setStyleSheet("QLabel {font-size: 18px;}")
+        left_layout.addWidget(changed_settings_title)
+        left_layout.addWidget(self.changed_settings_display)
+
+        # Add alignment options section
+        options_title = QLabel("Alignment Options")
+        options_title.setStyleSheet("QLabel {font-size: 18px;}")
+        left_layout.addWidget(options_title)
+        left_layout.addWidget(self.options_display)
+
+        main_layout.addLayout(left_layout, stretch=1)
+        main_layout.addWidget(display_widget, stretch=3)
 
     def _get_table_column_count(self) -> int:
         """Return 3 columns: Index, Initial Shift, Run Type."""
@@ -181,6 +241,25 @@ class PMAResultsCollection(AlignmentResultsCollection):
                 # Column 2: Run Type
                 run_type_item = QTableWidgetItem(self.alignment_results_list[i].run_type)
                 self.results_table.setItem(i, 2, run_type_item)
+
+    def on_table_cell_changed(self, row: int, column: int):
+        """Override to also update changed settings display."""
+        super().on_table_cell_changed(row, column)
+        self.update_changed_settings_display(row)
+
+    def update_changed_settings_display(self, row: int):
+        """Update the changed settings display for the selected alignment result."""
+        alignment_result = self.alignment_results_list[row]
+        changed_settings = getattr(alignment_result, 'changed_settings', {})
+
+        if changed_settings:
+            # Format the changed settings as a readable string
+            settings_text = "<b>Changed Settings:</b><br>"
+            for key, value in changed_settings.items():
+                settings_text += f"• <b>{key}</b>: {value}<br>"
+            self.changed_settings_display.setText(settings_text)
+        else:
+            self.changed_settings_display.setText("<i>No settings were changed via sequencer for this alignment.</i>")
 
 
 class PMAMasterWidget(MultiThreadedWidget):
@@ -450,6 +529,9 @@ class PMAMasterWidget(MultiThreadedWidget):
             options_sequence = self.sequencer.generate_options_sequence(
                 self.task.options.projection_matching
             )
+            # Get the changed settings for each sequence item
+            changed_settings_sequence = self.sequencer.get_changed_settings_sequence()
+
             shift = None
             suffix = self.task.options.projection_matching.save.suffix
             for i, options in enumerate(options_sequence):
@@ -464,8 +546,12 @@ class PMAMasterWidget(MultiThreadedWidget):
                     initial_shift_source = self.sequence_initial_shift_combobox.currentText()
                     if initial_shift_source == "Default":
                         initial_shift_source = self.initial_shift_combobox.currentText()
+
+                # Get the changed settings for this particular sequence item
+                changed_settings = changed_settings_sequence[i] if i < len(changed_settings_sequence) else {}
+
                 self.run_projection_matching_instance(
-                    options, initial_shift_source, run_type="sequence"
+                    options, initial_shift_source, run_type="sequence", changed_settings=changed_settings
                 )
                 if self.stop_alignment_sequence_flag:
                     break
@@ -481,6 +567,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         options: ProjectionMatchingOptions,
         initial_shift_source: str,
         run_type: Optional[str] = None,
+        changed_settings: Optional[dict] = None,
     ):
         initial_shift, initial_shift_source = self.get_initial_shift(shift_text=initial_shift_source)
         shift = self.task.get_projection_matching_shift(
@@ -496,6 +583,7 @@ class PMAMasterWidget(MultiThreadedWidget):
                 scan_numbers=self.task.phase_projections.scan_numbers.copy(),
                 initial_shift_source=initial_shift_source,
                 run_type=run_type,
+                changed_settings=changed_settings,
             )
         ]
         self.update_pma_viewer_tab()
