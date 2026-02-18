@@ -3,9 +3,9 @@ import dataclasses
 from dataclasses import field
 from typing import Optional
 from pyxalign import reconstruct
-from pyxalign.alignment import cross_correlation
+from pyxalign.alignment import cross_correlation, projection_matching
 from pyxalign.api.enums import PhaseUnwrapMethods
-from pyxalign.api.options.alignment import CrossCorrelationOptions
+from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
 from pyxalign.api.options.base import BaseOptions
 from pyxalign.api.options.options import PhaseUnwrapOptions
 from pyxalign.api.options.projections import ProbePositionMaskOptions, VolumeWidthOptions
@@ -65,6 +65,8 @@ class InteractivityConfig(BaseOptions):
 
     reconstruction_tuning: bool = True
 
+    projection_matching: bool = True
+
 @dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):
     state_folder: Optional[str] = None
@@ -74,19 +76,9 @@ class AutorunnerConfig(BaseOptions):
 
     update_state_file: bool = True
 
-    # interactive_initialization: bool = True
-
-    # interactive_cross_correlation: bool = True
-
-    # interactive_phase_unwrapping: bool = True
-
-    # interactive_phase_unwrap_masks: bool = True
-
-    # interactive_pma_masks: bool = True
-
-    # interactive_reconstruction_tuning: bool = True
-
     cross_correlation_enabled: bool = True
+
+    projection_matching_enabled: bool = True
 
     interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
 
@@ -107,3 +99,7 @@ class AutorunnerConfig(BaseOptions):
     )
 
     reconstruct: ReconstructionGeometryConfig = field(default_factory=ReconstructionGeometryConfig)
+
+    projection_matching: ProjectionMatchingOptions = field(
+        default_factory=ProjectionMatchingOptions
+    )

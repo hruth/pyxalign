@@ -264,6 +264,41 @@ class AutorunnerPtychoV2(Autorunner):
             self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
         )
 
+    @save_state_file
+    def _run_projection_matching_sequence(self):
+        if not self.config.projection_matching_enabled:
+            return
+
+        # # update defaults
+        # self.task.options.projection_matching = get_updated_options(
+        #     self.task.options.projection_matching, cfg["update_defaults"]
+        # )
+
+        # # update the results path
+        # self.task.options.projection_matching.save.folder = self.results_folders[
+        #     "projection_matching"
+        # ]
+        self.task.options.projection_matching = self.config.projection_matching
+        if not self.config.interactivity.projection_matching:
+            # need to figure out how to specify sequences first
+            pass
+            # pma_options_list = get_projection_matching_sequence_options(
+            #     self.task.options.projection_matching, cfg["sequence"]
+            # )
+            # shift = None
+            # suffix = self.task.options.projection_matching.save.suffix
+            # for i, pma_options in enumerate(pma_options_list):
+            #     self.task.options.projection_matching = copy.deepcopy(pma_options)
+            #     # update suffix
+            #     self.task.options.projection_matching.save.suffix = suffix + f"_{i}"
+            #     self.task.get_projection_matching_shift(shift)
+        else:
+            gui = launch_combined_alignment_widget(
+                self.task,
+                # self._options_dict["projection_matching_alignment"]["sequence"],
+                wait_until_closed=True,
+            )
+        self.task.phase_projections.apply_staged_shift()
 
 class AutorunnerPtycho(Autorunner):
     def run(self):
