@@ -123,8 +123,10 @@ class ProjectionMatchingAligner(Aligner):
 
         # save results
         if self.options.save.enabled:
-            self.save_results()
-
+            try:
+                self.save_results()
+            except Exception as ex:
+                print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
         return shift
     
     def check_if_valid_options(self):

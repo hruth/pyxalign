@@ -43,7 +43,7 @@ class BaseOptions:
         """Get a dictionary representation of the options."""
         d = self.get_non_data_fields()
         for k, v in d.items():
-            if isinstance(v, BaseOptions):
+            if isinstance(v, BaseOptions) or (v.__class__.__bases__[0] == "pyxalign.api.options.base.BaseOptions"): # doesnt work when reloading/debugging
                 d[k] = v.get_dict()
             else:
                 d[k] = jsonize(v)

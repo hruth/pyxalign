@@ -691,11 +691,11 @@ class PMAMasterWidget(MultiThreadedWidget):
             # Get the changed settings for each sequence item
             changed_settings_sequence = self.sequencer.get_changed_settings_sequence()
 
-            # shift = None
-            suffix = self.task.options.projection_matching.save.suffix
+            # # shift = None
+            # suffix = self.task.options.projection_matching.save.suffix
             for i, options in enumerate(options_sequence):
-                # update suffix
-                options.save.suffix = suffix + f"_{i}"
+                # # update suffix
+                # options.save.suffix = suffix + f"_{i}"
                 # Get initial shift based on combobox selection
                 if i == 0:
                     # defaults button determines shift on first iteration
