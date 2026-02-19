@@ -26,16 +26,19 @@ import numpy as np
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QComboBox,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
     QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLayout,
     QLineEdit,
     QPushButton,
+    QRadioButton,
     QScrollArea,
     QSpacerItem,
     QSpinBox,
@@ -116,6 +119,8 @@ class PMAResults(AlignmentResults):
         Type of alignment run (e.g., "defaults", "sequence"). Default is "unknown".
     changed_settings : dict, optional
         Dictionary of settings that were changed via the sequencer for this alignment instance.
+    total_applied_shift : np.ndarray, optional
+        Total applied shift from phase_projections at the time of alignment.
     """
 
     def __init__(
@@ -129,6 +134,7 @@ class PMAResults(AlignmentResults):
         initial_shift_source: str = "None",
         run_type: Optional[str] = None,
         changed_settings: Optional[dict] = None,
+        total_applied_shift: Optional[np.ndarray] = None,
     ):
         super().__init__(
             shift=shift,
@@ -141,6 +147,7 @@ class PMAResults(AlignmentResults):
         self.initial_shift_source = initial_shift_source
         self.run_type = run_type if run_type is not None else "unknown"
         self.changed_settings = changed_settings if changed_settings is not None else {}
+        self.total_applied_shift = total_applied_shift
 
 
 class PMAResultsCollection(AlignmentResultsCollection):
@@ -157,6 +164,8 @@ class PMAResultsCollection(AlignmentResultsCollection):
         List of PMA alignment results to display and compare.
     display_initial_shift : bool, optional
         Whether to display initial shift in plots. Default is True.
+    task : t.LaminographyAlignmentTask, optional
+        Task object containing phase_projections for accessing applied shifts.
     parent : QWidget, optional
         Parent widget for this interface.
     """
@@ -165,11 +174,14 @@ class PMAResultsCollection(AlignmentResultsCollection):
         self,
         alignment_results_list: list[AlignmentResults],
         display_initial_shift: bool = True,
+        task: Optional["t.LaminographyAlignmentTask"] = None,
         parent: Optional[QWidget] = None,
     ):
         # Store parameters for manual layout construction
         self.alignment_results_list = alignment_results_list
         self.display_initial_shift = display_initial_shift
+        self.task = task
+        self.show_with_applied_shifts = False  # Default to current view
 
         # Call QWidget.__init__ directly, not the parent AlignmentResultsCollection
         QWidget.__init__(self, parent)
@@ -182,6 +194,9 @@ class PMAResultsCollection(AlignmentResultsCollection):
         self.changed_settings_display.setWordWrap(True)
         self.changed_settings_display.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
+        # Create view mode toggle widget
+        self.create_view_toggle()
+
         # Build the layout manually to control widget order
         self.create_shift_plots()
         self.create_options_display()
@@ -189,11 +204,19 @@ class PMAResultsCollection(AlignmentResultsCollection):
 
         main_layout = QHBoxLayout(self)
 
+        # Right side: plots and shift display mode toggle
         display_widget = QWidget()
-        display_layout = QHBoxLayout()
+        display_layout = QVBoxLayout()
         display_widget.setLayout(display_layout)
-        display_layout.addWidget(self.canvas)
+        display_layout.addWidget(self.canvas, stretch=1)
 
+        # Add view mode toggle section below plots
+        view_toggle_title = QLabel("Shift Display Mode")
+        view_toggle_title.setStyleSheet("QLabel {font-size: 18px;}")
+        display_layout.addWidget(view_toggle_title)
+        display_layout.addWidget(self.view_toggle_widget)
+
+        # Left side: table and settings
         left_layout = QVBoxLayout()
 
         # Add table section
@@ -202,11 +225,18 @@ class PMAResultsCollection(AlignmentResultsCollection):
         left_layout.addWidget(table_title)
         left_layout.addWidget(self.results_table)
 
-        # Add changed settings section BEFORE alignment options
+        # Add changed settings section in a scroll area
         changed_settings_title = QLabel("Sequencer Changed Settings")
         changed_settings_title.setStyleSheet("QLabel {font-size: 18px;}")
         left_layout.addWidget(changed_settings_title)
-        left_layout.addWidget(self.changed_settings_display)
+
+        # Wrap changed settings display in a scroll area
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidget(self.changed_settings_display)
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setMinimumHeight(100)
+        settings_scroll.setMaximumHeight(200)
+        left_layout.addWidget(settings_scroll)
 
         # Add alignment options section
         options_title = QLabel("Alignment Options")
@@ -216,6 +246,45 @@ class PMAResultsCollection(AlignmentResultsCollection):
 
         main_layout.addLayout(left_layout, stretch=1)
         main_layout.addWidget(display_widget, stretch=3)
+
+    def create_view_toggle(self):
+        """Create radio button group to toggle between shift display modes."""
+        self.view_toggle_widget = QGroupBox()
+        view_toggle_layout = QVBoxLayout()
+        self.view_toggle_widget.setLayout(view_toggle_layout)
+
+        # Create radio button group
+        self.view_button_group = QButtonGroup(self)
+
+        # Default view: show shifts as computed by PMA
+        self.default_view_button = QRadioButton("Relative to initial (default)")
+        self.default_view_button.setChecked(True)
+        self.default_view_button.setStyleSheet("font-size: 12pt;")
+        self.default_view_button.toggled.connect(self.on_view_mode_changed)
+
+        # Applied shifts view: add total applied shifts to both initial and final
+        self.applied_shifts_view_button = QRadioButton("Include applied shifts from projections")
+        self.applied_shifts_view_button.setStyleSheet("font-size: 12pt;")
+        self.applied_shifts_view_button.toggled.connect(self.on_view_mode_changed)
+
+        # Add buttons to group and layout
+        self.view_button_group.addButton(self.default_view_button)
+        self.view_button_group.addButton(self.applied_shifts_view_button)
+        view_toggle_layout.addWidget(self.default_view_button)
+        view_toggle_layout.addWidget(self.applied_shifts_view_button)
+
+        # Disable applied shifts view if task is not available
+        if self.task is None:
+            self.applied_shifts_view_button.setEnabled(False)
+            self.applied_shifts_view_button.setToolTip("Task not available - cannot access applied shifts")
+
+    def on_view_mode_changed(self):
+        """Handle view mode toggle and update the plot."""
+        self.show_with_applied_shifts = self.applied_shifts_view_button.isChecked()
+        # Refresh the current plot
+        current_row = self.results_table.currentRow()
+        if current_row >= 0:
+            self.change_shift_plot_index(current_row)
 
     def _get_table_column_count(self) -> int:
         """Return 3 columns: Index, Initial Shift, Run Type."""
@@ -262,6 +331,59 @@ class PMAResultsCollection(AlignmentResultsCollection):
             self.changed_settings_display.setText(settings_text)
         else:
             self.changed_settings_display.setText("<i>No settings were changed via sequencer for this alignment.</i>")
+
+    def get_total_applied_shift(self, alignment_result: AlignmentResults) -> np.ndarray:
+        """
+        Get the total applied shift that was stored when this alignment result was created.
+
+        Returns
+        -------
+        np.ndarray
+            Total applied shift array matching the alignment result's scan numbers,
+            or zeros if not available.
+        """
+        # Use the stored total_applied_shift if available
+        if hasattr(alignment_result, 'total_applied_shift') and alignment_result.total_applied_shift is not None:
+            return alignment_result.total_applied_shift
+        else:
+            # Return zeros if no stored shift
+            return np.zeros_like(alignment_result.shift)
+
+    def change_shift_plot_index(self, row: int):
+        """Override to add support for showing shifts with applied offsets."""
+        alignment_result = self.alignment_results_list[row]
+        sort_idx = np.argsort(alignment_result.angles)
+        sorted_angles = alignment_result.angles[sort_idx]
+
+        # Get shifts to plot
+        final_shift = alignment_result.shift
+        initial_shift = alignment_result.initial_shift
+
+        # If showing with applied shifts, add the total applied shift offset
+        if self.show_with_applied_shifts:
+            total_applied = self.get_total_applied_shift(alignment_result)
+            final_shift = final_shift + total_applied
+            initial_shift = initial_shift + total_applied
+
+        # Plot the shifts
+        axis_directions = ["horizontal", "vertical"]
+        for i, ax in enumerate([self.ax_horizontal, self.ax_vertical]):
+            ax.clear()
+            ax.set_title(f"{axis_directions[i]} shifts")
+            ax.set_ylabel("shift (px)")
+            ax.set_xlabel("angle (deg)")
+            ax.plot(sorted_angles, final_shift[sort_idx, i], label="final")
+            if self.display_initial_shift:
+                ax.plot(
+                    sorted_angles,
+                    initial_shift[sort_idx, i],
+                    label="initial",
+                )
+            ax.autoscale(enable=True, axis="x", tight=True)
+            ax.legend()
+            ax.grid(linestyle=":")
+
+        self.canvas.draw()
 
 
 class PMAMasterWidget(MultiThreadedWidget):
@@ -470,6 +592,26 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.stop_alignment_button.setStyleSheet("QPushButton { background-color: red;}")
             self.stop_sequence_button.setStyleSheet("QPushButton { background-color: red;}")
 
+    def calculate_total_applied_shift(self) -> Optional[np.ndarray]:
+        """
+        Calculate the total applied shift from phase_projections at the current moment.
+
+        Returns
+        -------
+        np.ndarray or None
+            Total applied shift array, or None if no shifts have been applied.
+        """
+        if not hasattr(self.task, 'phase_projections'):
+            return None
+
+        past_shifts = self.task.phase_projections.shift_manager.past_shifts
+        if len(past_shifts) == 0:
+            return None
+
+        # Calculate total applied shift
+        total_applied = np.sum(past_shifts, axis=0)
+        return total_applied
+
     def filter_shift_by_scan_numbers(
         self, shift: np.ndarray, source_scan_numbers: np.ndarray, target_scan_numbers: np.ndarray
     ) -> np.ndarray:
@@ -580,6 +722,10 @@ class PMAMasterWidget(MultiThreadedWidget):
         shift = self.task.get_projection_matching_shift(
             initial_shift=initial_shift, options=options
         )
+
+        # Calculate total applied shift at this moment
+        total_applied_shift = self.calculate_total_applied_shift()
+
         self.alignment_results_list += [
             PMAResults(
                 shift,
@@ -591,6 +737,7 @@ class PMAMasterWidget(MultiThreadedWidget):
                 initial_shift_source=initial_shift_source,
                 run_type=run_type,
                 changed_settings=changed_settings,
+                total_applied_shift=total_applied_shift,
             )
         ]
         self.update_pma_viewer_tab()
@@ -738,7 +885,9 @@ class PMAMasterWidget(MultiThreadedWidget):
         tabs.addTab(empty_widget, "Detailed Results")
 
     def make_third_tab_layout(self, tabs: QTabWidget):
-        self.results_collection_widget = PMAResultsCollection(self.alignment_results_list)
+        self.results_collection_widget = PMAResultsCollection(
+            self.alignment_results_list, task=self.task
+        )
         empty_widget = QWidget()
         self._results_collection_layout = QVBoxLayout()
         empty_widget.setLayout(self._results_collection_layout)
