@@ -654,6 +654,9 @@ class ScanRemovalTool(QWidget):
 
 
 class AllShiftsViewer(MultiThreadedWidget):
+    # Signal emitted when a shift operation (apply or undo) is performed
+    shift_operation_performed = pyqtSignal()
+
     def __init__(
         self,
         projections: "p.Projections",
@@ -842,6 +845,8 @@ class AllShiftsViewer(MultiThreadedWidget):
         )
         apply_staged_shift_wrapped()
         self.refresh_data()
+        # Emit signal to notify that a shift operation was performed
+        self.shift_operation_performed.emit()
 
     def undo_last_shift(self):
         """Undo the last applied shift and refresh the display."""
@@ -850,6 +855,8 @@ class AllShiftsViewer(MultiThreadedWidget):
         )
         undo_last_shift_wrapped()
         self.refresh_data()
+        # Emit signal to notify that a shift operation was performed
+        self.shift_operation_performed.emit()
 
     def start(self):
         self.show()

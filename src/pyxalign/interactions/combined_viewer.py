@@ -120,6 +120,13 @@ class CombinedAlignmentWidget(SidebarNavigator):
             list_of_updated_settings=updated_settings_for_pma_widget,
         )
 
+        # Connect shift operations in ProjectionViewer to clear PMA results
+        if hasattr(self.projection_viewer, 'all_shifts_viewer') and self.projection_viewer.all_shifts_viewer is not None:
+            # Connect the apply and undo shift buttons to clear PMA results
+            self.projection_viewer.all_shifts_viewer.shift_operation_performed.connect(
+                self.pma_widget.clear_alignment_results
+            )
+
         # Add pages to the sidebar navigator
         # You can use standard Qt icons or provide custom icon paths
         # For now, using empty icons (text will still show)

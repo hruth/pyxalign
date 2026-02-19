@@ -385,6 +385,21 @@ class PMAResultsCollection(AlignmentResultsCollection):
 
         self.canvas.draw()
 
+    def clear_plots(self):
+        """Clear the shift plots when no alignment results are available."""
+        for ax in [self.ax_horizontal, self.ax_vertical]:
+            ax.clear()
+            ax.set_title("")
+            ax.text(
+                0.5, 0.5, "No alignment results available",
+                horizontalalignment='center',
+                verticalalignment='center',
+                transform=ax.transAxes,
+                fontsize=14,
+                color='gray'
+            )
+        self.canvas.draw()
+
 
 class PMAMasterWidget(MultiThreadedWidget):
     # edit PMA options
@@ -845,6 +860,37 @@ class PMAMasterWidget(MultiThreadedWidget):
         index = self.initial_shift_combobox.findText(current_text)
         if index >= 0:
             self.initial_shift_combobox.setCurrentIndex(index)
+
+    def clear_alignment_results(self):
+        """
+        Clear all alignment results from the collection.
+
+        This method is called when shift operations (apply or undo) are performed
+        on the ProjectionViewer, as those operations invalidate previously computed
+        alignment results.
+        """
+        # Clear the alignment results list
+        self.alignment_results_list.clear()
+
+        # Clear the PMA viewer tab
+        if self.pma_viewer is not None:
+            self.pma_viewer.deleteLater()
+            self.pma_viewer.setParent(None)
+            self.pma_viewer = None
+
+        # Update the results collection widget to reflect empty results
+        self.results_collection_widget.alignment_results_list = self.alignment_results_list
+        # Clear all rows from the results table
+        self.results_collection_widget.results_table.setRowCount(0)
+        # Clear the changed settings display
+        self.results_collection_widget.changed_settings_display.setText(
+            "<i>No alignment results available.</i>"
+        )
+        # Clear the plots on the collected results tab
+        self.results_collection_widget.clear_plots()
+
+        # Reset the initial shift combobox to only show "None" and "Previous"
+        self.update_initial_shift_combobox()
 
     def make_first_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)

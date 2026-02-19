@@ -1187,9 +1187,9 @@ class ProjectionMatchingAligner(Aligner):
             if self.options.save.save_pma_volume:
                 F["volume"] = self.aligned_projections.volume.data
             if self.options.save.save_pma_projections:
-                F["volume"] = self.aligned_projections.data
+                F["projections"] = self.aligned_projections.data
             if self.options.save.save_pma_forward_projections:
-                F["volume"] = self.aligned_projections.volume.forward_projections.data
+                F["forward_projections"] = self.aligned_projections.volume.forward_projections.data
         self.options.save_to_dict(
             os.path.join(self.options.save.folder, f"pma_options{self.options.save.suffix}.yaml")
         )
