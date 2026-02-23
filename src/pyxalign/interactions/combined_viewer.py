@@ -15,8 +15,10 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 
 import pyxalign.data_structures.task as t
+from pyxalign.api import enums
 from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 from pyxalign.interactions.pma_runner import PMAMasterWidget
+from pyxalign.interactions.cross_correlation import CrossCorrelationMasterWidget
 from pyxalign.interactions.viewers.arrays import ProjectionViewer
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 
@@ -30,6 +32,7 @@ class CombinedAlignmentWidget(SidebarNavigator):
     running projection matching alignment. The sidebar allows switching between:
     - Projection Viewer: Interactive projection visualization with tools
     - PMA Runner: Projection matching alignment workflow interface
+    - Cross-Correlation Runner: Cross-correlation alignment workflow interface
 
     Parameters
     ----------
@@ -37,6 +40,10 @@ class CombinedAlignmentWidget(SidebarNavigator):
         The alignment task containing projections and configuration.
         - Passed directly to PMAMasterWidget for alignment operations
         - task.phase_projections passed to ProjectionViewer for visualization
+    include_projection_matching : bool, optional
+        Whether to include the PMA Runner in the sidebar, by default True
+    include_cross_correlation : bool, optional
+        Whether to include the Cross-Correlation Runner in the sidebar, by default True
     parent : QWidget, optional
         Parent widget, by default None
 
@@ -46,8 +53,10 @@ class CombinedAlignmentWidget(SidebarNavigator):
         The alignment task being worked with
     projection_viewer : ProjectionViewer
         Widget for viewing and manipulating projections
-    pma_widget : PMAMasterWidget
-        Widget for running projection matching alignment
+    pma_widget : PMAMasterWidget, optional
+        Widget for running projection matching alignment (if include_projection_matching=True)
+    cc_widget : CrossCorrelationMasterWidget, optional
+        Widget for running cross-correlation alignment (if include_cross_correlation=True)
 
     Examples
     --------
@@ -61,6 +70,8 @@ class CombinedAlignmentWidget(SidebarNavigator):
         self,
         task: "t.LaminographyAlignmentTask",
         updated_settings_for_pma_widget: Optional[list[dict]] = None,
+        include_projection_matching: bool = True,
+        include_cross_correlation: bool = True,
         parent: Optional[QWidget] = None
     ):
         """
@@ -70,6 +81,12 @@ class CombinedAlignmentWidget(SidebarNavigator):
         ----------
         task : LaminographyAlignmentTask
             The alignment task containing projection data and configuration
+        updated_settings_for_pma_widget : list[dict], optional
+            Updated settings for the PMA widget
+        include_projection_matching : bool, optional
+            Whether to include the PMA Runner in the sidebar, by default True
+        include_cross_correlation : bool, optional
+            Whether to include the Cross-Correlation Runner in the sidebar, by default True
         parent : QWidget, optional
             Parent widget
         """
@@ -81,6 +98,10 @@ class CombinedAlignmentWidget(SidebarNavigator):
         # Store the task
         self.task = task
 
+        # Store which widgets to include
+        self.include_projection_matching = include_projection_matching
+        self.include_cross_correlation = include_cross_correlation
+
         # Initialize the widgets
         self._initialize_widgets(updated_settings_for_pma_widget)
 
@@ -90,12 +111,36 @@ class CombinedAlignmentWidget(SidebarNavigator):
 
     def _initialize_widgets(self, updated_settings_for_pma_widget: Optional[list[dict]] = None):
         """
-        Initialize and add the ProjectionViewer and PMAMasterWidget pages.
+        Initialize and add the ProjectionViewer and alignment widget pages.
         """
-        # Create ProjectionViewer with phase projections from the task
-        if self.task.phase_projections is not None:
+        # Determine which projection type to use and override include flags if needed
+        has_phase = self.task.phase_projections is not None
+        has_complex = self.task.complex_projections is not None
+
+        # Determine the projection type for CrossCorrelationMasterWidget
+        if has_complex and not has_phase:
+            # Only complex projections available
+            projection_type_for_cc = enums.ProjectionType.COMPLEX
+            projections_for_viewer = self.task.complex_projections
+            # Override: only cross correlation should be available
+            self.include_projection_matching = False
+        elif has_phase and not has_complex:
+            # Only phase projections available
+            projection_type_for_cc = enums.ProjectionType.PHASE
+            projections_for_viewer = self.task.phase_projections
+        elif has_phase and has_complex:
+            # Both available - default to phase for viewer, None for CC (will auto-detect)
+            projection_type_for_cc = None
+            projections_for_viewer = self.task.phase_projections
+        else:
+            # Neither available
+            projection_type_for_cc = None
+            projections_for_viewer = None
+
+        # Create ProjectionViewer with the appropriate projections
+        if projections_for_viewer is not None:
             self.projection_viewer = ProjectionViewer(
-                projections=self.task.phase_projections,
+                projections=projections_for_viewer,
                 include_options=True,
                 include_shifts=True,
                 display_only=False,
@@ -103,29 +148,48 @@ class CombinedAlignmentWidget(SidebarNavigator):
             # Pass projection_viewer to PMAMasterWidget for updating
             projection_viewer_for_pma = self.projection_viewer
         else:
-            # If no phase projections available, create a placeholder
+            # If no projections available, create a placeholder
             placeholder = QWidget()
             layout = QVBoxLayout(placeholder)
-            label = QLabel("No phase projections available.\nPlease unwrap phase first.")
+            label = QLabel("No projections available.\nPlease load or unwrap phase first.")
             label.setAlignment(Qt.AlignCenter)
             layout.addWidget(label)
             self.projection_viewer = placeholder
             # Don't pass the placeholder to PMAMasterWidget
             projection_viewer_for_pma = None
 
-        # Create PMAMasterWidget with the full task
-        self.pma_widget = PMAMasterWidget(
-            task=self.task,
-            projection_viewer=projection_viewer_for_pma,
-            list_of_updated_settings=updated_settings_for_pma_widget,
-        )
-
-        # Connect shift operations in ProjectionViewer to clear PMA results
-        if hasattr(self.projection_viewer, 'all_shifts_viewer') and self.projection_viewer.all_shifts_viewer is not None:
-            # Connect the apply and undo shift buttons to clear PMA results
-            self.projection_viewer.all_shifts_viewer.shift_operation_performed.connect(
-                self.pma_widget.clear_alignment_results
+        # Create PMAMasterWidget with the full task (if requested)
+        if self.include_projection_matching:
+            self.pma_widget = PMAMasterWidget(
+                task=self.task,
+                projection_viewer=projection_viewer_for_pma,
+                list_of_updated_settings=updated_settings_for_pma_widget,
             )
+
+            # Connect shift operations in ProjectionViewer to clear PMA results
+            if hasattr(self.projection_viewer, 'all_shifts_viewer') and self.projection_viewer.all_shifts_viewer is not None:
+                # Connect the apply and undo shift buttons to clear PMA results
+                self.projection_viewer.all_shifts_viewer.shift_operation_performed.connect(
+                    self.pma_widget.clear_alignment_results
+                )
+        else:
+            self.pma_widget = None
+
+        # Create CrossCorrelationMasterWidget with the full task (if requested)
+        if self.include_cross_correlation:
+            if projection_type_for_cc is not None:
+                self.cc_widget = CrossCorrelationMasterWidget(
+                    task=self.task,
+                    projection_type=projection_type_for_cc,
+                    projection_viewer=projection_viewer_for_pma,
+                )
+            else:
+                self.cc_widget = CrossCorrelationMasterWidget(
+                    task=self.task,
+                    projection_viewer=projection_viewer_for_pma,
+                )
+        else:
+            self.cc_widget = None
 
         # Add pages to the sidebar navigator
         # You can use standard Qt icons or provide custom icon paths
@@ -136,11 +200,19 @@ class CombinedAlignmentWidget(SidebarNavigator):
             icon=self._get_icon("view")  # Could use a view/eye icon
         )
 
-        self.addPage(
-            page_widget=self.pma_widget,
-            title="PMA Runner",
-            icon=self._get_icon("align")  # Could use an alignment/settings icon
-        )
+        if self.include_projection_matching:
+            self.addPage(
+                page_widget=self.pma_widget,
+                title="PMA Runner",
+                icon=self._get_icon("align")  # Could use an alignment/settings icon
+            )
+
+        if self.include_cross_correlation:
+            self.addPage(
+                page_widget=self.cc_widget,
+                title="Cross-Correlation Runner",
+                icon=self._get_icon("align")  # Could use an alignment/settings icon
+            )
 
     def _get_icon(self, icon_name: str) -> QIcon:
         """
@@ -163,7 +235,8 @@ class CombinedAlignmentWidget(SidebarNavigator):
         style = QApplication.style()
 
         icon_map = {
-            "view": QStyle.SP_FileDialogDetailedView,
+            # "view": QStyle.SP_FileDialogDetailedView,
+            "view": QStyle.SP_ComputerIcon,
             "align": QStyle.SP_FileDialogContentsView,
             "settings": QStyle.SP_FileDialogInfoView,
             "file": QStyle.SP_FileIcon,
@@ -180,6 +253,8 @@ class CombinedAlignmentWidget(SidebarNavigator):
 def launch_combined_alignment_widget(
     task: "t.LaminographyAlignmentTask",
     updated_settings_for_pma_widget: Optional[list[dict]] = None,
+    include_projection_matching: bool = True,
+    include_cross_correlation: bool = True,
     wait_until_closed: bool = False,
 ) -> CombinedAlignmentWidget:
     """Launch the combined alignment widget GUI.
@@ -188,9 +263,13 @@ def launch_combined_alignment_widget(
     running projection matching alignment. The sidebar allows switching between:
     - Projection Viewer: Interactive projection visualization with tools
     - PMA Runner: Projection matching alignment workflow interface
+    - Cross-Correlation Runner: Cross-correlation alignment workflow interface
 
     Args:
         task: LaminographyAlignmentTask containing projections and configuration.
+        updated_settings_for_pma_widget: Updated settings for the PMA widget.
+        include_projection_matching: Whether to include the PMA Runner in the sidebar.
+        include_cross_correlation: Whether to include the Cross-Correlation Runner in the sidebar.
         wait_until_closed: If True, the application starts a blocking call
             until the GUI window is closed.
 
@@ -204,7 +283,10 @@ def launch_combined_alignment_widget(
     """
     app = QApplication.instance() or QApplication([])
     gui = CombinedAlignmentWidget(
-        task=task, updated_settings_for_pma_widget=updated_settings_for_pma_widget
+        task=task,
+        updated_settings_for_pma_widget=updated_settings_for_pma_widget,
+        include_projection_matching=include_projection_matching,
+        include_cross_correlation=include_cross_correlation,
     )
     gui.show()
     if wait_until_closed:

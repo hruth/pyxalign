@@ -43,6 +43,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self,
         task: Optional["t.LaminographyAlignmentTask"] = None,
         projection_type: Optional[enums.ProjectionType] = None,
+        projection_viewer: Optional[QWidget] = None,
         multi_thread_func: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -51,6 +52,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             parent=parent,
         )
         self.task = task
+        self.projection_viewer = projection_viewer
         # If only one type of projection exists, use that type
         if self.task.phase_projections is None:  # only has complex projections
             self.projection_type = enums.ProjectionType.COMPLEX
@@ -139,6 +141,9 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         )
         # Enable the ArrayViewer
         self.post_alignment_viewer.setEnabled(True)
+        # Refresh the Applied Shifts tab in the projection viewer
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
 
     def make_options_setup_and_results_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
