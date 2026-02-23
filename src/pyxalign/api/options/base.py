@@ -104,4 +104,5 @@ def jsonize(val):
     elif isinstance(val, (list, dict, str, int, float, bool, type(None))):
         return val
     else:
+        print(type(val))
         raise TypeError(f"Object of type {type(val).__name__} is not JSON serializable")

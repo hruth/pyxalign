@@ -188,6 +188,13 @@ class CombinedAlignmentWidget(SidebarNavigator):
                     task=self.task,
                     projection_viewer=projection_viewer_for_pma,
                 )
+
+            # Connect shift operations in ProjectionViewer to clear CC results
+            if hasattr(self.projection_viewer, 'all_shifts_viewer') and self.projection_viewer.all_shifts_viewer is not None:
+                # Connect the apply and undo shift buttons to clear CC results
+                self.projection_viewer.all_shifts_viewer.shift_operation_performed.connect(
+                    self.cc_widget.clear_alignment_results
+                )
         else:
             self.cc_widget = None
 

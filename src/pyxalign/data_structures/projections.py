@@ -1040,6 +1040,14 @@ class ShiftManager:
         self.past_eliminate_wrapping += [self.staged_eliminate_wrapping]
         self.past_alignment_options += [self.staged_alignment_options]
         # Clear the staged variables
+        self.clear_staged_shift()
+        # self.staged_shift = np.zeros_like(self.staged_shift)
+        # self.staged_function_type = None
+        # self.staged_eliminate_wrapping = None
+        # self.staged_alignment_options = None
+
+    def clear_staged_shift(self):
+        # Clear the staged variables
         self.staged_shift = np.zeros_like(self.staged_shift)
         self.staged_function_type = None
         self.staged_eliminate_wrapping = None
@@ -1095,7 +1103,7 @@ class ShiftManager:
                 eliminate_wrapping=self.staged_eliminate_wrapping,
                 device_options=device_options,
             )
-            self.unstage_shift()
+            self.clear_staged_shift()
         else:
             print("There is no shift to apply!")
 
@@ -1116,6 +1124,7 @@ class ShiftManager:
         self.past_shifts = self.past_shifts[:-1]
         self.past_shift_functions = self.past_shift_functions[:-1]
         self.past_alignment_options = self.past_alignment_options[:-1]
+        self.unstage_shift()
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:

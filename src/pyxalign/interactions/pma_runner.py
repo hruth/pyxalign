@@ -175,13 +175,16 @@ class PMAResultsCollection(AlignmentResultsCollection):
         alignment_results_list: list[AlignmentResults],
         display_initial_shift: bool = True,
         task: Optional["t.LaminographyAlignmentTask"] = None,
+        projection_viewer: Optional[QWidget] = None,
         parent: Optional[QWidget] = None,
     ):
         # Store parameters for manual layout construction
         self.alignment_results_list = alignment_results_list
         self.display_initial_shift = display_initial_shift
         self.task = task
+        self.projection_viewer = projection_viewer
         self.show_with_applied_shifts = False  # Default to current view
+        self.current_selected_row = None
 
         # Call QWidget.__init__ directly, not the parent AlignmentResultsCollection
         QWidget.__init__(self, parent)
@@ -200,6 +203,7 @@ class PMAResultsCollection(AlignmentResultsCollection):
         # Build the layout manually to control widget order
         self.create_shift_plots()
         self.create_options_display()
+        self.create_stage_shift_button()
         self.update_table()
 
         main_layout = QHBoxLayout(self)
@@ -224,6 +228,9 @@ class PMAResultsCollection(AlignmentResultsCollection):
         table_title.setStyleSheet("QLabel {font-size: 18px;}")
         left_layout.addWidget(table_title)
         left_layout.addWidget(self.results_table)
+
+        # Add stage shift button
+        left_layout.addWidget(self.stage_shift_button)
 
         # Add changed settings section in a scroll area
         changed_settings_title = QLabel("Sequencer Changed Settings")
@@ -315,6 +322,9 @@ class PMAResultsCollection(AlignmentResultsCollection):
 
     def on_table_cell_changed(self, row: int, column: int):
         """Override to also update changed settings display."""
+        self.current_selected_row = row
+        if len(self.alignment_results_list) == 0:
+            return
         super().on_table_cell_changed(row, column)
         self.update_changed_settings_display(row)
 
@@ -384,6 +394,48 @@ class PMAResultsCollection(AlignmentResultsCollection):
             ax.grid(linestyle=":")
 
         self.canvas.draw()
+
+    def create_stage_shift_button(self):
+        """Create a button to stage the selected shift."""
+        self.stage_shift_button = QPushButton("Stage Selected Shift")
+        self.stage_shift_button.setStyleSheet(action_button_style_sheet)
+        self.stage_shift_button.clicked.connect(self.on_stage_shift_clicked)
+
+    def on_stage_shift_clicked(self):
+        """Handle the stage shift button click."""
+        if self.current_selected_row is not None:
+            self.stage_shift(self.current_selected_row)
+
+    def stage_shift(self, row: int):
+        """
+        Stage the shift from the selected alignment result.
+
+        Parameters
+        ----------
+        row : int
+            The index of the alignment result to stage.
+        """
+        from pyxalign.api import enums
+
+        if self.task is None or self.task.phase_projections is None:
+            print("Cannot stage shift: task or phase_projections not available")
+            return
+
+        alignment_result = self.alignment_results_list[row]
+        shift = alignment_result.shift
+
+        # Stage the shift using the shift_manager
+        self.task.phase_projections.shift_manager.stage_shift(
+            shift=shift,
+            function_type=enums.ShiftType.CIRC,
+            alignment_options=self.task.options.projection_matching,
+            eliminate_wrapping=True,
+        )
+        print(f"Shift from alignment result {row} staged successfully")
+
+        # Refresh the Applied Shifts tab in the projection viewer
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
 
     def clear_plots(self):
         """Clear the shift plots when no alignment results are available."""
@@ -932,7 +984,9 @@ class PMAMasterWidget(MultiThreadedWidget):
 
     def make_third_tab_layout(self, tabs: QTabWidget):
         self.results_collection_widget = PMAResultsCollection(
-            self.alignment_results_list, task=self.task
+            self.alignment_results_list,
+            task=self.task,
+            projection_viewer=self.projection_viewer,
         )
         empty_widget = QWidget()
         self._results_collection_layout = QVBoxLayout()

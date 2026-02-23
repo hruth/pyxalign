@@ -10,7 +10,7 @@ Key Components:
 - AlignmentResultsCollection: Base widget for visualizing and comparing multiple alignment results
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -20,6 +20,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -29,6 +30,7 @@ from PyQt5.QtWidgets import (
 
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.types import OptionsClass
+from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 
 
@@ -96,14 +98,18 @@ class AlignmentResultsCollection(QWidget):
         self,
         alignment_results_list: list[AlignmentResults],
         display_initial_shift: bool = True,
+        stage_shift_callback: Optional[Callable[[int], None]] = None,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
         self.alignment_results_list = alignment_results_list
         self.display_initial_shift = display_initial_shift
+        self.stage_shift_callback = stage_shift_callback
+        self.current_selected_row = None
 
         self.create_shift_plots()
         self.create_options_display()
+        self.create_stage_shift_button()
         self.update_table()
 
         main_layout = QHBoxLayout(self)
@@ -118,6 +124,11 @@ class AlignmentResultsCollection(QWidget):
         table_title.setStyleSheet("QLabel {font-size: 18px;}")
         left_layout.addWidget(table_title)
         left_layout.addWidget(self.results_table)
+
+        # Add stage shift button
+        if self.stage_shift_callback is not None:
+            left_layout.addWidget(self.stage_shift_button)
+
         options_title = QLabel("Alignment Options")
         options_title.setStyleSheet("QLabel {font-size: 18px;}")
         left_layout.addWidget(options_title)
@@ -203,6 +214,10 @@ class AlignmentResultsCollection(QWidget):
                 self.results_table.setItem(i, 0, index_item)
 
     def on_table_cell_changed(self, row: int, column: int):
+        # check if any cells exist
+        if len(self.alignment_results_list) == 0:
+            return
+        self.current_selected_row = row
         self.change_shift_plot_index(row)
         self.change_options_display_index(row)
 
@@ -237,3 +252,14 @@ class AlignmentResultsCollection(QWidget):
     def change_options_display_index(self, row: int):
         self.options_display.update_options(self.alignment_results_list[row].pma_options)
         self.options_display.update_display()
+
+    def create_stage_shift_button(self):
+        """Create a button to stage the selected shift."""
+        self.stage_shift_button = QPushButton("Stage Selected Shift")
+        self.stage_shift_button.setStyleSheet(action_button_style_sheet)
+        self.stage_shift_button.clicked.connect(self.on_stage_shift_clicked)
+
+    def on_stage_shift_clicked(self):
+        """Handle the stage shift button click."""
+        if self.current_selected_row is not None and self.stage_shift_callback is not None:
+            self.stage_shift_callback(self.current_selected_row)
