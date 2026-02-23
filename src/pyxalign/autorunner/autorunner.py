@@ -91,9 +91,8 @@ class Autorunner(ABC):
 
 
 class AutorunnerPtychoV2(Autorunner):
-    def __init__(self, file_path: str, use_state_file: bool):
+    def __init__(self, file_path: str):
         self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
-        self._use_state_file = use_state_file
         self._standardized_data: StandardData
 
     def run(self):
@@ -107,8 +106,10 @@ class AutorunnerPtychoV2(Autorunner):
 
     def _create_state_file(self):
         self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
+        # create the state file if it does not exist
         if not os.path.exists(self._state_file_path):
             self.config.save_to_dict(self._state_file_path)
+        # If the user wants to use the state file, replace the config attribute
         if self.config.use_state_file:
             # use settings saved to the state file instead
             self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
@@ -117,12 +118,12 @@ class AutorunnerPtychoV2(Autorunner):
         path = self.config.loading.initial_options_path
         options_type = self.config.loading.experiment_type
         self.loading_options: BaseOptions = get_loader_options_by_enum(options_type)
-        if path is not None:
+        if path is not None and os.path.exists(path):
             self.loading_options.load_from_path(path)
 
     @save_state_file
     def _load_data(self):
-        if self.config.loading.interactive or self.loading_options is None:
+        if self.config.interactivity.loading or self.loading_options is None:
             self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
 
         if self.config.update_state_file:

@@ -19,8 +19,6 @@ from pyxalign.unwrap import unwrap_phase
 class LoadingConfig(BaseOptions):
     experiment_type: ExperimentType = ExperimentType.LYNX
 
-    interactive: bool = False
-
     initial_options_path: Optional[str] = None
     # If none provided, or invalid path, or some error loading -- then interactivity is forced
 
@@ -53,6 +51,8 @@ class ReconstructionGeometryConfig(BaseOptions):
 
 @dataclasses.dataclass
 class InteractivityConfig(BaseOptions):
+    loading: bool = True
+
     initialization: bool = True
 
     cross_correlation: bool = True
