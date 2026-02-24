@@ -89,9 +89,8 @@ class EnabledCheckpoints(BaseOptions):
 
 @dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):
-    state_folder: Optional[str] = None
+    state_folder: str = ""
     "Where state files get automatically saved to"
-
 
     load_from_checkpoint: Optional[Checkpoints] = None
 

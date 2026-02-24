@@ -2,6 +2,7 @@ import copy
 import os
 from abc import ABC
 from functools import wraps
+from typing import Optional
 import yaml
 import numpy as np
 
@@ -142,13 +143,22 @@ class Autorunner(ABC):
 
 
 class AutorunnerPtychoV2(Autorunner):
-    def __init__(self, file_path: str):
-        self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
+    def __init__(self, file_path: Optional[str] = None):
         self._standardized_data: StandardData
 
+        if file_path is not None:
+            if os.path.exists(file_path):
+                self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
+            else:
+                print("Autorunner config not found, using default configuration")
+                self.config = AutorunnerConfig()
+        else:
+            self.config = AutorunnerConfig()
+
     def run(self):
-        self._create_state_file()
         self._edit_autorunner_settings()
+        self._create_state_file()
+        
         self._get_loading_options()
         self._load_data()
         self._get_initialization_options()
@@ -162,7 +172,7 @@ class AutorunnerPtychoV2(Autorunner):
         # save volumes ?
 
     def _create_state_file(self):
-        self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
+        # self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
         # create the state file if it does not exist
         if not os.path.exists(self._state_file_path):
             self.config.save_to_dict(self._state_file_path)
@@ -173,7 +183,6 @@ class AutorunnerPtychoV2(Autorunner):
 
     @save_state_file
     def _edit_autorunner_settings(self):
-        # only needed here and not other widgets, no idea why :|
         app = QApplication.instance() or QApplication([])
 
         valid_checkpoint = False
@@ -193,6 +202,7 @@ class AutorunnerPtychoV2(Autorunner):
                 title="Autorunner Configuration",
             )
             wrapper.wait_for_user_action()
+            self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
 
             # check that checkpoint exists
             if self.config.load_from_checkpoint is None:
