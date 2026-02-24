@@ -54,6 +54,49 @@ def save_state_file(func):
         return result
     return wrapper
 
+def skip_if_loading_from_checkpoint(func):
+    """Decorator that saves the config to the state file after method execution."""
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self.config.load_from_checkpoint is None:
+            result = func(self, *args, **kwargs)
+        else:
+            return
+        return result
+    return wrapper
+
+# need to also check that the requested checkpoint to load exists
+
+def handle_checkpoint(checkpoint: str):
+    def checkpoint_inner(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            checkpoints_folder = os.path.join(self.config.state_folder, "checkpoints")
+            checkpoint_path = os.path.join(checkpoints_folder, checkpoint + "_task.h5")
+
+            # check if past the current checkpoint or not
+            current_checkpoint_val = get_checkpoint_order_value(checkpoint)
+            loaded_checkpoint_val = get_checkpoint_order_value(self.config.load_from_checkpoint)
+            if current_checkpoint_val < loaded_checkpoint_val:
+                # before checkpoint
+                return
+            elif current_checkpoint_val == loaded_checkpoint_val:
+                # at checkpoint
+                self.task = load_task(checkpoint_path)
+                return
+            elif current_checkpoint_val > loaded_checkpoint_val:
+                # after checkpoint
+                result = func(self, *args, **kwargs)
+
+            # save checkpoint if enabled
+            if getattr(AutorunnerConfig().enabled_checkpoints, checkpoint):
+                if not os.path.exists(checkpoints_folder):
+                    os.mkdir(checkpoints_folder)
+                self.task.save_task(checkpoint_path)
+
+            return result
+        return wrapper
+    return checkpoint_inner
 
 class Autorunner(ABC):
     def __init__(self, file_path: str):
@@ -117,6 +160,7 @@ class AutorunnerPtychoV2(Autorunner):
             # use settings saved to the state file instead
             self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
 
+    @skip_if_loading_from_checkpoint
     def _get_loading_options(self):
         path = self.config.loading.initial_options_path
         options_type = self.config.loading.experiment_type
@@ -124,6 +168,7 @@ class AutorunnerPtychoV2(Autorunner):
         if path is not None and os.path.exists(path):
             self.loading_options.load_from_path(path)
 
+    @skip_if_loading_from_checkpoint
     @save_state_file
     def _load_data(self):
         if self.config.interactivity.loading or self.loading_options is None:
@@ -136,6 +181,7 @@ class AutorunnerPtychoV2(Autorunner):
             # update autorunner config
             self.config.loading.initial_options_path = initial_options_path
 
+    @skip_if_loading_from_checkpoint
     @save_state_file
     def _get_initialization_options(self):
         if self.config.interactivity.initialization:
@@ -143,6 +189,7 @@ class AutorunnerPtychoV2(Autorunner):
                 self._standardized_data, self.config.initialize
             )
 
+    @handle_checkpoint("initialization")
     @save_state_file # unecessary for this method at the moment
     def _create_projections_object(self):
         # create padded projection array

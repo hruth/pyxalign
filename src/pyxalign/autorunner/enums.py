@@ -9,6 +9,8 @@ class Checkpoints(StrEnum):
     ESTIMATE_CENTER = auto()
 
 def get_checkpoint_order_value(checkpoint: Union[str, Checkpoints]) -> int:
+    if checkpoint is None:
+        return -1
     checkpoint = Checkpoints(checkpoint)
     return {
         Checkpoints.INITIALIZATION: 1,

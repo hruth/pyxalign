@@ -1,6 +1,7 @@
 from enum import StrEnum, auto
 import dataclasses
 from dataclasses import field
+import itertools
 from typing import Optional
 from pyxalign import reconstruct
 from pyxalign.alignment import cross_correlation, projection_matching
@@ -10,6 +11,7 @@ from pyxalign.api.options.base import BaseOptions
 from pyxalign.api.options.options import PhaseUnwrapOptions
 from pyxalign.api.options.projections import ProbePositionMaskOptions, VolumeWidthOptions
 from pyxalign.api.options.reconstruct import ReconstructOptions
+from pyxalign.autorunner.enums import Checkpoints
 from pyxalign.interactions import initialize_projections
 from pyxalign.io.loaders.enums import ExperimentType
 from pyxalign.unwrap import unwrap_phase
@@ -68,6 +70,24 @@ class InteractivityConfig(BaseOptions):
     projection_matching: bool = True
 
 @dataclasses.dataclass
+class EnabledCheckpoints(BaseOptions):
+    # loading: bool = True
+
+    initialization: bool = True
+
+    cross_correlation: bool = True
+
+    phase_unwrapping: bool = True
+
+    phase_unwrap_masks: bool = True
+
+    pma_masks: bool = True
+
+    reconstruction_tuning: bool = True
+
+    projection_matching: bool = True
+
+@dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):
     state_folder: Optional[str] = None
     "Where state files get automatically saved to"
@@ -76,9 +96,13 @@ class AutorunnerConfig(BaseOptions):
 
     update_state_file: bool = True
 
+    load_from_checkpoint: Optional[Checkpoints] = None
+
     cross_correlation_enabled: bool = True
 
     projection_matching_enabled: bool = True
+
+    enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
 
     interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
 
