@@ -63,9 +63,9 @@ class InteractivityConfig(BaseOptions):
 
     phase_unwrap_masks: bool = True
 
-    pma_masks: bool = True
-
     reconstruction_tuning: bool = True
+
+    pma_masks: bool = True
 
     projection_matching: bool = True
 
@@ -77,13 +77,13 @@ class EnabledCheckpoints(BaseOptions):
 
     cross_correlation: bool = True
 
-    phase_unwrapping: bool = True
-
     phase_unwrap_masks: bool = True
 
-    pma_masks: bool = True
+    phase_unwrapping: bool = True
 
     reconstruction_tuning: bool = True
+
+    pma_masks: bool = True
 
     projection_matching: bool = True
 

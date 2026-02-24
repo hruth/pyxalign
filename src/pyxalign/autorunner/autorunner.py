@@ -72,7 +72,6 @@ def skip_if_loading_from_checkpoint(func):
 
     return wrapper
 
-
 def handle_checkpoint(checkpoint: str):
     def checkpoint_inner(func):
         @wraps(func)
@@ -158,6 +157,7 @@ class AutorunnerPtychoV2(Autorunner):
         self._get_complex_projections_masks()
         self._unwrap_phase()
         self._select_center_of_rotation()
+        self._get_phase_projections_masks()
         self._run_projection_matching_sequence()
         # save volumes ?
 
@@ -284,6 +284,7 @@ class AutorunnerPtychoV2(Autorunner):
 
         self._standardized_data = None
 
+    @handle_checkpoint("cross_correlation")
     @save_state_file
     def _get_cross_correlation_alignment(self):
         self.task.options.cross_correlation = self.config.cross_correlation
@@ -307,6 +308,7 @@ class AutorunnerPtychoV2(Autorunner):
 
         self.task.complex_projections.apply_staged_shift()
 
+    @handle_checkpoint("phase_unwrap_masks")
     @save_state_file
     def _get_complex_projections_masks(self):
         self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
@@ -318,8 +320,10 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
 
+    @handle_checkpoint("phase_unwrapping")
     @save_state_file
     def _unwrap_phase(self):
+        print("Perform phase unwrapping...")
         self.task.complex_projections.options.phase_unwrap = self.config.unwrap_phase
 
         if self.config.interactivity.phase_unwrapping:
@@ -330,8 +334,10 @@ class AutorunnerPtychoV2(Autorunner):
             self.task.get_unwrapped_phase()
         self.task.complex_projections = None
 
+    @handle_checkpoint("pma_masks")
     @save_state_file
     def _get_phase_projections_masks(self):
+        print("Select masks used in projection-matching alignment...")
         self.task.phase_projections.options.mask_from_positions = (
             self.config.projection_matching_masks
         )
@@ -343,8 +349,11 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
 
+    @handle_checkpoint("reconstruction_tuning")
     @save_state_file
     def _select_center_of_rotation(self):
+        print("Select reconstruction parameters...")
+        app = QApplication.instance() or QApplication([])
         # need some custom tools for specifying CoR in the
         # config file due to not being contained all in the same options..
         # I also need some way to update the state file when this is running
@@ -383,6 +392,7 @@ class AutorunnerPtychoV2(Autorunner):
             self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
         )
 
+    @handle_checkpoint("projection_matching")
     @save_state_file
     def _run_projection_matching_sequence(self):
         if not self.config.projection_matching_enabled:
@@ -469,7 +479,7 @@ class AutorunnerPtycho(Autorunner):
         self._save_checkpoint_task(step_string)
 
     def _get_cross_correlation_alignment(self):
-        self._current_checkpoint = Checkpoints.CROSS_CORRELATION_ALIGNMENT
+        self._current_checkpoint = Checkpoints.CROSS_CORRELATION
         step_string = "cross_correlation_alignment"
         cfg = self._options_dict[step_string]
 
@@ -520,7 +530,7 @@ class AutorunnerPtycho(Autorunner):
         self._save_checkpoint_task(step_string)
 
     def _get_phase_projections_masks(self):
-        self._current_checkpoint = Checkpoints.PHASE_PROJECTIONS_MASKS
+        self._current_checkpoint = Checkpoints.PMA_MASKS
         step_string = "phase_projections_masks"
         cfg = self._options_dict["phase_projections_masks"]
 
@@ -547,7 +557,7 @@ class AutorunnerPtycho(Autorunner):
             )
 
     def _estimate_center_of_rotation(self):
-        self._current_checkpoint = Checkpoints.ESTIMATE_CENTER
+        self._current_checkpoint = Checkpoints.RECONSTRUCTION_TUNING
         step_string = "estimate_center"
         cfg = self._options_dict["estimate_center"]
 

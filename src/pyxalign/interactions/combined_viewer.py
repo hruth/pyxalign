@@ -144,6 +144,7 @@ class CombinedAlignmentWidget(SidebarNavigator):
                 include_options=True,
                 include_shifts=True,
                 display_only=False,
+                include_array_saving_widget=True,
             )
             # Pass projection_viewer to PMAMasterWidget for updating
             projection_viewer_for_pma = self.projection_viewer
