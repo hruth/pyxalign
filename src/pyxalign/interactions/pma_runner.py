@@ -50,7 +50,6 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from zmq import has
 
 from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.task as t

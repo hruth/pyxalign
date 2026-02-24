@@ -11,6 +11,7 @@ from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMa
 from pyxalign.api.options.base import BaseOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.transform import RotationOptions, ShearOptions
+from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.autorunner.config import AutorunnerConfig
 from pyxalign.autorunner.enums import Checkpoints, get_checkpoint_order_value
 from pyxalign.autorunner.io import (
@@ -26,6 +27,7 @@ from pyxalign.interactions.combined_viewer import launch_combined_alignment_widg
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
 from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
+from pyxalign.interactions.options.options_editor import BasicOptionsEditor, launch_basic_options_editor
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.pma_runner import launch_pma_runner
 from pyxalign.interactions.point_selector import launch_point_selector
@@ -140,6 +142,7 @@ class AutorunnerPtychoV2(Autorunner):
 
     def run(self):
         self._create_state_file()
+        self._edit_autorunner_settings()
         self._get_loading_options()
         self._load_data()
         self._get_initialization_options()
@@ -159,6 +162,19 @@ class AutorunnerPtychoV2(Autorunner):
         if self.config.use_state_file:
             # use settings saved to the state file instead
             self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
+
+    @save_state_file
+    def _edit_autorunner_settings(self):
+        launch_basic_options_editor(
+            self.config,
+            enable_advanced_tab=True,
+            basic_options_list=_get_high_level_config_options(),
+            open_panels_list=["enabled_checkpoints", "interactivity"],
+            folder_dialog_fields=["state_folder"],
+            file_dialog_fields=["loading.initial_options_path"],
+            label="Update Autorunner Configuration",
+            wait_until_closed=True,
+        )
 
     @skip_if_loading_from_checkpoint
     def _get_loading_options(self):
@@ -646,3 +662,25 @@ class Autorunner12IDE(AutorunnerPtycho):
                 )
             else:
                 self._standardized_data, self._load_options = launch_data_loader(self._load_options)
+
+def _get_high_level_config_options() -> list[str]:
+    high_level_config_options = [
+        "state_folder",
+        "use_state_file",
+        "update_state_file",
+        "load_from_checkpoint",
+        "interactivity",
+        "cross_correlation_enabled",
+        "projection_matching_enabled",
+        "enabled_checkpoints",
+    ]
+
+    high_level_config_options += [
+        "interactivity." + x for x in get_all_attribute_names(AutorunnerConfig().interactivity)
+    ]
+    high_level_config_options += [
+        "enabled_checkpoints." + x
+        for x in get_all_attribute_names(AutorunnerConfig().enabled_checkpoints)
+    ]
+
+    return high_level_config_options

@@ -92,19 +92,20 @@ class AutorunnerConfig(BaseOptions):
     state_folder: Optional[str] = None
     "Where state files get automatically saved to"
 
-    use_state_file: bool = True
-
-    update_state_file: bool = True
 
     load_from_checkpoint: Optional[Checkpoints] = None
 
+    enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
+    
+    interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
+    
     cross_correlation_enabled: bool = True
 
     projection_matching_enabled: bool = True
 
-    enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
+    use_state_file: bool = True
 
-    interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
+    update_state_file: bool = True
 
     loading: LoadingConfig = field(default_factory=LoadingConfig)
 
