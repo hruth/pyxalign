@@ -215,10 +215,14 @@ class ProjectionViewer(MultiThreadedWidget):
             # create button for editing properties
             open_options_editor_button = QPushButton("Edit Projection Parameters")
             open_options_editor_button.clicked.connect(self.open_options_editor)
+            # create button for inverting projections
+            invert_projections_button = QPushButton("Invert Projections")
+            invert_projections_button.clicked.connect(self.invert_projections)
 
             push_button_layout = QVBoxLayout()
             push_button_layout.addWidget(open_reconstruction_tuner_button)
             push_button_layout.addWidget(open_options_editor_button)
+            push_button_layout.addWidget(invert_projections_button)
             push_button_layout.addWidget(open_scan_removal_button)
             push_button_layout.addWidget(
                 QLabel("Mask Creation:"), alignment=Qt.AlignCenter
@@ -260,6 +264,14 @@ class ProjectionViewer(MultiThreadedWidget):
             # create options viewer
             self.options_display = OptionsDisplayWidget(projections.options)
             tabs.addTab(self.options_display, "Projection Options")
+
+    def invert_projections(self):
+        """Invert the projection data and refresh the display."""
+        if np.iscomplexobj(self.projections.data):
+            self.projections.data[:] = np.conj(self.projections.data)
+        else:
+            self.projections.data[:] = -self.projections.data
+        self.array_viewer.refresh_frame()
 
     def open_options_editor(self):
         if self.options_editor is None:
