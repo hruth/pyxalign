@@ -1,10 +1,8 @@
-from ast import Interactive
 import copy
 import os
-from abc import ABC, abstractmethod
+from abc import ABC
 from functools import wraps
 import yaml
-import multiprocessing as mp
 import numpy as np
 
 from PyQt5.QtWidgets import QApplication
@@ -27,33 +25,24 @@ from pyxalign.estimate_center import plot_center_of_rotation_estimate_results
 from pyxalign.interactions.autorunner.initialization_widget import (
     launch_initialization_config_widget,
 )
-from pyxalign.interactions.autorunner.wrapper import (
-    AutorunnerGUIWrapper,
-    AutorunnerProcessEnded,
-)
+from pyxalign.interactions.autorunner.wrapper import AutorunnerGUIWrapper
 from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
 from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import (
-    BasicOptionsEditor,
     launch_basic_options_editor,
 )
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
-from pyxalign.interactions.pma_runner import launch_pma_runner
-from pyxalign.interactions.point_selector import launch_point_selector
+
 from pyxalign.interactions.reconstruction_parameter_tuner import (
     launch_reconstruction_parameter_tuner,
 )
 from pyxalign.io.loaders.base import StandardData
-from pyxalign.io.loaders.enums import ExperimentType
-from pyxalign.io.loaders.maps import get_loader_options_by_enum
-from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 
-# from pyxalign.io.loaders.pear.options import BaseLoadOptions, LYNXLoadOptions, Ptycho12IDELoadOptions
+from pyxalign.io.loaders.maps import get_loader_options_by_enum
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
-import pyxalign.io.loaders.pear as pear
 from pyxalign.api.types import r_type
 
 
@@ -82,9 +71,6 @@ def skip_if_loading_from_checkpoint(func):
         return result
 
     return wrapper
-
-
-# need to also check that the requested checkpoint to load exists
 
 
 def handle_checkpoint(checkpoint: str):
@@ -190,21 +176,39 @@ class AutorunnerPtychoV2(Autorunner):
         # only needed here and not other widgets, no idea why :|
         app = QApplication.instance() or QApplication([])
 
-        content_gui = launch_basic_options_editor(
-            self.config,
-            enable_advanced_tab=True,
-            basic_options_list=_get_high_level_config_options(),
-            open_panels_list=["enabled_checkpoints", "interactivity"],
-            folder_dialog_fields=["state_folder"],
-            file_dialog_fields=["loading.initial_options_path"],
-            label="Update Autorunner Configuration",
-            wait_until_closed=False,
-        )
-        wrapper = AutorunnerGUIWrapper(
-            content_gui,
-            title="Autorunner Configuration",
-        )
-        wrapper.wait_for_user_action()
+        valid_checkpoint = False
+        while not valid_checkpoint:
+            content_gui = launch_basic_options_editor(
+                self.config,
+                enable_advanced_tab=True,
+                basic_options_list=_get_high_level_config_options(),
+                open_panels_list=["enabled_checkpoints", "interactivity"],
+                folder_dialog_fields=["state_folder"],
+                file_dialog_fields=["loading.initial_options_path"],
+                label="Update Autorunner Configuration",
+                wait_until_closed=False,
+            )
+            wrapper = AutorunnerGUIWrapper(
+                content_gui,
+                title="Autorunner Configuration",
+            )
+            wrapper.wait_for_user_action()
+
+            # check that checkpoint exists
+            if self.config.load_from_checkpoint is None:
+                valid_checkpoint = True
+            else:
+                checkpoints_folder = os.path.join(self.config.state_folder, "checkpoints")
+                checkpoint_path = os.path.join(
+                    checkpoints_folder, self.config.load_from_checkpoint + "_task.h5"
+                )
+                if not os.path.exists(checkpoint_path):
+                    print(f"There is no {self.config.load_from_checkpoint} checkpoint file.")
+                    print(f"Available checkpoint files:")
+                    for file_name in os.listdir(checkpoints_folder):
+                        print("- " + file_name)
+                else:
+                    valid_checkpoint = True
 
     @skip_if_loading_from_checkpoint
     def _get_loading_options(self):
@@ -308,9 +312,7 @@ class AutorunnerPtychoV2(Autorunner):
         self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
 
         if self.config.interactivity.phase_unwrap_masks:
-            content_gui = launch_mask_builder(
-                self.task.complex_projections, wait_until_closed=True
-            )
+            content_gui = launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
             # wrapper = AutorunnerGUIWrapper(content_gui, title="Complex Projections Masks")
             # wrapper.wait_for_user_action()
         else:
