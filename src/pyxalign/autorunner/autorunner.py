@@ -7,6 +7,8 @@ import yaml
 import multiprocessing as mp
 import numpy as np
 
+from PyQt5.QtWidgets import QApplication
+
 from pyxalign.api.options.alignment import CrossCorrelationOptions, ProjectionMatchingOptions
 from pyxalign.api.options.base import BaseOptions
 from pyxalign.api.options.projections import ProjectionOptions
@@ -22,12 +24,21 @@ from pyxalign.autorunner.io import (
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
 from pyxalign.estimate_center import plot_center_of_rotation_estimate_results
-from pyxalign.interactions.autorunner.initialization_widget import launch_initialization_config_widget
+from pyxalign.interactions.autorunner.initialization_widget import (
+    launch_initialization_config_widget,
+)
+from pyxalign.interactions.autorunner.wrapper import (
+    AutorunnerGUIWrapper,
+    AutorunnerProcessEnded,
+)
 from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
 from pyxalign.interactions.cross_correlation import launch_cross_correlation_gui
 from pyxalign.interactions.io.loader import launch_data_loader
 from pyxalign.interactions.mask import launch_mask_builder
-from pyxalign.interactions.options.options_editor import BasicOptionsEditor, launch_basic_options_editor
+from pyxalign.interactions.options.options_editor import (
+    BasicOptionsEditor,
+    launch_basic_options_editor,
+)
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.pma_runner import launch_pma_runner
 from pyxalign.interactions.point_selector import launch_point_selector
@@ -48,16 +59,20 @@ from pyxalign.api.types import r_type
 
 def save_state_file(func):
     """Decorator that saves the config to the state file after method execution."""
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         result = func(self, *args, **kwargs)
         if self.config.update_state_file:
             self.config.save_to_dict(self._state_file_path)
         return result
+
     return wrapper
+
 
 def skip_if_loading_from_checkpoint(func):
     """Decorator that saves the config to the state file after method execution."""
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self.config.load_from_checkpoint is None:
@@ -65,9 +80,12 @@ def skip_if_loading_from_checkpoint(func):
         else:
             return
         return result
+
     return wrapper
 
+
 # need to also check that the requested checkpoint to load exists
+
 
 def handle_checkpoint(checkpoint: str):
     def checkpoint_inner(func):
@@ -97,8 +115,11 @@ def handle_checkpoint(checkpoint: str):
                 self.task.save_task(checkpoint_path)
 
             return result
+
         return wrapper
+
     return checkpoint_inner
+
 
 class Autorunner(ABC):
     def __init__(self, file_path: str):
@@ -166,7 +187,10 @@ class AutorunnerPtychoV2(Autorunner):
 
     @save_state_file
     def _edit_autorunner_settings(self):
-        launch_basic_options_editor(
+        # only needed here and not other widgets, no idea why :|
+        app = QApplication.instance() or QApplication([])
+
+        content_gui = launch_basic_options_editor(
             self.config,
             enable_advanced_tab=True,
             basic_options_list=_get_high_level_config_options(),
@@ -174,8 +198,13 @@ class AutorunnerPtychoV2(Autorunner):
             folder_dialog_fields=["state_folder"],
             file_dialog_fields=["loading.initial_options_path"],
             label="Update Autorunner Configuration",
-            wait_until_closed=True,
+            wait_until_closed=False,
         )
+        wrapper = AutorunnerGUIWrapper(
+            content_gui,
+            title="Autorunner Configuration",
+        )
+        wrapper.wait_for_user_action()
 
     @skip_if_loading_from_checkpoint
     def _get_loading_options(self):
@@ -207,7 +236,7 @@ class AutorunnerPtychoV2(Autorunner):
             )
 
     @handle_checkpoint("initialization")
-    @save_state_file # unecessary for this method at the moment
+    @save_state_file  # unecessary for this method at the moment
     def _create_projections_object(self):
         # create padded projection array
         new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
@@ -261,23 +290,29 @@ class AutorunnerPtychoV2(Autorunner):
             # launch_cross_correlation_gui(
             #     self.task, projection_type="complex", wait_until_closed=True
             # )
-            launch_combined_alignment_widget(
+            content_gui = launch_combined_alignment_widget(
                 self.task,
                 include_projection_matching=False,
                 include_cross_correlation=True,
-                wait_until_closed=True,
+                wait_until_closed=False,
             )
+            wrapper = AutorunnerGUIWrapper(content_gui, title="Cross Correlation Alignment")
+            wrapper.wait_for_user_action()
         else:
             self.task.get_cross_correlation_shift(plot_results=False)
 
         self.task.complex_projections.apply_staged_shift()
-    
+
     @save_state_file
     def _get_complex_projections_masks(self):
         self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
 
         if self.config.interactivity.phase_unwrap_masks:
-            launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
+            content_gui = launch_mask_builder(
+                self.task.complex_projections, wait_until_closed=True
+            )
+            # wrapper = AutorunnerGUIWrapper(content_gui, title="Complex Projections Masks")
+            # wrapper.wait_for_user_action()
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
 
@@ -286,7 +321,9 @@ class AutorunnerPtychoV2(Autorunner):
         self.task.complex_projections.options.phase_unwrap = self.config.unwrap_phase
 
         if self.config.interactivity.phase_unwrapping:
-            gui = launch_phase_unwrap_widget(self.task, wait_until_closed=True)
+            content_gui = launch_phase_unwrap_widget(self.task, wait_until_closed=False)
+            wrapper = AutorunnerGUIWrapper(content_gui, title="Phase Unwrapping")
+            wrapper.wait_for_user_action()
         else:
             self.task.get_unwrapped_phase()
         self.task.complex_projections = None
@@ -298,7 +335,9 @@ class AutorunnerPtychoV2(Autorunner):
         )
 
         if self.config.interactivity.pma_masks:
-            launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
+            content_gui = launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
+            # wrapper = AutorunnerGUIWrapper(content_gui, title="Phase Projections Masks")
+            # wrapper.wait_for_user_action()
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
 
@@ -314,7 +353,9 @@ class AutorunnerPtychoV2(Autorunner):
             self.config.reconstruct.sample_thickness
         )
         # update center of rotation # this will probably change/need to be considered later
-        unshifted_center_of_rotation = np.array(self.task.phase_projections.data.shape[1:], dtype=r_type) / 2
+        unshifted_center_of_rotation = (
+            np.array(self.task.phase_projections.data.shape[1:], dtype=r_type) / 2
+        )
         self.task.phase_projections.center_of_rotation[1] = (
             unshifted_center_of_rotation[1] + self.config.reconstruct.center_horizontal_offset
         )
@@ -323,9 +364,11 @@ class AutorunnerPtychoV2(Autorunner):
         )
 
         if self.config.interactivity.reconstruction_tuning:
-            gui = launch_reconstruction_parameter_tuner(
-                self.task.phase_projections, wait_until_closed=True
+            content_gui = launch_reconstruction_parameter_tuner(
+                self.task.phase_projections, wait_until_closed=False
             )
+            wrapper = AutorunnerGUIWrapper(content_gui, title="Reconstruction Parameter Tuning")
+            wrapper.wait_for_user_action()
         # update sample thickness in config
         self.config.reconstruct.sample_thickness = (
             self.task.phase_projections.options.experiment.sample_thickness
@@ -348,14 +391,17 @@ class AutorunnerPtychoV2(Autorunner):
             # need to figure out how to specify sequences first
             pass
         else:
-            gui = launch_combined_alignment_widget(
+            content_gui = launch_combined_alignment_widget(
                 self.task,
                 include_projection_matching=True,
                 include_cross_correlation=False,
                 # self._options_dict["projection_matching_alignment"]["sequence"],
-                wait_until_closed=True,
+                wait_until_closed=False,
             )
+            wrapper = AutorunnerGUIWrapper(content_gui, title="Projection Matching Sequence")
+            wrapper.wait_for_user_action()
         self.task.phase_projections.apply_staged_shift()
+
 
 class AutorunnerPtycho(Autorunner):
     def run(self):
@@ -601,6 +647,7 @@ class AutorunnerPtycho(Autorunner):
                 self._options_dict["loading"]["start_from_checkpoint"]["checkpoint"]
             )
             return current_checkpoint_val <= loaded_checkpoint_val
+
 
 def _get_high_level_config_options() -> list[str]:
     high_level_config_options = [
