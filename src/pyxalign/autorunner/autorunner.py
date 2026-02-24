@@ -152,6 +152,7 @@ class AutorunnerPtychoV2(Autorunner):
         self._unwrap_phase()
         self._select_center_of_rotation()
         self._run_projection_matching_sequence()
+        # save volumes ?
 
     def _create_state_file(self):
         self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
@@ -600,68 +601,6 @@ class AutorunnerPtycho(Autorunner):
                 self._options_dict["loading"]["start_from_checkpoint"]["checkpoint"]
             )
             return current_checkpoint_val <= loaded_checkpoint_val
-
-
-class AutorunnerLYNX(AutorunnerPtycho):
-    def _get_load_options(self):
-        cfg = self._options_dict["loading"]
-
-        base_load_options = pear.BaseLoadOptions(
-            parent_projections_folder=cfg["pear_base"]["parent_projections_folder"],
-            loader_type=cfg["pear_base"]["loader_type"],
-            file_pattern=cfg["pear_base"]["file_pattern"],
-            scan_start=cfg["pear_base"]["scan_start"],
-            scan_end=cfg["pear_base"]["scan_end"],
-            select_all_by_default=True,
-        )
-        self._load_options = pear.LYNXLoadOptions(
-            base=base_load_options,
-            dat_file_path=cfg["lynx"]["tomo_scannumbers_path"],
-            selected_experiment_name=cfg["lynx"]["experiment_name"],
-        )
-
-    def _load_data(self):
-        cfg = self._options_dict["loading"]
-        if cfg["start_from_checkpoint"]["enabled"]:
-            self._load_checkpoint_task(cfg["start_from_checkpoint"]["checkpoint"])
-        else:
-            self._get_load_options()
-            if not cfg["interactive"]:
-                self._standardized_data = load_data_from_pear_format(
-                    n_processes=int(mp.cpu_count() * 0.8),
-                    options=self._load_options,
-                )
-            else:
-                gui = launch_data_loader(self._load_options)
-
-
-class Autorunner12IDE(AutorunnerPtycho):
-    def _get_load_options(self):
-        cfg = self._options_dict["loading"]
-
-        base_load_options = pear.BaseLoadOptions(
-            parent_projections_folder=cfg["pear_base"]["parent_projections_folder"],
-            loader_type=cfg["pear_base"]["loader_type"],
-            file_pattern=cfg["pear_base"]["file_pattern"],
-            scan_start=cfg["pear_base"]["scan_start"],
-            scan_end=cfg["pear_base"]["scan_end"],
-            select_all_by_default=True,
-        )
-        self._load_options = pear.Ptycho12IDELoadOptions(base=base_load_options)
-
-    def _load_data(self):
-        cfg = self._options_dict["loading"]
-        if cfg["start_from_checkpoint"]["enabled"]:
-            self._load_checkpoint_task(cfg["start_from_checkpoint"]["checkpoint"])
-        else:
-            self._get_load_options()
-            if not cfg["interactive"]:
-                self._standardized_data = load_data_from_pear_format(
-                    n_processes=int(mp.cpu_count() * 0.8),
-                    options=self._load_options,
-                )
-            else:
-                self._standardized_data, self._load_options = launch_data_loader(self._load_options)
 
 def _get_high_level_config_options() -> list[str]:
     high_level_config_options = [
