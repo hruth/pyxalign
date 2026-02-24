@@ -27,13 +27,13 @@ class LoadingConfig(BaseOptions):
 class InitializationConfig(BaseOptions):
     pad: int = 0
 
-    laminography_angle: int = 90  # tomography
+    laminography_angle: float = 90.0  # tomography
 
     rotation_angle: float = 0
 
     shear_angle: float = 0
 
-    sample_thickness: float = 7e-6 # Move to reconstruction geometry?
+    # sample_thickness: float = 7e-6 # Move to reconstruction geometry?
 
     remove_scan_numbers: Optional[list] = None
 

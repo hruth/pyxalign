@@ -102,7 +102,10 @@ class AutorunnerPtychoV2(Autorunner):
         self._get_initialization_options()
         self._create_projections_object()
         self._get_cross_correlation_alignment()
+        self._get_complex_projections_masks()
         self._unwrap_phase()
+        self._select_center_of_rotation()
+        self._run_projection_matching_sequence()
 
     def _create_state_file(self):
         self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
@@ -153,7 +156,7 @@ class AutorunnerPtychoV2(Autorunner):
         projection_options = ProjectionOptions()
         # experiment parameters
         projection_options.experiment.laminography_angle = self.config.initialize.laminography_angle
-        projection_options.experiment.sample_thickness = self.config.initialize.sample_thickness
+        # projection_options.experiment.sample_thickness = self.config.initialize.sample_thickness
         projection_options.experiment.pixel_size = self._standardized_data.pixel_size
         # input processing
         if self.config.initialize.rotation_angle != 0:
@@ -191,8 +194,14 @@ class AutorunnerPtychoV2(Autorunner):
             return
 
         if self.config.interactivity.cross_correlation:
-            launch_cross_correlation_gui(
-                self.task, projection_type="complex", wait_until_closed=True
+            # launch_cross_correlation_gui(
+            #     self.task, projection_type="complex", wait_until_closed=True
+            # )
+            launch_combined_alignment_widget(
+                self.task,
+                include_projection_matching=False,
+                include_cross_correlation=True,
+                wait_until_closed=True,
             )
         else:
             self.task.get_cross_correlation_shift(plot_results=False)
@@ -296,6 +305,8 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             gui = launch_combined_alignment_widget(
                 self.task,
+                include_projection_matching=False,
+                include_cross_correlation=True,
                 # self._options_dict["projection_matching_alignment"]["sequence"],
                 wait_until_closed=True,
             )

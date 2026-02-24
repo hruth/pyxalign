@@ -181,7 +181,7 @@ def launch_initialization_config_widget(
     result = {}
 
     def on_config_confirmed():
-        result["config"] = gui.config
+        # result["config"] = gui.config
         app.quit()
 
     gui.config_confirmed.connect(on_config_confirmed)
@@ -190,7 +190,9 @@ def launch_initialization_config_widget(
     app.exec()
     gui.close()
 
-    if result:
-        return result["config"]
-    else:
-        return None
+    return gui.config
+
+    # if result:
+    #     return result["config"]
+    # else:
+    #     return None
