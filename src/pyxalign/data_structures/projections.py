@@ -1103,7 +1103,8 @@ class ShiftManager:
                 eliminate_wrapping=self.staged_eliminate_wrapping,
                 device_options=device_options,
             )
-            self.clear_staged_shift()
+            self.unstage_shift()
+            # self.clear_staged_shift()
         else:
             print("There is no shift to apply!")
 
