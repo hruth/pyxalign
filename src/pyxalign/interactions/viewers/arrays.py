@@ -40,6 +40,7 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QComboBox,
     QFormLayout,
+    QMessageBox,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from matplotlib.backends.backend_qt5agg import (
@@ -447,6 +448,16 @@ class ProjectionViewer(MultiThreadedWidget):
 
     def open_apply_saved_shift_dialog(self):
         """Open the dialog for applying a saved alignment shift."""
+        # Check if there are already applied shifts
+        if len(self.projections.shift_manager.past_shifts) > 0:
+            QMessageBox.warning(
+                self,
+                "Cannot Apply Saved Alignment Shift",
+                "Cannot apply alignment shift if the projections have already been shifted. "
+                "If you want to apply a saved alignment shift, you must first undo all previously applied shifts.",
+            )
+            return
+
         if self.apply_saved_shift_dialog is None:
             self.apply_saved_shift_dialog = ApplySavedAlignmentShiftDialog(
                 self.projections,
