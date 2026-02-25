@@ -3,6 +3,7 @@ import cupy as cp
 from pyxalign.api.maps import get_process_func_by_enum
 from pyxalign.api.options import ProjectionViewerOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
+from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options_utils import get_all_attribute_names, print_options
 import pyxalign.data_structures.projections as p
 from pyxalign.api import enums
@@ -151,6 +152,7 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         super().__init__(parent)
         self.projections = projections
         self.refresh_callback = refresh_callback
+        self.device_options = DeviceOptions()
         self.setWindowTitle("Apply Saved Alignment Shift")
         self.setup_ui()
 
@@ -186,6 +188,14 @@ class ApplySavedAlignmentShiftDialog(QDialog):
 
         main_layout.addLayout(form_layout)
 
+        # Add Device Options editor
+        self.device_options_editor = BasicOptionsEditor(
+            data=self.device_options,
+            label="Device Options",
+            parent=self,
+        )
+        main_layout.addWidget(self.device_options_editor)
+
         # Apply button
         apply_button = QPushButton("Apply Saved Alignment Shift")
         apply_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
@@ -193,7 +203,7 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         main_layout.addWidget(apply_button)
 
         self.setLayout(main_layout)
-        self.resize(600, 200)
+        self.resize(600, 500)
 
     def browse_file_path(self):
         """Open a file dialog to select the alignment shift file."""
@@ -228,7 +238,11 @@ class ApplySavedAlignmentShiftDialog(QDialog):
                 staged_function_type=staged_function_type,
                 drop_unshared_scans=drop_unshared_scans,
             )
-            self.projections.apply_staged_shift()
+            # Apply the staged shift with the configured device options
+            apply_shift_wrapped = loading_bar_wrapper(load_message="Applying shift...")(
+                func=self.projections.apply_staged_shift
+            )
+            apply_shift_wrapped(device_options=self.device_options)
             print(f"Successfully applied alignment shift from: {task_file_path}")
 
             # Refresh the applied shifts tab if callback is provided

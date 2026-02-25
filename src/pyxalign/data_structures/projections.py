@@ -44,7 +44,7 @@ from pyxalign.mask import (
     get_masks_from_roi,
     get_simulated_probe_for_masks,
 )
-from pyxalign.io.utils import load_list_of_arrays
+from pyxalign.io.utils import load_list_of_arrays_or_str
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
 from pyxalign.mask import estimate_reliability_region_mask, blur_masks
@@ -737,6 +737,7 @@ class Projections:
             "shear": self.transform_tracker.shear,
             "downsample": self.transform_tracker.scale,
             "applied_shifts": self.shift_manager.past_shifts,
+            "applied_shifts_function_types": self.shift_manager.past_shift_functions,
             "staged_shift": self.shift_manager.staged_shift,
             "staged_shift_function_type": self.shift_manager.staged_function_type,
             "file_paths": file_paths,
@@ -771,7 +772,7 @@ class Projections:
                 group = "phase_projections"
             elif "complex_projections" in F.keys():
                 group = "complex_projections"
-            past_shifts = load_list_of_arrays(F[group], "applied_shifts")
+            past_shifts = load_list_of_arrays_or_str(F[group], "applied_shifts")
             reference_scan_numbers = np.array(F[group]["scan_numbers"][()], dtype=int)
             reference_pixel_size = F[group]["pixel_size"][()]
             reference_center_of_rotation = F[group]["center_of_rotation"][()]
@@ -1125,7 +1126,7 @@ class ShiftManager:
         self.past_shifts = self.past_shifts[:-1]
         self.past_shift_functions = self.past_shift_functions[:-1]
         self.past_alignment_options = self.past_alignment_options[:-1]
-        self.unstage_shift()
+        # self.unstage_shift()
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:
