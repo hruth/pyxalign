@@ -5,6 +5,7 @@ from pyxalign.api.options import ProjectionViewerOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
 from pyxalign.api.options_utils import get_all_attribute_names, print_options
 import pyxalign.data_structures.projections as p
+from pyxalign.api import enums
 from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
@@ -33,6 +34,11 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QLabel,
+    QDialog,
+    QLineEdit,
+    QFileDialog,
+    QComboBox,
+    QFormLayout,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from matplotlib.backends.backend_qt5agg import (
@@ -138,6 +144,102 @@ class VolumeViewer(MultiThreadedWidget):
         self.show()
 
 
+class ApplySavedAlignmentShiftDialog(QDialog):
+    """Dialog window for applying a saved alignment shift."""
+
+    def __init__(self, projections: "p.Projections", parent: Optional[QWidget] = None, refresh_callback: Optional[Callable] = None):
+        super().__init__(parent)
+        self.projections = projections
+        self.refresh_callback = refresh_callback
+        self.setWindowTitle("Apply Saved Alignment Shift")
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Build the user interface."""
+        main_layout = QVBoxLayout()
+        form_layout = QFormLayout()
+
+        # File path selection
+        file_path_layout = QHBoxLayout()
+        self.file_path_edit = QLineEdit()
+        self.file_path_edit.setPlaceholderText("Select HDF5 file containing alignment shifts...")
+        browse_button = QPushButton("Browse...")
+        browse_button.clicked.connect(self.browse_file_path)
+        file_path_layout.addWidget(self.file_path_edit)
+        file_path_layout.addWidget(browse_button)
+        form_layout.addRow("Aligned Task/Shift File Path:", file_path_layout)
+
+        # Staged function type dropdown
+        self.function_type_combo = QComboBox()
+        for shift_type in enums.ShiftType:
+            self.function_type_combo.addItem(shift_type.value, shift_type)
+        # Set default to FFT
+        fft_index = self.function_type_combo.findData(enums.ShiftType.FFT)
+        if fft_index >= 0:
+            self.function_type_combo.setCurrentIndex(fft_index)
+        form_layout.addRow("Staged Function Type:", self.function_type_combo)
+
+        # Drop unshared scans checkbox
+        self.drop_unshared_checkbox = QCheckBox()
+        self.drop_unshared_checkbox.setChecked(False)
+        form_layout.addRow("Drop Unshared Scans:", self.drop_unshared_checkbox)
+
+        main_layout.addLayout(form_layout)
+
+        # Apply button
+        apply_button = QPushButton("Apply Saved Alignment Shift")
+        apply_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
+        apply_button.clicked.connect(self.apply_shift)
+        main_layout.addWidget(apply_button)
+
+        self.setLayout(main_layout)
+        self.resize(600, 200)
+
+    def browse_file_path(self):
+        """Open a file dialog to select the alignment shift file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Alignment Shift File",
+            "",
+            "HDF5 Files (*.h5 *.hdf5);;All Files (*)"
+        )
+        if file_path:
+            self.file_path_edit.setText(file_path)
+
+    def apply_shift(self):
+        """Apply the saved alignment shift with the selected parameters."""
+        task_file_path = self.file_path_edit.text()
+
+        # Validate that a file path was selected
+        if not task_file_path:
+            print("Error: Please select an alignment shift file.")
+            return
+
+        # Get the selected shift type
+        staged_function_type = self.function_type_combo.currentData()
+
+        # Get the checkbox state
+        drop_unshared_scans = self.drop_unshared_checkbox.isChecked()
+
+        # Call the load_and_stage_shift method
+        try:
+            self.projections.load_and_stage_shift(
+                task_file_path=task_file_path,
+                staged_function_type=staged_function_type,
+                drop_unshared_scans=drop_unshared_scans,
+            )
+            self.projections.apply_staged_shift()
+            print(f"Successfully applied alignment shift from: {task_file_path}")
+
+            # Refresh the applied shifts tab if callback is provided
+            if self.refresh_callback is not None:
+                self.refresh_callback()
+
+            self.accept()  # Close the dialog
+        except Exception as e:
+            print(f"Error applying alignment shift: {e}")
+
+
 class ProjectionViewer(MultiThreadedWidget):
     """Widget for viewing projections."""
 
@@ -166,6 +268,7 @@ class ProjectionViewer(MultiThreadedWidget):
         self.projection_dropping_widget = None
         self.options_editor = None
         self.reconstruction_parameter_tuner = None
+        self.apply_saved_shift_dialog = None
         self.resize(1300, 900)
 
         if np.iscomplexobj(projections.data) and options.process_func is None:
@@ -218,11 +321,15 @@ class ProjectionViewer(MultiThreadedWidget):
             # create button for inverting projections
             invert_projections_button = QPushButton("Invert Projections")
             invert_projections_button.clicked.connect(self.invert_projections)
+            # create button for applying saved alignment shift
+            apply_saved_shift_button = QPushButton("Apply Saved Alignment Shift")
+            apply_saved_shift_button.clicked.connect(self.open_apply_saved_shift_dialog)
 
             push_button_layout = QVBoxLayout()
             push_button_layout.addWidget(open_reconstruction_tuner_button)
             push_button_layout.addWidget(open_options_editor_button)
             push_button_layout.addWidget(invert_projections_button)
+            push_button_layout.addWidget(apply_saved_shift_button)
             push_button_layout.addWidget(open_scan_removal_button)
             push_button_layout.addWidget(
                 QLabel("Mask Creation:"), alignment=Qt.AlignCenter
@@ -323,6 +430,16 @@ class ProjectionViewer(MultiThreadedWidget):
                 projection_drop_function=self.projections.drop_projections,
             )
         self.projection_dropping_widget.show()
+
+    def open_apply_saved_shift_dialog(self):
+        """Open the dialog for applying a saved alignment shift."""
+        if self.apply_saved_shift_dialog is None:
+            self.apply_saved_shift_dialog = ApplySavedAlignmentShiftDialog(
+                self.projections,
+                parent=self,
+                refresh_callback=self.refresh_applied_shifts_tab,
+            )
+        self.apply_saved_shift_dialog.show()
 
     def open_mask_creation_window(self):
         # build masks from probe positions using the mask builder gui
