@@ -322,7 +322,7 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.get_cross_correlation_shift(plot_results=False)
 
-        self.task.complex_projections.apply_staged_shift()
+        # self.task.complex_projections.apply_staged_shift()
 
     @handle_checkpoint("phase_unwrap_masks")
     @save_state_file
@@ -428,7 +428,7 @@ class AutorunnerPtychoV2(Autorunner):
             )
             wrapper = AutorunnerGUIWrapper(content_gui, title="Projection Matching Sequence")
             wrapper.wait_for_user_action()
-        self.task.phase_projections.apply_staged_shift()
+        # self.task.phase_projections.apply_staged_shift()
 
 
 class AutorunnerPtycho(Autorunner):
