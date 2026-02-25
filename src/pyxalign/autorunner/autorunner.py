@@ -53,7 +53,7 @@ def save_state_file(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         result = func(self, *args, **kwargs)
-        if self.config.update_state_file:
+        if self.config.state.state_memory_enabled and self.config.state.update_state_file:
             self.config.save_to_dict(self._state_file_path)
         return result
 
@@ -77,7 +77,10 @@ def handle_checkpoint(checkpoint: str):
     def checkpoint_inner(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
-            checkpoints_folder = os.path.join(self.config.state_folder, "checkpoints")
+            if not self.config.state.state_memory_enabled:
+                return
+
+            checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
             checkpoint_path = os.path.join(checkpoints_folder, checkpoint + "_task.h5")
 
             # check if past the current checkpoint or not
@@ -172,12 +175,14 @@ class AutorunnerPtychoV2(Autorunner):
         # save volumes ?
 
     def _create_state_file(self):
-        # self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
+        if not self.config.state.state_memory_enabled:
+            return
+
         # create the state file if it does not exist
         if not os.path.exists(self._state_file_path):
             self.config.save_to_dict(self._state_file_path)
         # If the user wants to use the state file, replace the config attribute
-        if self.config.use_state_file:
+        if self.config.state.use_state_file:
             # use settings saved to the state file instead
             self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
 
@@ -191,8 +196,8 @@ class AutorunnerPtychoV2(Autorunner):
                 self.config,
                 enable_advanced_tab=True,
                 basic_options_list=_get_high_level_config_options(),
-                open_panels_list=["enabled_checkpoints", "interactivity"],
-                folder_dialog_fields=["state_folder"],
+                open_panels_list=["enabled_checkpoints", "interactivity", "state"],
+                folder_dialog_fields=["state.state_folder"],
                 file_dialog_fields=["loading.initial_options_path"],
                 label="Update Autorunner Configuration",
                 wait_until_closed=False,
@@ -202,13 +207,14 @@ class AutorunnerPtychoV2(Autorunner):
                 title="Autorunner Configuration",
             )
             wrapper.wait_for_user_action()
-            self._state_file_path = os.path.join(self.config.state_folder, "autorunner_state_file.yaml")
+            if self.config.state.state_memory_enabled:
+                self._state_file_path = os.path.join(self.config.state.state_folder, "autorunner_state_file.yaml")
 
             # check that checkpoint exists
             if self.config.load_from_checkpoint is None:
                 valid_checkpoint = True
             else:
-                checkpoints_folder = os.path.join(self.config.state_folder, "checkpoints")
+                checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
                 checkpoint_path = os.path.join(
                     checkpoints_folder, self.config.load_from_checkpoint + "_task.h5"
                 )
@@ -234,9 +240,9 @@ class AutorunnerPtychoV2(Autorunner):
         if self.config.interactivity.loading or self.loading_options is None:
             self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
 
-        if self.config.update_state_file:
+        if self.config.state.update_state_file:
             # save options
-            initial_options_path = os.path.join(self.config.state_folder, "loading_options.yaml")
+            initial_options_path = os.path.join(self.config.state.state_folder, "loading_options.yaml")
             self.loading_options.save_to_dict(initial_options_path)
             # update autorunner config
             self.config.loading.initial_options_path = initial_options_path
@@ -673,9 +679,10 @@ class AutorunnerPtycho(Autorunner):
 
 def _get_high_level_config_options() -> list[str]:
     high_level_config_options = [
-        "state_folder",
-        "use_state_file",
-        "update_state_file",
+        "state.state_folder",
+        "state.state_memory_enabled",
+        # "use_state_file",
+        # "update_state_file",
         "load_from_checkpoint",
         "interactivity",
         "cross_correlation_enabled",
@@ -690,5 +697,9 @@ def _get_high_level_config_options() -> list[str]:
         "enabled_checkpoints." + x
         for x in get_all_attribute_names(AutorunnerConfig().enabled_checkpoints)
     ]
+    # high_level_config_options += [
+    #     "state." + x
+    #     for x in get_all_attribute_names(AutorunnerConfig().state)
+    # ]
 
     return high_level_config_options

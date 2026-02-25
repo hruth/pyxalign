@@ -88,9 +88,18 @@ class EnabledCheckpoints(BaseOptions):
     projection_matching: bool = True
 
 @dataclasses.dataclass
-class AutorunnerConfig(BaseOptions):
+class StateConfig(BaseOptions):
+    state_memory_enabled: bool = True
+
     state_folder: str = ""
-    "Where state files get automatically saved to"
+
+    use_state_file: bool = True
+
+    update_state_file: bool = True
+
+@dataclasses.dataclass
+class AutorunnerConfig(BaseOptions):
+    state: StateConfig = field(default_factory=StateConfig)
 
     load_from_checkpoint: Optional[Checkpoints] = None
 
@@ -101,10 +110,6 @@ class AutorunnerConfig(BaseOptions):
     cross_correlation_enabled: bool = True
 
     projection_matching_enabled: bool = True
-
-    use_state_file: bool = True
-
-    update_state_file: bool = True
 
     loading: LoadingConfig = field(default_factory=LoadingConfig)
 
