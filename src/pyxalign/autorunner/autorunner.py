@@ -98,7 +98,7 @@ def handle_checkpoint(checkpoint: str):
                 result = func(self, *args, **kwargs)
 
             # save checkpoint if enabled
-            if getattr(AutorunnerConfig().enabled_checkpoints, checkpoint):
+            if getattr(self.config.enabled_checkpoints, checkpoint):
                 if not os.path.exists(checkpoints_folder):
                     os.mkdir(checkpoints_folder)
                 self.task.save_task(checkpoint_path)
@@ -151,6 +151,7 @@ class AutorunnerPtychoV2(Autorunner):
     def __init__(self, file_path: Optional[str] = None):
         self._standardized_data: StandardData
 
+        self._initial_file_path = file_path
         if file_path is not None:
             if os.path.exists(file_path):
                 self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
@@ -163,7 +164,6 @@ class AutorunnerPtychoV2(Autorunner):
     def run(self):
         self._edit_autorunner_settings()
         self._create_state_file()
-        
         self._get_loading_options()
         self._load_data()
         self._get_initialization_options()
@@ -180,6 +180,11 @@ class AutorunnerPtychoV2(Autorunner):
     def _create_state_file(self):
         if not self.config.state.state_memory_enabled:
             return
+        if self._initial_file_path == self._state_file_path:
+            return
+        
+        # the following is only used when the autorunner cli is started with a config file path,
+        # not from a state folder path
 
         # create the state file if it does not exist
         if not os.path.exists(self._state_file_path):
@@ -721,8 +726,8 @@ def _get_high_level_config_options() -> list[str]:
     high_level_config_options = [
         "state.state_folder",
         "state.state_memory_enabled",
-        # "use_state_file",
-        # "update_state_file",
+        # "state.use_state_file",
+        "state.update_state_file",
         "load_from_checkpoint",
         "interactivity",
         "cross_correlation_enabled",
