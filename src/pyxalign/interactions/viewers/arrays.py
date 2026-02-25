@@ -234,7 +234,10 @@ class ApplySavedAlignmentShiftDialog(QDialog):
 
         # Call the load_and_stage_shift method
         try:
-            self.projections.load_and_stage_shift(
+            load_and_stage_wrapped = loading_bar_wrapper(load_message="Staging shift...")(
+                func=self.projections.load_and_stage_shift
+            )
+            load_and_stage_wrapped(
                 task_file_path=task_file_path,
                 staged_function_type=staged_function_type,
                 drop_unshared_scans=drop_unshared_scans,
