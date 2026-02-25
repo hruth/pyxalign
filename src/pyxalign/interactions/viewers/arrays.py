@@ -940,7 +940,8 @@ class AllShiftsViewer(MultiThreadedWidget):
                     self.ax[j].set_xlabel("Angle (deg)")
         self.ax[0].set_title("Horizontal Shifts")
         self.ax[1].set_title("Vertical Shifts")
-        self.ax[0].legend(bbox_to_anchor=(1.1, 1.05))
+        if len(self.checkboxes) > 0:
+            self.ax[0].legend(bbox_to_anchor=(1.1, 1.05))
         self.canvas.draw()
 
     def refresh_data(self):

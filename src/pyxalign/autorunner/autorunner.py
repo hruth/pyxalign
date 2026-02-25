@@ -102,6 +102,8 @@ def handle_checkpoint(checkpoint: str):
                 if not os.path.exists(checkpoints_folder):
                     os.mkdir(checkpoints_folder)
                 self.task.save_task(checkpoint_path)
+                self.config.load_from_checkpoint = checkpoint
+                print(f"Saved checkpoint: {checkpoint}")
 
             return result
 
@@ -256,8 +258,8 @@ class AutorunnerPtychoV2(Autorunner):
                 self._standardized_data, self.config.initialize
             )
 
-    @handle_checkpoint("initialization")
     @save_state_file  # unecessary for this method at the moment
+    @handle_checkpoint("initialization")
     def _create_projections_object(self):
         # create padded projection array
         new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
@@ -301,8 +303,8 @@ class AutorunnerPtychoV2(Autorunner):
 
         self._standardized_data = None
 
-    @handle_checkpoint("cross_correlation")
     @save_state_file
+    @handle_checkpoint("cross_correlation")
     def _get_cross_correlation_alignment(self):
         self.task.options.cross_correlation = self.config.cross_correlation
         if not self.config.cross_correlation_enabled:
@@ -325,8 +327,8 @@ class AutorunnerPtychoV2(Autorunner):
 
         # self.task.complex_projections.apply_staged_shift()
 
-    @handle_checkpoint("phase_unwrap_masks")
     @save_state_file
+    @handle_checkpoint("phase_unwrap_masks")
     def _get_complex_projections_masks(self):
         self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
 
@@ -337,8 +339,8 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
 
-    @handle_checkpoint("phase_unwrapping")
     @save_state_file
+    @handle_checkpoint("phase_unwrapping")
     def _unwrap_phase(self):
         print("Perform phase unwrapping...")
         self.task.complex_projections.options.phase_unwrap = self.config.unwrap_phase
@@ -366,8 +368,8 @@ class AutorunnerPtychoV2(Autorunner):
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
 
-    @handle_checkpoint("reconstruction_tuning")
     @save_state_file
+    @handle_checkpoint("reconstruction_tuning")
     def _select_center_of_rotation(self):
         print("Select reconstruction parameters...")
         app = QApplication.instance() or QApplication([])
@@ -409,8 +411,8 @@ class AutorunnerPtychoV2(Autorunner):
             self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
         )
 
-    @handle_checkpoint("projection_matching")
     @save_state_file
+    @handle_checkpoint("projection_matching")
     def _run_projection_matching_sequence(self):
         if not self.config.projection_matching_enabled:
             return
@@ -431,8 +433,8 @@ class AutorunnerPtychoV2(Autorunner):
             wrapper.wait_for_user_action()
         # self.task.phase_projections.apply_staged_shift()
 
-    @handle_checkpoint("final_reconstruction")
     @save_state_file
+    @handle_checkpoint("final_reconstruction")
     def _get_final_reconstruction(self):
         print("Select reconstruction parameters...")
         app = QApplication.instance() or QApplication([])
