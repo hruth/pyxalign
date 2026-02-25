@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QSpinBox,
     QLineEdit,
+    QStackedWidget,
 )
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator
@@ -79,12 +80,15 @@ class ReconstructionParameterTuner(QWidget):
         self,
         phase_projections: "p.PhaseProjections",
         parent=None,
+        is_already_aligned: bool = False,
     ):
         super().__init__(parent=parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.phase_projections = phase_projections
         self.array_viewer = None
         self.point_selector = None
+        self.current_page = 0  # Track current page (0 = reconstruction params, 1 = post-processing)
+        self.is_already_aligned = is_already_aligned
 
         self.setWindowTitle("3D Reconstruction Parameter Tuner")
         self.resize(1600, 900)
@@ -101,6 +105,84 @@ class ReconstructionParameterTuner(QWidget):
         left_panel = QWidget()
         left_layout = QVBoxLayout()
         left_panel.setLayout(left_layout)
+
+        # Create stacked widget for pages
+        self.stacked_widget = QStackedWidget()
+
+        # Create page 0: Reconstruction Parameters
+        recon_params_page = self.create_reconstruction_parameters_page()
+        self.stacked_widget.addWidget(recon_params_page)
+
+        # Create page 1: Post-processing (placeholder for now)
+        postproc_page = self.create_postprocessing_page()
+        self.stacked_widget.addWidget(postproc_page)
+
+        # Add stacked widget to left layout
+        left_layout.addWidget(self.stacked_widget)
+
+        # Create navigation buttons
+        nav_layout = QHBoxLayout()
+
+        # Left arrow button
+        self.left_nav_button = QPushButton("← Reconstruction Parameters")
+        self.left_nav_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+        self.left_nav_button.clicked.connect(self.on_left_nav_clicked)
+        nav_layout.addWidget(self.left_nav_button)
+
+        # Add stretch to push buttons to edges
+        nav_layout.addStretch()
+
+        # Right arrow button
+        self.right_nav_button = QPushButton("Post-processing →")
+        self.right_nav_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+        self.right_nav_button.clicked.connect(self.on_right_nav_clicked)
+        nav_layout.addWidget(self.right_nav_button)
+
+        # Add navigation layout to left panel
+        left_layout.addLayout(nav_layout)
+
+        # Update button states based on current page
+        self.update_navigation_buttons()
+
+        # Wrap left panel in a scroll area
+        left_scroll_area = QScrollArea()
+        left_scroll_area.setWidget(left_panel)
+        left_scroll_area.setWidgetResizable(True)
+        left_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        left_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        # ===== RIGHT PANEL: Volume Display =====
+        right_panel = QWidget()
+        right_layout = QVBoxLayout()
+        right_panel.setLayout(right_layout)
+
+        # Create group box for volume display
+        volume_group = QGroupBox("3D Reconstruction Volume")
+        volume_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
+        volume_group_layout = QVBoxLayout()
+
+        # Create placeholder for array viewer
+        self.viewer_container = QWidget()
+        self.viewer_layout = QVBoxLayout()
+        self.viewer_layout.setContentsMargins(0, 0, 0, 0)
+        self.viewer_container.setLayout(self.viewer_layout)
+        volume_group_layout.addWidget(self.viewer_container)
+        volume_group.setLayout(volume_group_layout)
+
+        # Add volume group to right panel
+        right_layout.addWidget(volume_group)
+
+        # Add left and right panels to main layout
+        main_layout.addWidget(left_scroll_area, stretch=1)
+        main_layout.addWidget(right_panel, stretch=2)
+
+        self.setLayout(main_layout)
+
+    def create_reconstruction_parameters_page(self):
+        """Create the reconstruction parameters page."""
+        page = QWidget()
+        page_layout = QVBoxLayout()
+        page.setLayout(page_layout)
 
         # Create parameter controls
         param_group = QGroupBox("Reconstruction Parameters")
@@ -357,6 +439,28 @@ class ReconstructionParameterTuner(QWidget):
         # Connect the point_changed signal to update center of rotation
         self.point_selector.point_changed.connect(self.on_center_of_rotation_changed)
 
+        # If already aligned, disable x-position control
+        if self.is_already_aligned:
+            self.point_selector.spinboxes["x"].setEnabled(False)
+            self.point_selector.spinboxes["x"].setStyleSheet(
+                "QSpinBox { font-size: 12pt; color: gray; }"
+            )
+            # Override the image click handler to prevent x-position changes
+            original_click_handler = self.point_selector.image_item.mouseClickEvent
+
+            def restricted_click_handler(event):
+                # Store original x position
+                original_x = self.point_selector.point_x
+                # Call original handler
+                original_click_handler(event)
+                # Restore x position if it changed
+                if self.point_selector.point_x != original_x:
+                    self.point_selector.point_x = original_x
+                    self.point_selector.update_point_graphics()
+                    self.point_selector.update_spinboxes_from_point()
+
+            self.point_selector.image_item.mouseClickEvent = restricted_click_handler
+
         # Create center of rotation group
         cor_group = QGroupBox("Center of Rotation Selection")
         cor_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
@@ -369,47 +473,238 @@ class ReconstructionParameterTuner(QWidget):
         self.reconstruct_button.setStyleSheet("font-size: 12pt; font-weight: bold; padding: 10px;")
         self.reconstruct_button.clicked.connect(self.on_reconstruct_clicked)
 
-        # Add widgets to left panel
-        left_layout.addWidget(param_group)
-        left_layout.addWidget(cor_group)
-        left_layout.addWidget(self.reconstruct_button)
-        left_layout.addSpacerItem(
+        # Add widgets to page
+        page_layout.addWidget(param_group)
+        page_layout.addWidget(cor_group)
+        page_layout.addWidget(self.reconstruct_button)
+        page_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
 
-        # Wrap left panel in a scroll area
-        left_scroll_area = QScrollArea()
-        left_scroll_area.setWidget(left_panel)
-        left_scroll_area.setWidgetResizable(True)
-        left_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        left_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        return page
 
-        # ===== RIGHT PANEL: Volume Display =====
-        right_panel = QWidget()
-        right_layout = QVBoxLayout()
-        right_panel.setLayout(right_layout)
+    def create_postprocessing_page(self):
+        """Create the post-processing page."""
+        page = QWidget()
+        page_layout = QVBoxLayout()
+        page.setLayout(page_layout)
 
-        # Create group box for volume display
-        volume_group = QGroupBox("3D Reconstruction Volume")
-        volume_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
-        volume_group_layout = QVBoxLayout()
+        # Post-processing controls
+        postproc_group = QGroupBox("Post-processing")
+        postproc_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
+        postproc_layout = QVBoxLayout()
 
-        # Create placeholder for array viewer
-        self.viewer_container = QWidget()
-        self.viewer_layout = QVBoxLayout()
-        self.viewer_layout.setContentsMargins(0, 0, 0, 0)
-        self.viewer_container.setLayout(self.viewer_layout)
-        volume_group_layout.addWidget(self.viewer_container)
-        volume_group.setLayout(volume_group_layout)
+        # Rotation angles subsection
+        rotation_group = QGroupBox("Rotation Angles")
+        rotation_group.setStyleSheet("QGroupBox { font-size: 12pt; font-weight: bold; }")
+        rotation_layout = QVBoxLayout()
 
-        # Add volume group to right panel
-        right_layout.addWidget(volume_group)
+        # Estimate rotation angles button
+        self.estimate_rotation_button = QPushButton("Estimate Rotation Angles")
+        self.estimate_rotation_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+        self.estimate_rotation_button.clicked.connect(self.on_estimate_rotation_clicked)
+        rotation_layout.addWidget(self.estimate_rotation_button)
 
-        # Add left and right panels to main layout
-        main_layout.addWidget(left_scroll_area, stretch=1)
-        main_layout.addWidget(right_panel, stretch=2)
+        # Rotation angle spinboxes
+        # X rotation
+        x_rotation_layout = QHBoxLayout()
+        x_rotation_label = QLabel("X Rotation (degrees):")
+        x_rotation_label.setStyleSheet("font-size: 11pt;")
+        self.x_rotation_spinbox = QDoubleSpinBox()
+        self.x_rotation_spinbox.setDecimals(6)
+        self.x_rotation_spinbox.setMinimum(-360.0)
+        self.x_rotation_spinbox.setMaximum(360.0)
+        self.x_rotation_spinbox.setSingleStep(0.1)
+        self.x_rotation_spinbox.setValue(0.0)
+        self.x_rotation_spinbox.setStyleSheet("font-size: 11pt;")
+        x_rotation_layout.addWidget(x_rotation_label)
+        x_rotation_layout.addWidget(self.x_rotation_spinbox)
+        x_rotation_layout.addStretch()
+        rotation_layout.addLayout(x_rotation_layout)
 
-        self.setLayout(main_layout)
+        # Y rotation
+        y_rotation_layout = QHBoxLayout()
+        y_rotation_label = QLabel("Y Rotation (degrees):")
+        y_rotation_label.setStyleSheet("font-size: 11pt;")
+        self.y_rotation_spinbox = QDoubleSpinBox()
+        self.y_rotation_spinbox.setDecimals(6)
+        self.y_rotation_spinbox.setMinimum(-360.0)
+        self.y_rotation_spinbox.setMaximum(360.0)
+        self.y_rotation_spinbox.setSingleStep(0.1)
+        self.y_rotation_spinbox.setValue(0.0)
+        self.y_rotation_spinbox.setStyleSheet("font-size: 11pt;")
+        y_rotation_layout.addWidget(y_rotation_label)
+        y_rotation_layout.addWidget(self.y_rotation_spinbox)
+        y_rotation_layout.addStretch()
+        rotation_layout.addLayout(y_rotation_layout)
+
+        # Z rotation
+        z_rotation_layout = QHBoxLayout()
+        z_rotation_label = QLabel("Z Rotation (degrees):")
+        z_rotation_label.setStyleSheet("font-size: 11pt;")
+        self.z_rotation_spinbox = QDoubleSpinBox()
+        self.z_rotation_spinbox.setDecimals(6)
+        self.z_rotation_spinbox.setMinimum(-360.0)
+        self.z_rotation_spinbox.setMaximum(360.0)
+        self.z_rotation_spinbox.setSingleStep(0.1)
+        self.z_rotation_spinbox.setValue(0.0)
+        self.z_rotation_spinbox.setStyleSheet("font-size: 11pt;")
+        z_rotation_layout.addWidget(z_rotation_label)
+        z_rotation_layout.addWidget(self.z_rotation_spinbox)
+        z_rotation_layout.addStretch()
+        rotation_layout.addLayout(z_rotation_layout)
+
+        # Apply rotation button
+        self.apply_rotation_button = QPushButton("Apply Rotation to Volume")
+        self.apply_rotation_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+        self.apply_rotation_button.clicked.connect(self.on_apply_rotation_clicked)
+        rotation_layout.addWidget(self.apply_rotation_button)
+
+        rotation_group.setLayout(rotation_layout)
+        postproc_layout.addWidget(rotation_group)
+
+        postproc_group.setLayout(postproc_layout)
+        page_layout.addWidget(postproc_group)
+        page_layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+
+        # Initially disable all controls until reconstruction is available
+        self.update_postprocessing_controls_state(enabled=False)
+
+        return page
+
+    def on_left_nav_clicked(self):
+        """Navigate to the previous page (Reconstruction Parameters)."""
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.stacked_widget.setCurrentIndex(self.current_page)
+            self.update_navigation_buttons()
+
+    def on_right_nav_clicked(self):
+        """Navigate to the next page (Post-processing)."""
+        if self.current_page < self.stacked_widget.count() - 1:
+            self.current_page += 1
+            self.stacked_widget.setCurrentIndex(self.current_page)
+            self.update_navigation_buttons()
+
+    def update_navigation_buttons(self):
+        """Update navigation button states based on current page."""
+        # Disable/enable left button
+        if self.current_page == 0:
+            self.left_nav_button.setEnabled(False)
+            self.left_nav_button.setStyleSheet(
+                "font-size: 11pt; padding: 8px; color: gray;"
+            )
+        else:
+            self.left_nav_button.setEnabled(True)
+            self.left_nav_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+
+        # Disable/enable right button
+        if self.current_page >= self.stacked_widget.count() - 1:
+            self.right_nav_button.setEnabled(False)
+            self.right_nav_button.setStyleSheet(
+                "font-size: 11pt; padding: 8px; color: gray;"
+            )
+        else:
+            self.right_nav_button.setEnabled(True)
+            self.right_nav_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+
+    def update_postprocessing_controls_state(self, enabled: bool):
+        """Enable or disable post-processing controls based on reconstruction availability.
+
+        Args:
+            enabled: True to enable controls, False to disable and gray them out.
+        """
+        self.estimate_rotation_button.setEnabled(enabled)
+        self.x_rotation_spinbox.setEnabled(enabled)
+        self.y_rotation_spinbox.setEnabled(enabled)
+        self.z_rotation_spinbox.setEnabled(enabled)
+        self.apply_rotation_button.setEnabled(enabled)
+
+        # Update styling to show grayed out state
+        if not enabled:
+            self.estimate_rotation_button.setStyleSheet("font-size: 11pt; padding: 8px; color: gray;")
+            self.apply_rotation_button.setStyleSheet("font-size: 11pt; padding: 8px; color: gray;")
+        else:
+            self.estimate_rotation_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+            self.apply_rotation_button.setStyleSheet("font-size: 11pt; padding: 8px;")
+
+    def reset_postprocessing_values(self):
+        """Reset all post-processing values to defaults."""
+        # Reset rotation spinboxes to 0
+        self.x_rotation_spinbox.setValue(0.0)
+        self.y_rotation_spinbox.setValue(0.0)
+        self.z_rotation_spinbox.setValue(0.0)
+
+    def on_estimate_rotation_clicked(self):
+        """Estimate optimal rotation angles for the volume."""
+        # Check if volume exists
+        if self.phase_projections.volume is None or self.phase_projections.volume.data is None:
+            # Show error or warning
+            print("Error: No volume available. Please run 3D reconstruction first.")
+            return
+
+        # Disable button during estimation
+        self.estimate_rotation_button.setEnabled(False)
+        self.estimate_rotation_button.setText("Estimating...")
+
+        try:
+            # Run estimation
+            load_bar_func_wrapper = loading_bar_wrapper(
+                "Estimating optimal rotation angles...", block_all_windows=True
+            )(self.phase_projections.volume.get_optimal_rotation_of_reconstruction)
+            load_bar_func_wrapper()
+
+            # Populate spinboxes with estimated values
+            if hasattr(self.phase_projections.volume, 'optimal_rotation_angles'):
+                self.x_rotation_spinbox.setValue(self.phase_projections.volume.optimal_rotation_angles[0])
+                self.y_rotation_spinbox.setValue(self.phase_projections.volume.optimal_rotation_angles[1])
+                self.z_rotation_spinbox.setValue(self.phase_projections.volume.optimal_rotation_angles[2])
+
+        finally:
+            # Re-enable button
+            self.estimate_rotation_button.setEnabled(True)
+            self.estimate_rotation_button.setText("Estimate Rotation Angles")
+
+    def on_apply_rotation_clicked(self):
+        """Apply rotation to the volume using the specified angles."""
+        # Check if volume exists
+        if self.phase_projections.volume is None or self.phase_projections.volume.data is None:
+            # Show error or warning
+            print("Error: No volume available. Please run 3D reconstruction first.")
+            return
+
+        # Disable button during rotation
+        self.apply_rotation_button.setEnabled(False)
+        self.apply_rotation_button.setText("Rotating...")
+
+        try:
+            # Get values from spinboxes and set optimal_rotation_angles
+            self.phase_projections.volume.optimal_rotation_angles = [
+                self.x_rotation_spinbox.value(),
+                self.y_rotation_spinbox.value(),
+                self.z_rotation_spinbox.value()
+            ]
+
+            # Apply rotation
+            load_bar_func_wrapper = loading_bar_wrapper(
+                "Rotating volume...", block_all_windows=True
+            )(self.phase_projections.volume.rotate_reconstruction)
+            load_bar_func_wrapper()
+
+            # Refresh array viewer
+            if self.array_viewer is not None:
+                self.array_viewer.array3d = self.phase_projections.volume.data
+                self.array_viewer.refresh_frame()
+
+            # Reset rotation values to 0 after applying
+            self.reset_postprocessing_values()
+
+        finally:
+            # Re-enable button
+            self.apply_rotation_button.setEnabled(True)
+            self.apply_rotation_button.setText("Apply Rotation to Volume")
 
     def on_method_changed(self, index: int):
         """Update reconstruction method when combobox selection changes."""
@@ -449,7 +744,9 @@ class ReconstructionParameterTuner(QWidget):
         """
         x, y = point
         # PointSelector returns (x, y), but center_of_rotation is stored as [y, x]
-        self.phase_projections.center_of_rotation[1] = x
+        # Only update x if not already aligned
+        if not self.is_already_aligned:
+            self.phase_projections.center_of_rotation[1] = x
         self.phase_projections.center_of_rotation[0] = y
 
     def on_use_custom_width_changed(self, state: int):
@@ -541,6 +838,12 @@ class ReconstructionParameterTuner(QWidget):
                 self.array_viewer.array3d = self.phase_projections.volume.data
                 self.array_viewer.refresh_frame()
 
+            # Enable post-processing controls now that reconstruction is available
+            self.update_postprocessing_controls_state(enabled=True)
+
+            # Reset post-processing values to defaults
+            self.reset_postprocessing_values()
+
         finally:
             # Re-enable button
             self.reconstruct_button.setEnabled(True)
@@ -555,6 +858,7 @@ class ReconstructionParameterTuner(QWidget):
 def launch_reconstruction_parameter_tuner(
     phase_projections: "p.PhaseProjections",
     wait_until_closed: bool = False,
+    is_already_aligned: bool = False,
 ) -> ReconstructionParameterTuner:
     """Launch the reconstruction parameter tuner GUI.
 
@@ -566,6 +870,8 @@ def launch_reconstruction_parameter_tuner(
         phase_projections: PhaseProjections object containing the data.
         wait_until_closed: If True, the application starts a blocking call
             until the GUI window is closed.
+        is_already_aligned: If True, prevents modification of the x-position
+            in the center of rotation selection. Defaults to False.
 
     Returns:
         The ReconstructionParameterTuner widget instance.
@@ -578,7 +884,10 @@ def launch_reconstruction_parameter_tuner(
             )
     """
     app = QApplication.instance() or QApplication([])
-    gui = ReconstructionParameterTuner(phase_projections=phase_projections)
+    gui = ReconstructionParameterTuner(
+        phase_projections=phase_projections,
+        is_already_aligned=is_already_aligned
+    )
     gui.show()
     if wait_until_closed:
         app.exec_()

@@ -443,6 +443,7 @@ def get_tomogram_rotation_angles(
     use_gpu: bool = True,
     slice_index: Optional[int] = None,
     pad_mult: int = 4,
+    show_plots: bool = False,
 ):
     if use_gpu:
         xp = cp

@@ -10,6 +10,7 @@ class Checkpoints(StrEnum):
     PMA_MASKS = auto()
     RECONSTRUCTION_TUNING = auto()
     PROJECTION_MATCHING = auto()
+    FINAL_RECONSTRUCTION = auto()
 
 def get_checkpoint_order_value(checkpoint: Union[str, Checkpoints]) -> int:
     if checkpoint is None:
@@ -27,4 +28,5 @@ def get_checkpoint_order_value(checkpoint: Union[str, Checkpoints]) -> int:
         Checkpoints.PMA_MASKS: 5,
         Checkpoints.RECONSTRUCTION_TUNING: 6,
         Checkpoints.PROJECTION_MATCHING: 7,
+        Checkpoints.FINAL_RECONSTRUCTION: 8,
     }[checkpoint]

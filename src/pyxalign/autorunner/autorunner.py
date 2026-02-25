@@ -172,6 +172,7 @@ class AutorunnerPtychoV2(Autorunner):
         self._select_center_of_rotation()
         self._get_phase_projections_masks()
         self._run_projection_matching_sequence()
+        self._get_final_reconstruction()
         # save volumes ?
 
     def _create_state_file(self):
@@ -429,6 +430,43 @@ class AutorunnerPtychoV2(Autorunner):
             wrapper = AutorunnerGUIWrapper(content_gui, title="Projection Matching Sequence")
             wrapper.wait_for_user_action()
         # self.task.phase_projections.apply_staged_shift()
+
+    @handle_checkpoint("final_reconstruction")
+    @save_state_file
+    def _get_final_reconstruction(self):
+        print("Select reconstruction parameters...")
+        app = QApplication.instance() or QApplication([])
+        # need some custom tools for specifying CoR in the
+        # config file due to not being contained all in the same options..
+        # I also need some way to update the state file when this is running
+        # from the pma runner combined widget!!
+        self.task.phase_projections.options.reconstruct = self.config.reconstruct.reconstruct
+        self.task.phase_projections.options.volume_width = self.config.reconstruct.volume_width
+        self.task.phase_projections.options.experiment.sample_thickness = (
+            self.config.reconstruct.sample_thickness
+        )
+        # update center of rotation # this will probably change/need to be considered later
+        unshifted_center_of_rotation = (
+            np.array(self.task.phase_projections.data.shape[1:], dtype=r_type) / 2
+        )
+        self.task.phase_projections.center_of_rotation[0] = (
+            unshifted_center_of_rotation[0] + self.config.reconstruct.center_vertical_offset
+        )
+
+        if self.config.interactivity.reconstruction_tuning:
+            content_gui = launch_reconstruction_parameter_tuner(
+                self.task.phase_projections, is_already_aligned=True, wait_until_closed=False
+            )
+            wrapper = AutorunnerGUIWrapper(content_gui, title="Final 3D Reconstruction")
+            wrapper.wait_for_user_action()
+        # update sample thickness in config
+        self.config.reconstruct.sample_thickness = (
+            self.task.phase_projections.options.experiment.sample_thickness
+        )
+        # update vertical cor offset in config
+        self.config.reconstruct.center_vertical_offset = (
+            self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
+        )
 
 
 class AutorunnerPtycho(Autorunner):

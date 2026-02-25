@@ -69,6 +69,8 @@ class InteractivityConfig(BaseOptions):
 
     projection_matching: bool = True
 
+    # final_reconstruction: bool = True
+
 @dataclasses.dataclass
 class EnabledCheckpoints(BaseOptions):
     # loading: bool = True
@@ -86,6 +88,8 @@ class EnabledCheckpoints(BaseOptions):
     pma_masks: bool = True
 
     projection_matching: bool = True
+
+    final_reconstruction: bool = True
 
 @dataclasses.dataclass
 class StateConfig(BaseOptions):
