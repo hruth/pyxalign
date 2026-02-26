@@ -149,9 +149,16 @@ class VolumeViewer(MultiThreadedWidget):
 class ApplySavedAlignmentShiftDialog(QDialog):
     """Dialog window for applying a saved alignment shift."""
 
-    def __init__(self, projections: "p.Projections", parent: Optional[QWidget] = None, refresh_callback: Optional[Callable] = None):
+    def __init__(
+        self,
+        projections: "p.Projections",
+        array_viewer: ArrayViewer,
+        parent: Optional[QWidget] = None,
+        refresh_callback: Optional[Callable] = None,
+    ):
         super().__init__(parent)
         self.projections = projections
+        self.array_viewer = array_viewer
         self.refresh_callback = refresh_callback
         self.device_options = DeviceOptions()
         self.setWindowTitle("Apply Saved Alignment Shift")
@@ -248,6 +255,16 @@ class ApplySavedAlignmentShiftDialog(QDialog):
             )
             apply_shift_wrapped(device_options=self.device_options)
             print(f"Successfully applied alignment shift from: {task_file_path}")
+
+            # Refresh the array_viewer
+            self.array_viewer.reinitialize_all(
+                array3d=self.projections.data,
+                sort_idx=np.argsort(self.projections.angles),
+                extra_title_strings_list=get_projection_title_strings(
+                    self.projections.scan_numbers, self.projections.angles
+                ),
+                new_additional_spinbox_indexing=[self.projections.scan_numbers],
+            )
 
             # Refresh the applied shifts tab if callback is provided
             if self.refresh_callback is not None:
@@ -464,6 +481,7 @@ class ProjectionViewer(MultiThreadedWidget):
         if self.apply_saved_shift_dialog is None:
             self.apply_saved_shift_dialog = ApplySavedAlignmentShiftDialog(
                 self.projections,
+                array_viewer=self.array_viewer,
                 parent=self,
                 refresh_callback=self.refresh_applied_shifts_tab,
             )
