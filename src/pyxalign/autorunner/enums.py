@@ -25,8 +25,8 @@ def get_checkpoint_order_value(checkpoint: Union[str, Checkpoints]) -> int:
         Checkpoints.CROSS_CORRELATION: 2,
         Checkpoints.PHASE_UNWRAP_MASKS: 3,
         Checkpoints.PHASE_UNWRAPPING: 4,
-        Checkpoints.PMA_MASKS: 5,
-        Checkpoints.RECONSTRUCTION_TUNING: 6,
+        Checkpoints.RECONSTRUCTION_TUNING: 5,
+        Checkpoints.PMA_MASKS: 6,
         Checkpoints.PROJECTION_MATCHING: 7,
         Checkpoints.FINAL_RECONSTRUCTION: 8,
     }[checkpoint]
