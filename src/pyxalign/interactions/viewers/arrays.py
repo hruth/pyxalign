@@ -1,5 +1,6 @@
 from typing import Callable, Optional
 import cupy as cp
+import h5py
 from pyxalign.api.maps import get_process_func_by_enum
 from pyxalign.api.options import ProjectionViewerOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
@@ -14,6 +15,7 @@ from pyxalign.interactions.reconstruction_parameter_tuner import ReconstructionP
 from pyxalign.interactions.roi_selector import launch_mask_selection_from_roi
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.io.utils import load_list_of_arrays_or_str
 from pyxalign.interactions.viewers.base import (
     ArrayViewer,
     IndexSelectorWidget,
@@ -162,6 +164,13 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         self.refresh_callback = refresh_callback
         self.device_options = DeviceOptions()
         self.setWindowTitle("Apply Saved Alignment Shift")
+
+        # Store geometry parameters from the file
+        self.tilt_angle = None
+        self.skew_angle = None
+        self.lamino_angle = None
+        self.sample_thickness = None
+
         self.setup_ui()
 
     def setup_ui(self):
@@ -175,8 +184,11 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         self.file_path_edit.setPlaceholderText("Select HDF5 file containing alignment shifts...")
         browse_button = QPushButton("Browse...")
         browse_button.clicked.connect(self.browse_file_path)
+        read_file_button = QPushButton("Read File")
+        read_file_button.clicked.connect(self.read_file_from_textbox)
         file_path_layout.addWidget(self.file_path_edit)
         file_path_layout.addWidget(browse_button)
+        file_path_layout.addWidget(read_file_button)
         form_layout.addRow("Aligned Task/Shift File Path:", file_path_layout)
 
         # Staged function type dropdown
@@ -204,6 +216,40 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         )
         main_layout.addWidget(self.device_options_editor)
 
+        # Add Geometry Parameters Display section
+        self.geometry_display_group = QGroupBox("Geometry Parameters from File")
+        geometry_layout = QVBoxLayout()
+
+        # Parameters form layout
+        params_layout = QFormLayout()
+        self.tilt_angle_label = QLabel("N/A")
+        self.skew_angle_label = QLabel("N/A")
+        self.lamino_angle_label = QLabel("N/A")
+        self.sample_thickness_label = QLabel("N/A")
+
+        params_layout.addRow("Tilt Angle:", self.tilt_angle_label)
+        params_layout.addRow("Skew Angle:", self.skew_angle_label)
+        params_layout.addRow("Laminography Angle:", self.lamino_angle_label)
+        params_layout.addRow("Sample Thickness:", self.sample_thickness_label)
+
+        geometry_layout.addLayout(params_layout)
+
+        # Add matplotlib plot for alignment shifts
+        self.shift_figure = Figure(figsize=(8, 4), layout="compressed")
+        self.shift_canvas = FigureCanvas(self.shift_figure)
+        self.shift_ax = [self.shift_figure.add_subplot(211), self.shift_figure.add_subplot(212)]
+        self.shift_ax[0].set_title("Horizontal Shift")
+        self.shift_ax[1].set_title("Vertical Shift")
+        for ax in self.shift_ax:
+            ax.set_xlabel("Angle (deg)")
+            ax.set_ylabel("Shift (pixels)")
+            ax.grid(linestyle=":")
+
+        geometry_layout.addWidget(self.shift_canvas)
+
+        self.geometry_display_group.setLayout(geometry_layout)
+        main_layout.addWidget(self.geometry_display_group)
+
         # Apply button
         apply_button = QPushButton("Apply Saved Alignment Shift")
         apply_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
@@ -211,7 +257,7 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         main_layout.addWidget(apply_button)
 
         self.setLayout(main_layout)
-        self.resize(600, 500)
+        self.resize(800, 800)
 
     def browse_file_path(self):
         """Open a file dialog to select the alignment shift file."""
@@ -223,6 +269,83 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         )
         if file_path:
             self.file_path_edit.setText(file_path)
+            self.load_geometry_parameters(file_path)
+
+    def read_file_from_textbox(self):
+        """Read geometry parameters from the file path in the textbox."""
+        file_path = self.file_path_edit.text()
+        if file_path:
+            self.load_geometry_parameters(file_path)
+        else:
+            print("Error: No file path specified.")
+
+    def load_geometry_parameters(self, task_file_path):
+        """Load geometry parameters from the HDF5 file and display them."""
+        try:
+            with h5py.File(task_file_path, "r") as F:
+                # Determine which group to use
+                if "phase_projections" in F.keys():
+                    group = "phase_projections"
+                elif "complex_projections" in F.keys():
+                    group = "complex_projections"
+                else:
+                    print("Warning: No phase_projections or complex_projections group found in file.")
+                    return
+
+                # Extract geometry parameters
+                self.tilt_angle = F[group]["options/reconstruct/geometry/tilt_angle"][()]
+                self.skew_angle = F[group]["options/reconstruct/geometry/skew_angle"][()]
+                self.lamino_angle = F[group]["options/experiment/laminography_angle"][()]
+                self.sample_thickness = F[group]["options/experiment/sample_thickness"][()]
+
+                # Update the display labels
+                self.tilt_angle_label.setText(f"{self.tilt_angle:.6f}")
+                self.skew_angle_label.setText(f"{self.skew_angle:.6f}")
+                self.lamino_angle_label.setText(f"{self.lamino_angle:.6f}")
+                self.sample_thickness_label.setText(f"{self.sample_thickness:.6e}")
+
+                # Load and plot alignment shifts
+                angles = F[group]["angles"][()]
+                applied_shifts = load_list_of_arrays_or_str(F[group], "applied_shifts")
+
+                if applied_shifts is not None:
+                    # Sum all applied shifts and sort by angle
+                    total_shifts = np.sum(applied_shifts, 0).astype(np.float32)
+                    sort_idx = np.argsort(angles)
+
+                    # Clear previous plots
+                    for ax in self.shift_ax:
+                        ax.clear()
+
+                    # Plot horizontal shift (first column)
+                    self.shift_ax[0].plot(angles[sort_idx], total_shifts[sort_idx, 0])
+                    self.shift_ax[0].set_title("Horizontal Shift")
+                    self.shift_ax[0].set_xlabel("Angle (deg)")
+                    self.shift_ax[0].set_ylabel("Shift (pixels)")
+                    self.shift_ax[0].grid(linestyle=":")
+                    self.shift_ax[0].autoscale(enable=True, axis="x", tight=True)
+
+                    # Plot vertical shift (second column)
+                    self.shift_ax[1].plot(angles[sort_idx], total_shifts[sort_idx, 1])
+                    self.shift_ax[1].set_title("Vertical Shift")
+                    self.shift_ax[1].set_xlabel("Angle (deg)")
+                    self.shift_ax[1].set_ylabel("Shift (pixels)")
+                    self.shift_ax[1].grid(linestyle=":")
+                    self.shift_ax[1].autoscale(enable=True, axis="x", tight=True)
+
+                    self.shift_canvas.draw()
+
+                print(f"Loaded geometry parameters from: {task_file_path}")
+        except Exception as e:
+            print(f"Error loading geometry parameters: {e}")
+            self.tilt_angle = None
+            self.skew_angle = None
+            self.lamino_angle = None
+            self.sample_thickness = None
+            self.tilt_angle_label.setText("N/A")
+            self.skew_angle_label.setText("N/A")
+            self.lamino_angle_label.setText("N/A")
+            self.sample_thickness_label.setText("N/A")
 
     def apply_shift(self):
         """Apply the saved alignment shift with the selected parameters."""
@@ -255,6 +378,14 @@ class ApplySavedAlignmentShiftDialog(QDialog):
             )
             apply_shift_wrapped(device_options=self.device_options)
             print(f"Successfully applied alignment shift from: {task_file_path}")
+
+            # Apply geometry parameters if they were loaded from the file
+            if all(param is not None for param in [self.tilt_angle, self.skew_angle, self.lamino_angle, self.sample_thickness]):
+                self.projections.options.reconstruct.geometry.tilt_angle = self.tilt_angle
+                self.projections.options.reconstruct.geometry.skew_angle = self.skew_angle
+                self.projections.options.experiment.laminography_angle = self.lamino_angle
+                self.projections.options.experiment.sample_thickness = self.sample_thickness
+                print("Applied geometry parameters from file to projections.")
 
             # Refresh the array_viewer
             self.array_viewer.reinitialize_all(

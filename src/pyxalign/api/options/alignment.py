@@ -169,6 +169,8 @@ class ProjectionMatchingOptions(BaseOptions):
 
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
 
+    override_projection_geometry: bool = False
+
     tukey_shape_parameter: float = 0.2
 
     min_iterations: int = 1
