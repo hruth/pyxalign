@@ -77,8 +77,12 @@ class ProjectionMatchingAligner(Aligner):
             mask_downsample_use_gaussian_filter=self.options.downsample.use_gaussian_filter,
         )
 
-        # projection_options.reconstruct = self.options.reconstruct
         projection_options.reconstruct = copy.deepcopy(self.options.reconstruct)
+        if not self.options.override_projection_geometry:
+            # Use tilt and shear angle in projections
+            projection_options.reconstruct.geometry = copy.deepcopy(
+                self.projections.options.reconstruct.geometry
+            )
 
         center_of_rotation = self.projections.center_of_rotation + np.array(
             [self.options.vertical_offset, self.options.horizontal_offset]
