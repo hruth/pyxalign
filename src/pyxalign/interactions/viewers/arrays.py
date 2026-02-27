@@ -561,19 +561,8 @@ class ProjectionViewer(MultiThreadedWidget):
         self.array_viewer.refresh_frame()
 
     def pin_array_memory(self):
-        """Pin the projection array memory to GPU."""
-        def _pin():
-            if hasattr(cp, 'cuda'):
-                # Pin the memory if data is on CPU
-                if isinstance(self.projections.data, np.ndarray):
-                    self.projections.data = cp.asarray(self.projections.data)
-                    print("Pinned projection array memory to GPU")
-                else:
-                    print("Array is already on GPU")
-            else:
-                print("CuPy CUDA not available")
-
-        pin_wrapped = loading_bar_wrapper("Pinning array memory...")(_pin)
+        """Pin the projection array memory, which enables faster movement to GPU"""
+        pin_wrapped = loading_bar_wrapper("Pinning array memory...")(self.projections.pin_arrays)
         pin_wrapped()
 
     def open_reconstruction_parameter_tuner(self):
