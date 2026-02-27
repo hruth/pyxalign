@@ -538,6 +538,10 @@ class ProjectionViewer(MultiThreadedWidget):
             self.options_display = OptionsDisplayWidget(projections.options)
             tabs.addTab(self.options_display, "Projection Options")
 
+        # Connect tab change signal to update options display when tab is opened
+        self.tabs = tabs
+        tabs.currentChanged.connect(self.on_tab_changed)
+
     def invert_projections(self):
         """Invert the projection data and refresh the display."""
         if np.iscomplexobj(self.projections.data):
@@ -733,6 +737,13 @@ class ProjectionViewer(MultiThreadedWidget):
         """Refresh the Applied Shifts tab if it exists."""
         if self.all_shifts_viewer is not None:
             self.all_shifts_viewer.refresh_data()
+
+    def on_tab_changed(self, index):
+        """Handle tab change event to refresh content when tabs are opened."""
+        tab_text = self.tabs.tabText(index)
+        if tab_text == "Projection Options" and hasattr(self, 'options_display'):
+            # Update the options display when the Projection Options tab is opened
+            self.options_display.update_display()
 
     def start(self):
         self.show()
