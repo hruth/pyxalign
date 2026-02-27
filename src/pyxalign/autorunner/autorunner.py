@@ -41,7 +41,7 @@ from pyxalign.interactions.reconstruction_parameter_tuner import (
 )
 from pyxalign.io.loaders.base import StandardData
 
-from pyxalign.io.loaders.maps import get_loader_options_by_enum
+from pyxalign.io.loaders.maps import get_experiment_type_enum_from_options, get_loader_options_by_enum
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.io.save import can_fit_in_single_tiff_file
 from pyxalign.api.types import r_type
@@ -257,6 +257,7 @@ class AutorunnerPtychoV2(Autorunner):
     @save_state_file
     def _load_data(self):
         if self.config.interactivity.loading or self.loading_options is None:
+            print(type(self.loading_options))
             self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
 
         if self.config.state.update_state_file:
@@ -266,6 +267,9 @@ class AutorunnerPtychoV2(Autorunner):
             )
             self.loading_options.save_to_dict(initial_options_path)
             # update autorunner config
+            self.config.loading.experiment_type = get_experiment_type_enum_from_options(
+                self.loading_options
+            )
             self.config.loading.initial_options_path = initial_options_path
 
     @skip_if_loading_from_checkpoint

@@ -10,6 +10,7 @@ import scipy
 import tqdm
 
 from pyxalign.api.constants import divisor
+from pyxalign.api.enums import SARTInitialVolumes
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
@@ -175,9 +176,27 @@ class Volume:
         )
 
     @timer()
-    def get_sart_solver_volume(self, initial_volume: Optional[np.ndarray] = None):
-        if initial_volume is None:
-            initial_volume = np.zeros(
+    def get_sart_solver_volume(self, sart_input_volume: Optional[np.ndarray] = None):
+        # if sart_input_volume is None:
+        #     sart_input_volume = np.zeros(
+        #         shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+        #         dtype=r_type,
+        #     )
+
+        # Get initial volume
+        if self.options.sart.initial_volume == SARTInitialVolumes.FBP:
+            self.generate_volume(
+                filter_inputs=True,
+                clear_astra_objects_at_end=True,
+            )
+            sart_input_volume = self.data * 1
+        elif self.options.sart.initial_volume == SARTInitialVolumes.ONES:
+            sart_input_volume = np.ones(
+                shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+                dtype=r_type,
+            )
+        elif self.options.sart.initial_volume == SARTInitialVolumes.ZEROS:
+            sart_input_volume = np.zeros(
                 shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
                 dtype=r_type,
             )
@@ -185,10 +204,10 @@ class Volume:
         device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
         r, scan_geometry_config, vectors = sart_prepare(
-            volume=initial_volume,
+            volume=sart_input_volume,
             projection_size=self.projections.size,
             angles=self.projections.angles,
-            reconstruction_size=np.roll(initial_volume.shape, -1),
+            reconstruction_size=np.roll(sart_input_volume.shape, -1),
             center_of_rotation=self.projections.center_of_rotation,
             laminography_angle=self.experiment_options.laminography_angle,
             tilt_angle=self.options.geometry.tilt_angle,
@@ -198,7 +217,7 @@ class Volume:
 
         if self.options.sart.use_circular_constraint:
             circulo = ip.apply_3D_apodization(
-                image=np.zeros(shape=(initial_volume.shape[1:])),
+                image=np.zeros(shape=(sart_input_volume.shape[1:])),
                 rad_apod=5,
                 radial_smooth=5,
             ).astype(r_type)
@@ -209,7 +228,7 @@ class Volume:
             volume_constraint = None
 
         self.data, err = sart(
-            volume=initial_volume,
+            volume=sart_input_volume,
             sinogram=self.projections.data,
             scan_geometry_config=scan_geometry_config,
             vectors=vectors,

@@ -5,7 +5,7 @@ from pyxalign.api.maps import get_process_func_by_enum
 from pyxalign.api.options import ProjectionViewerOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
 from pyxalign.api.options.device import DeviceOptions
-from pyxalign.api.options_utils import get_all_attribute_names, print_options
+from pyxalign.api.options_utils import print_options
 import pyxalign.data_structures.projections as p
 from pyxalign.api import enums
 from pyxalign.gpu_utils import return_cpu_array
@@ -481,22 +481,28 @@ class ProjectionViewer(MultiThreadedWidget):
             # Only enable for PhaseProjections
             if self.projections.__class__.__qualname__ != "PhaseProjections":
                 open_reconstruction_tuner_button.setDisabled(True)
-            # create button for editing properties
-            open_options_editor_button = QPushButton("Edit Projection Parameters")
-            open_options_editor_button.clicked.connect(self.open_options_editor)
             # create button for inverting projections
             invert_projections_button = QPushButton("Invert Projections")
             invert_projections_button.clicked.connect(self.invert_projections)
             # create button for applying saved alignment shift
             apply_saved_shift_button = QPushButton("Apply Saved Alignment Shift")
             apply_saved_shift_button.clicked.connect(self.open_apply_saved_shift_dialog)
+            # create button for pinning array memory
+            pin_array_memory_button = QPushButton("Pin Array Memory")
+            pin_array_memory_button.clicked.connect(self.pin_array_memory)
 
             push_button_layout = QVBoxLayout()
+            push_button_layout.addWidget(
+                QLabel("Alignment and Reconstruction:"), alignment=Qt.AlignCenter
+            )
             push_button_layout.addWidget(open_reconstruction_tuner_button)
-            push_button_layout.addWidget(open_options_editor_button)
-            push_button_layout.addWidget(invert_projections_button)
             push_button_layout.addWidget(apply_saved_shift_button)
+            push_button_layout.addWidget(
+                QLabel("Projection Array Manipulation:"), alignment=Qt.AlignCenter
+            )
             push_button_layout.addWidget(open_scan_removal_button)
+            push_button_layout.addWidget(invert_projections_button)
+            push_button_layout.addWidget(pin_array_memory_button)
             push_button_layout.addWidget(
                 QLabel("Mask Creation:"), alignment=Qt.AlignCenter
             )
@@ -554,30 +560,21 @@ class ProjectionViewer(MultiThreadedWidget):
 
         self.array_viewer.refresh_frame()
 
-    def open_options_editor(self):
-        if self.options_editor is None:
-            all_attributes = get_all_attribute_names(self.projections.options)
-            # include only experiment attributes
-            basic_options_list = [x for x in all_attributes if "experiment" in x]
-            basic_options_list += [x for x in all_attributes if "volume_width" in x]
-            # # basic_options_list += [x for x in all_attributes if "reconstruct" in x]
-            # advanced_options_list = [x for x in all_attributes if "reconstruct" in x]
-            # skip selected fields
-            skip_fields = [x for x in all_attributes if "input_processing" in x]
-            if self.projections.__class__.__qualname__ == "PhaseProjections":
-                skip_fields += [x for x in all_attributes if "phase_unwrap" in x]
-            # create options editor widget
-            self.options_editor = BasicOptionsEditor(
-                self.projections.options,
-                basic_options_list=basic_options_list,
-                skip_fields=skip_fields,
-                open_panels_list=["experiment", "volume_width", "reconstruct"],
-                label="Projections Options Editor",
-                enable_advanced_tab=True,
-                # advanced_options_list=[x for x in all_attributes if "reconstruct" in x],
-            )
-            print([x for x in all_attributes if "reconstruct" in x])
-        self.options_editor.show()
+    def pin_array_memory(self):
+        """Pin the projection array memory to GPU."""
+        def _pin():
+            if hasattr(cp, 'cuda'):
+                # Pin the memory if data is on CPU
+                if isinstance(self.projections.data, np.ndarray):
+                    self.projections.data = cp.asarray(self.projections.data)
+                    print("Pinned projection array memory to GPU")
+                else:
+                    print("Array is already on GPU")
+            else:
+                print("CuPy CUDA not available")
+
+        pin_wrapped = loading_bar_wrapper("Pinning array memory...")(_pin)
+        pin_wrapped()
 
     def open_reconstruction_parameter_tuner(self):
         """Open the reconstruction parameter tuner window."""

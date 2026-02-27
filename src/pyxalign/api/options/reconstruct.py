@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import field
 from typing import Optional
-from pyxalign.api.enums import ReconstructionMethods
+from pyxalign.api.enums import ReconstructionMethods, SARTInitialVolumes
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.options import RegularizationOptions
 from .base import BaseOptions
@@ -40,6 +40,8 @@ class SARTOptions(BaseOptions):
     """
     Number of subtomograms to split the volume into.
     """
+
+    initial_volume: SARTInitialVolumes = SARTInitialVolumes.ONES
 
 
 def enabled_regularization_options_factory() -> RegularizationOptions:

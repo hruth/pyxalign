@@ -326,6 +326,26 @@ class ReconstructionParameterTuner(QWidget):
         method_group_layout.addLayout(sart_subtomograms_layout)
         self.sart_controls.extend([sart_subtomograms_label, self.sart_subtomograms_spinbox])
 
+        # Initial Volume
+        sart_initial_volume_layout = QHBoxLayout()
+        sart_initial_volume_label = QLabel("Initial Volume:")
+        sart_initial_volume_label.setStyleSheet("font-size: 11pt;")
+        self.sart_initial_volume_combobox = QComboBox()
+        for initial_volume in enums.SARTInitialVolumes:
+            self.sart_initial_volume_combobox.addItem(initial_volume.value, initial_volume)
+        # Set current value
+        current_initial_volume = self.phase_projections.options.reconstruct.sart.initial_volume
+        index = self.sart_initial_volume_combobox.findData(current_initial_volume)
+        if index >= 0:
+            self.sart_initial_volume_combobox.setCurrentIndex(index)
+        self.sart_initial_volume_combobox.setStyleSheet("font-size: 11pt;")
+        self.sart_initial_volume_combobox.currentIndexChanged.connect(self.on_sart_initial_volume_changed)
+        sart_initial_volume_layout.addWidget(sart_initial_volume_label)
+        sart_initial_volume_layout.addWidget(self.sart_initial_volume_combobox)
+        sart_initial_volume_layout.addStretch()
+        method_group_layout.addLayout(sart_initial_volume_layout)
+        self.sart_controls.extend([sart_initial_volume_label, self.sart_initial_volume_combobox])
+
         method_group.setLayout(method_group_layout)
 
         # Reconstruction Size subsection
@@ -733,6 +753,11 @@ class ReconstructionParameterTuner(QWidget):
     def on_sart_subtomograms_changed(self, value: int):
         """Update SART n_subtomograms when spinbox value changes."""
         self.phase_projections.options.reconstruct.sart.n_subtomograms = value
+
+    def on_sart_initial_volume_changed(self, index: int):
+        """Update SART initial_volume when combobox selection changes."""
+        initial_volume = self.sart_initial_volume_combobox.itemData(index)
+        self.phase_projections.options.reconstruct.sart.initial_volume = initial_volume
 
     def on_thickness_changed(self, value: float):
         """Update sample thickness when spinbox value changes."""

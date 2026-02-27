@@ -911,7 +911,7 @@ class PhaseProjections(Projections):
                 clear_astra_objects_at_end=clear_astra_objects_at_end,
             )
         elif self.options.reconstruct.method == enums.ReconstructionMethods.SART:
-            self.volume.get_sart_solver_volume(initial_volume=initial_volume_sart)
+            self.volume.get_sart_solver_volume(sart_input_volume=initial_volume_sart)
         if apply_positivity_constraint:
             self.volume.apply_positivity_constraint()
 

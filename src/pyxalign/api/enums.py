@@ -113,6 +113,13 @@ class ReconstructionMethods(StrEnum):
     ASTRA = auto()
     SART = auto()
 
+
 class VolumeWidthTypes(StrEnum):
     MULTIPLIER = auto()
-    # METERS = auto()
+    METERS = auto()
+
+
+class SARTInitialVolumes(StrEnum):
+    FBP = auto()
+    ONES = auto()
+    ZEROS = auto()
