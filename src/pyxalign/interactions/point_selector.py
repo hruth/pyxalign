@@ -22,6 +22,8 @@ from PyQt5.QtWidgets import (
     QPushButton,
 )
 
+from pyxalign.interactions.viewers.base import ArrayViewer
+
 
 class PointSelector(QWidget):
     """
@@ -47,15 +49,18 @@ class PointSelector(QWidget):
         image: np.ndarray,
         initial_point: Optional[tuple] = None,
         parent: Optional[QWidget] = None,
+        projections: Optional[np.ndarray] = None,
     ):
         """
         Initialize the point selector widget.
 
         Args:
-            image: 2D numpy array to display
+            image: 2D numpy array to display (used as fallback or sum of projections)
             initial_point: Optional (x, y) tuple for initial point position.
                 If None, defaults to center of image.
             parent: Optional parent widget
+            projections: Optional 3D numpy array of projections. If provided,
+                defaults to showing ArrayViewer with single projections.
         """
         super().__init__(parent)
 
@@ -66,6 +71,8 @@ class PointSelector(QWidget):
             raise ValueError(f"image must be 2-dimensional, got {image.ndim}D")
 
         self.image = image
+        self.projections = projections
+        self.show_sum = False  # Default to showing single projections if available
 
         # Set initial point
         if initial_point is None:
@@ -79,8 +86,10 @@ class PointSelector(QWidget):
         self.plot_widget = None
         self.image_item = None
         self.point_item = None
+        self.array_viewer = None
         self.spinboxes = {}
         self.finish_button = None
+        self.toggle_button = None
         self._updating_from_click = False  # Flag to prevent recursive updates
 
         # Setup UI
@@ -95,20 +104,57 @@ class PointSelector(QWidget):
         """Setup the widget layout."""
         layout = QVBoxLayout()
 
-        # Create pyqtgraph plot widget
-        self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setAspectLocked(True)
-        layout.addWidget(self.plot_widget)
+        # Create display area (either ArrayViewer or pyqtgraph plot widget)
+        if self.projections is not None and not self.show_sum:
+            # Use ArrayViewer for single projections
+            self.array_viewer = ArrayViewer(
+                array3d=self.projections,
+                hide_climit_controls=True,
+                parent=self
+            )
+            # Hide play button, spinbox, and playback speed controls - keep only slider
+            if hasattr(self.array_viewer, 'play_button'):
+                self.array_viewer.play_button.hide()
+            if hasattr(self.array_viewer, 'spinbox'):
+                self.array_viewer.spinbox.hide()
+                # Also hide the "index" label under the spinbox
+                if self.array_viewer.spinbox.parent():
+                    self.array_viewer.spinbox.parent().hide()
+            if hasattr(self.array_viewer.indexing_widget, 'playback_speed_spin'):
+                self.array_viewer.indexing_widget.playback_speed_spin.hide()
+                # Also hide the label for playback speed if it exists
+                if self.array_viewer.indexing_widget.playback_speed_spin.parent():
+                    parent = self.array_viewer.indexing_widget.playback_speed_spin.parent()
+                    if parent != self.array_viewer.indexing_widget:
+                        parent.hide()
+            layout.addWidget(self.array_viewer)
+        else:
+            # Create pyqtgraph plot widget for sum of projections
+            self.plot_widget = pg.PlotWidget()
+            self.plot_widget.setAspectLocked(True)
+            layout.addWidget(self.plot_widget)
 
         # Point coordinate display
         point_info = self.create_point_info_display()
         layout.addWidget(point_info)
 
+        # Create button layout
+        button_layout = QHBoxLayout()
+
+        # Toggle button (only if projections are available)
+        if self.projections is not None:
+            button_text = "Show Single Projections" if self.show_sum else "Show Sum of Projections"
+            self.toggle_button = QPushButton(text=button_text)
+            self.toggle_button.clicked.connect(self.toggle_display_mode)
+            button_layout.addWidget(self.toggle_button)
+
         # Finish button
         self.finish_button = QPushButton(text="Select and Finish")
         self.finish_button.clicked.connect(self.finish)
         self.finish_button.setStyleSheet("background-color: blue; color: white;")
-        layout.addWidget(self.finish_button, alignment=Qt.AlignRight)
+        button_layout.addWidget(self.finish_button, alignment=Qt.AlignRight)
+
+        layout.addLayout(button_layout)
 
         self.setLayout(layout)
 
@@ -160,24 +206,41 @@ class PointSelector(QWidget):
 
     def setup_graphics(self):
         """Initialize the pyqtgraph image and point marker."""
-        # Display the image
-        self.image_item = pg.ImageItem()
-        self.image_item.setImage(self.image.T)
-        self.plot_widget.addItem(self.image_item)
+        if self.projections is not None and not self.show_sum:
+            # For ArrayViewer, we need to add point marker to the image display
+            if hasattr(self.array_viewer, 'image_item'):
+                # Create a scatter plot item for the point marker
+                self.point_item = pg.ScatterPlotItem(
+                    size=15,
+                    pen=pg.mkPen(color="r", width=2),
+                    brush=pg.mkBrush(255, 0, 0, 120),
+                )
+                self.array_viewer.plot_item.addItem(self.point_item)
 
-        # Create a scatter plot item for the point marker
-        self.point_item = pg.ScatterPlotItem(
-            size=15,
-            pen=pg.mkPen(color="r", width=2),
-            brush=pg.mkBrush(255, 0, 0, 120),
-        )
-        self.plot_widget.addItem(self.point_item)
+                # Set initial point position
+                self.update_point_graphics()
 
-        # Set initial point position
-        self.update_point_graphics()
+                # Connect mouse click signal
+                self.array_viewer.image_item.mouseClickEvent = self.on_image_clicked
+        else:
+            # Display the image
+            self.image_item = pg.ImageItem()
+            self.image_item.setImage(self.image.T)
+            self.plot_widget.addItem(self.image_item)
 
-        # Connect mouse click signal
-        self.image_item.mouseClickEvent = self.on_image_clicked
+            # Create a scatter plot item for the point marker
+            self.point_item = pg.ScatterPlotItem(
+                size=15,
+                pen=pg.mkPen(color="r", width=2),
+                brush=pg.mkBrush(255, 0, 0, 120),
+            )
+            self.plot_widget.addItem(self.point_item)
+
+            # Set initial point position
+            self.update_point_graphics()
+
+            # Connect mouse click signal
+            self.image_item.mouseClickEvent = self.on_image_clicked
 
     def on_image_clicked(self, event):
         """Handle mouse click on the image."""
@@ -274,6 +337,73 @@ class PointSelector(QWidget):
         # Emit signal
         self.point_changed.emit((self.point_x, self.point_y))
 
+    def toggle_display_mode(self):
+        """Toggle between single projections (ArrayViewer) and sum of projections."""
+        if self.projections is None:
+            return
+
+        # Toggle the mode
+        self.show_sum = not self.show_sum
+
+        # Get the existing layout
+        main_layout = self.layout()
+
+        # Remove all widgets from layout but keep references to preserve what we need
+        # We need to remove: display widget (index 0), point info (index 1), button layout (index 2)
+
+        # Remove display widget (ArrayViewer or PlotWidget)
+        display_item = main_layout.itemAt(0)
+        if display_item and display_item.widget():
+            widget = display_item.widget()
+            main_layout.removeWidget(widget)
+            widget.setParent(None)
+            widget.deleteLater()
+
+        # Reset display references
+        self.plot_widget = None
+        self.image_item = None
+        self.array_viewer = None
+        self.point_item = None
+
+        # Create new display widget based on mode
+        if self.projections is not None and not self.show_sum:
+            # Use ArrayViewer for single projections
+            self.array_viewer = ArrayViewer(
+                array3d=self.projections,
+                hide_climit_controls=True,
+                parent=self
+            )
+            # Hide play button, spinbox, and playback speed controls - keep only slider
+            if hasattr(self.array_viewer, 'play_button'):
+                self.array_viewer.play_button.hide()
+            if hasattr(self.array_viewer, 'spinbox'):
+                self.array_viewer.spinbox.hide()
+                # Also hide the "index" label under the spinbox
+                if self.array_viewer.spinbox.parent():
+                    self.array_viewer.spinbox.parent().hide()
+            if hasattr(self.array_viewer.indexing_widget, 'playback_speed_spin'):
+                self.array_viewer.indexing_widget.playback_speed_spin.hide()
+                # Also hide the label for playback speed if it exists
+                if self.array_viewer.indexing_widget.playback_speed_spin.parent():
+                    parent = self.array_viewer.indexing_widget.playback_speed_spin.parent()
+                    if parent != self.array_viewer.indexing_widget:
+                        parent.hide()
+            main_layout.insertWidget(0, self.array_viewer)
+        else:
+            # Create pyqtgraph plot widget for sum of projections
+            self.plot_widget = pg.PlotWidget()
+            self.plot_widget.setAspectLocked(True)
+            main_layout.insertWidget(0, self.plot_widget)
+
+        # Setup graphics for the new display
+        self.setup_graphics()
+
+        # Update toggle button text
+        if self.show_sum:
+            self.toggle_button.setText("Show Single Projections")
+        else:
+            self.toggle_button.setText("Show Sum of Projections")
+
     def finish(self):
         """Emit point_selected signal and close the widget."""
         self.point_selected.emit((self.point_x, self.point_y))
@@ -283,6 +413,7 @@ class PointSelector(QWidget):
 def launch_point_selector(
     image: np.ndarray,
     initial_point: Optional[tuple] = None,
+    projections: Optional[np.ndarray] = None,
 ) -> tuple:
     """
     Launch the point selector GUI for interactively selecting a point on a 2D image.
@@ -291,8 +422,10 @@ def launch_point_selector(
     point it closes and returns the selected coordinates.
 
     Args:
-        image: 2D numpy array to display
+        image: 2D numpy array to display (used as fallback or sum of projections)
         initial_point: Optional (x, y) tuple for initial point position
+        projections: Optional 3D numpy array of projections. If provided,
+            defaults to showing ArrayViewer with single projections.
 
     Returns:
         Tuple of (x, y) coordinates of the selected point
@@ -304,7 +437,7 @@ def launch_point_selector(
             print(f"Selected point: ({x}, {y})")
     """
     app = QApplication.instance() or QApplication([])
-    gui = PointSelector(image, initial_point=initial_point)
+    gui = PointSelector(image, initial_point=initial_point, projections=projections)
 
     # Define a slot to handle the signal containing the selected point
     result = {}

@@ -120,6 +120,12 @@ class ReconstructionParameterTuner(QWidget):
         # Add stacked widget to left layout
         left_layout.addWidget(self.stacked_widget)
 
+        # Create reconstruct button (moved here to be at the bottom)
+        self.reconstruct_button = QPushButton("Run 3D Reconstruction")
+        self.reconstruct_button.setStyleSheet("background-color: blue; color: white; font-size: 12pt; font-weight: bold; padding: 10px;")
+        self.reconstruct_button.clicked.connect(self.on_reconstruct_clicked)
+        left_layout.addWidget(self.reconstruct_button)
+
         # Create navigation buttons
         nav_layout = QHBoxLayout()
 
@@ -422,61 +428,26 @@ class ReconstructionParameterTuner(QWidget):
         self.update_width_controls_visibility()
         self.update_width_controls_enabled_state()
 
-        # Create point selector for center of rotation
-        # Use sum of projections as the image for point selection
-        projection_sum = np.sum(self.phase_projections.data, axis=0)
-        initial_center = (
-            int(self.phase_projections.center_of_rotation[1]),
-            int(self.phase_projections.center_of_rotation[0])
-        )
-        self.point_selector = PointSelector(
-            image=projection_sum,
-            initial_point=initial_center,
-            parent=self
-        )
-        # Remove the finish button from point selector since we're embedding it
-        self.point_selector.finish_button.hide()
-        # Connect the point_changed signal to update center of rotation
-        self.point_selector.point_changed.connect(self.on_center_of_rotation_changed)
-
-        # If already aligned, disable x-position control
-        if self.is_already_aligned:
-            self.point_selector.spinboxes["x"].setEnabled(False)
-            self.point_selector.spinboxes["x"].setStyleSheet(
-                "QSpinBox { font-size: 12pt; color: gray; }"
-            )
-            # Override the image click handler to prevent x-position changes
-            original_click_handler = self.point_selector.image_item.mouseClickEvent
-
-            def restricted_click_handler(event):
-                # Store original x position
-                original_x = self.point_selector.point_x
-                # Call original handler
-                original_click_handler(event)
-                # Restore x position if it changed
-                if self.point_selector.point_x != original_x:
-                    self.point_selector.point_x = original_x
-                    self.point_selector.update_point_graphics()
-                    self.point_selector.update_spinboxes_from_point()
-
-            self.point_selector.image_item.mouseClickEvent = restricted_click_handler
+        # Store projection data for point selector
+        self.projection_sum = np.sum(self.phase_projections.data, axis=0)
+        self.point_selector = None  # Will be created when button is clicked
 
         # Create center of rotation group
         cor_group = QGroupBox("Center of Rotation Selection")
         cor_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
         cor_layout = QVBoxLayout()
-        cor_layout.addWidget(self.point_selector)
-        cor_group.setLayout(cor_layout)
 
-        # Create reconstruct button
-        self.reconstruct_button = QPushButton("Run 3D Reconstruction")
-        self.reconstruct_button.setStyleSheet("font-size: 12pt; font-weight: bold; padding: 10px;")
-        self.reconstruct_button.clicked.connect(self.on_reconstruct_clicked)
+        # Create button to open point selector
+        self.select_cor_button = QPushButton("Select Center of Rotation")
+        self.select_cor_button.clicked.connect(self.open_point_selector)
+        self.select_cor_button.setStyleSheet("QPushButton { font-size: 12pt; padding: 10px; }")
+        cor_layout.addWidget(self.select_cor_button)
+
+        cor_group.setLayout(cor_layout)
 
         # Add widgets to page
         page_layout.addWidget(param_group)
         page_layout.addWidget(cor_group)
-        page_layout.addWidget(self.reconstruct_button)
         page_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
@@ -735,6 +706,48 @@ class ReconstructionParameterTuner(QWidget):
     def on_thickness_changed(self, value: float):
         """Update sample thickness when spinbox value changes."""
         self.phase_projections.options.experiment.sample_thickness = value
+
+    def open_point_selector(self):
+        """Open the point selector window for selecting center of rotation."""
+        initial_center = (
+            int(self.phase_projections.center_of_rotation[1]),
+            int(self.phase_projections.center_of_rotation[0])
+        )
+
+        # Create and show point selector
+        self.point_selector = PointSelector(
+            image=self.projection_sum,
+            initial_point=initial_center,
+            projections=self.phase_projections.data
+        )
+
+        # Make the window modal to block interaction with other windows
+        self.point_selector.setWindowModality(Qt.ApplicationModal)
+
+        # Connect the point_selected signal to update center of rotation
+        self.point_selector.point_selected.connect(self.on_point_selected)
+
+        # If already aligned, disable x-position control
+        if self.is_already_aligned:
+            self.point_selector.spinboxes["x"].setEnabled(False)
+            self.point_selector.spinboxes["x"].setStyleSheet(
+                "QSpinBox { font-size: 12pt; color: gray; }"
+            )
+
+        self.point_selector.show()
+
+    def on_point_selected(self, point: tuple):
+        """Update center of rotation when point is selected and close window.
+
+        Args:
+            point: Tuple of (x, y) coordinates from the point selector.
+        """
+        x, y = point
+        # PointSelector returns (x, y), but center_of_rotation is stored as [y, x]
+        # Only update x if not already aligned
+        if not self.is_already_aligned:
+            self.phase_projections.center_of_rotation[1] = x
+        self.phase_projections.center_of_rotation[0] = y
 
     def on_center_of_rotation_changed(self, point: tuple):
         """Update center of rotation when point selector changes.
