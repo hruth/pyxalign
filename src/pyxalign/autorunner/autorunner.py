@@ -20,7 +20,7 @@ from pyxalign.autorunner.io import (
     get_updated_options,
     load_options_from_yaml,
 )
-from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.data_structures.projections import Projections, ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
 from pyxalign.estimate_center import plot_center_of_rotation_estimate_results
 from pyxalign.interactions.autorunner.initialization_widget import (
@@ -54,6 +54,9 @@ def save_state_file(func):
     def wrapper(self, *args, **kwargs):
         result = func(self, *args, **kwargs)
         if self.config.state.state_memory_enabled and self.config.state.update_state_file:
+            if hasattr(self, "task"):
+                # config parameters are updated after the event completes
+                _update_all_config_parameters(self.task, self.config)
             self.config.save_to_dict(self._state_file_path)
         return result
 
@@ -73,6 +76,7 @@ def skip_if_loading_from_checkpoint(func):
 
     return wrapper
 
+
 def handle_checkpoint(checkpoint: str):
     def checkpoint_inner(func):
         @wraps(func)
@@ -86,12 +90,17 @@ def handle_checkpoint(checkpoint: str):
             # check if past the current checkpoint or not
             current_checkpoint_val = get_checkpoint_order_value(checkpoint)
             loaded_checkpoint_val = get_checkpoint_order_value(self.config.load_from_checkpoint)
+            print(checkpoint)
             if current_checkpoint_val < loaded_checkpoint_val:
                 # before checkpoint
                 return
             elif current_checkpoint_val == loaded_checkpoint_val:
                 # at checkpoint
+                self.is_loaded = True
                 self.task = load_task(checkpoint_path)
+                # sync loaded task with settings file
+                # # could make optional 'sync with settings' when using checkpoint?
+                _update_pyxalign_object_settings(self.task, self.config)
                 return
             elif current_checkpoint_val > loaded_checkpoint_val:
                 # after checkpoint
@@ -150,7 +159,7 @@ class Autorunner(ABC):
 class AutorunnerPtychoV2(Autorunner):
     def __init__(self, file_path: Optional[str] = None):
         self._standardized_data: StandardData
-
+        self._is_loaded = False
         self._initial_file_path = file_path
         if file_path is not None:
             if os.path.exists(file_path):
@@ -182,7 +191,7 @@ class AutorunnerPtychoV2(Autorunner):
             return
         if self._initial_file_path == self._state_file_path:
             return
-        
+
         # the following is only used when the autorunner cli is started with a config file path,
         # not from a state folder path
 
@@ -216,7 +225,9 @@ class AutorunnerPtychoV2(Autorunner):
             )
             wrapper.wait_for_user_action()
             if self.config.state.state_memory_enabled:
-                self._state_file_path = os.path.join(self.config.state.state_folder, "autorunner_state_file.yaml")
+                self._state_file_path = os.path.join(
+                    self.config.state.state_folder, "autorunner_state_file.yaml"
+                )
 
             # check that checkpoint exists
             if self.config.load_from_checkpoint is None:
@@ -250,7 +261,9 @@ class AutorunnerPtychoV2(Autorunner):
 
         if self.config.state.update_state_file:
             # save options
-            initial_options_path = os.path.join(self.config.state.state_folder, "loading_options.yaml")
+            initial_options_path = os.path.join(
+                self.config.state.state_folder, "loading_options.yaml"
+            )
             self.loading_options.save_to_dict(initial_options_path)
             # update autorunner config
             self.config.loading.initial_options_path = initial_options_path
@@ -311,14 +324,10 @@ class AutorunnerPtychoV2(Autorunner):
     @save_state_file
     @handle_checkpoint("cross_correlation")
     def _get_cross_correlation_alignment(self):
-        self.task.options.cross_correlation = self.config.cross_correlation
         if not self.config.cross_correlation_enabled:
             return
 
         if self.config.interactivity.cross_correlation:
-            # launch_cross_correlation_gui(
-            #     self.task, projection_type="complex", wait_until_closed=True
-            # )
             content_gui = launch_combined_alignment_widget(
                 self.task,
                 include_projection_matching=False,
@@ -329,18 +338,13 @@ class AutorunnerPtychoV2(Autorunner):
             wrapper.wait_for_user_action()
         else:
             self.task.get_cross_correlation_shift(plot_results=False)
-
-        # self.task.complex_projections.apply_staged_shift()
+            self.task.complex_projections.apply_staged_shift()
 
     @save_state_file
     @handle_checkpoint("phase_unwrap_masks")
     def _get_complex_projections_masks(self):
-        self.task.complex_projections.options.mask_from_positions = self.config.phase_unwrap_masks
-
         if self.config.interactivity.phase_unwrap_masks:
             content_gui = launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
-            # wrapper = AutorunnerGUIWrapper(content_gui, title="Complex Projections Masks")
-            # wrapper.wait_for_user_action()
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
 
@@ -348,7 +352,6 @@ class AutorunnerPtychoV2(Autorunner):
     @handle_checkpoint("phase_unwrapping")
     def _unwrap_phase(self):
         print("Perform phase unwrapping...")
-        self.task.complex_projections.options.phase_unwrap = self.config.unwrap_phase
 
         if self.config.interactivity.phase_unwrapping:
             content_gui = launch_phase_unwrap_widget(self.task, wait_until_closed=False)
@@ -358,18 +361,13 @@ class AutorunnerPtychoV2(Autorunner):
             self.task.get_unwrapped_phase()
         self.task.complex_projections = None
 
-    @handle_checkpoint("pma_masks")
     @save_state_file
+    @handle_checkpoint("pma_masks")
     def _get_phase_projections_masks(self):
         print("Select masks used in projection-matching alignment...")
-        self.task.phase_projections.options.mask_from_positions = (
-            self.config.projection_matching_masks
-        )
 
         if self.config.interactivity.pma_masks:
             content_gui = launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
-            # wrapper = AutorunnerGUIWrapper(content_gui, title="Phase Projections Masks")
-            # wrapper.wait_for_user_action()
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
 
@@ -378,25 +376,6 @@ class AutorunnerPtychoV2(Autorunner):
     def _select_center_of_rotation(self):
         print("Select reconstruction parameters...")
         app = QApplication.instance() or QApplication([])
-        # need some custom tools for specifying CoR in the
-        # config file due to not being contained all in the same options..
-        # I also need some way to update the state file when this is running
-        # from the pma runner combined widget!!
-        self.task.phase_projections.options.reconstruct = self.config.reconstruct.reconstruct
-        self.task.phase_projections.options.volume_width = self.config.reconstruct.volume_width
-        self.task.phase_projections.options.experiment.sample_thickness = (
-            self.config.reconstruct.sample_thickness
-        )
-        # update center of rotation # this will probably change/need to be considered later
-        unshifted_center_of_rotation = (
-            np.array(self.task.phase_projections.data.shape[1:], dtype=r_type) / 2
-        )
-        self.task.phase_projections.center_of_rotation[1] = (
-            unshifted_center_of_rotation[1] + self.config.reconstruct.center_horizontal_offset
-        )
-        self.task.phase_projections.center_of_rotation[0] = (
-            unshifted_center_of_rotation[0] + self.config.reconstruct.center_vertical_offset
-        )
 
         if self.config.interactivity.reconstruction_tuning:
             content_gui = launch_reconstruction_parameter_tuner(
@@ -404,17 +383,6 @@ class AutorunnerPtychoV2(Autorunner):
             )
             wrapper = AutorunnerGUIWrapper(content_gui, title="Reconstruction Parameter Tuning")
             wrapper.wait_for_user_action()
-        # update sample thickness in config
-        self.config.reconstruct.sample_thickness = (
-            self.task.phase_projections.options.experiment.sample_thickness
-        )
-        # update cor offsets in config
-        self.config.reconstruct.center_horizontal_offset = (
-            self.task.phase_projections.center_of_rotation[1] - unshifted_center_of_rotation[1]
-        )
-        self.config.reconstruct.center_vertical_offset = (
-            self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
-        )
 
     @save_state_file
     @handle_checkpoint("projection_matching")
@@ -422,10 +390,10 @@ class AutorunnerPtychoV2(Autorunner):
         if not self.config.projection_matching_enabled:
             return
 
-        self.task.options.projection_matching = self.config.projection_matching
         if not self.config.interactivity.projection_matching:
             # need to figure out how to specify sequences first
             pass
+            #  self.task.phase_projections.apply_staged_shift()
         else:
             content_gui = launch_combined_alignment_widget(
                 self.task,
@@ -436,29 +404,12 @@ class AutorunnerPtychoV2(Autorunner):
             )
             wrapper = AutorunnerGUIWrapper(content_gui, title="Projection Matching Sequence")
             wrapper.wait_for_user_action()
-        # self.task.phase_projections.apply_staged_shift()
 
     @save_state_file
     @handle_checkpoint("final_reconstruction")
     def _get_final_reconstruction(self):
         print("Select reconstruction parameters...")
         app = QApplication.instance() or QApplication([])
-        # need some custom tools for specifying CoR in the
-        # config file due to not being contained all in the same options..
-        # I also need some way to update the state file when this is running
-        # from the pma runner combined widget!!
-        self.task.phase_projections.options.reconstruct = self.config.reconstruct.reconstruct
-        self.task.phase_projections.options.volume_width = self.config.reconstruct.volume_width
-        self.task.phase_projections.options.experiment.sample_thickness = (
-            self.config.reconstruct.sample_thickness
-        )
-        # update center of rotation # this will probably change/need to be considered later
-        unshifted_center_of_rotation = (
-            np.array(self.task.phase_projections.data.shape[1:], dtype=r_type) / 2
-        )
-        self.task.phase_projections.center_of_rotation[0] = (
-            unshifted_center_of_rotation[0] + self.config.reconstruct.center_vertical_offset
-        )
 
         if self.config.interactivity.reconstruction_tuning:
             content_gui = launch_reconstruction_parameter_tuner(
@@ -466,14 +417,66 @@ class AutorunnerPtychoV2(Autorunner):
             )
             wrapper = AutorunnerGUIWrapper(content_gui, title="Final 3D Reconstruction")
             wrapper.wait_for_user_action()
-        # update sample thickness in config
-        self.config.reconstruct.sample_thickness = (
-            self.task.phase_projections.options.experiment.sample_thickness
-        )
-        # update vertical cor offset in config
-        self.config.reconstruct.center_vertical_offset = (
-            self.task.phase_projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
-        )
+
+
+def _update_all_config_parameters(task: LaminographyAlignmentTask, config: AutorunnerConfig):
+    # - Not all parameters will be updated here, just the ones in the task or projections
+    #   objects
+    # - It might be better to break into multiple config items for something like reconstruct,
+    #   depending on when it is change?
+
+    # Update task level options
+    config.cross_correlation = task.options.cross_correlation
+    config.projection_matching = task.options.projection_matching  # this should be defaults instead
+
+    # Update projection level options
+    if task.phase_projections is not None:
+        projections = task.phase_projections
+        config.projection_matching_masks = projections.options.mask_from_positions
+    else:
+        projections = task.complex_projections
+        config.phase_unwrap_masks = projections.options.mask_from_positions
+    config.unwrap_phase = projections.options.phase_unwrap
+    # reconstruct parameters
+    # update sample thickness in config
+    config.reconstruct.sample_thickness = projections.options.experiment.sample_thickness
+    # update volume width
+    config.reconstruct.volume_width = projections.options.volume_width
+    # update vertical cor offset in config
+    unshifted_center_of_rotation = np.array(projections.data.shape[1:], dtype=r_type) / 2
+    config.reconstruct.center_vertical_offset = (
+        projections.center_of_rotation[0] - unshifted_center_of_rotation[0]
+    )
+    config.reconstruct.center_horizontal_offset = (
+        projections.center_of_rotation[1] - unshifted_center_of_rotation[1]
+    )
+    config.reconstruct.reconstruct = projections.options.reconstruct
+
+
+def _update_pyxalign_object_settings(task: LaminographyAlignmentTask, config: AutorunnerConfig):
+    task.options.projection_matching = config.projection_matching
+    task.options.cross_correlation = config.cross_correlation
+    if task.phase_projections is not None:
+        projections = task.phase_projections
+        projections.options.mask_from_positions = config.projection_matching_masks
+    else:
+        projections = task.complex_projections
+        projections.options.mask_from_positions = config.phase_unwrap_masks
+
+    projections.options.phase_unwrap = config.unwrap_phase
+    # reconstruct parameters
+    # update sample thickness in config
+    projections.options.experiment.sample_thickness = config.reconstruct.sample_thickness
+    projections.options.volume_width = config.reconstruct.volume_width
+    # update vertical cor offset in config
+    unshifted_center_of_rotation = np.array(projections.data.shape[1:], dtype=r_type) / 2
+    projections.center_of_rotation[0] = (
+        config.reconstruct.center_vertical_offset + unshifted_center_of_rotation[0]
+    )
+    projections.center_of_rotation[1] = (
+        config.reconstruct.center_horizontal_offset + unshifted_center_of_rotation[1]
+    )
+    projections.options.reconstruct = config.reconstruct.reconstruct
 
 
 class AutorunnerPtycho(Autorunner):
