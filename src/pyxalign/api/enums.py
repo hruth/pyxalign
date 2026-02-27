@@ -115,4 +115,4 @@ class ReconstructionMethods(StrEnum):
 
 class VolumeWidthTypes(StrEnum):
     MULTIPLIER = auto()
-    METERS = auto()
+    # METERS = auto()

@@ -544,10 +544,14 @@ class ProjectionViewer(MultiThreadedWidget):
 
     def invert_projections(self):
         """Invert the projection data and refresh the display."""
-        if np.iscomplexobj(self.projections.data):
-            self.projections.data[:] = np.conj(self.projections.data)
-        else:
-            self.projections.data[:] = -self.projections.data
+        def _invert():
+            if np.iscomplexobj(self.projections.data):
+                self.projections.data[:] = np.conj(self.projections.data)
+            else:
+                self.projections.data[:] = -self.projections.data
+        invert_wrapped = loading_bar_wrapper("Inverting projections...")(_invert)
+        invert_wrapped()
+
         self.array_viewer.refresh_frame()
 
     def open_options_editor(self):
