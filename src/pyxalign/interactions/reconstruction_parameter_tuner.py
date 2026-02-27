@@ -24,6 +24,7 @@ from PyQt5.QtWidgets import (
     QSpinBox,
     QLineEdit,
     QStackedWidget,
+    QTabWidget,
 )
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator
@@ -32,6 +33,7 @@ from pyxalign.interactions.viewers.base import ArrayViewer
 from pyxalign.api.options.plotting import ArrayViewerOptions
 from pyxalign.interactions.point_selector import PointSelector
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 import pyxalign.data_structures.projections as p
 from pyxalign.api import enums
 
@@ -193,7 +195,17 @@ class ReconstructionParameterTuner(QWidget):
         # Create parameter controls
         param_group = QGroupBox("Reconstruction Parameters")
         param_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
+        param_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         param_layout = QVBoxLayout()
+
+        # Create tab widget for Basic and Advanced options
+        param_tab_widget = QTabWidget()
+        param_tab_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Create Basic tab
+        basic_tab = QWidget()
+        basic_tab_layout = QVBoxLayout()
+        basic_tab.setLayout(basic_tab_layout)
 
         # Reconstruction Method subsection
         method_group = QGroupBox("Reconstruction Method")
@@ -316,9 +328,6 @@ class ReconstructionParameterTuner(QWidget):
 
         method_group.setLayout(method_group_layout)
 
-        # Add method group to main param layout
-        param_layout.addWidget(method_group)
-
         # Reconstruction Size subsection
         size_group = QGroupBox("Reconstruction Size")
         size_group.setStyleSheet("QGroupBox { font-size: 12pt; font-weight: bold; }")
@@ -419,8 +428,47 @@ class ReconstructionParameterTuner(QWidget):
         size_layout.addLayout(self.width_meters_layout)
         size_group.setLayout(size_layout)
 
-        # Add size group to main param layout
-        param_layout.addWidget(size_group)
+        # Create center of rotation group for basic tab
+        cor_group = QGroupBox("Center of Rotation Selection")
+        cor_group.setStyleSheet("QGroupBox { font-size: 12pt; font-weight: bold; }")
+        cor_layout = QVBoxLayout()
+
+        # Create button to open point selector
+        self.select_cor_button = QPushButton("Select Center of Rotation")
+        self.select_cor_button.clicked.connect(self.open_point_selector)
+        self.select_cor_button.setStyleSheet("QPushButton { font-size: 12pt; padding: 10px; }")
+        cor_layout.addWidget(self.select_cor_button)
+
+        cor_group.setLayout(cor_layout)
+
+        # Add method, size, and cor groups to basic tab
+        basic_tab_layout.addWidget(method_group)
+        basic_tab_layout.addWidget(size_group)
+        basic_tab_layout.addWidget(cor_group)
+        basic_tab_layout.addSpacerItem(
+            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+
+        # Create Advanced tab
+        advanced_tab = QWidget()
+        advanced_tab_layout = QVBoxLayout()
+        advanced_tab.setLayout(advanced_tab_layout)
+
+        # Add BasicOptionsEditor for phase_projections.options.reconstruct
+        self.reconstruct_options_editor = BasicOptionsEditor(
+            data=self.phase_projections.options.reconstruct,
+            # label="Edit Reconstruction Settings",
+            skip_fields=["method", "sart", "regularization", "astra.algorithm_type"],
+            open_panels_list=["astra", "geometry"]
+        )
+        advanced_tab_layout.addWidget(self.reconstruct_options_editor)
+
+        # Add tabs to tab widget
+        param_tab_widget.addTab(basic_tab, "Basic")
+        param_tab_widget.addTab(advanced_tab, "Advanced")
+
+        # Add tab widget to param layout
+        param_layout.addWidget(param_tab_widget)
         param_group.setLayout(param_layout)
 
         # Update visibility and enabled state based on initial values
@@ -432,25 +480,8 @@ class ReconstructionParameterTuner(QWidget):
         self.projection_sum = np.sum(self.phase_projections.data, axis=0)
         self.point_selector = None  # Will be created when button is clicked
 
-        # Create center of rotation group
-        cor_group = QGroupBox("Center of Rotation Selection")
-        cor_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
-        cor_layout = QVBoxLayout()
-
-        # Create button to open point selector
-        self.select_cor_button = QPushButton("Select Center of Rotation")
-        self.select_cor_button.clicked.connect(self.open_point_selector)
-        self.select_cor_button.setStyleSheet("QPushButton { font-size: 12pt; padding: 10px; }")
-        cor_layout.addWidget(self.select_cor_button)
-
-        cor_group.setLayout(cor_layout)
-
         # Add widgets to page
         page_layout.addWidget(param_group)
-        page_layout.addWidget(cor_group)
-        page_layout.addSpacerItem(
-            QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        )
 
         return page
 

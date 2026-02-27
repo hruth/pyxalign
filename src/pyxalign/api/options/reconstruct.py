@@ -52,11 +52,11 @@ class ReconstructOptions(BaseOptions):
 
     astra: AstraOptions = field(default_factory=AstraOptions)
 
-    filter: FilterOptions = field(default_factory=FilterOptions)
-
     geometry: GeometryOptions = field(default_factory=GeometryOptions)
 
     exclude_scans: Optional[list[int]] = None
+
+    filter: FilterOptions = field(default_factory=FilterOptions)
 
     sart: SARTOptions = field(default_factory=SARTOptions)
 
