@@ -765,6 +765,7 @@ class Projections:
         drop_unshared_scans: bool = False,
         reference_tile_num: Optional[int] = None,
         current_tile_num: Optional[int] = None,
+        update_geometries: bool = False,
     ):
         # Load data
         with h5py.File(task_file_path, "r") as F:
@@ -777,6 +778,10 @@ class Projections:
             reference_pixel_size = F[group]["pixel_size"][()]
             reference_center_of_rotation = F[group]["center_of_rotation"][()]
             reference_shape = F[group]["data"].shape
+            reference_sample_thickness = F[group]["options/experiment/sample_thickness"][()]
+            reference_lamino_angle = F[group]["options/experiment/laminography_angle"][()]
+            reference_tilt_angle = F[group]["options/reconstruct/geometry/tilt_angle"][()]
+            reference_skew_angle = F[group]["options/reconstruct/geometry/skew_angle"][()]
         reference_shift = np.sum(past_shifts, 0).astype(r_type)
         # get new shift and scan numbers to drop
         shared_scan_numbers, new_shift = get_shift_from_different_resolution_alignment(
@@ -822,6 +827,13 @@ class Projections:
                     current_pixel_size=self.pixel_size,
                 )
             )
+        
+        # update lamino angle, tilt angle, and shear angle if specified
+        if update_geometries:
+            self.options.reconstruct.geometry.tilt_angle = reference_tilt_angle
+            self.options.reconstruct.geometry.skew_angle = reference_skew_angle
+            self.options.experiment.laminography_angle = reference_lamino_angle
+            self.options.experiment.sample_thickness = reference_sample_thickness
 
         return new_shift
 
