@@ -210,8 +210,8 @@ class ApplySavedAlignmentShiftDialog(QDialog):
 
         # Add Device Options editor
         self.device_options_editor = BasicOptionsEditor(
-            data=self.device_options,
-            label="Device Options",
+            data=self.device_options.gpu,
+            label="GPU Options for Array Shifting",
             parent=self,
         )
         main_layout.addWidget(self.device_options_editor)
