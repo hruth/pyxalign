@@ -61,8 +61,12 @@ class Autorunner(ABC):
     def run(self):
         pass
 
+    @abstractmethod
+    def save_state_file(self):
+        pass
 
-def save_state_file(func):
+
+def save_state_file_wrapper(func):
     """Decorator that saves the config to the state file after method execution."""
 
     @wraps(func)
@@ -70,30 +74,9 @@ def save_state_file(func):
         if self.config.state.use_state_file_settings and hasattr(self, "task"):
             # load existing state file settings into task
             _update_pyxalign_object_settings(self.task, self.config)
-
         result = func(self, *args, **kwargs)
-
-        if self.config.state.update_state_file:
-            if hasattr(self, "task"):
-                # config parameters are updated after the event completes
-                print("Task updated with state file parameters")
-                _update_all_config_parameters(self.task, self.config)
-            self.config.save_to_dict(self._state_file_path)
-            print(f"Updated state file at {self._state_file_path}")
-        else:
-            # should always at least update some state file parameters and all checkpoint parameters
-            if self._state_file_path is not None and os.path.exists(self._state_file_path):
-                current_saved_config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
-                current_saved_config.state.use_state_file_settings = self.config.state.use_state_file_settings
-                current_saved_config.state.update_state_file = self.config.state.update_state_file
-                current_saved_config.checkpoint = self.config.checkpoint
-                current_saved_config.save_to_dict(self._state_file_path)
-                print(current_saved_config.state)
-                print(self._state_file_path)
-        return result
-
+        self.save_state_file()
     return wrapper
-
 
 def skip_if_loading_from_checkpoint(func):
     """Decorator that saves the config to the state file after method execution."""
@@ -197,7 +180,7 @@ class AutorunnerPtycho(Autorunner):
         self._get_final_reconstruction()
         # save volumes ?
 
-    @save_state_file
+    @save_state_file_wrapper
     def _create_state_folders_and_files(self):
         # Create state folder
         if not os.path.exists(self.config.state.state_folder):
@@ -279,7 +262,7 @@ class AutorunnerPtycho(Autorunner):
             self.loading_options.load_from_path(path)
 
     @skip_if_loading_from_checkpoint
-    @save_state_file
+    @save_state_file_wrapper
     def _load_data(self):
         if self.config.interactivity.loading or self.loading_options is None:
             self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
@@ -298,7 +281,7 @@ class AutorunnerPtycho(Autorunner):
             self.config.loading.initial_options_path = initial_options_path
 
     @skip_if_loading_from_checkpoint
-    @save_state_file
+    @save_state_file_wrapper
     def _get_initialization_options(self):
         if self.config.interactivity.initialization:
             self.config.initialize = launch_initialization_config_widget(
@@ -353,7 +336,7 @@ class AutorunnerPtycho(Autorunner):
         _update_pyxalign_object_settings(self.task, self.config)
         _update_all_config_parameters(self.task, self.config)
 
-    @save_state_file
+    @save_state_file_wrapper
     @handle_checkpoint("cross_correlation")
     def _get_cross_correlation_alignment(self):
         if not self.config.cross_correlation_enabled:
@@ -377,7 +360,7 @@ class AutorunnerPtycho(Autorunner):
             self.task.get_cross_correlation_shift(plot_results=False)
             self.task.complex_projections.apply_staged_shift()
 
-    @save_state_file
+    @save_state_file_wrapper
     @handle_checkpoint("phase_unwrap_masks")
     def _get_complex_projections_masks(self):
         if self.config.interactivity.phase_unwrap_masks:
@@ -385,7 +368,7 @@ class AutorunnerPtycho(Autorunner):
         else:
             self.task.complex_projections.get_masks_from_probe_positions()
 
-    @save_state_file
+    @save_state_file_wrapper
     @handle_checkpoint("phase_unwrapping")
     def _unwrap_phase(self):
         print("Perform phase unwrapping...")
@@ -403,7 +386,7 @@ class AutorunnerPtycho(Autorunner):
             self.task.get_unwrapped_phase()
         self.task.complex_projections = None
 
-    @save_state_file
+    @save_state_file_wrapper
     @handle_checkpoint("pma_masks")
     def _get_phase_projections_masks(self):
         print("Select masks used in projection-matching alignment...")
@@ -413,7 +396,7 @@ class AutorunnerPtycho(Autorunner):
         else:
             self.task.phase_projections.get_masks_from_probe_positions()
 
-    @save_state_file
+    @save_state_file_wrapper
     @handle_checkpoint("reconstruction_tuning")
     def _select_center_of_rotation(self):
         print("Select reconstruction parameters...")
@@ -431,7 +414,7 @@ class AutorunnerPtycho(Autorunner):
             )
             wrapper.wait_for_user_action()
 
-    @save_state_file
+    @save_state_file_wrapper
     @handle_checkpoint("projection_matching")
     def _run_projection_matching_sequence(self):
         if not self.config.projection_matching_enabled:
@@ -457,7 +440,7 @@ class AutorunnerPtycho(Autorunner):
             )
             wrapper.wait_for_user_action()
 
-    @save_state_file
+    @save_state_file_wrapper
     @handle_checkpoint("final_reconstruction")
     def _get_final_reconstruction(self):
         print("Select reconstruction parameters...")
@@ -474,6 +457,25 @@ class AutorunnerPtycho(Autorunner):
                 checkpoints_folder=self._checkpoints_folder,
             )
             wrapper.wait_for_user_action()
+
+    def save_state_file(self):
+        if self.config.state.update_state_file:
+            if hasattr(self, "task"):
+                # config parameters are updated after the event completes
+                print("Task updated with state file parameters")
+                _update_all_config_parameters(self.task, self.config)
+            self.config.save_to_dict(self._state_file_path)
+            print(f"Updated state file at {self._state_file_path}")
+        else:
+            # should always at least update some state file parameters and all checkpoint parameters
+            if self._state_file_path is not None and os.path.exists(self._state_file_path):
+                current_saved_config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
+                current_saved_config.state.use_state_file_settings = self.config.state.use_state_file_settings
+                current_saved_config.state.update_state_file = self.config.state.update_state_file
+                current_saved_config.checkpoint = self.config.checkpoint
+                current_saved_config.save_to_dict(self._state_file_path)
+                print(current_saved_config.state)
+                print(self._state_file_path)
 
 
 def _update_all_config_parameters(task: LaminographyAlignmentTask, config: AutorunnerConfig):
