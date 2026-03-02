@@ -9,6 +9,7 @@ from typing import Optional
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QApplication, QFileDialog
 
 from pyxalign.autorunner.abstract import _update_all_config_parameters
+from pyxalign.interactions.utils.misc import center_window_on_screen
 
 
 class AutorunnerProcessEnded(Exception):
@@ -147,6 +148,7 @@ class AutorunnerGUIWrapper(QWidget):
     def wait_for_user_action(self):
         """Wait for the user to click either proceed or end process."""
         app = QApplication.instance() or QApplication([])
+        center_window_on_screen(self, width_fraction=0.75, height_fraction=0.75)
         self.show()
         app.exec_()
 

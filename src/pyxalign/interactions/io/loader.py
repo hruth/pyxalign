@@ -36,7 +36,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from pyxalign.interactions.utils.loading_display_tools import OverlayWidget, loading_bar_wrapper
-from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend, center_window_on_screen
 from pyxalign.io.loaders.load_any import load_dataset_from_arbitrary_options
 from pyxalign.io.loaders.xrf.api import load_data_from_xrf_format
 import sip
@@ -284,6 +284,7 @@ def launch_data_loader(
 
     gui.data_loaded_signal.connect(on_data_loaded)
 
+    center_window_on_screen(gui, width_fraction=0.75, height_fraction=0.75)
     gui.show()
     app.exec()
     gui.close()

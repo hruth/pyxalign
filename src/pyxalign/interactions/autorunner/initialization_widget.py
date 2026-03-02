@@ -19,7 +19,7 @@ from PyQt5.QtGui import QFont
 from pyxalign.interactions.io.input_data_viewer import StandardDataViewer
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.autorunner.config import InitializationConfig
-from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend, center_window_on_screen
 from pyxalign.io.loaders.base import StandardData
 
 
@@ -186,6 +186,7 @@ def launch_initialization_config_widget(
 
     gui.config_confirmed.connect(on_config_confirmed)
 
+    center_window_on_screen(gui, width_fraction=0.75, height_fraction=0.75)
     gui.show()
     app.exec()
     gui.close()
