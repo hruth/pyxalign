@@ -173,6 +173,12 @@ class AutorunnerPtycho(Autorunner):
         else:
             self.config = AutorunnerConfig()
 
+    def _get_checkpoints_folder(self) -> Optional[str]:
+        """Get the checkpoints folder path if state memory is enabled."""
+        if self.config.state.state_memory_enabled:
+            return os.path.join(self.config.state.state_folder, "checkpoints")
+        return None
+
     def run(self):
         self._edit_autorunner_settings()
         self._create_state_file()
@@ -225,6 +231,8 @@ class AutorunnerPtycho(Autorunner):
             wrapper = AutorunnerGUIWrapper(
                 content_gui,
                 title="Autorunner Configuration",
+                task=getattr(self, "task", None),
+                checkpoints_folder=self._get_checkpoints_folder(),
             )
             wrapper.wait_for_user_action()
             if self.config.state.state_memory_enabled:
@@ -341,7 +349,12 @@ class AutorunnerPtycho(Autorunner):
                 include_cross_correlation=True,
                 wait_until_closed=False,
             )
-            wrapper = AutorunnerGUIWrapper(content_gui, title="Cross Correlation Alignment")
+            wrapper = AutorunnerGUIWrapper(
+                content_gui,
+                title="Cross Correlation Alignment",
+                task=self.task,
+                checkpoints_folder=self._get_checkpoints_folder(),
+            )
             wrapper.wait_for_user_action()
         else:
             self.task.get_cross_correlation_shift(plot_results=False)
@@ -362,7 +375,12 @@ class AutorunnerPtycho(Autorunner):
 
         if self.config.interactivity.phase_unwrapping:
             content_gui = launch_phase_unwrap_widget(self.task, wait_until_closed=False)
-            wrapper = AutorunnerGUIWrapper(content_gui, title="Phase Unwrapping")
+            wrapper = AutorunnerGUIWrapper(
+                content_gui,
+                title="Phase Unwrapping",
+                task=self.task,
+                checkpoints_folder=self._get_checkpoints_folder(),
+            )
             wrapper.wait_for_user_action()
         else:
             self.task.get_unwrapped_phase()
@@ -388,7 +406,12 @@ class AutorunnerPtycho(Autorunner):
             content_gui = launch_reconstruction_parameter_tuner(
                 self.task.phase_projections, wait_until_closed=False
             )
-            wrapper = AutorunnerGUIWrapper(content_gui, title="Reconstruction Parameter Tuning")
+            wrapper = AutorunnerGUIWrapper(
+                content_gui,
+                title="Reconstruction Parameter Tuning",
+                task=self.task,
+                checkpoints_folder=self._get_checkpoints_folder(),
+            )
             wrapper.wait_for_user_action()
 
     @save_state_file
@@ -409,7 +432,12 @@ class AutorunnerPtycho(Autorunner):
                 # self._options_dict["projection_matching_alignment"]["sequence"],
                 wait_until_closed=False,
             )
-            wrapper = AutorunnerGUIWrapper(content_gui, title="Projection Matching Sequence")
+            wrapper = AutorunnerGUIWrapper(
+                content_gui,
+                title="Projection Matching Sequence",
+                task=self.task,
+                checkpoints_folder=self._get_checkpoints_folder(),
+            )
             wrapper.wait_for_user_action()
 
     @save_state_file
@@ -422,7 +450,12 @@ class AutorunnerPtycho(Autorunner):
             content_gui = launch_reconstruction_parameter_tuner(
                 self.task.phase_projections, is_already_aligned=True, wait_until_closed=False
             )
-            wrapper = AutorunnerGUIWrapper(content_gui, title="Final 3D Reconstruction")
+            wrapper = AutorunnerGUIWrapper(
+                content_gui,
+                title="Final 3D Reconstruction",
+                task=self.task,
+                checkpoints_folder=self._get_checkpoints_folder(),
+            )
             wrapper.wait_for_user_action()
 
 
