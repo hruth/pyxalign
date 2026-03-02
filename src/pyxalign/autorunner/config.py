@@ -101,8 +101,6 @@ class StateConfig(BaseOptions):
 
     use_state_file_settings: bool = True
 
-    # use_state_file: bool = True
-
     update_state_file: bool = True
 
 
@@ -111,8 +109,6 @@ class CheckpointConfig(BaseOptions):
     load_from_checkpoint: bool = False
 
     which_checkpoint: Checkpoints = Checkpoints.INITIALIZATION
-
-    # load_from_checkpoint: Optional[Checkpoints] = None
 
     load_from_custom_task: bool = False
 

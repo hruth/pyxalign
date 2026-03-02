@@ -13,12 +13,6 @@ def main():
         description='Run the pyxalign autorunner for laminography/tomography alignment and reconstruction.'
     )
     parser.add_argument(
-        '--config-file-path',
-        type=str,
-        default=None,
-        help='Path to the configuration YAML file (optional)'
-    )
-    parser.add_argument(
         '--state-folder',
         type=str,
         default=None,
@@ -27,8 +21,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Handle --state-folder argument if provided
-    config_file_path = args.config_file_path
+    # Handle --state-folder argument
     if args.state_folder is not None:
         # Check if the folder exists
         if not os.path.exists(args.state_folder):
@@ -48,12 +41,14 @@ def main():
         if os.path.exists(state_file_path):
             # File exists, use it as input to AutorunnerPtychoV2
             config_file_path = state_file_path
+            print(f"Starting autorunner using configuration from file: {config_file_path}")
         else:
             # File doesn't exist, create it
             config = AutorunnerConfig()
             config.state.state_folder = args.state_folder
             config.save_to_dict(state_file_path)
             config_file_path = state_file_path
+            print(f"Created new autorunner configuration file: {config_file_path}")
 
     # Create and run the autorunner
     autorunner = AutorunnerPtycho(config_file_path)
