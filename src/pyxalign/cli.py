@@ -32,8 +32,11 @@ def main():
     if args.state_folder is not None:
         # Check if the folder exists
         if not os.path.exists(args.state_folder):
-            print(f"Error: The folder '{args.state_folder}' does not exist.")
-            sys.exit(1)
+            try:
+                os.mkdir(args.state_folder)
+            except Exception as ex:
+                print(f"Error: Could not create folder '{args.state_folder}'")
+                sys.exit(1)
 
         if not os.path.isdir(args.state_folder):
             print(f"Error: '{args.state_folder}' is not a folder.")

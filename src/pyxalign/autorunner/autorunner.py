@@ -1,6 +1,6 @@
 import copy
 import os
-from abc import ABC
+from abc import ABC, abstractmethod
 from functools import wraps
 from typing import Optional
 import yaml
@@ -50,17 +50,40 @@ from pyxalign.io.save import can_fit_in_single_tiff_file
 from pyxalign.api.types import r_type
 
 
+class Autorunner(ABC):
+    def __init__(self):
+        self.task: LaminographyAlignmentTask
+        self.config: AutorunnerConfig
+        self._standardized_data: StandardData
+        self._state_file_path: str
+
+    @abstractmethod
+    def run(self):
+        pass
+
+
 def save_state_file(func):
     """Decorator that saves the config to the state file after method execution."""
 
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Autorunner, *args, **kwargs):
         result = func(self, *args, **kwargs)
-        if self.config.state.state_memory_enabled and self.config.state.update_state_file:
+        if self.config.state.use_state_file_settings and self.config.state.update_state_file:
             if hasattr(self, "task"):
                 # config parameters are updated after the event completes
+                print("Task updated with state file parameters")
                 _update_all_config_parameters(self.task, self.config)
             self.config.save_to_dict(self._state_file_path)
+            print(f"Updated state file at {self._state_file_path}")
+        else:
+            # should always at least update the state memory and update state file settings
+            if self._state_file_path is not None and os.path.exists(self._state_file_path):
+                current_saved_config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
+                current_saved_config.state.use_state_file_settings = self.config.state.use_state_file_settings
+                current_saved_config.state.update_state_file = self.config.state.update_state_file
+                current_saved_config.save_to_dict(self._state_file_path)
+                print(current_saved_config.state)
+                print(self._state_file_path)
         return result
 
     return wrapper
@@ -70,8 +93,8 @@ def skip_if_loading_from_checkpoint(func):
     """Decorator that saves the config to the state file after method execution."""
 
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self.config.checkpoint.load_from_checkpoint is None:
+    def wrapper(self: Autorunner, *args, **kwargs):
+        if not self.config.checkpoint.load_from_checkpoint:
             result = func(self, *args, **kwargs)
         else:
             return
@@ -83,30 +106,33 @@ def skip_if_loading_from_checkpoint(func):
 def handle_checkpoint(checkpoint: str):
     def checkpoint_inner(func):
         @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if not self.config.state.state_memory_enabled:
-                return
+        def wrapper(self: Autorunner, *args, **kwargs):
+            # if not self.config.state.state_memory_enabled: # seperate from checkpointing
+            #     return
 
             checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
             checkpoint_path = os.path.join(checkpoints_folder, checkpoint + "_task.h5")
 
             # check if past the current checkpoint or not
             current_checkpoint_val = get_checkpoint_order_value(checkpoint)
-            loaded_checkpoint_val = get_checkpoint_order_value(self.config.checkpoint.load_from_checkpoint)
+            loaded_checkpoint_val = get_checkpoint_order_value(
+                self.config.checkpoint.which_checkpoint
+            )
             # print(checkpoint)
             if current_checkpoint_val < loaded_checkpoint_val:
                 # before checkpoint
                 return
             elif current_checkpoint_val == loaded_checkpoint_val:
                 # at checkpoint
-                self.is_loaded = True
-                if self.config.checkpoint.load_custom_task is not None:
-                    self.task = load_task(self.config.checkpoint.load_custom_task)
+                # self.is_loaded = True
+                if self.config.checkpoint.load_from_custom_task:
+                    self.task = load_task(self.config.checkpoint.custom_task_path)
                 else:
                     self.task = load_task(checkpoint_path)
                 # sync loaded task with settings file
                 # # could make optional 'sync with settings' when using checkpoint?
-                _update_pyxalign_object_settings(self.task, self.config)
+                if self.config.state.use_state_file_settings:
+                    _update_pyxalign_object_settings(self.task, self.config)
                 return
             elif current_checkpoint_val > loaded_checkpoint_val:
                 # after checkpoint
@@ -117,8 +143,12 @@ def handle_checkpoint(checkpoint: str):
                 if not os.path.exists(checkpoints_folder):
                     os.mkdir(checkpoints_folder)
                 self.task.save_task(checkpoint_path)
-                self.config.checkpoint.load_from_checkpoint = checkpoint
                 print(f"Saved checkpoint: {checkpoint}")
+                if self.config.state.use_state_file_settings:
+                    self.config.checkpoint.which_checkpoint = checkpoint
+                    self.config.checkpoint.load_from_custom_task = False
+                # After proceeding to next checkpoint, custom task loading
+                # should be disabled on next run
 
             return result
 
@@ -127,46 +157,12 @@ def handle_checkpoint(checkpoint: str):
     return checkpoint_inner
 
 
-class Autorunner(ABC):
-    def __init__(self, file_path: str):
-        with open(file_path, "r") as f:
-            self._options_dict = yaml.safe_load(f)
-        # self._setup_results_folders()
-
-        self._standardized_data: StandardData
-
-    # @abstractmethod
-    # def run(self):
-    #     pass
-
-    # @abstractmethod
-    # def _get_load_options(self):
-    #     pass
-
-    # @abstractmethod
-    # def _load_data(self):
-    #     pass
-
-    def _setup_results_folders(self):
-        self.results_folders = {}
-        self.results_folders["parent"] = self._options_dict["results"]["results_folder"]
-        self.results_folders["final"] = os.path.join(self.results_folders["parent"], "final")
-        self.results_folders["projection_matching"] = os.path.join(
-            self.results_folders["parent"], "projection_matching"
-        )
-        self.results_folders["temporary"] = os.path.join(
-            self.results_folders["parent"], "temporary"
-        )
-        for folder in self.results_folders.values():
-            if not os.path.exists(folder):
-                os.mkdir(folder)
-
-
 class AutorunnerPtycho(Autorunner):
     def __init__(self, file_path: Optional[str] = None):
         self._standardized_data: StandardData
-        self._is_loaded = False
+        # self._is_loaded = False
         self._initial_file_path = file_path
+        self._state_file_path = None
         if file_path is not None:
             if os.path.exists(file_path):
                 self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
@@ -178,13 +174,14 @@ class AutorunnerPtycho(Autorunner):
 
     def _get_checkpoints_folder(self) -> Optional[str]:
         """Get the checkpoints folder path if state memory is enabled."""
-        if self.config.state.state_memory_enabled:
-            return os.path.join(self.config.state.state_folder, "checkpoints")
-        return None
+        # if self.config.state.state_memory_enabled:
+        #     return os.path.join(self.config.state.state_folder, "checkpoints")
+        # return None
+        return os.path.join(self.config.state.state_folder, "checkpoints")
 
     def run(self):
         self._edit_autorunner_settings()
-        self._create_state_file()
+        self._create_state_folders_and_files()
         self._get_loading_options()
         self._load_data()
         self._get_initialization_options()
@@ -198,24 +195,37 @@ class AutorunnerPtycho(Autorunner):
         self._get_final_reconstruction()
         # save volumes ?
 
-    def _create_state_file(self):
-        if not self.config.state.state_memory_enabled:
+    @save_state_file
+    def _create_state_folders_and_files(self):
+        # Create state folder
+        if not os.path.exists(self.config.state.state_folder):
+            os.mkdir(self.config.state.state_folder)
+            print(f"Created state folder: {self.config.state.state_folder}")
+        # create checkpoints folder
+        if not os.path.exists(self._get_checkpoints_folder()):
+            os.mkdir(self._get_checkpoints_folder())
+
+        if not self.config.state.use_state_file_settings:
             return
         if self._initial_file_path == self._state_file_path:
             return
-
-        # the following is only used when the autorunner cli is started with a config file path,
-        # not from a state folder path
-
-        # create the state file if it does not exist
+        
+        # create the state file
         if not os.path.exists(self._state_file_path):
             self.config.save_to_dict(self._state_file_path)
-        # If the user wants to use the state file, replace the config attribute
-        if self.config.state.use_state_file:
-            # use settings saved to the state file instead
-            self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
 
-    @save_state_file
+        # # the following is only used when the autorunner cli is started with a config file path,
+        # # not from a state folder path
+
+        # # create the state file if it does not exist
+        # if not os.path.exists(self._state_file_path):
+        #     self.config.save_to_dict(self._state_file_path)
+        # # If the user wants to use the state file, replace the config attribute
+        # if self.config.state.use_state_file_settings:
+        #     # use settings saved to the state file instead
+        #     self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
+
+    # @save_state_file
     def _edit_autorunner_settings(self):
         app = QApplication.instance() or QApplication([])
 
@@ -243,21 +253,22 @@ class AutorunnerPtycho(Autorunner):
                 checkpoints_folder=self._get_checkpoints_folder(),
             )
             wrapper.wait_for_user_action()
-            if self.config.state.state_memory_enabled:
+            if self.config.state.use_state_file_settings:
                 self._state_file_path = os.path.join(
                     self.config.state.state_folder, "autorunner_state_file.yaml"
                 )
+            print(self.config.state.state_folder)
 
             # check that checkpoint exists
-            if self.config.checkpoint.load_from_checkpoint is None:
+            if not self.config.checkpoint.load_from_checkpoint:
                 valid_checkpoint = True
             else:
                 checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
                 checkpoint_path = os.path.join(
-                    checkpoints_folder, self.config.checkpoint.load_from_checkpoint + "_task.h5"
+                    checkpoints_folder, self.config.checkpoint.which_checkpoint + "_task.h5"
                 )
                 if not os.path.exists(checkpoint_path):
-                    print(f"There is no {self.config.checkpoint.load_from_checkpoint} checkpoint file.")
+                    print(f"There is no {self.config.checkpoint.which_checkpoint} checkpoint file.")
                     print(f"Available checkpoint files:")
                     for file_name in os.listdir(checkpoints_folder):
                         print("- " + file_name)
@@ -530,7 +541,9 @@ def _update_pyxalign_object_settings(task: LaminographyAlignmentTask, config: Au
 def _get_high_level_config_options() -> list[str]:
     high_level_config_options = [
         "state.state_folder",
-        "state.state_memory_enabled",
+        "state.use_state_file_settings",
+        "state.update_state_file",
+        # "state.state_memory_enabled",
         # "state.use_state_file",
         "state.update_state_file",
         "interactivity",

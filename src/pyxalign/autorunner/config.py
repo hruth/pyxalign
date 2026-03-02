@@ -39,6 +39,7 @@ class InitializationConfig(BaseOptions):
 
     remove_scan_numbers: Optional[list] = None
 
+
 @dataclasses.dataclass
 class ReconstructionGeometryConfig(BaseOptions):
     center_horizontal_offset: float = 0
@@ -50,6 +51,7 @@ class ReconstructionGeometryConfig(BaseOptions):
     volume_width: VolumeWidthOptions = field(default_factory=VolumeWidthOptions)
 
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
+
 
 @dataclasses.dataclass
 class InteractivityConfig(BaseOptions):
@@ -71,6 +73,7 @@ class InteractivityConfig(BaseOptions):
 
     # final_reconstruction: bool = True
 
+
 @dataclasses.dataclass
 class EnabledCheckpoints(BaseOptions):
     # loading: bool = True
@@ -91,21 +94,29 @@ class EnabledCheckpoints(BaseOptions):
 
     final_reconstruction: bool = True
 
+
 @dataclasses.dataclass
 class StateConfig(BaseOptions):
     state_folder: str = ""
 
-    state_memory_enabled: bool = True
+    use_state_file_settings: bool = True
 
-    use_state_file: bool = True
+    # use_state_file: bool = True
 
     update_state_file: bool = True
 
+
 @dataclasses.dataclass
 class CheckpointConfig(BaseOptions):
-    load_from_checkpoint: Optional[Checkpoints] = None
+    load_from_checkpoint: bool = False
 
-    load_custom_task: Optional[str] = None
+    which_checkpoint: Checkpoints = Checkpoints.INITIALIZATION
+
+    # load_from_checkpoint: Optional[Checkpoints] = None
+
+    load_from_custom_task: bool = False
+
+    custom_task_path: str = ""
 
     enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
 
@@ -116,12 +127,8 @@ class AutorunnerConfig(BaseOptions):
 
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
 
-    # checkpoint.load_from_checkpoint: Optional[Checkpoints] = None
-
-    # checkpoint.enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
-    
     interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
-    
+
     cross_correlation_enabled: bool = True
 
     projection_matching_enabled: bool = True
@@ -134,9 +141,7 @@ class AutorunnerConfig(BaseOptions):
 
     unwrap_phase: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)
 
-    phase_unwrap_masks: ProbePositionMaskOptions = field(
-        default_factory=ProbePositionMaskOptions
-    )
+    phase_unwrap_masks: ProbePositionMaskOptions = field(default_factory=ProbePositionMaskOptions)
 
     projection_matching_masks: ProbePositionMaskOptions = field(
         default_factory=ProbePositionMaskOptions
