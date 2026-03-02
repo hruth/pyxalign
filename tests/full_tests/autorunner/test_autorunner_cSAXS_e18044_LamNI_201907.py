@@ -1,11 +1,11 @@
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-from pyxalign.autorunner.autorunner import AutorunnerPtychoV2
+from pyxalign.autorunner.autorunner import AutorunnerPtycho
 
 
 def run(config_file_path=None):
-    autorunner = AutorunnerPtychoV2(config_file_path)
+    autorunner = AutorunnerPtycho(config_file_path)
     autorunner.run()
 
 

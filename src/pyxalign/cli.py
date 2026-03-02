@@ -3,7 +3,7 @@
 import argparse
 import os
 import sys
-from pyxalign.autorunner.autorunner import AutorunnerPtychoV2
+from pyxalign.autorunner.autorunner import AutorunnerPtycho
 from pyxalign.autorunner.config import AutorunnerConfig
 
 
@@ -53,7 +53,7 @@ def main():
             config_file_path = state_file_path
 
     # Create and run the autorunner
-    autorunner = AutorunnerPtychoV2(config_file_path)
+    autorunner = AutorunnerPtycho(config_file_path)
     autorunner.run()
 
 
