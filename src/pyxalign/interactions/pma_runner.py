@@ -83,10 +83,16 @@ basic_pma_settings = [
     "regularization.iterations",
     "regularization.local_TV_lambda",
     "regularization.use_gpu",
-    "horizontal_offset",
-    "vertical_offset",
-    "sample_thickness",
+    # "horizontal_offset",
+    # "vertical_offset",
+    # "sample_thickness",
     "keep_on_gpu",
+    "step_relax",
+    "min_step_size",
+    "reconstruct",
+    "reconstruct.astra",
+    "reconstruct.astra.back_project_gpu_indices",
+    "reconstruct.astra.forward_project_gpu_indices",
 ]
 
 
@@ -867,7 +873,13 @@ class PMAMasterWidget(MultiThreadedWidget):
             skip_fields=["plot"],
             enable_advanced_tab=True,
             basic_options_list=basic_pma_settings,
-            open_panels_list=["downsample"],
+            open_panels_list=[
+                "downsample",
+                "save",
+                "regularization",
+                "reconstruct",
+                "reconstruct.astra",
+            ],
             label="Projection Matching Alignment Options",
         )
 
