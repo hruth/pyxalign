@@ -117,8 +117,8 @@ def handle_checkpoint(checkpoint: str):
                 result = func(self, *args, **kwargs)
                 return
 
-            checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
-            checkpoint_path = os.path.join(checkpoints_folder, checkpoint + "_task.h5")
+            # checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
+            checkpoint_path = os.path.join(self._checkpoints_folder, checkpoint + "_task.h5")
 
             # check if past the current checkpoint or not
             current_checkpoint_val = get_checkpoint_order_value(checkpoint)
@@ -145,8 +145,8 @@ def handle_checkpoint(checkpoint: str):
 
             # save checkpoint if enabled
             if getattr(self.config.checkpoint.enabled_checkpoints, checkpoint):
-                if not os.path.exists(checkpoints_folder):
-                    os.mkdir(checkpoints_folder)
+                if not os.path.exists(self._checkpoints_folder):
+                    os.mkdir(self._checkpoints_folder)
                 self.task.save_task(checkpoint_path)
                 print(f"Saved checkpoint: {checkpoint}")
                 if self.config.state.use_state_file_settings:
@@ -177,11 +177,8 @@ class AutorunnerPtycho(Autorunner):
         else:
             self.config = AutorunnerConfig()
 
-    def _get_checkpoints_folder(self) -> Optional[str]:
-        """Get the checkpoints folder path if state memory is enabled."""
-        # if self.config.state.state_memory_enabled:
-        #     return os.path.join(self.config.state.state_folder, "checkpoints")
-        # return None
+    @property
+    def _checkpoints_folder(self) -> Optional[str]:
         return os.path.join(self.config.state.state_folder, "checkpoints")
 
     def run(self):
@@ -207,8 +204,8 @@ class AutorunnerPtycho(Autorunner):
             os.mkdir(self.config.state.state_folder)
             print(f"Created state folder: {self.config.state.state_folder}")
         # create checkpoints folder
-        if not os.path.exists(self._get_checkpoints_folder()):
-            os.mkdir(self._get_checkpoints_folder())
+        if not os.path.exists(self._checkpoints_folder):
+            os.mkdir(self._checkpoints_folder)
 
         if not self.config.state.use_state_file_settings:
             return
@@ -244,7 +241,7 @@ class AutorunnerPtycho(Autorunner):
                 content_gui,
                 title="Autorunner Configuration",
                 task=getattr(self, "task", None),
-                checkpoints_folder=self._get_checkpoints_folder(),
+                checkpoints_folder=self._checkpoints_folder,
             )
             wrapper.wait_for_user_action()
             if self.config.state.use_state_file_settings:
@@ -256,14 +253,14 @@ class AutorunnerPtycho(Autorunner):
             if not self.config.checkpoint.load_from_checkpoint:
                 valid_checkpoint = True
             else:
-                checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
+                # checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
                 checkpoint_path = os.path.join(
-                    checkpoints_folder, self.config.checkpoint.which_checkpoint + "_task.h5"
+                    self._checkpoints_folder, self.config.checkpoint.which_checkpoint + "_task.h5"
                 )
                 if not os.path.exists(checkpoint_path):
                     print(f"There is no {self.config.checkpoint.which_checkpoint} checkpoint file.")
                     print(f"Available checkpoint files:")
-                    for file_name in os.listdir(checkpoints_folder):
+                    for file_name in os.listdir(self._checkpoints_folder):
                         print("- " + file_name)
                 else:
                     valid_checkpoint = True
@@ -373,7 +370,7 @@ class AutorunnerPtycho(Autorunner):
                 content_gui,
                 title="Cross Correlation Alignment",
                 task=self.task,
-                checkpoints_folder=self._get_checkpoints_folder(),
+                checkpoints_folder=self._checkpoints_folder,
             )
             wrapper.wait_for_user_action()
         else:
@@ -399,7 +396,7 @@ class AutorunnerPtycho(Autorunner):
                 content_gui,
                 title="Phase Unwrapping",
                 task=self.task,
-                checkpoints_folder=self._get_checkpoints_folder(),
+                checkpoints_folder=self._checkpoints_folder,
             )
             wrapper.wait_for_user_action()
         else:
@@ -430,7 +427,7 @@ class AutorunnerPtycho(Autorunner):
                 content_gui,
                 title="Reconstruction Parameter Tuning",
                 task=self.task,
-                checkpoints_folder=self._get_checkpoints_folder(),
+                checkpoints_folder=self._checkpoints_folder,
             )
             wrapper.wait_for_user_action()
 
@@ -456,7 +453,7 @@ class AutorunnerPtycho(Autorunner):
                 content_gui,
                 title="Projection Matching Sequence",
                 task=self.task,
-                checkpoints_folder=self._get_checkpoints_folder(),
+                checkpoints_folder=self._checkpoints_folder,
             )
             wrapper.wait_for_user_action()
 
@@ -474,7 +471,7 @@ class AutorunnerPtycho(Autorunner):
                 content_gui,
                 title="Final 3D Reconstruction",
                 task=self.task,
-                checkpoints_folder=self._get_checkpoints_folder(),
+                checkpoints_folder=self._checkpoints_folder,
             )
             wrapper.wait_for_user_action()
 
