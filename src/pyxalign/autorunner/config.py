@@ -93,21 +93,32 @@ class EnabledCheckpoints(BaseOptions):
 
 @dataclasses.dataclass
 class StateConfig(BaseOptions):
-    state_memory_enabled: bool = True
-
     state_folder: str = ""
+
+    state_memory_enabled: bool = True
 
     use_state_file: bool = True
 
     update_state_file: bool = True
 
 @dataclasses.dataclass
+class CheckpointConfig(BaseOptions):
+    load_from_checkpoint: Optional[Checkpoints] = None
+
+    load_custom_task: Optional[str] = None
+
+    enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
+
+
+@dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):
     state: StateConfig = field(default_factory=StateConfig)
 
-    load_from_checkpoint: Optional[Checkpoints] = None
+    checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
 
-    enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
+    # checkpoint.load_from_checkpoint: Optional[Checkpoints] = None
+
+    # checkpoint.enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
     
     interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
     

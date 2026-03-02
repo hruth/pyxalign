@@ -71,7 +71,7 @@ def skip_if_loading_from_checkpoint(func):
 
     @wraps(func)
     def wrapper(self, *args, **kwargs):
-        if self.config.load_from_checkpoint is None:
+        if self.config.checkpoint.load_from_checkpoint is None:
             result = func(self, *args, **kwargs)
         else:
             return
@@ -92,15 +92,18 @@ def handle_checkpoint(checkpoint: str):
 
             # check if past the current checkpoint or not
             current_checkpoint_val = get_checkpoint_order_value(checkpoint)
-            loaded_checkpoint_val = get_checkpoint_order_value(self.config.load_from_checkpoint)
-            print(checkpoint)
+            loaded_checkpoint_val = get_checkpoint_order_value(self.config.checkpoint.load_from_checkpoint)
+            # print(checkpoint)
             if current_checkpoint_val < loaded_checkpoint_val:
                 # before checkpoint
                 return
             elif current_checkpoint_val == loaded_checkpoint_val:
                 # at checkpoint
                 self.is_loaded = True
-                self.task = load_task(checkpoint_path)
+                if self.config.checkpoint.load_custom_task is not None:
+                    self.task = load_task(self.config.checkpoint.load_custom_task)
+                else:
+                    self.task = load_task(checkpoint_path)
                 # sync loaded task with settings file
                 # # could make optional 'sync with settings' when using checkpoint?
                 _update_pyxalign_object_settings(self.task, self.config)
@@ -110,11 +113,11 @@ def handle_checkpoint(checkpoint: str):
                 result = func(self, *args, **kwargs)
 
             # save checkpoint if enabled
-            if getattr(self.config.enabled_checkpoints, checkpoint):
+            if getattr(self.config.checkpoint.enabled_checkpoints, checkpoint):
                 if not os.path.exists(checkpoints_folder):
                     os.mkdir(checkpoints_folder)
                 self.task.save_task(checkpoint_path)
-                self.config.load_from_checkpoint = checkpoint
+                self.config.checkpoint.load_from_checkpoint = checkpoint
                 print(f"Saved checkpoint: {checkpoint}")
 
             return result
@@ -222,9 +225,14 @@ class AutorunnerPtycho(Autorunner):
                 self.config,
                 enable_advanced_tab=True,
                 basic_options_list=_get_high_level_config_options(),
-                open_panels_list=["enabled_checkpoints", "interactivity", "state"],
+                open_panels_list=[
+                    "checkpoint",
+                    "enabled_checkpoints",
+                    "interactivity",
+                    "state",
+                ],
                 folder_dialog_fields=["state.state_folder"],
-                file_dialog_fields=["loading.initial_options_path"],
+                file_dialog_fields=["loading.initial_options_path", "checkpoint.load_custom_task"],
                 label="Update Autorunner Configuration",
                 wait_until_closed=False,
             )
@@ -241,15 +249,15 @@ class AutorunnerPtycho(Autorunner):
                 )
 
             # check that checkpoint exists
-            if self.config.load_from_checkpoint is None:
+            if self.config.checkpoint.load_from_checkpoint is None:
                 valid_checkpoint = True
             else:
                 checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
                 checkpoint_path = os.path.join(
-                    checkpoints_folder, self.config.load_from_checkpoint + "_task.h5"
+                    checkpoints_folder, self.config.checkpoint.load_from_checkpoint + "_task.h5"
                 )
                 if not os.path.exists(checkpoint_path):
-                    print(f"There is no {self.config.load_from_checkpoint} checkpoint file.")
+                    print(f"There is no {self.config.checkpoint.load_from_checkpoint} checkpoint file.")
                     print(f"Available checkpoint files:")
                     for file_name in os.listdir(checkpoints_folder):
                         print("- " + file_name)
@@ -525,19 +533,22 @@ def _get_high_level_config_options() -> list[str]:
         "state.state_memory_enabled",
         # "state.use_state_file",
         "state.update_state_file",
-        "load_from_checkpoint",
         "interactivity",
         "cross_correlation_enabled",
         "projection_matching_enabled",
         "enabled_checkpoints",
+        "checkpoint",
     ]
 
     high_level_config_options += [
         "interactivity." + x for x in get_all_attribute_names(AutorunnerConfig().interactivity)
     ]
     high_level_config_options += [
-        "enabled_checkpoints." + x
-        for x in get_all_attribute_names(AutorunnerConfig().enabled_checkpoints)
+        "checkpoint." + x for x in get_all_attribute_names(AutorunnerConfig().checkpoint)
+    ]
+    high_level_config_options += [
+        "checkpoint.enabled_checkpoints." + x
+        for x in get_all_attribute_names(AutorunnerConfig().checkpoint.enabled_checkpoints)
     ]
     # high_level_config_options += [
     #     "state." + x
