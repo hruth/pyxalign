@@ -64,33 +64,31 @@ def handle_checkpoint(checkpoint: str):
         def wrapper(self: Autorunner, *args, **kwargs):
             if not self.config.checkpoint.load_from_checkpoint:
                 result = func(self, *args, **kwargs)
-                return
+            else:
+                checkpoint_path = os.path.join(self._checkpoints_folder, checkpoint + "_task.h5")
 
-            # checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
-            checkpoint_path = os.path.join(self._checkpoints_folder, checkpoint + "_task.h5")
-
-            # check if past the current checkpoint or not
-            current_checkpoint_val = get_checkpoint_order_value(checkpoint)
-            loaded_checkpoint_val = get_checkpoint_order_value(
-                self.config.checkpoint.which_checkpoint
-            )
-            if current_checkpoint_val < loaded_checkpoint_val:
-                # before checkpoint
-                return
-            elif current_checkpoint_val == loaded_checkpoint_val:
-                # at checkpoint
-                if self.config.checkpoint.load_from_custom_task:
-                    self.task = load_task(self.config.checkpoint.custom_task_path)
-                else:
-                    self.task = load_task(checkpoint_path)
-                # sync loaded task with settings file
-                # # could make optional 'sync with settings' when using checkpoint?
-                if self.config.state.use_state_file_settings:
-                    _update_pyxalign_object_settings(self.task, self.config)
-                return
-            elif current_checkpoint_val > loaded_checkpoint_val:
-                # after checkpoint
-                result = func(self, *args, **kwargs)
+                # check if past the current checkpoint or not
+                current_checkpoint_val = get_checkpoint_order_value(checkpoint)
+                loaded_checkpoint_val = get_checkpoint_order_value(
+                    self.config.checkpoint.which_checkpoint
+                )
+                if current_checkpoint_val < loaded_checkpoint_val:
+                    # before checkpoint
+                    return
+                elif current_checkpoint_val == loaded_checkpoint_val:
+                    # at checkpoint
+                    if self.config.checkpoint.load_from_custom_task:
+                        self.task = load_task(self.config.checkpoint.custom_task_path)
+                    else:
+                        self.task = load_task(checkpoint_path)
+                    # sync loaded task with settings file
+                    # # could make optional 'sync with settings' when using checkpoint?
+                    if self.config.state.use_state_file_settings:
+                        _update_pyxalign_object_settings(self.task, self.config)
+                    return
+                elif current_checkpoint_val > loaded_checkpoint_val:
+                    # after checkpoint
+                    result = func(self, *args, **kwargs)
 
             # save checkpoint if enabled
             if getattr(self.config.checkpoint.enabled_checkpoints, checkpoint):
