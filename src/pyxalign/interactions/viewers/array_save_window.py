@@ -16,6 +16,8 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QWidget,
     QCheckBox,
+    QScrollArea,
+    QSizePolicy,
 )
 from PyQt5.QtCore import Qt
 import numpy as np
@@ -39,11 +41,28 @@ class ArraySaveWindow(QDialog):
     def setup_ui(self):
         """Set up the user interface."""
         self.setWindowTitle("Save Array")
+
+        # Create main layout for the dialog
+        dialog_layout = QVBoxLayout()
+        self.setLayout(dialog_layout)
+
+        # Create a scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        # Create a widget to hold the content
+        content_widget = QWidget()
         main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
+        content_widget.setLayout(main_layout)
+
+        # Set the content widget in the scroll area
+        scroll_area.setWidget(content_widget)
+        dialog_layout.addWidget(scroll_area)
 
         # Section 1: Save mode selection
         mode_group = QGroupBox("Save Mode")
+        mode_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         mode_layout = QVBoxLayout()
 
         self.radio_3d_tiff = QRadioButton("Save 3D array as TIFF")
@@ -100,7 +119,10 @@ class ArraySaveWindow(QDialog):
         path_layout.addWidget(self.browse_button)
         main_layout.addLayout(path_layout)
 
-        # Section 4: Action buttons
+        # Add stretch to push content to the top
+        main_layout.addStretch()
+
+        # Section 4: Action buttons (outside scroll area)
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         self.save_button = QPushButton("Save Array")
@@ -109,7 +131,7 @@ class ArraySaveWindow(QDialog):
         self.cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.cancel_button)
-        main_layout.addLayout(button_layout)
+        dialog_layout.addLayout(button_layout)
 
     def on_save_mode_changed(self):
         """Show/hide format dropdown and sort checkbox based on selected mode."""
