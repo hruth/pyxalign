@@ -8,6 +8,8 @@ import os
 from typing import Optional
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QApplication, QFileDialog
 
+from pyxalign.autorunner.abstract import _update_all_config_parameters
+
 
 class AutorunnerProcessEnded(Exception):
     """Exception raised when user ends the autorunner process."""
@@ -28,6 +30,8 @@ class AutorunnerGUIWrapper(QWidget):
         title: str = "Autorunner Step",
         task=None,
         checkpoints_folder: Optional[str] = None,
+        config=None,
+        state_file_path: Optional[str] = None,
     ):
         super().__init__()
         self.content_widget = content_widget
@@ -35,6 +39,8 @@ class AutorunnerGUIWrapper(QWidget):
         self.should_end_process = False
         self.task = task
         self.checkpoints_folder = checkpoints_folder
+        self.config = config
+        self.state_file_path = state_file_path
 
         self.setWindowTitle(title)
 
@@ -56,6 +62,15 @@ class AutorunnerGUIWrapper(QWidget):
             )
             self.save_task_button.clicked.connect(self._on_save_task)
             button_layout.addWidget(self.save_task_button)
+
+        # Sync to State File button (on the left)
+        if self.config is not None and self.state_file_path is not None:
+            self.sync_state_button = QPushButton("Sync to State File")
+            self.sync_state_button.setStyleSheet(
+                "QPushButton { background-color: #9775fa; color: white; font-weight: bold; }"
+            )
+            self.sync_state_button.clicked.connect(self._on_sync_to_state_file)
+            button_layout.addWidget(self.sync_state_button)
 
         # Add spacer to push end/proceed buttons to the right
         button_layout.addStretch()
@@ -116,6 +131,18 @@ class AutorunnerGUIWrapper(QWidget):
             # Save the task
             self.task.save_task(file_path)
             print(f"Task saved to: {file_path}")
+
+    def _on_sync_to_state_file(self):
+        """Handle sync to state file button click."""
+        if self.config is None or self.state_file_path is None:
+            return
+
+        # Update all config parameters from the task
+        _update_all_config_parameters(self.task, self.config)
+
+        # Save the config to the state file
+        self.config.save_to_dict(self.state_file_path)
+        print(f"Configuration synced to state file: {self.state_file_path}")
 
     def wait_for_user_action(self):
         """Wait for the user to click either proceed or end process."""

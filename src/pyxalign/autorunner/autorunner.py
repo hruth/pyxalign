@@ -118,6 +118,8 @@ class AutorunnerPtycho(Autorunner):
                 title="Autorunner Configuration",
                 task=getattr(self, "task", None),
                 checkpoints_folder=self._checkpoints_folder,
+                config=self.config,
+                state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
             if self.config.state.use_state_file_settings:
@@ -247,6 +249,8 @@ class AutorunnerPtycho(Autorunner):
                 title="Cross Correlation Alignment",
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
+                config=self.config,
+                state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
         else:
@@ -273,6 +277,8 @@ class AutorunnerPtycho(Autorunner):
                 title="Phase Unwrapping",
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
+                config=self.config,
+                state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
         else:
@@ -304,6 +310,8 @@ class AutorunnerPtycho(Autorunner):
                 title="Reconstruction Parameter Tuning",
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
+                config=self.config,
+                state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
 
@@ -330,6 +338,8 @@ class AutorunnerPtycho(Autorunner):
                 title="Projection Matching Sequence",
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
+                config=self.config,
+                state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
 
@@ -348,6 +358,8 @@ class AutorunnerPtycho(Autorunner):
                 title="Final 3D Reconstruction",
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
+                config=self.config,
+                state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
 
