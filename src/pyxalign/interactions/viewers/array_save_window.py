@@ -47,15 +47,18 @@ class ArraySaveWindow(QDialog):
         mode_layout = QVBoxLayout()
 
         self.radio_3d_tiff = QRadioButton("Save 3D array as TIFF")
+        self.radio_3d_h5 = QRadioButton("Save 3D array as H5")
         self.radio_current_frame = QRadioButton("Save current frame as image")
         self.radio_3d_tiff.setChecked(True)
 
         self.button_group = QButtonGroup()
         self.button_group.addButton(self.radio_3d_tiff)
+        self.button_group.addButton(self.radio_3d_h5)
         self.button_group.addButton(self.radio_current_frame)
         self.button_group.buttonClicked.connect(self.on_save_mode_changed)
 
         mode_layout.addWidget(self.radio_3d_tiff)
+        mode_layout.addWidget(self.radio_3d_h5)
         mode_layout.addWidget(self.radio_current_frame)
         mode_group.setLayout(mode_layout)
         main_layout.addWidget(mode_group)
@@ -69,6 +72,11 @@ class ArraySaveWindow(QDialog):
             main_layout.addWidget(self.sort_checkbox)
         else:
             self.sort_checkbox.hide()
+
+        # Section 1.6: Crop into single file option (only shown for 3D TIFF saves)
+        self.crop_checkbox = QCheckBox("crop into single file?")
+        self.crop_checkbox.setChecked(False)  # Default to no cropping
+        main_layout.addWidget(self.crop_checkbox)
 
         # Section 2: Format selection (for single frame)
         format_layout = QHBoxLayout()
@@ -109,13 +117,26 @@ class ArraySaveWindow(QDialog):
             self.format_widget.show()
             # Hide sort checkbox for single frame saves
             self.sort_checkbox.hide()
-        else:
+            # Hide crop checkbox for single frame saves
+            self.crop_checkbox.hide()
+        elif self.radio_3d_h5.isChecked():
             self.format_widget.hide()
             # Show sort checkbox only if sort_idx exists
             if self.array_viewer.sort_idx is not None:
                 self.sort_checkbox.show()
             else:
                 self.sort_checkbox.hide()
+            # Hide crop checkbox for H5 saves (not applicable)
+            self.crop_checkbox.hide()
+        else:  # 3D TIFF
+            self.format_widget.hide()
+            # Show sort checkbox only if sort_idx exists
+            if self.array_viewer.sort_idx is not None:
+                self.sort_checkbox.show()
+            else:
+                self.sort_checkbox.hide()
+            # Show crop checkbox for 3D TIFF saves
+            self.crop_checkbox.show()
 
     def browse_file_path(self):
         """Open file dialog to select save path."""
@@ -123,6 +144,9 @@ class ArraySaveWindow(QDialog):
         if self.radio_3d_tiff.isChecked():
             filter_str = "TIFF Files (*.tif *.tiff)"
             default_name = "array_3d.tif"
+        elif self.radio_3d_h5.isChecked():
+            filter_str = "HDF5 Files (*.h5 *.hdf5)"
+            default_name = "array_3d.h5"
         else:
             format_type = self.format_combo.currentText()
             frame_idx = self.array_viewer.slider.value()
@@ -158,6 +182,7 @@ class ArraySaveWindow(QDialog):
                 save_2d_array_as_jpg,
                 save_2d_array_as_tiff,
             )
+            import h5py
 
             if self.radio_3d_tiff.isChecked():
                 # Save full 3D array with proper orientation
@@ -185,7 +210,40 @@ class ArraySaveWindow(QDialog):
                 # Rotate 90 degrees counterclockwise
                 array = np.rot90(array, k=1, axes=(1, 2))
 
-                save_array_as_tiff(array, file_path)
+                # Get crop option
+                crop_to_single = self.crop_checkbox.isChecked()
+
+                save_array_as_tiff(array, file_path, crop_to_single_file=crop_to_single)
+            elif self.radio_3d_h5.isChecked():
+                # Save full 3D array as H5
+                array = self.array_viewer.array3d
+                # Convert from GPU if needed
+                if hasattr(array, "get"):  # CuPy array
+                    array = array.get()
+
+                # Reorganize array to match displayed orientation
+                slider_axis = self.array_viewer.options.slider_axis
+
+                # Move slider axis to position 0 (stack direction)
+                if slider_axis != 0:
+                    array = np.moveaxis(array, slider_axis, 0)
+
+                # Apply sorting if checkbox is checked and sort_idx exists
+                if self.sort_checkbox.isChecked() and self.array_viewer.sort_idx is not None:
+                    # Reorder the array using sort_idx along axis 0 (after moveaxis)
+                    array = array[self.array_viewer.sort_idx]
+
+                # Transpose each 2D slice to match displayed orientation
+                # This transposes the last two axes (height, width) for all slices
+                array = np.transpose(array, (0, 2, 1))
+
+                # Rotate 90 degrees counterclockwise
+                array = np.rot90(array, k=1, axes=(1, 2))
+
+                # Save as H5
+                with h5py.File(file_path, "w") as F:
+                    F.create_dataset(name="data", data=array)
+                print(f"File saved to: {file_path}")
             else:
                 # Save current frame
                 current_frame = self.array_viewer.get_current_frame_data()

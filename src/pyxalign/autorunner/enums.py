@@ -7,8 +7,8 @@ class Checkpoints(StrEnum):
     CROSS_CORRELATION = auto()
     PHASE_UNWRAP_MASKS = auto()
     PHASE_UNWRAPPING = auto()
-    PMA_MASKS = auto()
     RECONSTRUCTION_TUNING = auto()
+    PMA_MASKS = auto()
     PROJECTION_MATCHING = auto()
     FINAL_RECONSTRUCTION = auto()
 
