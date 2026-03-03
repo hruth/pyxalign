@@ -53,7 +53,7 @@ class IntTupleInputWidget(QWidget):
         checkboxes = []
 
         def update_tuple():
-            new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
+            new_indices = [corresponding_values[i] for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
             setattr(data_obj, field_name, tuple(new_indices))
 
         n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
