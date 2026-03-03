@@ -497,7 +497,8 @@ class ReconstructionParameterTuner(QWidget):
         self.update_width_controls_enabled_state()
 
         # Store projection data for point selector
-        self.projection_sum = np.sum(self.phase_projections.data, axis=0)
+        # self.projection_sum = np.sum(self.phase_projections.data, axis=0)
+        self.projection_sum = None
         self.point_selector = None  # Will be created when button is clicked
 
         # Add widgets to page
@@ -767,14 +768,20 @@ class ReconstructionParameterTuner(QWidget):
         """Open the point selector window for selecting center of rotation."""
         initial_center = (
             int(self.phase_projections.center_of_rotation[1]),
-            int(self.phase_projections.center_of_rotation[0])
+            int(self.phase_projections.center_of_rotation[0]),
         )
 
         # Create and show point selector
+        if self.projection_sum is None:
+            sum_wrapper = loading_bar_wrapper(
+                "Getting projection sum...",
+                block_all_windows=True,
+            )(np.sum)
+            self.projection_sum = sum_wrapper(self.phase_projections.data, axis=0)
         self.point_selector = PointSelector(
             image=self.projection_sum,
             initial_point=initial_center,
-            projections=self.phase_projections.data
+            projections=self.phase_projections.data,
         )
 
         # Make the window modal to block interaction with other windows
