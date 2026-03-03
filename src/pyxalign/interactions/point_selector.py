@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (
 )
 
 from pyxalign.interactions.viewers.base import ArrayViewer
+from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 
 
 class PointSelector(QWidget):
@@ -55,7 +56,9 @@ class PointSelector(QWidget):
         Initialize the point selector widget.
 
         Args:
-            image: 2D numpy array to display (used as fallback or sum of projections)
+            image: 2D numpy array to display (used as fallback or sum of projections).
+                Can be None if projections are provided - in this case, the sum will
+                be calculated lazily when needed.
             initial_point: Optional (x, y) tuple for initial point position.
                 If None, defaults to center of image.
             parent: Optional parent widget
@@ -64,20 +67,27 @@ class PointSelector(QWidget):
         """
         super().__init__(parent)
 
-        # Store image and validate
-        if image is None:
-            raise ValueError("image cannot be None")
-        if image.ndim != 2:
-            raise ValueError(f"image must be 2-dimensional, got {image.ndim}D")
-
-        self.image = image
+        # Store projections and projection sum
         self.projections = projections
+        self._projection_sum = image  # Store the provided image or None
         self.show_sum = False  # Default to showing single projections if available
+
+        # Determine initial image dimensions for validation and initial point
+        if image is not None:
+            # Validate provided image
+            if image.ndim != 2:
+                raise ValueError(f"image must be 2-dimensional, got {image.ndim}D")
+            self.image = image
+        elif projections is not None:
+            # Use first projection to determine dimensions for initial setup
+            self.image = projections[0]
+        else:
+            raise ValueError("Either image or projections must be provided")
 
         # Set initial point
         if initial_point is None:
-            self.point_x = image.shape[1] // 2
-            self.point_y = image.shape[0] // 2
+            self.point_x = self.image.shape[1] // 2
+            self.point_y = self.image.shape[0] // 2
         else:
             self.point_x = int(initial_point[0])
             self.point_y = int(initial_point[1])
@@ -99,6 +109,23 @@ class PointSelector(QWidget):
         # Set window properties
         self.setWindowTitle("Point Selector")
         self.resize(800, 700)
+
+    @property
+    def projection_sum(self) -> np.ndarray:
+        """
+        Get the projection sum, calculating it lazily if needed.
+
+        Returns:
+            2D numpy array containing the sum of all projections
+        """
+        if self._projection_sum is None and self.projections is not None:
+            # Calculate projection sum with loading bar
+            sum_wrapper = loading_bar_wrapper(
+                "Getting projection sum...",
+                block_all_windows=True,
+            )(np.sum)
+            self._projection_sum = sum_wrapper(self.projections, axis=0)
+        return self._projection_sum
 
     def setup_ui(self):
         """Setup the widget layout."""
@@ -168,6 +195,7 @@ class PointSelector(QWidget):
         grid_layout = QGridLayout()
 
         # Set ranges based on image dimensions
+        # Use self.image which contains the reference dimensions
         max_x = self.image.shape[1] - 1
         max_y = self.image.shape[0] - 1
 
@@ -223,9 +251,10 @@ class PointSelector(QWidget):
                 # Connect mouse click signal
                 self.array_viewer.image_item.mouseClickEvent = self.on_image_clicked
         else:
-            # Display the image
+            # Display the projection sum (calculated lazily if needed)
+            proj_sum = self.projection_sum
             self.image_item = pg.ImageItem()
-            self.image_item.setImage(self.image.T)
+            self.image_item.setImage(proj_sum.T)
             self.plot_widget.addItem(self.image_item)
 
             # Create a scatter plot item for the point marker
@@ -252,9 +281,16 @@ class PointSelector(QWidget):
             x = int(pos.x())
             y = int(pos.y())
 
-            # Clamp to image bounds
-            x = max(0, min(x, self.image.shape[1] - 1))
-            y = max(0, min(y, self.image.shape[0] - 1))
+            # Clamp to image bounds (use current display image dimensions)
+            if self.show_sum and self.projection_sum is not None:
+                max_x = self.projection_sum.shape[1] - 1
+                max_y = self.projection_sum.shape[0] - 1
+            else:
+                max_x = self.image.shape[1] - 1
+                max_y = self.image.shape[0] - 1
+
+            x = max(0, min(x, max_x))
+            y = max(0, min(y, max_y))
 
             # Update point coordinates
             self.point_x = x
@@ -323,9 +359,16 @@ class PointSelector(QWidget):
             x: X coordinate
             y: Y coordinate
         """
-        # Clamp to image bounds
-        x = max(0, min(x, self.image.shape[1] - 1))
-        y = max(0, min(y, self.image.shape[0] - 1))
+        # Clamp to image bounds (use current display image dimensions)
+        if self.show_sum and self.projection_sum is not None:
+            max_x = self.projection_sum.shape[1] - 1
+            max_y = self.projection_sum.shape[0] - 1
+        else:
+            max_x = self.image.shape[1] - 1
+            max_y = self.image.shape[0] - 1
+
+        x = max(0, min(x, max_x))
+        y = max(0, min(y, max_y))
 
         self.point_x = x
         self.point_y = y

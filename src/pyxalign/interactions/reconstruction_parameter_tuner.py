@@ -6,7 +6,6 @@ parameters (sample thickness, center of rotation) and viewing the resulting
 3D reconstruction.
 """
 from typing import Optional
-import numpy as np
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
@@ -496,10 +495,8 @@ class ReconstructionParameterTuner(QWidget):
         self.update_width_controls_visibility()
         self.update_width_controls_enabled_state()
 
-        # Store projection data for point selector
-        # self.projection_sum = np.sum(self.phase_projections.data, axis=0)
-        self.projection_sum = None
-        self.point_selector = None  # Will be created when button is clicked
+        # Point selector will be created when button is clicked
+        self.point_selector = None
 
         # Add widgets to page
         page_layout.addWidget(param_group)
@@ -772,14 +769,9 @@ class ReconstructionParameterTuner(QWidget):
         )
 
         # Create and show point selector
-        if self.projection_sum is None:
-            sum_wrapper = loading_bar_wrapper(
-                "Getting projection sum...",
-                block_all_windows=True,
-            )(np.sum)
-            self.projection_sum = sum_wrapper(self.phase_projections.data, axis=0)
+        # Pass None for image - PointSelector will calculate projection sum lazily when needed
         self.point_selector = PointSelector(
-            image=self.projection_sum,
+            image=None,
             initial_point=initial_center,
             projections=self.phase_projections.data,
         )
