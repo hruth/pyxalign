@@ -22,7 +22,7 @@ from pyxalign.io.utils import (
     handle_null_type,
     is_null_type,
     load_array,
-    load_list_of_arrays,
+    load_list_of_arrays_or_str,
     load_options_from_h5_group,
 )
 
@@ -78,7 +78,10 @@ def load_projections_object(
 
     # Create ShiftManager object
     shift_manager = ShiftManager(n_projections=len(proj_h5_obj["angles"][()]))
-    shift_manager.past_shifts = load_list_of_arrays(proj_h5_obj, "applied_shifts")
+    shift_manager.past_shifts = load_list_of_arrays_or_str(proj_h5_obj, "applied_shifts")
+    shift_manager.past_shift_functions = load_list_of_arrays_or_str(
+        proj_h5_obj, "applied_shifts_function_types"
+    )
     if "staged_shift" in proj_h5_obj.keys():
         staged_shift = proj_h5_obj["staged_shift"][()]
         if "staged_shift_function_type" in proj_h5_obj.keys():
@@ -97,7 +100,7 @@ def load_projections_object(
 
     # get filepaths if they were saved
     try:
-        file_paths = load_list_of_arrays(proj_h5_obj, "file_paths")
+        file_paths = load_list_of_arrays_or_str(proj_h5_obj, "file_paths")
     except Exception as ex:
         file_paths = None
 
@@ -111,7 +114,7 @@ def load_projections_object(
         center_of_rotation=proj_h5_obj["center_of_rotation"][()],
         masks=load_array(proj_h5_obj, "masks"),
         probe=load_array(proj_h5_obj, "probe"),
-        probe_positions=load_list_of_arrays(proj_h5_obj, "positions"),
+        probe_positions=load_list_of_arrays_or_str(proj_h5_obj, "positions"),
         transform_tracker=transform_tracker,
         shift_manager=shift_manager,
         skip_pre_processing=True,

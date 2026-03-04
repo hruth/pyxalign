@@ -6,17 +6,18 @@ from numbers import Number
 from typing import Optional, Sequence
 from pyxalign.api import enums
 from pyxalign.api.options.transform import CropOptions
+from .base import BaseOptions
 
 
 @dataclasses.dataclass
-class UpdatePlotOptions:
+class UpdatePlotOptions(BaseOptions):
     enabled: bool = False
 
     stride: int = 1
 
 
 @dataclasses.dataclass
-class ScalebarOptions:
+class ScalebarOptions(BaseOptions):
     enabled: bool = True
 
     fractional_width: float = 0.15
@@ -24,7 +25,7 @@ class ScalebarOptions:
 
 
 @dataclasses.dataclass
-class PlotDataOptions:
+class PlotDataOptions(BaseOptions):
     cmap: Optional[str] = "bone"
 
     # widths: Optional[tuple[Number, Number]] = None
@@ -43,7 +44,7 @@ class PlotDataOptions:
 
 
 @dataclasses.dataclass
-class ArrayViewerOptions:
+class ArrayViewerOptions(BaseOptions):
     slider_axis: int = 0
 
     start_index: int = 0
@@ -56,7 +57,7 @@ class ArrayViewerOptions:
 
 
 @dataclasses.dataclass
-class ProjectionViewerOptions:
+class ProjectionViewerOptions(BaseOptions):
     show_mask: bool = False
 
     process_func: Optional[enums.ProcessFunc] = None

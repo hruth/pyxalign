@@ -1,4 +1,5 @@
 import copy
+from typing import Optional
 import numpy as np
 import pyxalign.alignment.projection_matching as pm
 from pyxalign.api.options import transform
@@ -172,6 +173,8 @@ def plot_center_of_rotation_estimate_results(
     projections: np.ndarray,
     proj_idx: int = 0,
     plot_projection_sum: bool = False,
+    save_plot: bool = False,
+    save_path: Optional[str] = None
 ):
     y, x, Z = convert_dict_to_arrays(center_of_rotation_estimate_results.mean_error)
     min_idx = np.unravel_index(Z.argmin(), Z.shape)
@@ -242,7 +245,9 @@ def plot_center_of_rotation_estimate_results(
 
     # Adjust layout
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    if save_plot:
+        plt.savefig(save_path, bbox_inches='tight')
 
 
 def plot_coordinate_search_points(

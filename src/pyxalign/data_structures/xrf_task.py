@@ -6,11 +6,14 @@ import os
 
 # from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.alignment.cross_correlation import CrossCorrelationAligner
+from pyxalign.alignment.projection_matching import ProjectionMatchingAligner
 from pyxalign.api import enums
+from pyxalign.api.options.alignment import ProjectionMatchingOptions
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.projections import ProjectionOptions
 from pyxalign.api.options.task import AlignmentTaskOptions
-from pyxalign.data_structures.task import run_projection_matching
+# from pyxalign.data_structures.task import run_projection_matching
+from pyxalign.data_structures.projections import PhaseProjections
 from pyxalign.data_structures.xrf_projections import XRFProjections
 from pyxalign.io.load import load_xrf_projections
 from pyxalign.io.save import save_generic_data_structure_to_h5
@@ -176,7 +179,7 @@ class XRFTask:
             self.pma_gui_list += [self.pma_object.gui]
 
         # run the pma algorithm
-        self.pma_object, shift = run_projection_matching(
+        shift = self.run_projection_matching(
             self.projections_dict[self.primary_channel],
             initial_shift,
             self.alignment_options.projection_matching,
@@ -258,6 +261,27 @@ class XRFTask:
             print(f"XRF task saved to {h5_obj.file.filename}{h5_obj.name}")
             h5_obj["task_file_type"] = "xrf"
 
+    def run_projection_matching(
+        self,
+        phase_projections: PhaseProjections,
+        initial_shift: np.ndarray,
+        projection_matching_options: ProjectionMatchingOptions,
+    ) -> tuple[ProjectionMatchingAligner, np.ndarray]:
+        # copied from the LaminographyAligmentTask temporarily...
+        # Initialize the projection-matching alignment object
+        self.pma_object = ProjectionMatchingAligner(phase_projections, projection_matching_options)
+        try:
+            if self.pma_object.options.interactive_viewer.update.enabled:
+                # Run PMA algorithm
+                shift = self.pma_object.run_with_GUI(initial_shift=initial_shift)
+            else:
+                # Run PMA algorithm
+                shift = self.pma_object.run(initial_shift=initial_shift)
+        except (Exception, KeyboardInterrupt) as ex:
+            print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+            shift = self.pma_object.total_shift * self.pma_object.scale
+        finally:
+            return shift
 
 def load_xrf_task(file_path: str, exclude_channels: Optional[list[str]] = None) -> XRFTask:
     with h5py.File(file_path, "r") as h5_obj:

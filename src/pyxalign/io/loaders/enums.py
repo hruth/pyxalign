@@ -6,6 +6,9 @@ class ExperimentInfoSourceType(StrEnum):
     PTYCHO_FOLDERS = auto()
     BEAMLINE_2IDE_MDA_FILE = auto()
 
+class PtychoFileStructureType(StrEnum):
+    PEAR = auto()
+    # PTYCHODUS = auto()# eventually..
 
 class ExperimentType(StrEnum):
     LYNX = "LYNX: ptycho"

@@ -3,6 +3,7 @@ import enum
 from typing import Optional, Type, Union
 import h5py
 from difflib import get_close_matches
+import numpy as np
 
 from pyxalign.api.enums import SpecialValuePlaceholder
 from pyxalign.api.types import OptionsClass
@@ -25,7 +26,7 @@ def is_null_type(value):
         return False
 
 
-def load_list_of_arrays(h5_obj: h5py.Group, name: str):
+def load_list_of_arrays_or_str(h5_obj: h5py.Group, name: str):
     if name in h5_obj.keys():
         if isinstance(h5_obj[name], h5py.Dataset):
             value = h5_obj[name][()]
@@ -43,6 +44,24 @@ def load_list_of_arrays(h5_obj: h5py.Group, name: str):
                 # list_of_arrays[i] = h5_obj[name][str(i)][()]
             return list_of_arrays
 
+def load_list_of_str(h5_obj: h5py.Group, name: str):
+    if name in h5_obj.keys():
+        if isinstance(h5_obj[name], h5py.Dataset):
+            value = h5_obj[name][()]
+            if is_null_type(value):
+                # pass
+                return handle_null_type(value)
+        else:
+            n_entries = len(h5_obj[name])
+            list_of_str = list(range(n_entries))
+            for i in range(n_entries):
+                entry = h5_obj[name][str(i)][()]
+                if isinstance(entry, bytes):
+                    entry = entry.decode()
+                list_of_str[i] = entry
+            return list_of_str
+    else:
+        return []
 
 def h5_to_dict(h5_obj: Union[h5py.Group, h5py.File]):
     """

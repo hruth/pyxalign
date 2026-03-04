@@ -25,7 +25,8 @@ from pyxalign.api.types import r_type
 import pyxalign.data_structures.task as t
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import create_empty_pinned_array_like
-from pyxalign.interactions.pma_runner import AlignmentResults, AlignmentResultsCollection
+from pyxalign.interactions.alignment_results import AlignmentResults, AlignmentResultsCollection
+from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.transform import CropOptions, ShiftOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
@@ -38,11 +39,105 @@ from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 
 
+class CCResultsCollection(AlignmentResultsCollection):
+    """
+    Widget for visualizing and comparing multiple cross-correlation alignment results.
+
+    This widget extends AlignmentResultsCollection to add a stage shift button
+    for cross-correlation alignment results.
+
+    Parameters
+    ----------
+    alignment_results_list : list[AlignmentResults]
+        List of alignment results to display and compare.
+    display_initial_shift : bool, optional
+        Whether to display initial shift in plots. Default is False.
+    task : t.LaminographyAlignmentTask, optional
+        Task object containing projections for staging shifts.
+    projection_type : enums.ProjectionType, optional
+        Type of projections being aligned (PHASE or COMPLEX).
+    projection_viewer : QWidget, optional
+        ProjectionViewer widget for refreshing after staging shifts.
+    parent : QWidget, optional
+        Parent widget for this interface.
+    """
+
+    def __init__(
+        self,
+        alignment_results_list: list[AlignmentResults],
+        display_initial_shift: bool = False,
+        task: Optional["t.LaminographyAlignmentTask"] = None,
+        projection_type: Optional[enums.ProjectionType] = None,
+        projection_viewer: Optional[QWidget] = None,
+        parent: Optional[QWidget] = None,
+    ):
+        self.task = task
+        self.projection_type = projection_type
+        self.projection_viewer = projection_viewer
+
+        # Call parent __init__ with stage_shift_callback
+        super().__init__(
+            alignment_results_list=alignment_results_list,
+            display_initial_shift=display_initial_shift,
+            stage_shift_callback=self.stage_shift,
+            parent=parent,
+        )
+
+    def stage_shift(self, row: int):
+        """
+        Stage the shift from the selected alignment result.
+
+        Parameters
+        ----------
+        row : int
+            The index of the alignment result to stage.
+        """
+        if self.task is None:
+            print("Cannot stage shift: task not available")
+            return
+
+        # Determine which projections to use based on projection_type
+        if self.projection_type == enums.ProjectionType.PHASE:
+            projections = self.task.phase_projections
+        elif self.projection_type == enums.ProjectionType.COMPLEX:
+            projections = self.task.complex_projections
+        else:
+            # Auto-detect based on what's available
+            if self.task.phase_projections is not None:
+                projections = self.task.phase_projections
+            elif self.task.complex_projections is not None:
+                projections = self.task.complex_projections
+            else:
+                print("Cannot stage shift: no projections available")
+                return
+
+        if projections is None:
+            print("Cannot stage shift: projections not available")
+            return
+
+        alignment_result = self.alignment_results_list[row]
+        shift = alignment_result.shift
+
+        # Stage the shift using the shift_manager
+        projections.shift_manager.stage_shift(
+            shift=shift,
+            function_type=enums.ShiftType.CIRC,
+            alignment_options=self.task.options.cross_correlation,
+            eliminate_wrapping=True,
+        )
+        print(f"Shift from cross-correlation alignment result {row} staged successfully")
+
+        # Refresh the Applied Shifts tab in the projection viewer
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
+
+
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
     def __init__(
         self,
         task: Optional["t.LaminographyAlignmentTask"] = None,
         projection_type: Optional[enums.ProjectionType] = None,
+        projection_viewer: Optional[QWidget] = None,
         multi_thread_func: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -51,6 +146,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             parent=parent,
         )
         self.task = task
+        self.projection_viewer = projection_viewer
         # If only one type of projection exists, use that type
         if self.task.phase_projections is None:  # only has complex projections
             self.projection_type = enums.ProjectionType.COMPLEX
@@ -139,6 +235,9 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         )
         # Enable the ArrayViewer
         self.post_alignment_viewer.setEnabled(True)
+        # Refresh the Applied Shifts tab in the projection viewer
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
 
     def make_options_setup_and_results_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
@@ -251,8 +350,12 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         tabs.addTab(alignment_setup_widget, "Configure && Start")
 
     def make_results_tab_layout(self, tabs: QTabWidget):
-        self.results_collection_widget = AlignmentResultsCollection(
-            self.alignment_results_list, display_initial_shift=False
+        self.results_collection_widget = CCResultsCollection(
+            alignment_results_list=self.alignment_results_list,
+            display_initial_shift=False,
+            task=self.task,
+            projection_type=self.projection_type,
+            projection_viewer=self.projection_viewer,
         )
         empty_widget = QWidget()
         self._results_collection_layout = QVBoxLayout()
@@ -295,6 +398,73 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.task.options.cross_correlation.crop = self.crop_viewer.options
         self.crop_viewer.close()
         # self.options_editor._data.crop.horizontal_range = self.crop_viewer.crop_options
+
+    def clear_alignment_results(self):
+        """
+        Clear all alignment results and reset viewers.
+
+        This method is called when shift operations (apply or undo) are performed
+        on the ProjectionViewer, as those operations invalidate previously computed
+        alignment results. It clears:
+        - Alignment results list
+        - Results collection table
+        - Post-alignment viewer (disables and clears it)
+        - Cross-correlation shift plot
+        """
+        # Clear the alignment results list
+        self.alignment_results_list.clear()
+
+        # Update the results collection widget to reflect empty results
+        self.results_collection_widget.alignment_results_list = self.alignment_results_list
+        # Clear all rows from the results table
+        self.results_collection_widget.results_table.setRowCount(0)
+        # Clear the plots
+        if hasattr(self.results_collection_widget, 'clear_plots'):
+            self.results_collection_widget.clear_plots()
+
+        # Clear and disable the post-alignment viewer
+        if hasattr(self, 'post_alignment_viewer') and self.post_alignment_viewer is not None:
+            # Clear the viewer by reinitializing with empty data
+            empty_array = np.zeros((1, 1, 1))  # Minimal empty array
+            self.post_alignment_viewer.reinitialize_all(empty_array)
+            # Disable the viewer
+            self.post_alignment_viewer.setEnabled(False)
+
+        # Clear the cross-correlation shift plot
+        if hasattr(self, 'plot_item') and self.plot_item is not None:
+            self.plot_item.clear()
+            # Remove the legend if it exists
+            if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None and self.plot_item.legend.scene() is not None:
+                self.plot_item.legend.scene().removeItem(self.plot_item.legend)
+
+    # def clear_alignment_results(self):
+    #     """
+    #     Clear all alignment results from the collection.
+
+    #     This method is called when shift operations (apply or undo) are performed
+    #     on the ProjectionViewer, as those operations invalidate previously computed
+    #     alignment results.
+    #     """
+    #     # Clear the alignment results list
+    #     self.alignment_results_list.clear()
+
+    #     # Update the results collection widget to reflect empty results
+    #     self.results_collection_widget.alignment_results_list = self.alignment_results_list
+    #     # Clear all rows from the results table
+    #     self.results_collection_widget.results_table.setRowCount(0)
+    #     # Clear the plots
+    #     if hasattr(self.results_collection_widget, "clear_plots"):
+    #         self.results_collection_widget.clear_plots()
+
+    #     # Connect shift operations in ProjectionViewer to clear CC results
+    #     if (
+    #         hasattr(self.projection_viewer, "all_shifts_viewer")
+    #         and self.projection_viewer.all_shifts_viewer is not None
+    #     ):
+    #         # Connect the apply and undo shift buttons to clear CC results
+    #         self.projection_viewer.all_shifts_viewer.shift_operation_performed.connect(
+    #             self.cc_widget.clear_alignment_results
+    #         )
 
 
 @switch_to_matplotlib_qt_backend

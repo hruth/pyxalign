@@ -2,6 +2,7 @@ import dataclasses
 from dataclasses import field
 from enum import StrEnum, auto
 from typing import Optional
+from .base import BaseOptions
 
 
 class ROIType(StrEnum):
@@ -10,7 +11,7 @@ class ROIType(StrEnum):
 
 
 @dataclasses.dataclass
-class RectangularROIOptions:
+class RectangularROIOptions(BaseOptions):
     horizontal_range: Optional[int] = None
 
     vertical_range: Optional[int] = None
@@ -21,12 +22,12 @@ class RectangularROIOptions:
 
 
 @dataclasses.dataclass
-class EllipticalROIOptions:
+class EllipticalROIOptions(BaseOptions):
     pass
 
 
 @dataclasses.dataclass
-class ROIOptions:
+class ROIOptions(BaseOptions):
     shape: ROIType = ROIType.RECTANGULAR
 
     rectangle: RectangularROIOptions = field(default_factory=RectangularROIOptions)

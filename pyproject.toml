@@ -29,6 +29,9 @@ requires-python = ">=3.13"
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
 
+[project.scripts]
+pyxalign-autorunner = "pyxalign.cli:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_functions = ["test_*", "*_test"]
@@ -78,5 +81,5 @@ blank = true
 # Updated: Include both src and examples directories
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["pyxalign*", "pyxalign_examples*"]
+include = ["pyxalign*", "autorunner*", "pyxalign_examples*"]
 

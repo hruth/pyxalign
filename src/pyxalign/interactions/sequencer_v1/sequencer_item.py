@@ -18,8 +18,9 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QSizePolicy,
     QStyledItemDelegate,
+    QPushButton,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 
 from pyxalign.api.types import OptionsClass
@@ -59,6 +60,12 @@ class SequencerItem(QWidget):
     by dynamically creating combo boxes for each dataclass attribute that
     contains further nested dataclasses.
     """
+    
+    # Signals for parent widget to handle insertion and removal
+    insert_above_requested = pyqtSignal(object)  # Emits self
+    insert_below_requested = pyqtSignal(object)  # Emits self
+    duplicate_requested = pyqtSignal(object)     # Emits self
+    remove_requested = pyqtSignal(object)        # Emits self
 
     def __init__(
         self,
@@ -87,6 +94,9 @@ class SequencerItem(QWidget):
         # A layout that goes inside the frame
         self.frame_layout = QVBoxLayout()
         self.frame.setLayout(self.frame_layout)
+        
+        # Add control buttons at the top of each item
+        self.setup_control_buttons()
 
         # We keep track of each "level" of selection:
         # - A combo box for the dataclass attributes
@@ -118,6 +128,39 @@ class SequencerItem(QWidget):
                 time.sleep(0.1)
             if self.run_alignment_after_checkbox is not None:
                 self.run_alignment_after_checkbox.setChecked(checkbox_state)
+
+    def setup_control_buttons(self):
+        """Setup control buttons for inserting and removing this item."""
+        control_layout = QHBoxLayout()
+        
+        # Create control buttons
+        self.insert_above_button = QPushButton("↑ Insert Above")
+        self.insert_below_button = QPushButton("↓ Insert Below")
+        self.duplicate_button = QPushButton("⧉ Duplicate")
+        self.remove_button = QPushButton("✕ Remove")
+        
+        # Style the buttons to be smaller
+        button_style = "QPushButton { font-size: 10px; padding: 2px 4px; }"
+        self.insert_above_button.setStyleSheet(button_style)
+        self.insert_below_button.setStyleSheet(button_style)
+        self.duplicate_button.setStyleSheet(button_style)
+        self.remove_button.setStyleSheet(button_style + "QPushButton { background-color: #ffcccc; }")
+        
+        # Connect signals
+        self.insert_above_button.clicked.connect(lambda: self.insert_above_requested.emit(self))
+        self.insert_below_button.clicked.connect(lambda: self.insert_below_requested.emit(self))
+        self.duplicate_button.clicked.connect(lambda: self.duplicate_requested.emit(self))
+        self.remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
+        
+        # Add stretch to push buttons to the right, then add buttons
+        control_layout.addStretch()  # Push buttons to the right
+        control_layout.addWidget(self.insert_above_button)
+        control_layout.addWidget(self.insert_below_button)
+        control_layout.addWidget(self.duplicate_button)
+        control_layout.addWidget(self.remove_button)
+        
+        # Add control layout to the frame
+        self.frame_layout.addLayout(control_layout)
 
     def value(self) -> T:
         if self.options_editor is not None:

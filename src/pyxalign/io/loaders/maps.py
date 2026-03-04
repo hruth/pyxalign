@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import Union
 from pyxalign.io.loaders.pear.fold_slice_loader_2 import FoldSliceLoaderVersion2
 from pyxalign.io.loaders.pear.fold_slice_loader_1 import FoldSliceLoaderVersion1
@@ -14,6 +15,7 @@ LoaderClassType = Union[
 ]
 
 def get_loader_class_by_enum(key: pear_options.LoaderType) -> LoaderClassType:
+    key = pear_options.LoaderType[key.upper()]
     return {
         pear_options.LoaderType.FOLD_SLICE_V1: FoldSliceLoaderVersion1,
         pear_options.LoaderType.FOLD_SLICE_V2: FoldSliceLoaderVersion2,
@@ -22,6 +24,8 @@ def get_loader_class_by_enum(key: pear_options.LoaderType) -> LoaderClassType:
 
 
 def get_loader_options_by_enum(key: ExperimentType) -> OptionsClass:
+    if not isinstance(key, StrEnum):
+        key = ExperimentType[key.upper()]
     return {
         ExperimentType.LYNX: pear_options.LYNXLoadOptions(
             dat_file_path=None,

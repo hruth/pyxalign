@@ -176,6 +176,7 @@ def save_array_as_tiff(
     divide_into_smaller_files: bool = True,
     numbers: np.ndarray = None,
     text_scale: float = 2.0,
+    crop_to_single_file: bool = False,
 ):
     """
     Save a 3D NumPy array (images) to a TIFF file. Optionally, pass a 1D array (numbers)
@@ -191,6 +192,15 @@ def save_array_as_tiff(
     :param numbers: 1D array of length N, containing numeric values to overlay on each slice.
     :param text_scale: Factor by which to scale the default font size (>= 1.0).
     """
+    if crop_to_single_file:
+        max_size_gb = 4
+        bytes_per_entry = 2  # uint16
+        uncropped_file_size_gb = np.prod(images.shape) * bytes_per_entry * 1e-9
+        c = images.shape[1] // 2
+        w = max_size_gb / uncropped_file_size_gb 
+        w = int(np.sqrt(w) * c)
+        images = images[:, c - w : c + w, c - w : c + w]
+
     # 1) Convert the input data to uint16
     images_uint16 = convert_to_uint_16(images, min_val, max_val)
 
@@ -238,3 +248,83 @@ def save_array_as_tiff(
     else:
         tiff.imwrite(file_path, images_uint16)
         print(f"File saved to: {file_path}")
+
+
+def can_fit_in_single_tiff_file(images) -> bool:
+    max_size_gb = 4
+    bytes_per_entry = 2  # uint16
+    uncropped_file_size_gb = np.prod(images.shape) * bytes_per_entry * 1e-9
+    return uncropped_file_size_gb < max_size_gb
+
+
+def convert_to_uint8(image: np.ndarray, min_val: float = None, max_val: float = None) -> np.ndarray:
+    """
+    Convert a 2D array to uint8 (0-255) with normalization.
+
+    Args:
+        image: 2D numpy array to convert
+        min_val: Minimum value for normalization (None = use array min)
+        max_val: Maximum value for normalization (None = use array max)
+
+    Returns:
+        uint8 numpy array normalized to 0-255 range
+    """
+    if min_val is None:
+        min_val = np.min(image)
+    if max_val is None:
+        max_val = np.max(image)
+
+    # Normalize to 0-255 range
+    if max_val - min_val == 0:
+        # Avoid division by zero
+        return np.zeros_like(image, dtype=np.uint8)
+
+    normalized = (image - min_val) / (max_val - min_val) * 255
+    return np.clip(normalized, 0, 255).astype(np.uint8)
+
+
+def save_2d_array_as_png(image: np.ndarray, file_path: str, min_val: float = None, max_val: float = None):
+    """
+    Save a 2D numpy array as PNG using PIL.
+
+    Args:
+        image: 2D numpy array (H, W)
+        file_path: Output path ending in .png
+        min_val: Minimum value for normalization (None = use array min)
+        max_val: Maximum value for normalization (None = use array max)
+    """
+    img_uint8 = convert_to_uint8(image, min_val, max_val)
+    Image.fromarray(img_uint8).save(file_path)
+    print(f"File saved to: {file_path}")
+
+
+def save_2d_array_as_jpg(image: np.ndarray, file_path: str, min_val: float = None, max_val: float = None, quality: int = 95):
+    """
+    Save a 2D numpy array as JPG using PIL.
+
+    Args:
+        image: 2D numpy array (H, W)
+        file_path: Output path ending in .jpg or .jpeg
+        min_val: Minimum value for normalization (None = use array min)
+        max_val: Maximum value for normalization (None = use array max)
+        quality: JPEG quality (1-100)
+    """
+    img_uint8 = convert_to_uint8(image, min_val, max_val)
+    Image.fromarray(img_uint8).save(file_path, quality=quality)
+    print(f"File saved to: {file_path}")
+
+
+def save_2d_array_as_tiff(image: np.ndarray, file_path: str, min_val: float = None, max_val: float = None):
+    """
+    Save a 2D numpy array as TIFF.
+
+    Args:
+        image: 2D numpy array (H, W)
+        file_path: Output path ending in .tif or .tiff
+        min_val: Minimum value for normalization (None = use array min)
+        max_val: Maximum value for normalization (None = use array max)
+    """
+    # Add a dimension to make it 3D, convert to uint16, then extract the single frame
+    img_uint16 = convert_to_uint_16(image[np.newaxis, :, :], min_val, max_val)[0]
+    tiff.imwrite(file_path, img_uint16)
+    print(f"File saved to: {file_path}")
