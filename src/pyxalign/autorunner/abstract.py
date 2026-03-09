@@ -62,10 +62,10 @@ def handle_checkpoint(checkpoint: str):
     def checkpoint_inner(func):
         @wraps(func)
         def wrapper(self: Autorunner, *args, **kwargs):
+            checkpoint_path = os.path.join(self._checkpoints_folder, checkpoint + "_task.h5")
             if not self.config.checkpoint.load_from_checkpoint:
                 result = func(self, *args, **kwargs)
             else:
-                checkpoint_path = os.path.join(self._checkpoints_folder, checkpoint + "_task.h5")
 
                 # check if past the current checkpoint or not
                 current_checkpoint_val = get_checkpoint_order_value(checkpoint)
