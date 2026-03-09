@@ -17,10 +17,11 @@ class Autorunner(ABC):
         self.config: AutorunnerConfig
         self._standardized_data
         self._state_file_path: str
+        self.state_folder: str
 
     @property
     def _checkpoints_folder(self) -> Optional[str]:
-        return os.path.join(self.config.state.state_folder, "checkpoints")
+        return os.path.join(self.state_folder, "checkpoints")
 
     @abstractmethod
     def run(self):

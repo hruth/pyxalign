@@ -43,19 +43,26 @@ from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
 class AutorunnerPtycho(Autorunner):
-    def __init__(self, file_path: Optional[str] = None):
+    def __init__(self, state_folder: str):
         self._standardized_data: StandardData
-        # self._is_loaded = False
+        self.state_folder = state_folder
+        file_path = os.path.join(state_folder, "autorunner_state_file.yaml")
         self._initial_file_path = file_path
         self._state_file_path = None
         if file_path is not None:
             if os.path.exists(file_path):
                 self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
+                # make sure the state_folder path points to the correct location
+
             else:
                 print("Autorunner config not found, using default configuration")
                 self.config = AutorunnerConfig()
         else:
             self.config = AutorunnerConfig()
+
+    @property
+    def loading_options_path(self) -> str:
+        return os.path.join(self.state_folder, "loading_options.yaml")
 
     def run(self):
         self._edit_autorunner_settings()
@@ -76,9 +83,9 @@ class AutorunnerPtycho(Autorunner):
     @save_state_file_wrapper
     def _create_state_folders_and_files(self):
         # Create state folder
-        if not os.path.exists(self.config.state.state_folder):
-            os.mkdir(self.config.state.state_folder)
-            print(f"Created state folder: {self.config.state.state_folder}")
+        if not os.path.exists(self.state_folder):
+            os.mkdir(self.state_folder)
+            print(f"Created state folder: {self.state_folder}")
         # create checkpoints folder
         if not os.path.exists(self._checkpoints_folder):
             os.mkdir(self._checkpoints_folder)
@@ -124,14 +131,14 @@ class AutorunnerPtycho(Autorunner):
             wrapper.wait_for_user_action()
             if self.config.state.use_state_file_settings:
                 self._state_file_path = os.path.join(
-                    self.config.state.state_folder, "autorunner_state_file.yaml"
+                    self.state_folder, "autorunner_state_file.yaml"
                 )
 
             # check that checkpoint exists
             if not self.config.checkpoint.load_from_checkpoint:
                 valid_checkpoint = True
             else:
-                # checkpoints_folder = os.path.join(self.config.state.state_folder, "checkpoints")
+                # checkpoints_folder = os.path.join(self.state_folder, "checkpoints")
                 checkpoint_path = os.path.join(
                     self._checkpoints_folder, self.config.checkpoint.which_checkpoint + "_task.h5"
                 )
@@ -150,11 +157,11 @@ class AutorunnerPtycho(Autorunner):
 
     @skip_if_loading_from_checkpoint
     def _get_loading_options(self):
-        path = self.config.loading.initial_options_path
+        # path = self.config.loading.initial_options_path
         options_type = self.config.loading.experiment_type
         self.loading_options: BaseOptions = get_loader_options_by_enum(options_type)
-        if path is not None and os.path.exists(path):
-            self.loading_options.load_from_path(path)
+        if self.loading_options_path is not None and os.path.exists(self.loading_options_path):
+            self.loading_options.load_from_path(self.loading_options_path)
 
     @skip_if_loading_from_checkpoint
     @save_state_file_wrapper
@@ -164,16 +171,16 @@ class AutorunnerPtycho(Autorunner):
 
         if self.config.state.update_state_file:
             # save options
-            initial_options_path = os.path.join(
-                self.config.state.state_folder, "loading_options.yaml"
-            )
-            self.loading_options.save_to_dict(initial_options_path)
-            print(f"Loading options saved to: {initial_options_path}")
+            # initial_options_path = os.path.join(
+            #     self.state_folder, "loading_options.yaml"
+            # )
+            self.loading_options.save_to_dict(self.loading_options_path)
+            print(f"Loading options saved to: {self.loading_options_path}")
             # update autorunner config
             self.config.loading.experiment_type = get_experiment_type_enum_from_options(
                 self.loading_options
             )
-            self.config.loading.initial_options_path = initial_options_path
+            # self.config.loading.initial_options_path = initial_options_path
 
     @skip_if_loading_from_checkpoint
     @save_state_file_wrapper

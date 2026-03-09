@@ -40,18 +40,18 @@ def main():
 
         if os.path.exists(state_file_path):
             # File exists, use it as input to AutorunnerPtychoV2
-            config_file_path = state_file_path
-            print(f"Starting autorunner using configuration from file: {config_file_path}")
+            # config_file_path = state_file_path
+            print(f"Starting autorunner using configuration from file: {state_file_path}")
         else:
             # File doesn't exist, create it
             config = AutorunnerConfig()
-            config.state.state_folder = args.state_folder
+            # config.state.state_folder = args.state_folder
             config.save_to_dict(state_file_path)
-            config_file_path = state_file_path
-            print(f"Created new autorunner configuration file: {config_file_path}")
+            # config_file_path = state_file_path
+            print(f"Created new autorunner configuration file: {state_file_path}")
 
     # Create and run the autorunner
-    autorunner = AutorunnerPtycho(config_file_path)
+    autorunner = AutorunnerPtycho(args.state_folder)
     autorunner.run()
 
 

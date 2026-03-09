@@ -21,8 +21,8 @@ from pyxalign.unwrap import unwrap_phase
 class LoadingConfig(BaseOptions):
     experiment_type: ExperimentType = ExperimentType.LYNX
 
-    initial_options_path: Optional[str] = None
-    # If none provided, or invalid path, or some error loading -- then interactivity is forced
+    # initial_options_path: Optional[str] = None
+    # # If none provided, or invalid path, or some error loading -- then interactivity is forced
 
 
 @dataclasses.dataclass
@@ -97,7 +97,7 @@ class EnabledCheckpoints(BaseOptions):
 
 @dataclasses.dataclass
 class StateConfig(BaseOptions):
-    state_folder: str = ""
+    # state_folder: str = ""
 
     use_state_file_settings: bool = True
 
