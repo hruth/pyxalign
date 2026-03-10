@@ -431,7 +431,7 @@ class ProjectionViewer(MultiThreadedWidget):
         if options is None:
             options = ProjectionViewerOptions()
         self.options = options
-        self.projection_dropping_widget = None
+        # self.projection_dropping_widget = None
         self.options_editor = None
         self.reconstruction_parameter_tuner = None
         self.apply_saved_shift_dialog = None
@@ -547,6 +547,13 @@ class ProjectionViewer(MultiThreadedWidget):
         # Connect tab change signal to update options display when tab is opened
         self.tabs = tabs
         tabs.currentChanged.connect(self.on_tab_changed)
+
+        # create the scan removal tool
+        self.projection_dropping_widget = ScanRemovalTool(
+            self.projections,
+            self.array_viewer,
+            projection_drop_function=self.projections.drop_projections,
+        )
 
     def invert_projections(self):
         """Invert the projection data and refresh the display."""
@@ -744,6 +751,9 @@ class ScanRemovalTool(QWidget):
     angle_column = 1
     file_path_column = 2
 
+    # Signal emitted when projections are removed
+    projections_removed = pyqtSignal()
+
     def __init__(
         self,
         projections: "p.Projections",
@@ -903,6 +913,9 @@ class ScanRemovalTool(QWidget):
             ),
             new_additional_spinbox_indexing=[self.projections.scan_numbers],
         )
+        # Emit signal to notify that projections were removed
+        self.projections_removed.emit()
+        print("signal sent")
 
     def table_item_selected(self, row: int):
         index = int(self.staged_for_removal_table.item(row, 0).text())

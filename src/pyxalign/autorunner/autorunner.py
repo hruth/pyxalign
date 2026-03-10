@@ -65,6 +65,7 @@ class AutorunnerPtycho(Autorunner):
         return os.path.join(self.state_folder, "loading_options.yaml")
 
     def run(self):
+        self.app = QApplication.instance() or QApplication([])
         self._edit_autorunner_settings()
         self._create_state_folders_and_files()
         self._get_loading_options()

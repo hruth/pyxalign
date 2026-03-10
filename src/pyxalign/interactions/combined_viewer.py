@@ -146,6 +146,13 @@ class CombinedAlignmentWidget(SidebarNavigator):
                 display_only=False,
                 include_array_saving_widget=True,
             )
+            # Reinitialize the cross-correlation widget whenever any scans are removed
+            # need to also add a version of this for when scans are dropped and user is
+            # doing PMA
+            if self.include_cross_correlation:
+                self.projection_viewer.projection_dropping_widget.projections_removed.connect(
+                    self._reinitialize_cross_corr_widget
+                )
             # Pass projection_viewer to PMAMasterWidget for updating
             projection_viewer_for_pma = self.projection_viewer
         else:
@@ -219,8 +226,11 @@ class CombinedAlignmentWidget(SidebarNavigator):
             self.addPage(
                 page_widget=self.cc_widget,
                 title="Cross-Correlation Runner",
-                icon=self._get_icon("align")  # Could use an alignment/settings icon
+                icon=self._get_icon("align"),  # Could use an alignment/settings icon
             )
+
+    def _reinitialize_cross_corr_widget(self):
+        self.cc_widget.reinitialize_widget(self.task)
 
     def _get_icon(self, icon_name: str) -> QIcon:
         """

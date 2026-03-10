@@ -399,6 +399,69 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.crop_viewer.close()
         # self.options_editor._data.crop.horizontal_range = self.crop_viewer.crop_options
 
+    def reinitialize_widget(self, task: "t.LaminographyAlignmentTask"):
+        """
+        Reinitialize the widget with updated projections from the task.
+
+        This method should be called when the task's phase_projections or
+        complex_projections have been updated. When projections are updated,
+        their .data, .scan_numbers, and .angles attributes will be different.
+
+        Parameters
+        ----------
+        task : LaminographyAlignmentTask
+            Task with updated projections (phase_projections or complex_projections).
+
+        Notes
+        -----
+        This method will:
+        - Update the task reference
+        - Clear the post-alignment viewer
+        - Re-initialize the pre-alignment viewer with new projection data
+        - Clear the alignment results list
+        """
+        print("reinitializing widget")
+        # Update the task reference
+        self.task = task
+
+        # Get the updated projections based on projection_type
+
+        projections = self.projections
+
+        # Update title strings and sort index
+        self.title_strings = get_projection_title_strings(
+            projections.scan_numbers, projections.angles
+        )
+        print("scan numbers length:",len(projections.scan_numbers))
+        self.sort_idx = np.argsort(projections.angles)
+        
+        # Re-initialize the pre-alignment viewer with new data
+        self.pre_alignment_viewer.reinitialize_all(
+            projections.data,
+            sort_idx=self.sort_idx,
+            extra_title_strings_list=self.title_strings,
+        )
+
+        # Update the additional spinbox indexing with new scan numbers
+        if hasattr(self.pre_alignment_viewer, 'additional_spinboxes'):
+            if len(self.pre_alignment_viewer.additional_spinboxes) > 0:
+                # Update the scan number spinbox if it exists
+                self.pre_alignment_viewer.additional_spinbox_indexing = [projections.scan_numbers]
+
+        # Clear the post-alignment viewer
+        if hasattr(self, 'post_alignment_viewer') and self.post_alignment_viewer is not None:
+            # Clear the viewer by reinitializing with empty data
+            empty_array = np.zeros((1, 1, 1))  # Minimal empty array
+            self.post_alignment_viewer.reinitialize_all(empty_array)
+            # Disable the viewer
+            self.post_alignment_viewer.setEnabled(False)
+
+        # Clear the alignment results
+        self.clear_alignment_results()
+
+        # Recreate the pinned array with new dimensions
+        self.pinned_array = create_empty_pinned_array_like(projections.data)
+
     def clear_alignment_results(self):
         """
         Clear all alignment results and reset viewers.
