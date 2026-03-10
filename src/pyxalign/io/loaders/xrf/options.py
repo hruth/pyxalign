@@ -4,6 +4,7 @@ import dataclasses
 from abc import ABC
 from dataclasses import field
 
+from pyxalign.api.options.base import BaseOptions
 from pyxalign.io.loaders.enums import LaminoAnglePVStrings, MDAFilePatterns, RotationAnglePVStrings
 
 # Channel data could also be in /MAPS/XRF_fits
@@ -32,7 +33,7 @@ class XRFHDF5Paths(StrEnum):
 
 
 @dataclasses.dataclass
-class XRFBaseLoadOptions:
+class XRFBaseLoadOptions(BaseOptions):
     folder: str = ""
     "Folder containing data to load"
 
@@ -47,7 +48,7 @@ class XRFBaseLoadOptions:
 
 
 @dataclasses.dataclass
-class XRFLoadOptions(ABC):
+class XRFLoadOptions(ABC, BaseOptions):
     base: XRFBaseLoadOptions = field(default_factory=XRFBaseLoadOptions)
 
 

@@ -1,16 +1,21 @@
 from typing import Callable, Optional
 import cupy as cp
+import h5py
 from pyxalign.api.maps import get_process_func_by_enum
 from pyxalign.api.options import ProjectionViewerOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions, ProjectionViewerOptions
-from pyxalign.api.options_utils import get_all_attribute_names, print_options
+from pyxalign.api.options.device import DeviceOptions
+from pyxalign.api.options_utils import print_options
 import pyxalign.data_structures.projections as p
+from pyxalign.api import enums
 from pyxalign.gpu_utils import return_cpu_array
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
+from pyxalign.interactions.reconstruction_parameter_tuner import ReconstructionParameterTuner
 from pyxalign.interactions.roi_selector import launch_mask_selection_from_roi
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.io.utils import load_list_of_arrays_or_str
 from pyxalign.interactions.viewers.base import (
     ArrayViewer,
     IndexSelectorWidget,
@@ -32,6 +37,12 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QLabel,
+    QDialog,
+    QLineEdit,
+    QFileDialog,
+    QComboBox,
+    QFormLayout,
+    QMessageBox,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from matplotlib.backends.backend_qt5agg import (
@@ -137,6 +148,264 @@ class VolumeViewer(MultiThreadedWidget):
         self.show()
 
 
+class ApplySavedAlignmentShiftDialog(QDialog):
+    """Dialog window for applying a saved alignment shift."""
+
+    def __init__(
+        self,
+        projections: "p.Projections",
+        array_viewer: ArrayViewer,
+        parent: Optional[QWidget] = None,
+        refresh_callback: Optional[Callable] = None,
+    ):
+        super().__init__(parent)
+        self.projections = projections
+        self.array_viewer = array_viewer
+        self.refresh_callback = refresh_callback
+        self.device_options = DeviceOptions()
+        self.setWindowTitle("Apply Saved Alignment Shift")
+
+        # Store geometry parameters from the file
+        self.tilt_angle = None
+        self.skew_angle = None
+        self.lamino_angle = None
+        self.sample_thickness = None
+
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Build the user interface."""
+        main_layout = QVBoxLayout()
+        form_layout = QFormLayout()
+
+        # File path selection
+        file_path_layout = QHBoxLayout()
+        self.file_path_edit = QLineEdit()
+        self.file_path_edit.setPlaceholderText("Select HDF5 file containing alignment shifts...")
+        browse_button = QPushButton("Browse...")
+        browse_button.clicked.connect(self.browse_file_path)
+        read_file_button = QPushButton("Read File")
+        read_file_button.clicked.connect(self.read_file_from_textbox)
+        file_path_layout.addWidget(self.file_path_edit)
+        file_path_layout.addWidget(browse_button)
+        file_path_layout.addWidget(read_file_button)
+        form_layout.addRow("Aligned Task/Shift File Path:", file_path_layout)
+
+        # Staged function type dropdown
+        self.function_type_combo = QComboBox()
+        for shift_type in enums.ShiftType:
+            self.function_type_combo.addItem(shift_type.value, shift_type)
+        # Set default to FFT
+        fft_index = self.function_type_combo.findData(enums.ShiftType.FFT)
+        if fft_index >= 0:
+            self.function_type_combo.setCurrentIndex(fft_index)
+        form_layout.addRow("Staged Function Type:", self.function_type_combo)
+
+        # Drop unshared scans checkbox
+        self.drop_unshared_checkbox = QCheckBox()
+        self.drop_unshared_checkbox.setChecked(False)
+        form_layout.addRow("Drop Unshared Scans:", self.drop_unshared_checkbox)
+
+        main_layout.addLayout(form_layout)
+
+        # Add Device Options editor
+        self.device_options_editor = BasicOptionsEditor(
+            data=self.device_options.gpu,
+            label="GPU Options for Array Shifting",
+            parent=self,
+        )
+        main_layout.addWidget(self.device_options_editor)
+
+        # Add Geometry Parameters Display section
+        self.geometry_display_group = QGroupBox("Geometry Parameters from File")
+        geometry_layout = QVBoxLayout()
+
+        # Parameters form layout
+        params_layout = QFormLayout()
+        self.tilt_angle_label = QLabel("N/A")
+        self.skew_angle_label = QLabel("N/A")
+        self.lamino_angle_label = QLabel("N/A")
+        self.sample_thickness_label = QLabel("N/A")
+
+        params_layout.addRow("Tilt Angle:", self.tilt_angle_label)
+        params_layout.addRow("Skew Angle:", self.skew_angle_label)
+        params_layout.addRow("Laminography Angle:", self.lamino_angle_label)
+        params_layout.addRow("Sample Thickness:", self.sample_thickness_label)
+
+        geometry_layout.addLayout(params_layout)
+
+        # Add matplotlib plot for alignment shifts
+        self.shift_figure = Figure(figsize=(8, 4), layout="compressed")
+        self.shift_canvas = FigureCanvas(self.shift_figure)
+        self.shift_ax = [self.shift_figure.add_subplot(211), self.shift_figure.add_subplot(212)]
+        self.shift_ax[0].set_title("Horizontal Shift")
+        self.shift_ax[1].set_title("Vertical Shift")
+        for ax in self.shift_ax:
+            ax.set_xlabel("Angle (deg)")
+            ax.set_ylabel("Shift (pixels)")
+            ax.grid(linestyle=":")
+
+        geometry_layout.addWidget(self.shift_canvas)
+
+        self.geometry_display_group.setLayout(geometry_layout)
+        main_layout.addWidget(self.geometry_display_group)
+
+        # Apply button
+        apply_button = QPushButton("Apply Saved Alignment Shift")
+        apply_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
+        apply_button.clicked.connect(self.apply_shift)
+        main_layout.addWidget(apply_button)
+
+        self.setLayout(main_layout)
+        self.resize(800, 800)
+
+    def browse_file_path(self):
+        """Open a file dialog to select the alignment shift file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Alignment Shift File",
+            "",
+            "HDF5 Files (*.h5 *.hdf5);;All Files (*)"
+        )
+        if file_path:
+            self.file_path_edit.setText(file_path)
+            self.load_geometry_parameters(file_path)
+
+    def read_file_from_textbox(self):
+        """Read geometry parameters from the file path in the textbox."""
+        file_path = self.file_path_edit.text()
+        if file_path:
+            self.load_geometry_parameters(file_path)
+        else:
+            print("Error: No file path specified.")
+
+    def load_geometry_parameters(self, task_file_path):
+        """Load geometry parameters from the HDF5 file and display them."""
+        try:
+            with h5py.File(task_file_path, "r") as F:
+                # Determine which group to use
+                if "phase_projections" in F.keys():
+                    group = "phase_projections"
+                elif "complex_projections" in F.keys():
+                    group = "complex_projections"
+                else:
+                    print("Warning: No phase_projections or complex_projections group found in file.")
+                    return
+
+                # Extract geometry parameters
+                self.tilt_angle = F[group]["options/reconstruct/geometry/tilt_angle"][()]
+                self.skew_angle = F[group]["options/reconstruct/geometry/skew_angle"][()]
+                self.lamino_angle = F[group]["options/experiment/laminography_angle"][()]
+                self.sample_thickness = F[group]["options/experiment/sample_thickness"][()]
+
+                # Update the display labels
+                self.tilt_angle_label.setText(f"{self.tilt_angle:.6f}")
+                self.skew_angle_label.setText(f"{self.skew_angle:.6f}")
+                self.lamino_angle_label.setText(f"{self.lamino_angle:.6f}")
+                self.sample_thickness_label.setText(f"{self.sample_thickness:.6e}")
+
+                # Load and plot alignment shifts
+                angles = F[group]["angles"][()]
+                applied_shifts = load_list_of_arrays_or_str(F[group], "applied_shifts")
+
+                if applied_shifts is not None:
+                    # Sum all applied shifts and sort by angle
+                    total_shifts = np.sum(applied_shifts, 0).astype(np.float32)
+                    sort_idx = np.argsort(angles)
+
+                    # Clear previous plots
+                    for ax in self.shift_ax:
+                        ax.clear()
+
+                    # Plot horizontal shift (first column)
+                    self.shift_ax[0].plot(angles[sort_idx], total_shifts[sort_idx, 0])
+                    self.shift_ax[0].set_title("Horizontal Shift")
+                    self.shift_ax[0].set_xlabel("Angle (deg)")
+                    self.shift_ax[0].set_ylabel("Shift (pixels)")
+                    self.shift_ax[0].grid(linestyle=":")
+                    self.shift_ax[0].autoscale(enable=True, axis="x", tight=True)
+
+                    # Plot vertical shift (second column)
+                    self.shift_ax[1].plot(angles[sort_idx], total_shifts[sort_idx, 1])
+                    self.shift_ax[1].set_title("Vertical Shift")
+                    self.shift_ax[1].set_xlabel("Angle (deg)")
+                    self.shift_ax[1].set_ylabel("Shift (pixels)")
+                    self.shift_ax[1].grid(linestyle=":")
+                    self.shift_ax[1].autoscale(enable=True, axis="x", tight=True)
+
+                    self.shift_canvas.draw()
+
+                print(f"Loaded geometry parameters from: {task_file_path}")
+        except Exception as e:
+            print(f"Error loading geometry parameters: {e}")
+            self.tilt_angle = None
+            self.skew_angle = None
+            self.lamino_angle = None
+            self.sample_thickness = None
+            self.tilt_angle_label.setText("N/A")
+            self.skew_angle_label.setText("N/A")
+            self.lamino_angle_label.setText("N/A")
+            self.sample_thickness_label.setText("N/A")
+
+    def apply_shift(self):
+        """Apply the saved alignment shift with the selected parameters."""
+        task_file_path = self.file_path_edit.text()
+
+        # Validate that a file path was selected
+        if not task_file_path:
+            print("Error: Please select an alignment shift file.")
+            return
+
+        # Get the selected shift type
+        staged_function_type = self.function_type_combo.currentData()
+
+        # Get the checkbox state
+        drop_unshared_scans = self.drop_unshared_checkbox.isChecked()
+
+        # Call the load_and_stage_shift method
+        try:
+            load_and_stage_wrapped = loading_bar_wrapper(load_message="Staging shift...")(
+                func=self.projections.load_and_stage_shift
+            )
+            load_and_stage_wrapped(
+                task_file_path=task_file_path,
+                staged_function_type=staged_function_type,
+                drop_unshared_scans=drop_unshared_scans,
+            )
+            # Apply the staged shift with the configured device options
+            apply_shift_wrapped = loading_bar_wrapper(load_message="Applying shift...")(
+                func=self.projections.apply_staged_shift
+            )
+            apply_shift_wrapped(device_options=self.device_options)
+            print(f"Successfully applied alignment shift from: {task_file_path}")
+
+            # Apply geometry parameters if they were loaded from the file
+            if all(param is not None for param in [self.tilt_angle, self.skew_angle, self.lamino_angle, self.sample_thickness]):
+                self.projections.options.reconstruct.geometry.tilt_angle = self.tilt_angle
+                self.projections.options.reconstruct.geometry.skew_angle = self.skew_angle
+                self.projections.options.experiment.laminography_angle = self.lamino_angle
+                self.projections.options.experiment.sample_thickness = self.sample_thickness
+                print("Applied geometry parameters from file to projections.")
+
+            # Refresh the array_viewer
+            self.array_viewer.reinitialize_all(
+                array3d=self.projections.data,
+                sort_idx=np.argsort(self.projections.angles),
+                extra_title_strings_list=get_projection_title_strings(
+                    self.projections.scan_numbers, self.projections.angles
+                ),
+                new_additional_spinbox_indexing=[self.projections.scan_numbers],
+            )
+
+            # Refresh the applied shifts tab if callback is provided
+            if self.refresh_callback is not None:
+                self.refresh_callback()
+
+            self.accept()  # Close the dialog
+        except Exception as e:
+            print(f"Error applying alignment shift: {e}")
+
+
 class ProjectionViewer(MultiThreadedWidget):
     """Widget for viewing projections."""
 
@@ -149,6 +418,7 @@ class ProjectionViewer(MultiThreadedWidget):
         multi_thread_func: Optional[Callable] = None,
         include_options: bool = True,
         include_shifts: bool = True,
+        include_array_saving_widget: bool = False,
         display_only: bool = True,
         parent=None,
     ):
@@ -163,6 +433,8 @@ class ProjectionViewer(MultiThreadedWidget):
         self.options = options
         self.projection_dropping_widget = None
         self.options_editor = None
+        self.reconstruction_parameter_tuner = None
+        self.apply_saved_shift_dialog = None
         self.resize(1300, 900)
 
         if np.iscomplexobj(projections.data) and options.process_func is None:
@@ -185,6 +457,8 @@ class ProjectionViewer(MultiThreadedWidget):
                 additional_spinbox_indexing=[self.projections.scan_numbers],
                 additional_spinbox_titles=["scan number"],
             ),
+            hide_axis_controls=True,
+            include_array_saving_widget=include_array_saving_widget,
         )
 
         # build the array selection widget
@@ -201,13 +475,34 @@ class ProjectionViewer(MultiThreadedWidget):
                 open_mask_creation_button.setDisabled(True)
             open_mask_from_roi_button = QPushButton("Get Masks from ROI")
             open_mask_from_roi_button.clicked.connect(self.open_mask_from_roi_window)
-            # create button for editing properties
-            open_options_editor_button = QPushButton("Edit Projection Parameters")
-            open_options_editor_button.clicked.connect(self.open_options_editor)
+            # create button for updating reconstruction parameters
+            open_reconstruction_tuner_button = QPushButton("Update Reconstruction Parameters")
+            open_reconstruction_tuner_button.clicked.connect(self.open_reconstruction_parameter_tuner)
+            # Only enable for PhaseProjections
+            if self.projections.__class__.__qualname__ != "PhaseProjections":
+                open_reconstruction_tuner_button.setDisabled(True)
+            # create button for inverting projections
+            invert_projections_button = QPushButton("Invert Projections")
+            invert_projections_button.clicked.connect(self.invert_projections)
+            # create button for applying saved alignment shift
+            apply_saved_shift_button = QPushButton("Apply Saved Alignment Shift")
+            apply_saved_shift_button.clicked.connect(self.open_apply_saved_shift_dialog)
+            # create button for pinning array memory
+            pin_array_memory_button = QPushButton("Pin Array Memory")
+            pin_array_memory_button.clicked.connect(self.pin_array_memory)
 
             push_button_layout = QVBoxLayout()
-            push_button_layout.addWidget(open_options_editor_button)
+            push_button_layout.addWidget(
+                QLabel("Alignment and Reconstruction:"), alignment=Qt.AlignCenter
+            )
+            push_button_layout.addWidget(open_reconstruction_tuner_button)
+            push_button_layout.addWidget(apply_saved_shift_button)
+            push_button_layout.addWidget(
+                QLabel("Projection Array Manipulation:"), alignment=Qt.AlignCenter
+            )
             push_button_layout.addWidget(open_scan_removal_button)
+            push_button_layout.addWidget(invert_projections_button)
+            push_button_layout.addWidget(pin_array_memory_button)
             push_button_layout.addWidget(
                 QLabel("Mask Creation:"), alignment=Qt.AlignCenter
             )
@@ -240,37 +535,52 @@ class ProjectionViewer(MultiThreadedWidget):
         # add tabs
         tabs.addTab(array_view_widget, "Array Viewer")
         # add tab showing past shifts
+        self.all_shifts_viewer = None
         if include_shifts:
-            tabs.addTab(AllShiftsViewer(projections), "Applied Shifts")
+            self.all_shifts_viewer = AllShiftsViewer(projections)
+            tabs.addTab(self.all_shifts_viewer, "Applied Shifts")
         if include_options:
             # create options viewer
             self.options_display = OptionsDisplayWidget(projections.options)
             tabs.addTab(self.options_display, "Projection Options")
 
-    def open_options_editor(self):
-        if self.options_editor is None:
-            all_attributes = get_all_attribute_names(self.projections.options)
-            # include only experiment attributes
-            basic_options_list = [x for x in all_attributes if "experiment" in x]
-            basic_options_list += [x for x in all_attributes if "volume_width" in x]
-            # # basic_options_list += [x for x in all_attributes if "reconstruct" in x]
-            # advanced_options_list = [x for x in all_attributes if "reconstruct" in x]
-            # skip selected fields
-            skip_fields = [x for x in all_attributes if "input_processing" in x]
-            if self.projections.__class__.__qualname__ == "PhaseProjections":
-                skip_fields += [x for x in all_attributes if "phase_unwrap" in x]
-            # create options editor widget
-            self.options_editor = BasicOptionsEditor(
-                self.projections.options,
-                basic_options_list=basic_options_list,
-                skip_fields=skip_fields,
-                open_panels_list=["experiment", "volume_width", "reconstruct"],
-                label="Projections Options Editor",
-                enable_advanced_tab=True,
-                # advanced_options_list=[x for x in all_attributes if "reconstruct" in x],
+        # Connect tab change signal to update options display when tab is opened
+        self.tabs = tabs
+        tabs.currentChanged.connect(self.on_tab_changed)
+
+    def invert_projections(self):
+        """Invert the projection data and refresh the display."""
+        def _invert():
+            if np.iscomplexobj(self.projections.data):
+                self.projections.data[:] = np.conj(self.projections.data)
+            else:
+                self.projections.data[:] = -self.projections.data
+        invert_wrapped = loading_bar_wrapper("Inverting projections...")(_invert)
+        invert_wrapped()
+
+        self.array_viewer.refresh_frame()
+
+    def pin_array_memory(self):
+        """Pin the projection array memory, which enables faster movement to GPU"""
+        pin_wrapped = loading_bar_wrapper("Pinning array memory...")(self.projections.pin_arrays)
+        pin_wrapped()
+
+    def open_reconstruction_parameter_tuner(self):
+        """Open the reconstruction parameter tuner window."""
+        # Check if the window exists and hasn't been deleted
+        try:
+            if self.reconstruction_parameter_tuner is not None:
+                # Try to access a property to see if it's been deleted
+                self.reconstruction_parameter_tuner.isVisible()
+        except RuntimeError:
+            # Window was deleted, set to None so we recreate it
+            self.reconstruction_parameter_tuner = None
+
+        if self.reconstruction_parameter_tuner is None:
+            self.reconstruction_parameter_tuner = ReconstructionParameterTuner(
+                phase_projections=self.projections,
             )
-            print([x for x in all_attributes if "reconstruct" in x])
-        self.options_editor.show()
+        self.reconstruction_parameter_tuner.show()
 
     def open_scan_removal_window(self):
         if self.projection_dropping_widget is None:
@@ -280,6 +590,27 @@ class ProjectionViewer(MultiThreadedWidget):
                 projection_drop_function=self.projections.drop_projections,
             )
         self.projection_dropping_widget.show()
+
+    def open_apply_saved_shift_dialog(self):
+        """Open the dialog for applying a saved alignment shift."""
+        # Check if there are already applied shifts
+        if len(self.projections.shift_manager.past_shifts) > 0:
+            QMessageBox.warning(
+                self,
+                "Cannot Apply Saved Alignment Shift",
+                "Cannot apply alignment shift if the projections have already been shifted. "
+                "If you want to apply a saved alignment shift, you must first undo all previously applied shifts.",
+            )
+            return
+
+        if self.apply_saved_shift_dialog is None:
+            self.apply_saved_shift_dialog = ApplySavedAlignmentShiftDialog(
+                self.projections,
+                array_viewer=self.array_viewer,
+                parent=self,
+                refresh_callback=self.refresh_applied_shifts_tab,
+            )
+        self.apply_saved_shift_dialog.show()
 
     def open_mask_creation_window(self):
         # build masks from probe positions using the mask builder gui
@@ -391,6 +722,18 @@ class ProjectionViewer(MultiThreadedWidget):
             )
         # update the viewer display
         self.array_viewer.refresh_frame()
+
+    def refresh_applied_shifts_tab(self):
+        """Refresh the Applied Shifts tab if it exists."""
+        if self.all_shifts_viewer is not None:
+            self.all_shifts_viewer.refresh_data()
+
+    def on_tab_changed(self, index):
+        """Handle tab change event to refresh content when tabs are opened."""
+        tab_text = self.tabs.tabText(index)
+        if tab_text == "Projection Options" and hasattr(self, 'options_display'):
+            # Update the options display when the Projection Options tab is opened
+            self.options_display.update_display()
 
     def start(self):
         self.show()
@@ -618,6 +961,9 @@ class ScanRemovalTool(QWidget):
 
 
 class AllShiftsViewer(MultiThreadedWidget):
+    # Signal emitted when a shift operation (apply or undo) is performed
+    shift_operation_performed = pyqtSignal()
+
     def __init__(
         self,
         projections: "p.Projections",
@@ -629,6 +975,7 @@ class AllShiftsViewer(MultiThreadedWidget):
             parent=parent,
         )
 
+        self.projections = projections
         self.shifts_list = projections.shift_manager.past_shifts
         self.staged_shift = projections.shift_manager.staged_shift
         self.sort_idx = np.argsort(projections.angles)
@@ -688,6 +1035,31 @@ class AllShiftsViewer(MultiThreadedWidget):
 
         control_layout.addWidget(button_group_box)
 
+        # === Action buttons ===
+        action_buttons_layout = QVBoxLayout()
+
+        # Refresh button
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.clicked.connect(self.refresh_data)
+        action_buttons_layout.addWidget(self.refresh_button)
+
+        # Apply staged shift button
+        self.apply_staged_shift_button = QPushButton("Apply Staged Shift")
+        self.apply_staged_shift_button.clicked.connect(self.apply_staged_shift)
+        action_buttons_layout.addWidget(self.apply_staged_shift_button)
+
+        # Undo last shift button
+        self.undo_last_shift_button = QPushButton("Undo Last Shift")
+        self.undo_last_shift_button.clicked.connect(self.undo_last_shift)
+        action_buttons_layout.addWidget(self.undo_last_shift_button)
+
+        # wrap the action buttons in a QGroupBox
+        action_buttons_group_box = QGroupBox("Actions")
+        action_buttons_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
+        action_buttons_group_box.setLayout(action_buttons_layout)
+
+        control_layout.addWidget(action_buttons_group_box)
+
         # === Right panel: matplotlib plot ===
         self.figure = Figure(layout="compressed")
         self.canvas = FigureCanvas(self.figure)
@@ -721,8 +1093,78 @@ class AllShiftsViewer(MultiThreadedWidget):
                     self.ax[j].set_xlabel("Angle (deg)")
         self.ax[0].set_title("Horizontal Shifts")
         self.ax[1].set_title("Vertical Shifts")
-        self.ax[0].legend(bbox_to_anchor=(1.1, 1.05))
+        if len(self.checkboxes) > 0:
+            self.ax[0].legend(bbox_to_anchor=(1.1, 1.05))
         self.canvas.draw()
+
+    def refresh_data(self):
+        """Refresh the shift data from the projections object and update the UI."""
+        # Get updated data from projections
+        self.shifts_list = self.projections.shift_manager.past_shifts
+        self.staged_shift = self.projections.shift_manager.staged_shift
+        self.angles = self.projections.angles
+        self.sort_idx = np.argsort(self.projections.angles)
+
+        # Clear existing checkboxes
+        for cb in self.checkboxes:
+            self.checkbox_layout.removeWidget(cb)
+            cb.deleteLater()
+        self.checkboxes.clear()
+
+        # Rebuild checkboxes with updated shift data
+        if len(self.shifts_list) > 0:
+            # Add checkbox for total shift
+            self.shifts_list = [np.sum(self.shifts_list, 0)] + self.shifts_list
+            cb = QCheckBox("Total of applied shifts")
+            cb.setChecked(True)
+            cb.stateChanged.connect(self.update_plot)
+            self.checkboxes.append(cb)
+            self.checkbox_layout.insertWidget(
+                self.checkbox_layout.count() - 1, cb
+            )  # Insert before spacer
+            # Add checkboxes for the rest of the shifts
+            for i in range(1, len(self.shifts_list)):
+                cb = QCheckBox(f"Applied shift {i}")
+                cb.setChecked(True)
+                cb.stateChanged.connect(self.update_plot)
+                self.checkboxes.append(cb)
+                self.checkbox_layout.insertWidget(self.checkbox_layout.count() - 1, cb)
+
+        if np.any(self.staged_shift != 0):
+            # Add checkbox for the staged shift
+            self.shifts_list = self.shifts_list + [self.staged_shift]
+            cb = QCheckBox("Staged shift")
+            cb.setChecked(True)
+            cb.stateChanged.connect(self.update_plot)
+            self.checkboxes.append(cb)
+            self.checkbox_layout.insertWidget(self.checkbox_layout.count() - 1, cb)
+
+        # Format checkboxes
+        for cb in self.checkboxes:
+            cb.setStyleSheet("font-size: 12pt;")
+
+        # Update the plot with new data
+        self.update_plot()
+
+    def apply_staged_shift(self):
+        """Apply the staged shift and refresh the display."""
+        apply_staged_shift_wrapped = loading_bar_wrapper(load_message="Applying shift...")(
+            func=self.projections.apply_staged_shift
+        )
+        apply_staged_shift_wrapped()
+        self.refresh_data()
+        # Emit signal to notify that a shift operation was performed
+        self.shift_operation_performed.emit()
+
+    def undo_last_shift(self):
+        """Undo the last applied shift and refresh the display."""
+        undo_last_shift_wrapped = loading_bar_wrapper(load_message="Undoing shift...")(
+            func=self.projections.undo_last_shift
+        )
+        undo_last_shift_wrapped()
+        self.refresh_data()
+        # Emit signal to notify that a shift operation was performed
+        self.shift_operation_performed.emit()
 
     def start(self):
         self.show()
@@ -750,6 +1192,7 @@ def get_projection_title_strings(
 def launch_projection_viewer(
     projections: "p.Projections",
     display_only: bool = False,
+    include_array_saving_widget: bool = True,
     wait_until_closed: bool = False,
 ) -> ProjectionViewer:
     """Launch a GUI for interactively viewing and updating a `Projections`
@@ -769,7 +1212,11 @@ def launch_projection_viewer(
             gui = pyxalign.gui.launch_projection_viewer(task.complex_projections)
     """
     app = QApplication.instance() or QApplication([])
-    gui = ProjectionViewer(projections, display_only=display_only)
+    gui = ProjectionViewer(
+        projections,
+        display_only=display_only,
+        include_array_saving_widget=include_array_saving_widget,
+    )
     gui.show()
     if wait_until_closed:
         app.exec_()

@@ -10,6 +10,7 @@ import scipy
 import tqdm
 
 from pyxalign.api.constants import divisor
+from pyxalign.api.enums import SARTInitialVolumes
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
@@ -175,9 +176,27 @@ class Volume:
         )
 
     @timer()
-    def get_sart_solver_volume(self, initial_volume: Optional[np.ndarray] = None):
-        if initial_volume is None:
-            initial_volume = np.zeros(
+    def get_sart_solver_volume(self, sart_input_volume: Optional[np.ndarray] = None):
+        # if sart_input_volume is None:
+        #     sart_input_volume = np.zeros(
+        #         shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+        #         dtype=r_type,
+        #     )
+
+        # Get initial volume
+        if self.options.sart.initial_volume == SARTInitialVolumes.FBP:
+            self.generate_volume(
+                filter_inputs=True,
+                clear_astra_objects_at_end=True,
+            )
+            sart_input_volume = self.data * 1
+        elif self.options.sart.initial_volume == SARTInitialVolumes.ONES:
+            sart_input_volume = np.ones(
+                shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+                dtype=r_type,
+            )
+        elif self.options.sart.initial_volume == SARTInitialVolumes.ZEROS:
+            sart_input_volume = np.zeros(
                 shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
                 dtype=r_type,
             )
@@ -185,10 +204,10 @@ class Volume:
         device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
         r, scan_geometry_config, vectors = sart_prepare(
-            volume=initial_volume,
+            volume=sart_input_volume,
             projection_size=self.projections.size,
             angles=self.projections.angles,
-            reconstruction_size=np.roll(initial_volume.shape, -1),
+            reconstruction_size=np.roll(sart_input_volume.shape, -1),
             center_of_rotation=self.projections.center_of_rotation,
             laminography_angle=self.experiment_options.laminography_angle,
             tilt_angle=self.options.geometry.tilt_angle,
@@ -198,7 +217,7 @@ class Volume:
 
         if self.options.sart.use_circular_constraint:
             circulo = ip.apply_3D_apodization(
-                image=np.zeros(shape=(initial_volume.shape[1:])),
+                image=np.zeros(shape=(sart_input_volume.shape[1:])),
                 rad_apod=5,
                 radial_smooth=5,
             ).astype(r_type)
@@ -209,7 +228,7 @@ class Volume:
             volume_constraint = None
 
         self.data, err = sart(
-            volume=initial_volume,
+            volume=sart_input_volume,
             sinogram=self.projections.data,
             scan_geometry_config=scan_geometry_config,
             vectors=vectors,
@@ -374,9 +393,10 @@ class Volume:
         use_gpu: bool = True,
         slice_index: Optional[int] = None,
         pad_mult: int = 4,
+        show_plots: bool = False,
     ):
         self.optimal_rotation_angles = get_tomogram_rotation_angles(
-            self.data, use_gpu, slice_index, pad_mult
+            self.data, use_gpu, slice_index, pad_mult, show_plots,
         )
         print(
             "Optimal rotation values:\n"
@@ -420,13 +440,14 @@ class Volume:
         min: Optional[float] = None,
         max: Optional[float] = None,
         data: Optional[np.ndarray] = None,
+        crop_to_single_file: bool = False,
     ):
         if data is None and self.data is None:
             print("There is no volume data to save!")
         if data is None:
             data = self.data
 
-        save_array_as_tiff(data, file_path, min, max)
+        save_array_as_tiff(data, file_path, min, max, crop_to_single_file=crop_to_single_file)
 
     def save_as_h5(self, file_path: str):
         if self.data is None:
@@ -441,6 +462,7 @@ def get_tomogram_rotation_angles(
     use_gpu: bool = True,
     slice_index: Optional[int] = None,
     pad_mult: int = 4,
+    show_plots: bool = False,
 ):
     if use_gpu:
         xp = cp
@@ -466,13 +488,17 @@ def get_tomogram_rotation_angles(
         rotation_angle[i] = get_optimized_sparseness_angle(
             xp.array(reconstruction_slice),
             angle_search_bounds=[-max_search_angle, max_search_angle],
+            show_plots=show_plots,
         )
 
     return rotation_angle
 
 
 def get_optimized_sparseness_angle(
-    image_slice: ArrayType, angle_search_bounds: Sequence, n_iter: int = 500
+    image_slice: ArrayType,
+    angle_search_bounds: Sequence,
+    n_iter: int = 500,
+    show_plots: bool = False,
 ):
     """
     Find the rotation of the object that maximizes sparsity
@@ -537,18 +563,20 @@ def get_optimized_sparseness_angle(
 
     # Do grid search of the sparsity score and plot results
     # fig, ax = plt.subplots(2, 2, layout="compressed")
-    fig = plt.figure(layout="compressed")
-    gs = fig.add_gridspec(2, 2, height_ratios=[1, 2])
-    sparsity_axis = fig.add_subplot(gs[0, 0:2])
-    orig_slice_axis = fig.add_subplot(gs[1, 0])
-    rotated_slice_axis = fig.add_subplot(gs[1, 1])
+    if show_plots:
+        fig = plt.figure(layout="compressed")
+        gs = fig.add_gridspec(2, 2, height_ratios=[1, 2])
+        sparsity_axis = fig.add_subplot(gs[0, 0:2])
+        orig_slice_axis = fig.add_subplot(gs[1, 0])
+        rotated_slice_axis = fig.add_subplot(gs[1, 1])
 
-    # Find and plot the sparsity score
-    plt.sca(sparsity_axis)
-    plt.title("Hoyer Sparsity Score")
-    plt.xlabel("angle (deg)")
-    plt.grid(linestyle=":")
-    plt.autoscale(enable=True, axis="x", tight=True)
+        plt.sca(sparsity_axis)
+        plt.title("Hoyer Sparsity Score")
+        plt.xlabel("angle (deg)")
+        plt.grid(linestyle=":")
+        plt.autoscale(enable=True, axis="x", tight=True)
+
+    # find the sparsity score
     for i in range(3):
         score = get_score_vs_angle(test_image, angles)
         plt.plot(angles, score)
@@ -558,19 +586,20 @@ def get_optimized_sparseness_angle(
         next_range = next_range / 10
     angle = angles[np.argmin(score)]
 
-    # Plot the image slice
-    plt.title("Original slice")
-    plt.sca(orig_slice_axis)
-    if isinstance(image_slice, cp.ndarray):
-        plt.imshow(image_slice.get(), cmap="bone")
-    else:
-        plt.imshow(image_slice, cmap="bone")
-    # Plot the rotated image slice
-    plt.sca(rotated_slice_axis)
-    rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
-    if isinstance(rotated_image_slice, cp.ndarray):
-        rotated_image_slice = rotated_image_slice.get()
-    plt.imshow(rotated_image_slice, cmap="bone")
-    plt.show()
+    if show_plots:
+        # Plot the image slice
+        plt.title("Original slice")
+        plt.sca(orig_slice_axis)
+        if isinstance(image_slice, cp.ndarray):
+            plt.imshow(image_slice.get(), cmap="bone")
+        else:
+            plt.imshow(image_slice, cmap="bone")
+        # Plot the rotated image slice
+        plt.sca(rotated_slice_axis)
+        rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
+        if isinstance(rotated_image_slice, cp.ndarray):
+            rotated_image_slice = rotated_image_slice.get()
+        plt.imshow(rotated_image_slice, cmap="bone")
+        plt.show()
 
     return angle

@@ -44,7 +44,7 @@ from pyxalign.mask import (
     get_masks_from_roi,
     get_simulated_probe_for_masks,
 )
-from pyxalign.io.utils import load_list_of_arrays
+from pyxalign.io.utils import load_list_of_arrays_or_str
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
 from pyxalign.mask import estimate_reliability_region_mask, blur_masks
@@ -737,6 +737,7 @@ class Projections:
             "shear": self.transform_tracker.shear,
             "downsample": self.transform_tracker.scale,
             "applied_shifts": self.shift_manager.past_shifts,
+            "applied_shifts_function_types": self.shift_manager.past_shift_functions,
             "staged_shift": self.shift_manager.staged_shift,
             "staged_shift_function_type": self.shift_manager.staged_function_type,
             "file_paths": file_paths,
@@ -764,6 +765,7 @@ class Projections:
         drop_unshared_scans: bool = False,
         reference_tile_num: Optional[int] = None,
         current_tile_num: Optional[int] = None,
+        update_geometries: bool = False,
     ):
         # Load data
         with h5py.File(task_file_path, "r") as F:
@@ -771,11 +773,15 @@ class Projections:
                 group = "phase_projections"
             elif "complex_projections" in F.keys():
                 group = "complex_projections"
-            past_shifts = load_list_of_arrays(F[group], "applied_shifts")
+            past_shifts = load_list_of_arrays_or_str(F[group], "applied_shifts")
             reference_scan_numbers = np.array(F[group]["scan_numbers"][()], dtype=int)
             reference_pixel_size = F[group]["pixel_size"][()]
             reference_center_of_rotation = F[group]["center_of_rotation"][()]
             reference_shape = F[group]["data"].shape
+            reference_sample_thickness = F[group]["options/experiment/sample_thickness"][()]
+            reference_lamino_angle = F[group]["options/experiment/laminography_angle"][()]
+            reference_tilt_angle = F[group]["options/reconstruct/geometry/tilt_angle"][()]
+            reference_skew_angle = F[group]["options/reconstruct/geometry/skew_angle"][()]
         reference_shift = np.sum(past_shifts, 0).astype(r_type)
         # get new shift and scan numbers to drop
         shared_scan_numbers, new_shift = get_shift_from_different_resolution_alignment(
@@ -821,6 +827,13 @@ class Projections:
                     current_pixel_size=self.pixel_size,
                 )
             )
+        
+        # update lamino angle, tilt angle, and shear angle if specified
+        if update_geometries:
+            self.options.reconstruct.geometry.tilt_angle = reference_tilt_angle
+            self.options.reconstruct.geometry.skew_angle = reference_skew_angle
+            self.options.experiment.laminography_angle = reference_lamino_angle
+            self.options.experiment.sample_thickness = reference_sample_thickness
 
         return new_shift
 
@@ -898,7 +911,7 @@ class PhaseProjections(Projections):
                 clear_astra_objects_at_end=clear_astra_objects_at_end,
             )
         elif self.options.reconstruct.method == enums.ReconstructionMethods.SART:
-            self.volume.get_sart_solver_volume(initial_volume=initial_volume_sart)
+            self.volume.get_sart_solver_volume(sart_input_volume=initial_volume_sart)
         if apply_positivity_constraint:
             self.volume.apply_positivity_constraint()
 
@@ -1040,6 +1053,14 @@ class ShiftManager:
         self.past_eliminate_wrapping += [self.staged_eliminate_wrapping]
         self.past_alignment_options += [self.staged_alignment_options]
         # Clear the staged variables
+        self.clear_staged_shift()
+        # self.staged_shift = np.zeros_like(self.staged_shift)
+        # self.staged_function_type = None
+        # self.staged_eliminate_wrapping = None
+        # self.staged_alignment_options = None
+
+    def clear_staged_shift(self):
+        # Clear the staged variables
         self.staged_shift = np.zeros_like(self.staged_shift)
         self.staged_function_type = None
         self.staged_eliminate_wrapping = None
@@ -1096,6 +1117,7 @@ class ShiftManager:
                 device_options=device_options,
             )
             self.unstage_shift()
+            # self.clear_staged_shift()
         else:
             print("There is no shift to apply!")
 
@@ -1116,6 +1138,7 @@ class ShiftManager:
         self.past_shifts = self.past_shifts[:-1]
         self.past_shift_functions = self.past_shift_functions[:-1]
         self.past_alignment_options = self.past_alignment_options[:-1]
+        # self.unstage_shift()
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:

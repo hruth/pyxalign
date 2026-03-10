@@ -21,6 +21,7 @@ from .alignment import (
     StepMomentum,
     RefineGeometryOptions,
     PositivityConstraint,
+    SaveOptions,
 )
 from .projections import (
     CoordinateSearchOptions,
@@ -29,6 +30,7 @@ from .projections import (
     ProjectionOptions,
     ProjectionTransformOptions,
     ProbePositionMaskOptions,
+    VolumeWidthOptions,
 )
 from .reconstruct import (
     ReconstructOptions,
@@ -106,4 +108,6 @@ __all__ = [
     "CoordinateSearchOptions",
     "FSCOptions",
     "SARTOptions",
+    "SaveOptions",
+    "VolumeWidthOptions",
 ]

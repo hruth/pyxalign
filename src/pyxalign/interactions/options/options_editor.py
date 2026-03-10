@@ -2,7 +2,7 @@ from functools import wraps
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from typing import Optional, Union, get_origin, get_args, Any
+from typing import Optional, Union, get_origin, get_args, Any, TypeVar
 import cupy as cp
 import pyxalign.api.options as opts
 
@@ -29,15 +29,19 @@ from PyQt5.QtWidgets import (
     QTabWidget,
 )
 from PyQt5.QtCore import Qt, QTimer
+from pyxalign.api.options.base import BaseOptions
 from pyxalign.interactions.custom import NoScrollSpinBox, CustomDoubleSpinBox
 
 from pyxalign.api.options_utils import get_all_attribute_names
-from pyxalign.api.types import OptionsClass
+# from pyxalign.api.types import T
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
+
+T = TypeVar("T", bound=BaseOptions)
 
 
 class IntTupleInputWidget(QWidget):
-    def __init__(self, field_value, field_name: str, data_obj: OptionsClass):
+    def __init__(self, field_value, field_name: str, data_obj: T):
         super().__init__()
 
         checkbox_layout = QHBoxLayout()
@@ -49,7 +53,7 @@ class IntTupleInputWidget(QWidget):
         checkboxes = []
 
         def update_tuple():
-            new_indices = [i for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
+            new_indices = [corresponding_values[i] for (i, ch) in enumerate(checkboxes) if ch.isChecked()]
             setattr(data_obj, field_name, tuple(new_indices))
 
         n_boxes, box_labels, corresponding_values = self.get_n_boxes_and_labels(
@@ -581,7 +585,7 @@ class BasicOptionsEditor(QWidget):
 
     def __init__(
         self,
-        data: OptionsClass,
+        data: BaseOptions,
         skip_fields: list[str] = [],
         file_dialog_fields: list[str] = [],
         folder_dialog_fields: list[str] = [],
@@ -638,10 +642,23 @@ class BasicOptionsEditor(QWidget):
                 open_panels_list=open_panels_list,
             )
 
+        # Create a horizontal layout for buttons
+        button_layout = QHBoxLayout()
+
         self.open_display_button = QPushButton("view selections")
         self.open_display_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         self.open_display_button.clicked.connect(self.open_options_display_window)
-        main_layout.addWidget(self.open_display_button)
+        button_layout.addWidget(self.open_display_button)
+
+        self.save_button = QPushButton("save as YAML")
+        self.save_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.save_button.clicked.connect(self.save_options_to_yaml)
+        button_layout.addWidget(self.save_button)
+
+        # Add spacer to push buttons to the left
+        button_layout.addStretch()
+
+        main_layout.addLayout(button_layout)
 
         self.initialize_viewer()
 
@@ -791,7 +808,7 @@ class BasicOptionsEditor(QWidget):
 
     def _add_dataclass_fields(
         self,
-        data_obj: OptionsClass,
+        data_obj: T,
         form_layout: QFormLayout,
         parent_name: str = "",
         file_dialog_fields: Optional[list[str]] = None,
@@ -916,8 +933,22 @@ class BasicOptionsEditor(QWidget):
         self.options_display.resize(550, 700)
         self.options_display.show()
 
+    def save_options_to_yaml(self):
+        """Open a file dialog and save the current options to a YAML file."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Options as YAML",
+            "",
+            "YAML Files (*.yaml *.yml);;All Files (*)"
+        )
+        if file_path:
+            # Ensure the file has a .yaml or .yml extension
+            if not file_path.endswith(('.yaml', '.yml')):
+                file_path += '.yaml'
+            self._data.save_to_dict(file_path)
 
-def return_parent_option(options: OptionsClass, field_path: str) -> OptionsClass:
+
+def return_parent_option(options: T, field_path: str) -> T:
     field_names = field_path.split(".")
     current_item = options
     for i, name in enumerate(field_names):
@@ -926,15 +957,15 @@ def return_parent_option(options: OptionsClass, field_path: str) -> OptionsClass
         current_item = getattr(current_item, name)
 
 
-def get_option_from_field_path(options: OptionsClass, field_path: str) -> Any:
+def get_option_from_field_path(options: T, field_path: str) -> Any:
     parent_options = return_parent_option(options, field_path)
     field_name = field_path.split(".")[-1]
     return getattr(parent_options, field_name)
 
 
 def set_option_from_field_path(
-    options: OptionsClass, field_path: str, value: Any
-) -> OptionsClass:
+    options: T, field_path: str, value: Any
+) -> T:
     parent_options = return_parent_option(options, field_path)
     field_name = field_path.split(".")[-1]
     setattr(parent_options, field_name, value)
@@ -956,16 +987,47 @@ def update_options_error_handler(func):
     return wrapped
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-
-    # Example using PyxAlign's ProjectionMatchingOptions:
-    config_instance = opts.ProjectionMatchingOptions()
-
-    editor = BasicOptionsEditor(
-        config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
+@switch_to_matplotlib_qt_backend
+def launch_basic_options_editor(
+    options: BaseOptions,
+    skip_fields: list[str] = [],
+    file_dialog_fields: list[str] = [],
+    folder_dialog_fields: list[str] = [],
+    open_panels_list: list[str] = [],
+    advanced_options_list: Optional[list[str]] = None,
+    basic_options_list: Optional[list[str]] = None,
+    enable_advanced_tab: bool = False,
+    label: Optional[bool] = None,
+    wait_until_closed: bool = False,
+) -> BasicOptionsEditor:
+    app = QApplication.instance() or QApplication([])
+    gui = BasicOptionsEditor(
+        options,
+        skip_fields=skip_fields,
+        file_dialog_fields=file_dialog_fields,
+        folder_dialog_fields=folder_dialog_fields,
+        open_panels_list=open_panels_list,
+        advanced_options_list=advanced_options_list,
+        basic_options_list=basic_options_list,
+        enable_advanced_tab=enable_advanced_tab,
+        label=label,
     )
-    editor.setWindowTitle("Nested Dataclass Editor with Optional Fields")
+    gui.show()
+    if wait_until_closed:
+        app.exec_()
+    return gui
 
-    editor.show()
-    sys.exit(app.exec_())
+
+# if __name__ == "__main__":
+#     app = QApplication(sys.argv)
+
+#     # Example using PyxAlign's ProjectionMatchingOptions:
+#     config_instance = opts.ProjectionMatchingOptions()
+
+#     editor = BasicOptionsEditor(
+#         config_instance, skip_fields=["plot", "interactive_viewer.update.enabled"]
+#     )
+#     editor.setWindowTitle("Nested Dataclass Editor with Optional Fields")
+
+#     editor.show()
+#     sys.exit(app.exec_())
