@@ -9,6 +9,7 @@ from pyxalign.api.types import r_type
 from pyxalign.autorunner.config import AutorunnerConfig
 from pyxalign.autorunner.enums import get_checkpoint_order_value
 from pyxalign.data_structures.task import LaminographyAlignmentTask, load_task
+from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 
 
 class Autorunner(ABC):
@@ -78,10 +79,13 @@ def handle_checkpoint(checkpoint: str):
                     return
                 elif current_checkpoint_val == loaded_checkpoint_val:
                     # at checkpoint
+                    load_task_wrapped = loading_bar_wrapper(
+                        "Loading pyxalign task...", block_all_windows=True
+                    )(load_task)
                     if self.config.checkpoint.load_from_custom_task:
-                        self.task = load_task(self.config.checkpoint.custom_task_path)
+                        self.task = load_task_wrapped(self.config.checkpoint.custom_task_path)
                     else:
-                        self.task = load_task(checkpoint_path)
+                        self.task = load_task_wrapped(checkpoint_path)
                     # sync loaded task with settings file
                     # # could make optional 'sync with settings' when using checkpoint?
                     if self.config.state.use_state_file_settings:
