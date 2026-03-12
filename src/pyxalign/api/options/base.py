@@ -64,6 +64,9 @@ class BaseOptions:
             ):
                 self.__setattr__(k, field_type(v))
                 # self.__setattr__(k, field_type[v.upper()])
+            elif get_origin(field_type) is tuple and isinstance(v, list):
+                # Convert lists back to tuples when the field type is a tuple
+                self.__setattr__(k, tuple(v))
             else:
                 self.__setattr__(k, v)
         return self
