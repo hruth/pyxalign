@@ -1,6 +1,6 @@
 import os
 from typing import Optional
-
+import multiprocessing as mp
 from PyQt5.QtWidgets import QApplication
 
 from pyxalign.api.options.base import BaseOptions
@@ -35,6 +35,7 @@ from pyxalign.interactions.reconstruction_parameter_tuner import (
 )
 from pyxalign.io.loaders.base import StandardData
 
+from pyxalign.io.loaders.load_any import load_dataset_from_arbitrary_options
 from pyxalign.io.loaders.maps import (
     get_experiment_type_enum_from_options,
     get_loader_options_by_enum,
@@ -169,6 +170,10 @@ class AutorunnerPtycho(Autorunner):
     def _load_data(self):
         if self.config.interactivity.loading or self.loading_options is None:
             self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
+        else:
+            self._standardized_data = load_dataset_from_arbitrary_options(
+                self.loading_options, int(mp.cpu_count() * 0.8)
+            )
 
         if self.config.state.update_state_file:
             # save options
