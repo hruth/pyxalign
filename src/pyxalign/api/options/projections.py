@@ -109,7 +109,7 @@ class ProbePositionMaskOptions(BaseOptions):
     Options for building projection masks from probe positions
     """
 
-    threshold: bool = 0.1
+    threshold: float = 0.1
     """
     Masks are set to 1 above the threshold and 0 below the threshold
     """
