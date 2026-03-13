@@ -14,6 +14,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QLabel,
     QSpinBox,
     QGroupBox,
@@ -26,6 +27,8 @@ from pyxalign.api.options.transform import Crop3DOptions
 from pyxalign.api.options_utils import print_options
 from pyxalign.interactions.viewers.base import ArrayViewer
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.transformations.helpers import force_crop_3d_options_in_bounds
+from pyxalign.transformations.classes import Cropper3D
 
 
 class Crop3DSelector(QWidget):
@@ -457,6 +460,8 @@ class GetCrop3DOptionsFromSelector(QWidget):
         """
         super().__init__(parent)
 
+        self.array3d = array3d
+
         if crop_options is None:
             crop_options = Crop3DOptions()
 
@@ -468,6 +473,12 @@ class GetCrop3DOptionsFromSelector(QWidget):
 
         self.finish_button = QPushButton(text="Select and Finish")
         self.finish_button.clicked.connect(self.finish)
+
+        self.show_cropped_button = QPushButton(text="Show Cropped Volume")
+        self.show_cropped_button.clicked.connect(self.show_cropped_volume)
+
+        self.cropped_viewer = None  # Store reference to cropped volume viewer
+
         self.setup_ui()
 
         # Set window properties
@@ -475,10 +486,43 @@ class GetCrop3DOptionsFromSelector(QWidget):
         self.resize(900, 850)
 
     def finish(self):
-        """Handle the finish button click."""
-        self.options = self.crop_selector.get_crop_options()
+        """Handle the finish button click and validate crop parameters."""
+        # Get the current crop options
+        crop_options = self.crop_selector.get_crop_options()
+
+        # Force crop parameters to be within volume bounds
+        self.options = force_crop_3d_options_in_bounds(
+            crop_options,
+            volume_shape=self.array3d.shape
+        )
+
         self.options.enabled = True
         self.crop_3d_selected.emit()
+
+    def show_cropped_volume(self):
+        """Show a preview of the cropped volume in a new ArrayViewer window."""
+        # Get the current crop options
+        crop_options = self.crop_selector.get_crop_options()
+
+        # Force crop parameters to be within volume bounds
+        validated_options = force_crop_3d_options_in_bounds(
+            crop_options,
+            volume_shape=self.array3d.shape
+        )
+        validated_options.enabled = True
+
+        # Create a Cropper3D instance and crop the volume
+        cropper = Cropper3D(options=validated_options)
+        cropped_volume = cropper.run(self.array3d)
+
+        # Close existing cropped viewer if it exists
+        if self.cropped_viewer is not None:
+            self.cropped_viewer.close()
+
+        # Create and show new ArrayViewer with cropped volume
+        self.cropped_viewer = ArrayViewer(cropped_volume, hide_axis_controls=False)
+        self.cropped_viewer.setWindowTitle("Cropped Volume Preview")
+        self.cropped_viewer.show()
 
     def setup_ui(self):
         """Setup the widget layout."""
@@ -487,9 +531,20 @@ class GetCrop3DOptionsFromSelector(QWidget):
         # Crop selector
         layout.addWidget(self.crop_selector)
 
+        # Button layout for Show Cropped and Finish buttons
+        button_layout = QHBoxLayout()
+
+        # Show cropped button
+        button_layout.addWidget(self.show_cropped_button)
+        self.show_cropped_button.setStyleSheet("background-color: green; color: white;")
+
+        button_layout.addStretch()
+
         # Finish button
-        layout.addWidget(self.finish_button, alignment=Qt.AlignRight)
+        button_layout.addWidget(self.finish_button)
         self.finish_button.setStyleSheet("background-color: blue; color: white;")
+
+        layout.addLayout(button_layout)
 
         self.setLayout(layout)
 
