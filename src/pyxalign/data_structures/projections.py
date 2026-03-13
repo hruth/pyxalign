@@ -53,6 +53,7 @@ import pyxalign.plotting.plotters as plotters
 from pyxalign.style.text import ordinal
 from pyxalign.timing.timer_utils import timer, clear_timer_globals
 from pyxalign.transformations.classes import (
+    Cropper3D,
     Downsampler,
     Rotator,
     Shearer,
@@ -950,30 +951,31 @@ class PhaseProjections(Projections):
                 self.center_of_rotation[1]
             )
         if self.options.estimate_center.vertical_coordinate.center_estimate is None:
-            modified_options.vertical_coordinate.center_estimate = (
-                self.center_of_rotation[0]
-            )
+            modified_options.vertical_coordinate.center_estimate = self.center_of_rotation[0]
         return modified_options
-    
+
     @timer()
     def get_fourier_shell_correlation(
         self,
         volumes: list[np.ndarray],
-        n_bins: Optional[int] = None,
-        include_missing_cone: bool = False,
+        # n_bins: Optional[int] = None,
+        # include_missing_cone: bool = False,
     ):
-        if include_missing_cone or self.options.experiment.laminography_angle == 90:
+        if (
+            self.options.fsc.include_missing_cone
+            or self.options.experiment.laminography_angle == 90
+        ):
             lamino_angle = None
         else:
             lamino_angle = self.options.experiment.laminography_angle
-        self.fsc = FourierShellCorrelation(
-            self.pixel_size, lamino_angle
-        )
+        self.fsc = FourierShellCorrelation(self.pixel_size, lamino_angle)
         print("Calculating fourier shell correlation...")
         self.fsc.get_fourier_shell_correlation(
-            volumes[0], volumes[1], n_bins=n_bins,
+            Cropper3D(self.options.fsc.crop_3d).run(volumes[0]),
+            Cropper3D(self.options.fsc.crop_3d).run(volumes[1]),
+            n_bins=self.options.fsc.n_bins,
         )
-    
+
     @timer()
     def get_volumes_for_fourier_shell_correlation(
         self, scramble_idx: Optional[np.ndarray] = None, return_scramble_idx: bool = False

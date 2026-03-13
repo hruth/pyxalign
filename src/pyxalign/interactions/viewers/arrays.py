@@ -435,6 +435,7 @@ class ProjectionViewer(MultiThreadedWidget):
         self.options_editor = None
         self.reconstruction_parameter_tuner = None
         self.apply_saved_shift_dialog = None
+        self.fsc_calculation_window = None
         self.resize(1300, 900)
 
         if np.iscomplexobj(projections.data) and options.process_func is None:
@@ -490,6 +491,9 @@ class ProjectionViewer(MultiThreadedWidget):
             # create button for pinning array memory
             pin_array_memory_button = QPushButton("Pin Array Memory")
             pin_array_memory_button.clicked.connect(self.pin_array_memory)
+            # create button for FSC calculation
+            calculate_fsc_button = QPushButton("Calculate FSC")
+            calculate_fsc_button.clicked.connect(self.open_fsc_calculation_window)
 
             push_button_layout = QVBoxLayout()
             push_button_layout.addWidget(
@@ -508,6 +512,10 @@ class ProjectionViewer(MultiThreadedWidget):
             )
             push_button_layout.addWidget(open_mask_creation_button)
             push_button_layout.addWidget(open_mask_from_roi_button)
+            push_button_layout.addWidget(
+                QLabel("Analysis:"), alignment=Qt.AlignCenter
+            )
+            push_button_layout.addWidget(calculate_fsc_button)
 
         # setup tabs and layout
         tabs = QTabWidget()
@@ -588,6 +596,24 @@ class ProjectionViewer(MultiThreadedWidget):
                 phase_projections=self.projections,
             )
         self.reconstruction_parameter_tuner.show()
+
+    def open_fsc_calculation_window(self):
+        """Open the FSC calculation window."""
+        # Check if the window exists and hasn't been deleted
+        try:
+            if self.fsc_calculation_window is not None:
+                # Try to access a property to see if it's been deleted
+                self.fsc_calculation_window.isVisible()
+        except RuntimeError:
+            # Window was deleted, set to None so we recreate it
+            self.fsc_calculation_window = None
+
+        if self.fsc_calculation_window is None:
+            from pyxalign.interactions.fsc_window import FSCCalculationWindow
+            self.fsc_calculation_window = FSCCalculationWindow(
+                projections=self.projections
+            )
+        self.fsc_calculation_window.show()
 
     def open_scan_removal_window(self):
         if self.projection_dropping_widget is None:

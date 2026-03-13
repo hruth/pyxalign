@@ -11,7 +11,12 @@ from pyxalign.api.options.options import (
 from pyxalign.api.options.plotting import UpdatePlotOptions
 from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.api.options.roi import ROIOptions
-from pyxalign.api.options.transform import CropOptions, DownsampleOptions, RotationOptions
+from pyxalign.api.options.transform import (
+    CropOptions,
+    Crop3DOptions,
+    DownsampleOptions,
+    RotationOptions,
+)
 from functools import partial
 from .base import BaseOptions
 
@@ -130,6 +135,12 @@ class FSCOptions(BaseOptions):
     """
     Extent of the volume to be used in the FSC calculation.
     """
+
+    crop_3d: Crop3DOptions = field(default_factory=Crop3DOptions)
+
+    n_bins: int = 50
+
+    include_missing_cone: bool = False
 
 
 @dataclasses.dataclass
