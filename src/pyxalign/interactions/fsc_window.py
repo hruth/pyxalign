@@ -125,20 +125,13 @@ class FSCCalculationWindow(QWidget):
             )
             return
 
-        try:
-            if self.crop_3d_selector_window is not None:
-                self.crop_3d_selector_window.isVisible()
-        except RuntimeError:
-            self.crop_3d_selector_window = None
-
-        if self.crop_3d_selector_window is None:
-            self.crop_3d_selector_window = GetCrop3DOptionsFromSelector(
-                array3d=self.volumes_for_fsc[0],
-                crop_options=self.projections.options.fsc.crop_3d,
-            )
-            self.crop_3d_selector_window.crop_3d_selected.connect(
-                self.on_crop_selected
-            )
+        self.crop_3d_selector_window = GetCrop3DOptionsFromSelector(
+            array3d=self.volumes_for_fsc[0],
+            crop_options=self.projections.options.fsc.crop_3d,
+        )
+        self.crop_3d_selector_window.crop_3d_selected.connect(
+            self.on_crop_selected
+        )
 
         self.crop_3d_selector_window.show()
 
@@ -148,6 +141,7 @@ class FSCCalculationWindow(QWidget):
             self.projections.options.fsc.crop_3d = (
                 self.crop_3d_selector_window.options
             )
+            self.crop_3d_selector_window.close()
 
     def calculate_fsc(self):
         """Calculate Fourier Shell Correlation."""
