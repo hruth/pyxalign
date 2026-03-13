@@ -15,6 +15,7 @@ from pyxalign.api.options.transform import (
     TransformOptions,
     UpsampleOptions,
     CropOptions,
+    Crop3DOptions,
     ShearOptions,
     RotationOptions,
 )
@@ -22,7 +23,7 @@ from pyxalign.api.options.transform import (
 from pyxalign.api.options_utils import print_options
 from pyxalign.api.types import ArrayType
 from pyxalign.gpu_wrapper import device_handling_wrapper
-from pyxalign.transformations.functions import eliminate_wrapping_from_shift, image_crop, image_crop_pad
+from pyxalign.transformations.functions import eliminate_wrapping_from_shift, image_crop, crop_3d, image_crop_pad
 from pyxalign.timing.timer_utils import timer
 from pyxalign.transformations.helpers import force_roi_parameters_into_array_bounds, round_to_divisor
 
@@ -303,6 +304,83 @@ class Cropper(Transformation):
             print_options(new_crop_options, include_class_name=False)
 
         return new_crop_options
+
+
+class Cropper3D(Transformation):
+    """
+    3D cropper for volumetric data.
+
+    This class applies 3D cropping to volumetric arrays using Crop3DOptions,
+    allowing independent control over crop range and offset in all three dimensions.
+    """
+
+    def __init__(
+        self,
+        options: Crop3DOptions,
+    ):
+        super().__init__(options)
+        self.options: Crop3DOptions = options
+
+    @timer()
+    def run(self, volume: ArrayType) -> ArrayType:
+        """
+        Apply 3D cropping to a volume.
+
+        Args:
+            volume: 3D array to crop (depth, vertical, horizontal)
+
+        Returns:
+            Cropped volume, either as a view or a copy depending on return_view option
+        """
+        if self.enabled:
+            horizontal_range, vertical_range, depth_range = self.get_ranges_from_crop_options(
+                self.options, volume.shape
+            )
+            cropped_volume = crop_3d(
+                volume,
+                horizontal_range,
+                vertical_range,
+                depth_range,
+                self.options.horizontal_offset,
+                self.options.vertical_offset,
+                self.options.depth_offset,
+            )
+            if self.options.return_view:
+                return cropped_volume
+            else:
+                return cropped_volume * 1
+        else:
+            return volume
+
+    @staticmethod
+    def get_ranges_from_crop_options(crop_options: Crop3DOptions, volume_shape: tuple) -> tuple:
+        """
+        Extract crop ranges from options, using volume shape for None values.
+
+        Args:
+            crop_options: Crop3DOptions instance
+            volume_shape: Shape of the 3D volume (depth, vertical, horizontal)
+
+        Returns:
+            Tuple of (horizontal_range, vertical_range, depth_range)
+        """
+        if crop_options.horizontal_range is None:
+            horizontal_range = volume_shape[2]
+        else:
+            horizontal_range = crop_options.horizontal_range
+
+        if crop_options.vertical_range is None:
+            vertical_range = volume_shape[1]
+        else:
+            vertical_range = crop_options.vertical_range
+
+        if crop_options.depth_range is None:
+            depth_range = volume_shape[0]
+        else:
+            depth_range = crop_options.depth_range
+
+        return horizontal_range, vertical_range, depth_range
+
 
 class Padder(Transformation):
     def __init__(
