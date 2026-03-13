@@ -144,11 +144,20 @@ class AutorunnerPtycho(Autorunner):
                 checkpoint_path = os.path.join(
                     self._checkpoints_folder, self.config.checkpoint.which_checkpoint + "_task.h5"
                 )
-                if not os.path.exists(checkpoint_path):
+                if (
+                    not os.path.exists(checkpoint_path)
+                    and not self.config.checkpoint.load_from_custom_task
+                ):
                     print(f"There is no {self.config.checkpoint.which_checkpoint} checkpoint file.")
                     print(f"Available checkpoint files:")
                     for file_name in os.listdir(self._checkpoints_folder):
                         print("- " + file_name)
+                elif self.config.checkpoint.load_from_custom_task and not os.path.exists(
+                    self.config.checkpoint.custom_task_path
+                ):
+                    print(
+                        f"No file found at custom task path: {self.config.checkpoint.custom_task_path}"
+                    )
                 else:
                     valid_checkpoint = True
         if self.config.state.update_state_file:
@@ -342,7 +351,7 @@ class AutorunnerPtycho(Autorunner):
             content_gui = launch_combined_alignment_widget(
                 self.task,
                 include_projection_matching=True,
-                include_cross_correlation=False,
+                include_cross_correlation=True,
                 # self._options_dict["projection_matching_alignment"]["sequence"],
                 wait_until_closed=False,
             )

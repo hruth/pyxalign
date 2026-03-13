@@ -494,6 +494,10 @@ class ProjectionViewer(MultiThreadedWidget):
             # create button for FSC calculation
             calculate_fsc_button = QPushButton("Calculate FSC")
             calculate_fsc_button.clicked.connect(self.open_fsc_calculation_window)
+            # Disable for complex projections
+            if np.iscomplexobj(self.projections.data):
+                calculate_fsc_button.setDisabled(True)
+                calculate_fsc_button.setToolTip("FSC calculation is not available for complex projections")
 
             push_button_layout = QVBoxLayout()
             push_button_layout.addWidget(
