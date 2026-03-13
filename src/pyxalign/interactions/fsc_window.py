@@ -9,7 +9,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QSizePolicy, QSpacerItem, QMessageBox
+    QLabel, QSizePolicy, QSpacerItem, QMessageBox, QFileDialog
 )
 from PyQt5.QtCore import Qt
 
@@ -82,6 +82,12 @@ class FSCCalculationWindow(QWidget):
         self.calc_fsc_button.clicked.connect(self.calculate_fsc)
         self.calc_fsc_button.setDisabled(True)  # Disabled until volumes calculated
         controls_layout.addWidget(self.calc_fsc_button)
+
+        # Button: Save FSC
+        self.save_fsc_button = QPushButton("Save FSC")
+        self.save_fsc_button.clicked.connect(self.save_fsc)
+        self.save_fsc_button.setDisabled(True)  # Disabled until FSC calculated
+        controls_layout.addWidget(self.save_fsc_button)
 
         # Spacer
         controls_layout.addSpacerItem(
@@ -159,6 +165,9 @@ class FSCCalculationWindow(QWidget):
         calc_wrapped = loading_bar_wrapper("Calculating FSC...")(_calculate)
         calc_wrapped()
 
+        # Enable save button after successful calculation
+        self.save_fsc_button.setEnabled(True)
+
         # Plot the results
         self.plot_fsc()
 
@@ -200,3 +209,34 @@ class FSCCalculationWindow(QWidget):
 
         # Redraw the canvas
         self.canvas.draw()
+
+    def save_fsc(self):
+        """Save FSC results to an HDF5 file."""
+        if self.projections.fsc is None:
+            QMessageBox.warning(
+                self, "Error", "Please calculate FSC first!"
+            )
+            return
+
+        # Open file dialog for selecting save location
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save FSC",
+            "",
+            "HDF5 Files (*.h5 *.hdf5);;All Files (*)"
+        )
+
+        if file_path:
+            # Ensure the file has .h5 extension if no extension provided
+            if not file_path.endswith(('.h5', '.hdf5')):
+                file_path += '.h5'
+
+            try:
+                self.projections.fsc.save_fsc(file_path)
+                QMessageBox.information(
+                    self, "Success", f"FSC saved successfully to:\n{file_path}"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error", f"Failed to save FSC:\n{str(e)}"
+                )
