@@ -92,6 +92,25 @@ class CropOptions(TransformOptions):
 
 
 @dataclasses.dataclass
+class Crop3DOptions(TransformOptions):
+    horizontal_range: Optional[int] = None
+
+    vertical_range: Optional[int] = None
+
+    depth_range: Optional[int] = None
+
+    horizontal_offset: int = 0
+
+    vertical_offset: int = 0
+
+    depth_offset: int = 0
+
+    enabled: bool = False
+
+    return_view: bool = False
+
+
+@dataclasses.dataclass
 class PadOptions(TransformOptions):
     new_extent_x: int = None
 
