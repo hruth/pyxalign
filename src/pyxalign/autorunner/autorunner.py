@@ -48,7 +48,7 @@ class AutorunnerPtycho(Autorunner):
         self._standardized_data: StandardData
         self.state_folder = state_folder
         file_path = os.path.join(state_folder, "autorunner_state_file.yaml")
-        self._initial_file_path = file_path
+
         self._state_file_path = None
         if file_path is not None:
             if os.path.exists(file_path):
@@ -94,8 +94,6 @@ class AutorunnerPtycho(Autorunner):
 
         if not self.config.state.use_state_file_settings:
             return
-        if self._initial_file_path == self._state_file_path:
-            return
         
         # create the state file
         if not os.path.exists(self._state_file_path):
@@ -131,10 +129,10 @@ class AutorunnerPtycho(Autorunner):
                 state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
-            if self.config.state.use_state_file_settings:
-                self._state_file_path = os.path.join(
-                    self.state_folder, "autorunner_state_file.yaml"
-                )
+            # if self.config.state.use_state_file_settings:
+            self._state_file_path = os.path.join(
+                self.state_folder, "autorunner_state_file.yaml"
+            )
 
             # check that checkpoint exists
             if not self.config.checkpoint.load_from_checkpoint:
