@@ -1012,7 +1012,8 @@ class PhaseProjections(Projections):
         print(n_pix)
         volumes = []
         for i in range(2):
-            print(f"Calculating {["first", "second"][i]} 3D volume...")
+            volume_names = ["first", "second"]
+            print(f"Calculating {volume_names[i]} 3D volume...")
             self.options.reconstruct.exclude_scans = exclude_scans[i]
             volume_object = Volume(self)
             volume_object.generate_volume(n_pix=n_pix)

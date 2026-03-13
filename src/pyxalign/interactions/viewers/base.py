@@ -138,6 +138,19 @@ class ArrayViewer(MultiThreadedWidget):
         self.include_array_saving_widget = include_array_saving_widget
         self.save_array_window = None
 
+        # Dictionary to store the last selected index for each axis
+        self.axis_index_memory = {}
+        if self.array3d is not None:
+            # Initialize with middle indices for each axis
+            for axis in range(3):
+                axis_size = self.array3d.shape[axis]
+                self.axis_index_memory[axis] = axis_size // 2
+
+            # Override the start_index to use the middle of the current axis
+            # unless a non-zero start_index was explicitly provided
+            if self.options.start_index == 0:
+                self.options.start_index = self.num_frames // 2
+
         # Create a pyqtgraph GraphicsLayoutWidget to hold the image
         self.graphics_layout = pg.GraphicsLayoutWidget()
         self.plot_item = self.graphics_layout.addPlot()
@@ -263,6 +276,9 @@ class ArrayViewer(MultiThreadedWidget):
 
         # If array3d was provided, show the initial image
         if self.array3d is not None:
+            # Update the memory with the actual start index being used
+            self.axis_index_memory[self.options.slider_axis] = self.options.start_index
+
             self.display_frame(index=self.options.start_index)
             # force scaling
             self.image_item.setImage(autoLevels=True)
@@ -426,6 +442,7 @@ class ArrayViewer(MultiThreadedWidget):
             return
 
         # Cycle forward through axes (0 -> 1 -> 2 -> 0)
+        self._update_axis_memory(self.slider.value())
         self.options.slider_axis = (self.options.slider_axis + 1) % 3
         self._update_after_axis_change()
 
@@ -437,6 +454,11 @@ class ArrayViewer(MultiThreadedWidget):
         # Cycle backward through axes (0 -> 2 -> 1 -> 0)
         self.options.slider_axis = (self.options.slider_axis - 1) % 3
         self._update_after_axis_change()
+
+    def _update_axis_memory(self, value):
+        """Store the current slider value for the current axis."""
+        if hasattr(self, 'axis_index_memory'):
+            self.axis_index_memory[self.options.slider_axis] = value
 
     def _update_after_axis_change(self):
         """Update the viewer after the slider axis has changed."""
@@ -450,8 +472,18 @@ class ArrayViewer(MultiThreadedWidget):
         # Update axis label
         self.axis_label.setText(f"axis: {self.options.slider_axis}")
 
-        # Reset to first frame
-        self.slider.setValue(0)
+        # Restore the remembered index for this axis, or use middle if not set
+        if self.options.slider_axis in self.axis_index_memory:
+            remembered_index = self.axis_index_memory[self.options.slider_axis]
+            # Clamp to valid range in case array size changed
+            remembered_index = min(remembered_index, self.num_frames - 1)
+        else:
+            # Default to middle index
+            remembered_index = self.num_frames // 2
+            self.axis_index_memory[self.options.slider_axis] = remembered_index
+
+        # Set the slider to the remembered index
+        self.slider.setValue(remembered_index)
 
         # Refresh the display
         self.refresh_frame(force_autolim=True)
