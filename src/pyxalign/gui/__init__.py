@@ -1,3 +1,4 @@
+from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
 from ..interactions.io.loader import launch_data_loader
 from ..interactions.viewers.xrf import (
     launch_xrf_projections_viewer,
@@ -15,7 +16,6 @@ from ..interactions.mask import launch_mask_builder
 from ..interactions.roi_selector import launch_mask_selection_from_roi, launch_crop_window_selection
 from ..interactions.phase_unwrap import launch_phase_unwrap_widget
 
-launch_data_loader
 __all__ = [
     "launch_array_viewer",
     "launch_volume_viewer",
@@ -30,4 +30,5 @@ __all__ = [
     "launch_mask_selection_from_roi",
     "launch_crop_window_selection",
     "launch_phase_unwrap_widget",
+    "launch_combined_alignment_widget",
 ]
