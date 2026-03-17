@@ -28,12 +28,12 @@ jobs:
           source ~/.bashrc
           echo $PYXALIGN_CI_TEST_DATA_DIR
           export CUDA_VISIBLE_DEVICES=1
+          pwd
           ls
           podman images
 
 
       - name: Build container
         run: |
-          git pull origin development
           podman build Dockerfile
           podman images
