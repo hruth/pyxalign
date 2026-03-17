@@ -32,5 +32,8 @@ jobs:
       - name: Build container
         run: |
           podman images
-          podman build -t pyxalign .
-          podman images
+          podman build -t pyxalign-actions-runner-build .
+          podman rmi pyxalign-actions-runner-build
+
+# Use something like this. I also need to update it to mount the data directory.
+# podman run  -it --rm --env DISPLAY --security-opt label=type:container_runtime_t    --network host -v="$HOME/.Xauthority:/root/.Xauthority:rw"    --device nvidia.com/gpu=all     pyxalign:latest bash
