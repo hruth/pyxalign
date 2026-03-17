@@ -21,25 +21,19 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Test running
-      run: echo "first printed line"
+      - name: setup
+        run: |
+          source ~/.bashrc
+          echo $PYXALIGN_CI_TEST_DATA_DIR
+          export $CUDA_VISIBLE_DEVICES=1
+          ls
+          podman images
 
-    - name: setup
-      run: source ~/.bashrc
 
-    - name: Activate environment
-      id: activate_env
-      run: |
-        source /home/beams/HRUTH/miniconda3/bin/activate pyxalign_old
-
-    - name: select GPUs
-      run: export $CUDA_VISIBLE_DEVICES=1
-
-    - name: Test running
-      run: echo "hello world"
-
-    # - name: Test with pytest
-    #   run: |
-    #     pytest
+      - name: Build container
+        run: |
+          git pull origin development
+          podman build Dockerfile
+          podman images
