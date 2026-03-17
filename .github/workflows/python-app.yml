@@ -23,6 +23,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Test running
+      run: echo "first printed line"
+
     - name: setup
       run: source ~/.bashrc
 
@@ -30,6 +33,9 @@ jobs:
       id: activate_env
       run: |
         source /home/beams/HRUTH/miniconda3/bin/activate pyxalign_old
+
+    - name: select GPUs
+      run: export $CUDA_VISIBLE_DEVICES=1
 
     - name: Test running
       run: echo "hello world"
