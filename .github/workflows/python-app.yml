@@ -27,7 +27,7 @@ jobs:
         run: |
           source ~/.bashrc
           echo $PYXALIGN_CI_TEST_DATA_DIR
-          export $CUDA_VISIBLE_DEVICES=1
+          export CUDA_VISIBLE_DEVICES=1
           ls
           podman images
 
