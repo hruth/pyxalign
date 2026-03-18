@@ -34,7 +34,7 @@ jobs:
           echo \
             "test two liner"
           podman images
-          podman build -t pyxalign-actions-runner-image .
+          # podman build -t pyxalign-actions-runner-image .
 
       - name: start container
         run: |
@@ -43,7 +43,10 @@ jobs:
             --device nvidia.com/gpu=all \
             -v="$HOME/.Xauthority:/root/.Xauthority:rw" \
             -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR \
-            pyxalign-actions-runner-image:latest pytest
+            pyxalign-actions-runner-image:latest bash
+          pip install pytest
+          cd pyxalign
+          pytest
 
       # - name: container cleanup
       #   run: |
