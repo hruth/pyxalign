@@ -9,8 +9,8 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
 
-# env:
-#   LAMINO_ALIGN_DATA_DIR: /local/ci_tests/pyxalign/
+env:
+  CUDA_VISIBLE_DEVICES: 1
 
 permissions:
   contents: read
@@ -26,9 +26,7 @@ jobs:
       - name: setup
         run: |
           source ~/.bashrc
-          echo $PYXALIGN_CI_TEST_DATA_DIR
           echo "PYXALIGN_CI_TEST_DATA_DIR=$PYXALIGN_CI_TEST_DATA_DIR" >> $GITHUB_ENV
-          echo "CUDA_VISIBLE_DEVICES=1" >> $GITHUB_ENV
 
       - name: build container
         run: |
@@ -60,3 +58,5 @@ jobs:
 # git add .github/workflows/python-app.yml
 # git commit -m "update"
 # git push origin update-actions
+
+          # echo "CUDA_VISIBLE_DEVICES=1" >> $GITHUB_ENV
