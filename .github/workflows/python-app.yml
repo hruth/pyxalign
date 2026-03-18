@@ -37,7 +37,13 @@ jobs:
 
       - name: start container
         run: |
-          podman run  -it --rm --env DISPLAY --security-opt label=type:container_runtime_t --network host --device nvidia.com/gpu=all -v="$HOME/.Xauthority:/root/.Xauthority:rw" -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR pyxalign-actions-runner-image:latest bash
+          echo  $PYXALIGN_CI_TEST_DATA_DIR
+          podman run  -it --rm --env DISPLAY --security-opt \
+            label=type:container_runtime_t --network host \
+            --device nvidia.com/gpu=all \
+            -v="$HOME/.Xauthority:/root/.Xauthority:rw" \
+            -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR \
+            pyxalign-actions-runner-image:latest bash
           pip install pytest
           cd pyxalign
           pytest
@@ -50,4 +56,8 @@ jobs:
 # Use something like this. I also need to update it to mount the data directory.
 # podman run  -it --rm --env DISPLAY --security-opt label=type:container_runtime_t    --network host -v="$HOME/.Xauthority:/root/.Xauthority:rw"    --device nvidia.com/gpu=all     pyxalign:latest bash
 
-  # podman build -t pyxalign-actions-runner-image .
+    # podman build -t pyxalign-actions-runner-image .
+
+# git add .github/workflows/python-app.yml
+# git commit -m "update"
+# git push origin update-actions
