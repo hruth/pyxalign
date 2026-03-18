@@ -27,7 +27,8 @@ jobs:
         run: |
           source ~/.bashrc
           echo $PYXALIGN_CI_TEST_DATA_DIR
-          export CUDA_VISIBLE_DEVICES=1
+          echo "PYXALIGN_CI_TEST_DATA_DIR=$PYXALIGN_CI_TEST_DATA_DIR" >> $GITHUB_ENV
+          echo "CUDA_VISIBLE_DEVICES=1" >> $GITHUB_ENV
 
       - name: build container
         run: |
