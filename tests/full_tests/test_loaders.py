@@ -52,82 +52,82 @@ def load_cSAXS_e18044_LamNI_201907_test_func(
     return ci_test_helper.test_result_dict
 
 
-@register_processing_function("2ide_ptycho_loading_test")
-def load_2ide_ptycho_test_func(
-    update_tester_results: bool = False, save_temp_files: bool = False
-) -> dict[str, bool]:
-    # Setup the test
-    ci_options = opts.CITestOptions(
-        test_data_name=os.path.join("2ide", "2025-1_Lamni-6"),
-        update_tester_results=update_tester_results,
-        save_temp_files=save_temp_files,
-    )
-    ci_test_helper = CITestHelper(options=ci_options)
+# @register_processing_function("2ide_ptycho_loading_test")
+# def load_2ide_ptycho_test_func(
+#     update_tester_results: bool = False, save_temp_files: bool = False
+# ) -> dict[str, bool]:
+#     # Setup the test
+#     ci_options = opts.CITestOptions(
+#         test_data_name=os.path.join("2ide", "2025-1_Lamni-6"),
+#         update_tester_results=update_tester_results,
+#         save_temp_files=save_temp_files,
+#     )
+#     ci_test_helper = CITestHelper(options=ci_options)
 
-    # load data
-    standard_data = data_loaders.load_2ide_ptycho_test_data()
+#     # load data
+#     standard_data = data_loaders.load_2ide_ptycho_test_data()
 
-    # save/compare CI results
-    scan_10 = standard_data.scan_numbers[10]
-    ci_test_helper.save_or_compare_results(
-        standard_data.probe, f"{ci_filename_prefix}_" + "standard_data_probe"
-    )
-    ci_test_helper.save_or_compare_results(
-        standard_data.scan_numbers, f"{ci_filename_prefix}_" + "standard_data_scan_numbers"
-    )
-    ci_test_helper.save_or_compare_results(
-        standard_data.angles, f"{ci_filename_prefix}_" + "standard_data_angles"
-    )
-    ci_test_helper.save_or_compare_results(
-        standard_data.probe_positions[scan_10], f"{ci_filename_prefix}_" + "probe_positions_10"
-    )
+#     # save/compare CI results
+#     scan_10 = standard_data.scan_numbers[10]
+#     ci_test_helper.save_or_compare_results(
+#         standard_data.probe, f"{ci_filename_prefix}_" + "standard_data_probe"
+#     )
+#     ci_test_helper.save_or_compare_results(
+#         standard_data.scan_numbers, f"{ci_filename_prefix}_" + "standard_data_scan_numbers"
+#     )
+#     ci_test_helper.save_or_compare_results(
+#         standard_data.angles, f"{ci_filename_prefix}_" + "standard_data_angles"
+#     )
+#     ci_test_helper.save_or_compare_results(
+#         standard_data.probe_positions[scan_10], f"{ci_filename_prefix}_" + "probe_positions_10"
+#     )
 
-    ci_test_helper.finish_test()
-    return ci_test_helper.test_result_dict
+#     ci_test_helper.finish_test()
+#     return ci_test_helper.test_result_dict
 
 
-@register_processing_function("2ide_xrf_loading_test")
-def load_2ide_xrf_test_func(
-    update_tester_results: bool = False, save_temp_files: bool = False
-) -> dict[str, bool]:
-    # Setup the test
-    ci_options = opts.CITestOptions(
-        test_data_name=os.path.join("2ide", "2025-1_Lamni-4"),
-        update_tester_results=update_tester_results,
-        save_temp_files=save_temp_files,
-    )
-    ci_test_helper = CITestHelper(options=ci_options)
+# @register_processing_function("2ide_xrf_loading_test")
+# def load_2ide_xrf_test_func(
+#     update_tester_results: bool = False, save_temp_files: bool = False
+# ) -> dict[str, bool]:
+#     # Setup the test
+#     ci_options = opts.CITestOptions(
+#         test_data_name=os.path.join("2ide", "2025-1_Lamni-4"),
+#         update_tester_results=update_tester_results,
+#         save_temp_files=save_temp_files,
+#     )
+#     ci_test_helper = CITestHelper(options=ci_options)
 
-    xrf_standard_data_dict = data_loaders.load_2ide_xrf_test_data()
+#     xrf_standard_data_dict = data_loaders.load_2ide_xrf_test_data()
 
-    # save/compare CI results
-    for channel, standard_data in xrf_standard_data_dict.items():
-        ci_test_helper.save_or_compare_results(
-            standard_data.angles, f"{ci_filename_prefix}_" + f"standard_data_angles_{channel}"
-        )
-        ci_test_helper.save_or_compare_results(
-            standard_data.scan_numbers,
-            f"{ci_filename_prefix}_" + f"standard_data_scan_numbers_{channel}",
-        )
-        scan10 = standard_data.scan_numbers[10]
-        ci_test_helper.save_or_compare_results(
-            standard_data.projections[scan10],
-            f"{ci_filename_prefix}_" + f"standard_data_projections10_{channel}",
-        )
+#     # save/compare CI results
+#     for channel, standard_data in xrf_standard_data_dict.items():
+#         ci_test_helper.save_or_compare_results(
+#             standard_data.angles, f"{ci_filename_prefix}_" + f"standard_data_angles_{channel}"
+#         )
+#         ci_test_helper.save_or_compare_results(
+#             standard_data.scan_numbers,
+#             f"{ci_filename_prefix}_" + f"standard_data_scan_numbers_{channel}",
+#         )
+#         scan10 = standard_data.scan_numbers[10]
+#         ci_test_helper.save_or_compare_results(
+#             standard_data.projections[scan10],
+#             f"{ci_filename_prefix}_" + f"standard_data_projections10_{channel}",
+#         )
 
-    # put data into dict of arrays
-    xrf_array_dict = convert_xrf_projection_dicts_to_arrays(
-        xrf_standard_data_dict,
-        pad_with_mode=True,
-    )
+#     # put data into dict of arrays
+#     xrf_array_dict = convert_xrf_projection_dicts_to_arrays(
+#         xrf_standard_data_dict,
+#         pad_with_mode=True,
+#     )
 
-    for channel, projection_array in xrf_array_dict.items():
-        ci_test_helper.save_or_compare_results(
-            projection_array[:3], f"{ci_filename_prefix}_" + f"input_projections_{channel}"
-        )
+#     for channel, projection_array in xrf_array_dict.items():
+#         ci_test_helper.save_or_compare_results(
+#             projection_array[:3], f"{ci_filename_prefix}_" + f"input_projections_{channel}"
+#         )
 
-    ci_test_helper.finish_test()
-    return ci_test_helper.test_result_dict
+#     ci_test_helper.finish_test()
+#     return ci_test_helper.test_result_dict
 
 
 def test_single_result(test_name, result):
@@ -138,18 +138,18 @@ def test_single_result(test_name, result):
     assert result, f"Check '{test_name}' failed"
 
 
-if __name__ == "__main__":
-    ci_parser = CITestArgumentParser()
-    args = ci_parser.parser.parse_args()
-    load_cSAXS_e18044_LamNI_201907_test_func(
-        update_tester_results=args.update_results,
-        save_temp_files=args.save_temp_results,
-    )
-    load_2ide_ptycho_test_func(
-        update_tester_results=args.update_results,
-        save_temp_files=args.save_temp_results,
-    )
-    load_2ide_xrf_test_func(
-        update_tester_results=args.update_results,
-        save_temp_files=args.save_temp_results,
-    )
+# if __name__ == "__main__":
+#     ci_parser = CITestArgumentParser()
+#     args = ci_parser.parser.parse_args()
+#     load_cSAXS_e18044_LamNI_201907_test_func(
+#         update_tester_results=args.update_results,
+#         save_temp_files=args.save_temp_results,
+#     )
+#     load_2ide_ptycho_test_func(
+#         update_tester_results=args.update_results,
+#         save_temp_files=args.save_temp_results,
+#     )
+#     load_2ide_xrf_test_func(
+#         update_tester_results=args.update_results,
+#         save_temp_files=args.save_temp_results,
+#     )

@@ -20,15 +20,22 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
         and "result" in metafunc.fixturenames
         and metafunc.function.__name__ == "test_single_result"
     ):
-        all_test_results = []
-        
-        for func_name, func in PROCESSING_FUNCTIONS_REGISTRY.items():
-            test_results = func()
-            for name, value in test_results.items():
-                prefixed_name = f"{func_name}::{name}"
-                # prefixed_name = name
-                all_test_results.append((prefixed_name, value))
-        
+        # Check if we're in collect-only mode
+        if metafunc.config.option.collectonly:
+            # During collection, just create placeholder parameters
+            # This prevents the actual test functions from executing
+            all_test_results = [(f"{func_name}::placeholder", True)
+                                for func_name in PROCESSING_FUNCTIONS_REGISTRY.keys()]
+        else:
+            all_test_results = []
+
+            for func_name, func in PROCESSING_FUNCTIONS_REGISTRY.items():
+                test_results = func()
+                for name, value in test_results.items():
+                    prefixed_name = f"{func_name}::{name}"
+                    # prefixed_name = name
+                    all_test_results.append((prefixed_name, value))
+
         metafunc.parametrize(
             "test_name,result",
             all_test_results,
