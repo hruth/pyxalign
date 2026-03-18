@@ -37,12 +37,7 @@ jobs:
 
       - name: start container
         run: |
-          podman run  -it --rm --env DISPLAY --security-opt \
-            label=type:container_runtime_t --network host \
-            --device nvidia.com/gpu=all \
-            -v="$HOME/.Xauthority:/root/.Xauthority:rw" \
-            -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR \
-            pyxalign-actions-runner-image:latest bash
+          podman run  -it --rm --env DISPLAY --security-opt label=type:container_runtime_t --network host --device nvidia.com/gpu=all -v="$HOME/.Xauthority:/root/.Xauthority:rw" -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR pyxalign-actions-runner-image:latest bash
           pip install pytest
           cd pyxalign
           pytest
