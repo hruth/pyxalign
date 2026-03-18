@@ -1,6 +1,8 @@
 # this file currently only tests the pear v3 loader
 import os
 
+import pytest
+
 from pyxalign import options as opts
 from pyxalign.io.loaders.xrf.api import convert_xrf_projection_dicts_to_arrays
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
@@ -11,10 +13,9 @@ from conftest import register_processing_function
 ci_filename_prefix = "load_test"
 
 
-@register_processing_function("cSAXS_e18044_LamNI_201907_loading_test")
-def load_cSAXS_e18044_LamNI_201907_test_func(
+def generate_results_load_cSAXS_e18044_LamNI_201907(
     update_tester_results: bool = False, save_temp_files: bool = False
-) -> dict[str, bool]:
+) -> dict:
     # Setup the test
     ci_options = opts.CITestOptions(
         test_data_name="cSAXS_e18044_LamNI_201907",
@@ -50,6 +51,29 @@ def load_cSAXS_e18044_LamNI_201907_test_func(
 
     ci_test_helper.finish_test()
     return ci_test_helper.test_result_dict
+
+
+@pytest.fixture(scope="module")
+def results():
+    return generate_results_load_cSAXS_e18044_LamNI_201907()
+
+
+cSAXS_test_names = [
+    f"{ci_filename_prefix}_" + x
+    for x in [
+        "selected_projection",
+        "lamni_data_probe",
+        "lamni_data_scan_numbers",
+        "lamni_data_angles",
+        "selected_probe_positions",
+    ]
+]
+
+
+@pytest.mark.parametrize("key", cSAXS_test_names)
+def test_cSAXS_loading(results, key):
+    assert results[key]
+
 
 
 # @register_processing_function("2ide_ptycho_loading_test")
@@ -130,12 +154,12 @@ def load_cSAXS_e18044_LamNI_201907_test_func(
 #     return ci_test_helper.test_result_dict
 
 
-def test_single_result(test_name, result):
-    """
-    The conftest.pytest_generate_tests hook uses this to parameterize the
-    results of the registered processing functions
-    """
-    assert result, f"Check '{test_name}' failed"
+# def test_single_result(test_name, result):
+#     """
+#     The conftest.pytest_generate_tests hook uses this to parameterize the
+#     results of the registered processing functions
+#     """
+#     assert result, f"Check '{test_name}' failed"
 
 
 # if __name__ == "__main__":
