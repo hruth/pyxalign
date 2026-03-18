@@ -39,15 +39,13 @@ jobs:
       - name: start container
         run: |
           echo  $PYXALIGN_CI_TEST_DATA_DIR
-          podman run  -it --rm --env DISPLAY --security-opt \
+          podman run --rm --env DISPLAY --security-opt \
             label=type:container_runtime_t --network host \
             --device nvidia.com/gpu=all \
             -v="$HOME/.Xauthority:/root/.Xauthority:rw" \
             -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR \
-            pyxalign-actions-runner-image:latest bash
-          pip install pytest
-          cd pyxalign
-          pytest
+            pyxalign-actions-runner-image:latest bash -c \
+            "pip install pytest && cd pyxalign && pytest"
 
       # - name: container cleanup
       #   run: |
