@@ -460,10 +460,76 @@ class ReconstructionParameterTuner(QWidget):
 
         cor_group.setLayout(cor_layout)
 
-        # Add method, size, and cor groups to basic tab
+        # Create reconstruction geometry group
+        geom_group = QGroupBox("Reconstruction Geometry")
+        geom_group.setStyleSheet("QGroupBox { font-size: 12pt; font-weight: bold; }")
+        geom_layout = QVBoxLayout()
+
+        # Laminography angle spinbox
+        lamino_angle_layout = QHBoxLayout()
+        lamino_angle_label = QLabel("Laminography Angle (degrees):")
+        lamino_angle_label.setStyleSheet("font-size: 11pt;")
+        self.lamino_angle_spinbox = QDoubleSpinBox()
+        self.lamino_angle_spinbox.setDecimals(6)
+        self.lamino_angle_spinbox.setMinimum(-360.0)
+        self.lamino_angle_spinbox.setMaximum(360.0)
+        self.lamino_angle_spinbox.setSingleStep(0.1)
+        self.lamino_angle_spinbox.setValue(
+            self.phase_projections.options.experiment.laminography_angle
+        )
+        self.lamino_angle_spinbox.setStyleSheet("font-size: 11pt;")
+        self.lamino_angle_spinbox.valueChanged.connect(self.on_lamino_angle_changed)
+        lamino_angle_layout.addWidget(lamino_angle_label)
+        lamino_angle_layout.addWidget(self.lamino_angle_spinbox)
+        lamino_angle_layout.addStretch()
+
+        # Tilt angle spinbox
+        tilt_angle_layout = QHBoxLayout()
+        tilt_angle_label = QLabel("Tilt Angle (degrees):")
+        tilt_angle_label.setStyleSheet("font-size: 11pt;")
+        self.tilt_angle_spinbox = QDoubleSpinBox()
+        self.tilt_angle_spinbox.setDecimals(6)
+        self.tilt_angle_spinbox.setMinimum(-360.0)
+        self.tilt_angle_spinbox.setMaximum(360.0)
+        self.tilt_angle_spinbox.setSingleStep(0.1)
+        self.tilt_angle_spinbox.setValue(
+            self.phase_projections.options.reconstruct.geometry.tilt_angle
+        )
+        self.tilt_angle_spinbox.setStyleSheet("font-size: 11pt;")
+        self.tilt_angle_spinbox.valueChanged.connect(self.on_tilt_angle_changed)
+        tilt_angle_layout.addWidget(tilt_angle_label)
+        tilt_angle_layout.addWidget(self.tilt_angle_spinbox)
+        tilt_angle_layout.addStretch()
+
+        # Skew angle spinbox
+        skew_angle_layout = QHBoxLayout()
+        skew_angle_label = QLabel("Skew Angle (degrees):")
+        skew_angle_label.setStyleSheet("font-size: 11pt;")
+        self.skew_angle_spinbox = QDoubleSpinBox()
+        self.skew_angle_spinbox.setDecimals(6)
+        self.skew_angle_spinbox.setMinimum(-360.0)
+        self.skew_angle_spinbox.setMaximum(360.0)
+        self.skew_angle_spinbox.setSingleStep(0.1)
+        self.skew_angle_spinbox.setValue(
+            self.phase_projections.options.reconstruct.geometry.skew_angle
+        )
+        self.skew_angle_spinbox.setStyleSheet("font-size: 11pt;")
+        self.skew_angle_spinbox.valueChanged.connect(self.on_skew_angle_changed)
+        skew_angle_layout.addWidget(skew_angle_label)
+        skew_angle_layout.addWidget(self.skew_angle_spinbox)
+        skew_angle_layout.addStretch()
+
+        # Add angle controls to geometry group layout
+        geom_layout.addLayout(lamino_angle_layout)
+        geom_layout.addLayout(tilt_angle_layout)
+        geom_layout.addLayout(skew_angle_layout)
+        geom_group.setLayout(geom_layout)
+
+        # Add method, size, cor, and geometry groups to basic tab
         basic_tab_layout.addWidget(method_group)
         basic_tab_layout.addWidget(size_group)
         basic_tab_layout.addWidget(cor_group)
+        basic_tab_layout.addWidget(geom_group)
         basic_tab_layout.addSpacerItem(
             QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
@@ -477,8 +543,17 @@ class ReconstructionParameterTuner(QWidget):
         self.reconstruct_options_editor = BasicOptionsEditor(
             data=self.phase_projections.options.reconstruct,
             # label="Edit Reconstruction Settings",
-            skip_fields=["method", "sart", "regularization", "astra.algorithm_type"],
-            open_panels_list=["astra", "geometry"]
+            skip_fields=[
+                "method",
+                "sart",
+                "regularization",
+                "astra.algorithm_type",
+                "geometry.tilt_angle",
+                "geometry.skew_angle",
+                "geometry",
+            ],
+            open_panels_list=["astra", "geometry"],
+            label="",
         )
         advanced_tab_layout.addWidget(self.reconstruct_options_editor)
 
@@ -760,6 +835,18 @@ class ReconstructionParameterTuner(QWidget):
     def on_thickness_changed(self, value: float):
         """Update sample thickness when spinbox value changes."""
         self.phase_projections.options.experiment.sample_thickness = value
+
+    def on_lamino_angle_changed(self, value: float):
+        """Update laminography angle when spinbox value changes."""
+        self.phase_projections.options.experiment.laminography_angle = value
+
+    def on_tilt_angle_changed(self, value: float):
+        """Update tilt angle when spinbox value changes."""
+        self.phase_projections.options.reconstruct.geometry.tilt_angle = value
+
+    def on_skew_angle_changed(self, value: float):
+        """Update skew angle when spinbox value changes."""
+        self.phase_projections.options.reconstruct.geometry.skew_angle = value
 
     def open_point_selector(self):
         """Open the point selector window for selecting center of rotation."""
