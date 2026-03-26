@@ -4,6 +4,7 @@ import multiprocessing as mp
 import cupy as cp
 
 import matplotlib.pyplot as plt
+import pytest
 import pyxalign
 from pyxalign import options as opts
 from pyxalign.api import enums
@@ -19,7 +20,8 @@ from conftest import register_processing_function
 
 
 # Setup default gpu options
-n_gpus = cp.cuda.runtime.getDeviceCount()
+# n_gpus = cp.cuda.runtime.getDeviceCount()
+n_gpus = 1
 gpu_list = list(range(0, n_gpus))
 multi_gpu_device_options = opts.DeviceOptions(
     gpu=opts.GPUOptions(
@@ -33,8 +35,8 @@ multi_gpu_device_options = opts.DeviceOptions(
 s = 16
 
 
-@register_processing_function("cSAXS_e18044_LamNI_201907_pre_processing")
-def cSAXS_e18044_LamNI_201907_pre_processing(
+# @register_processing_function("cSAXS_e18044_LamNI_201907_pre_processing")
+def generate_results_cSAXS_e18044_LamNI_201907_pre_processing(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
@@ -190,20 +192,24 @@ def cSAXS_e18044_LamNI_201907_pre_processing(
         return ci_test_helper.test_result_dict
 
 
-def test_single_result(test_name, result):
-    """
-    The conftest.pytest_generate_tests hook uses this to parameterize the
-    results of the registered processing functions
-    """
-    assert result, f"Check '{test_name}' failed"
+@pytest.fixture(scope="module")
+def results():
+    return generate_results_cSAXS_e18044_LamNI_201907_pre_processing()
 
 
-if __name__ == "__main__":
-    ci_parser = CITestArgumentParser()
-    args = ci_parser.parser.parse_args()
-    cSAXS_e18044_LamNI_201907_pre_processing(
-        update_tester_results=args.update_results,
-        save_temp_files=args.save_temp_results,
-        test_start_point=args.start_point,
-        show_gui=args.show_gui,
-    )
+cSAXS_test_names = [
+    "lamni_data_probe",
+    "lamni_data_scan_numbers",
+    "lamni_data_angles",
+    "projection_array_500",
+    "probe_positions_2730",
+    "input_processed_task",
+    "cross_corr_aligned_task",
+    "unwrapped_phase",
+    "pre_pma_volume",
+]
+
+
+@pytest.mark.parametrize("key", cSAXS_test_names)
+def test_cSAXS_pre_processing(results, key):
+    assert results[key]
