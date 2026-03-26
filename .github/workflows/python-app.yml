@@ -34,7 +34,7 @@ jobs:
             "test two liner"
           podman images
 
-      - name: start container
+      - name: start container and run pytest
         run: |
           echo  $PYXALIGN_CI_TEST_DATA_DIR
           podman run --rm --env DISPLAY \
@@ -44,20 +44,8 @@ jobs:
             --env PYXALIGN_CI_TEST_DATA_DIR=$PYXALIGN_CI_TEST_DATA_DIR \
             -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR \
             pyxalign-actions-runner-image:latest bash -c \
-            "pip install pytest && cd pyxalign && pytest"
+            "pip install pytest && cd pyxalign && pytest -s"
 
-      # - name: container cleanup
-      #   run: |
-      #     podman rmi pyxalign-actions-runner-image
-
-
-# Use something like this. I also need to update it to mount the data directory.
-# podman run  -it --rm --env DISPLAY --security-opt label=type:container_runtime_t    --network host -v="$HOME/.Xauthority:/root/.Xauthority:rw"    --device nvidia.com/gpu=all     pyxalign:latest bash
-
-    # podman build -t pyxalign-actions-runner-image .
-
-# git add .github/workflows/python-app.yml
-# git commit -m "update"
-# git push origin update-actions
-
-          # echo "CUDA_VISIBLE_DEVICES=1" >> $GITHUB_ENV
+      - name: container cleanup
+        run: |
+          podman rmi pyxalign-actions-runner-image
