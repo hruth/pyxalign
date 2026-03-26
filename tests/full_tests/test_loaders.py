@@ -5,8 +5,7 @@ import pytest
 
 from pyxalign import options as opts
 from pyxalign.io.loaders.xrf.api import convert_xrf_projection_dicts_to_arrays
-from pyxalign.test_utils_2 import CITestHelper
-from pyxalign.test_utils_2 import primary_ci_test_folder_string
+from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string
 
 import data_loaders
 from tests.full_tests.check_data_presence import skip_if_data_not_found

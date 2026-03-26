@@ -1,22 +1,15 @@
-import os
-import argparse
-import multiprocessing as mp
-import cupy as cp
-
-import matplotlib.pyplot as plt
 import pytest
-import pyxalign
+
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
-from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
+from pyxalign.test_utils_2 import CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
 
 import data_loaders
-from conftest import register_processing_function
 
 
 # Setup default gpu options
@@ -35,7 +28,6 @@ multi_gpu_device_options = opts.DeviceOptions(
 s = 16
 
 
-# @register_processing_function("cSAXS_e18044_LamNI_201907_pre_processing")
 def generate_results_cSAXS_e18044_LamNI_201907_pre_processing(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
