@@ -29,10 +29,7 @@ jobs:
           echo "PYXALIGN_CI_TEST_DATA_DIR=$PYXALIGN_CI_TEST_DATA_DIR" >> $GITHUB_ENV
 
       - name: build container
-        run: |
-          echo \
-            "test two liner"
-          podman images
+        run: podman build -t localhost/pyxalign-actions-runner-image .
 
       - name: start container and run pytest
         run: |
