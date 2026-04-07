@@ -13,7 +13,7 @@ from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string
 from pyxalign.api.options_utils import set_all_device_options
-from tests.full_tests.check_data_presence import skip_if_data_not_found
+from pyxalign.test_utils_2 import skip_if_data_not_found
 
 
 def generate_results_TP2(

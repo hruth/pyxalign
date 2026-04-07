@@ -295,3 +295,8 @@ def save_array(array: np.ndarray, h5_obj: Union[h5py.File, h5py.Group], dataset_
 def get_rel_path_string(h5_obj: h5py.Group):
     rel_path = Path(h5_obj.file.filename).name + h5_obj.name
     return rel_path
+
+
+def skip_if_data_not_found(test_data_sub_path: str) -> bool:
+    data_path = os.path.join(os.environ[primary_ci_test_folder_string], test_data_sub_path)
+    return not os.path.exists(data_path)

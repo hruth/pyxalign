@@ -5,10 +5,10 @@ import pytest
 
 from pyxalign import options as opts
 from pyxalign.io.loaders.xrf.api import convert_xrf_projection_dicts_to_arrays
-from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string
+from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper, primary_ci_test_folder_string
 
 import data_loaders
-from tests.full_tests.check_data_presence import skip_if_data_not_found
+from pyxalign.test_utils_2 import skip_if_data_not_found
 
 ci_filename_prefix = "load_test"
 
@@ -186,7 +186,7 @@ def generate_results_load_2ide_xrf(
         ci_test_helper.save_or_compare_results(
             projection_array[:3], f"{ci_filename_prefix}_" + f"input_projections_{channel}"
         )
-
+    print(standard_data.scan_numbers)
     ci_test_helper.finish_test()
     return ci_test_helper.test_result_dict
 
@@ -213,3 +213,20 @@ reason = f"Expected data folder does not exist: {os.path.join(os.environ[primary
 @pytest.mark.parametrize("key", test_names_2ide_xrf)
 def test_2ide_xrf_loading(results_2IDE_xrf, key):
     assert results_2IDE_xrf[key]
+
+
+if __name__ == "__main__":
+    ci_parser = CITestArgumentParser()
+    args = ci_parser.parser.parse_args()
+    # generate_results_load_cSAXS_e18044_LamNI_201907(
+    #     update_tester_results=args.update_results,
+    #     save_temp_files=args.save_temp_results,
+    # )
+    generate_results_load_2ide_ptycho(
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
+    )
+    # generate_results_load_2ide_xrf(
+    #     update_tester_results=args.update_results,
+    #     save_temp_files=args.save_temp_results,
+    # )

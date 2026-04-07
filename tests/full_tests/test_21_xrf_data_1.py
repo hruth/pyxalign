@@ -11,7 +11,7 @@ from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string
 from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 import data_loaders
-from tests.full_tests.check_data_presence import skip_if_data_not_found
+from pyxalign.test_utils_2 import skip_if_data_not_found
 
 
 def generate_results_2ide_xrf(
