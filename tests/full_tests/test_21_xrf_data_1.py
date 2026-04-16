@@ -7,7 +7,7 @@ from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.data_structures.xrf_task import XRFTask
 from pyxalign.io.loaders.xrf.api import convert_xrf_projection_dicts_to_arrays
-from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string
+from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string, CITestArgumentParser
 from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 import data_loaders
@@ -198,3 +198,13 @@ reason = f"Expected data folder does not exist: {os.path.join(os.environ[primary
 @pytest.mark.parametrize("key", xrf_2ide_test_names)
 def test_2ide_xrf_alignment(results, key):
     assert results[key]
+
+
+if __name__ == "__main__":
+    ci_parser = CITestArgumentParser()
+    args = ci_parser.parser.parse_args()
+    generate_results_2ide_xrf(
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
+        show_gui=args.show_gui,
+    )

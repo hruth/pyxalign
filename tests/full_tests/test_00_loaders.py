@@ -218,15 +218,15 @@ def test_2ide_xrf_loading(results_2IDE_xrf, key):
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    # generate_results_load_cSAXS_e18044_LamNI_201907(
-    #     update_tester_results=args.update_results,
-    #     save_temp_files=args.save_temp_results,
-    # )
+    generate_results_load_cSAXS_e18044_LamNI_201907(
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
+    )
     generate_results_load_2ide_ptycho(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
     )
-    # generate_results_load_2ide_xrf(
-    #     update_tester_results=args.update_results,
-    #     save_temp_files=args.save_temp_results,
-    # )
+    generate_results_load_2ide_xrf(
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
+    )

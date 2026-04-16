@@ -3,7 +3,7 @@ import pytest
 
 from pyxalign import options as opts
 from pyxalign.api import enums
-from pyxalign.test_utils_2 import CITestHelper
+from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
 
 
@@ -25,7 +25,6 @@ s = 16
 def generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
-    test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
     show_gui: bool = False,
 ) -> dict[str, bool]:
     """
@@ -177,3 +176,13 @@ cSAXS_test_names = [
 @pytest.mark.parametrize("key", cSAXS_test_names)
 def test_cSAXS_alignment(results, key):
     assert results[key]
+
+
+if __name__ == "__main__":
+    ci_parser = CITestArgumentParser()
+    args = ci_parser.parser.parse_args()
+    generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment(
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
+        show_gui=args.show_gui,
+    )

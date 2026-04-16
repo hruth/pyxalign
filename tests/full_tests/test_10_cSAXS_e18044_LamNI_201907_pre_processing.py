@@ -6,7 +6,7 @@ from pyxalign.data_structures.projections import ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
-from pyxalign.test_utils_2 import CITestHelper
+from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
 
 import data_loaders
@@ -205,3 +205,14 @@ cSAXS_test_names = [
 @pytest.mark.parametrize("key", cSAXS_test_names)
 def test_cSAXS_pre_processing(results, key):
     assert results[key]
+
+
+
+if __name__ == "__main__":
+    ci_parser = CITestArgumentParser()
+    args = ci_parser.parser.parse_args()
+    generate_results_cSAXS_e18044_LamNI_201907_pre_processing(
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
+        show_gui=args.show_gui,
+    )

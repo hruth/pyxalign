@@ -11,7 +11,7 @@ import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
-from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string
+from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
 from pyxalign.test_utils_2 import skip_if_data_not_found
 
@@ -377,3 +377,12 @@ reason = f"Expected data folder does not exist: {os.path.join(os.environ[primary
 @pytest.mark.parametrize("key", TP2_test_names)
 def test_TP2_alignment(results, key):
     assert results[key]
+
+if __name__ == "__main__":
+    ci_parser = CITestArgumentParser()
+    args = ci_parser.parser.parse_args()
+    generate_results_TP2(
+        update_tester_results=args.update_results,
+        save_temp_files=args.save_temp_results,
+        show_gui=args.show_gui,
+    )
