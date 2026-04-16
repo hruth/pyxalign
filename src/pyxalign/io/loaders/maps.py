@@ -27,34 +27,34 @@ def get_loader_options_by_enum(key: ExperimentType) -> OptionsClass:
     if not isinstance(key, StrEnum):
         key = ExperimentType[key.upper()]
     return {
-        ExperimentType.LYNX: pear_options.LYNXLoadOptions(
+        ExperimentType.LYNX_PEAR: pear_options.LYNXLoadOptions(
             dat_file_path=None,
             base=pear_options.BaseLoadOptions(parent_projections_folder=""),
         ),
-        ExperimentType.BEAMLINE_2IDE_PTYCHO: pear_options.Microprobe2IDELoadOptions(
+        ExperimentType.BEAMLINE_2IDE_PTYCHO_PEAR: pear_options.Microprobe2IDELoadOptions(
             mda_folder=None,
             base=pear_options.BaseLoadOptions(parent_projections_folder=""),
         ),
-        ExperimentType.BEAMLINE_2IDD_PTYCHO: pear_options.BNP2IDDLoadOptions(
+        ExperimentType.BEAMLINE_2IDD_PTYCHO_PEAR: pear_options.BNP2IDDLoadOptions(
             mda_folder=None,
             base=pear_options.BaseLoadOptions(parent_projections_folder=""),
         ),
         ExperimentType.BEAMLINE_2IDE_XRF: xrf_options.XRF2IDELoadOptions(),
-        ExperimentType.BEAMLINE_12IDE_PTYCHO: pear_options.Ptycho12IDELoadOptions(),
+        ExperimentType.BEAMLINE_12IDE_PTYCHO_PEAR: pear_options.Ptycho12IDELoadOptions(),
     }[key]
 
 
 def get_experiment_type_enum_from_options(options: OptionsClass) -> ExperimentType:
     if isinstance(options, pear_options.LYNXLoadOptions):
-        return ExperimentType.LYNX
+        return ExperimentType.LYNX_PEAR
     elif isinstance(options, pear_options.Microprobe2IDELoadOptions):
-        return ExperimentType.BEAMLINE_2IDE_PTYCHO
+        return ExperimentType.BEAMLINE_2IDE_PTYCHO_PEAR
     elif isinstance(options, pear_options.BNP2IDDLoadOptions):
-        return ExperimentType.BEAMLINE_2IDD_PTYCHO
+        return ExperimentType.BEAMLINE_2IDD_PTYCHO_PEAR
     elif isinstance(options, xrf_options.XRF2IDELoadOptions):
         return ExperimentType.BEAMLINE_2IDE_XRF
     elif isinstance(options, pear_options.Ptycho12IDELoadOptions):
-        return ExperimentType.BEAMLINE_12IDE_PTYCHO
+        return ExperimentType.BEAMLINE_12IDE_PTYCHO_PEAR
 
     # # above part doesn't run right when using reloading features during development
     # # other users pls ignore

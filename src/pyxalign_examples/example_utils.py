@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import astra
 from scipy.optimize import curve_fit
@@ -13,7 +14,7 @@ from pyxalign.api import enums
 from pyxalign.api.constants import divisor
 
 
-def get_simulated_phantom_task(angles: np.ndarray, shift: np.ndarray):
+def get_simulated_phantom_task(angles: np.ndarray, shift: np.ndarray, make_complex: bool = False):
     width = 250
     n_slices = 100
     pad_width = 0
@@ -40,18 +41,32 @@ def get_simulated_phantom_task(angles: np.ndarray, shift: np.ndarray):
     # use a sample thickness that is slightly larger than the actual volume
     options.experiment.sample_thickness = int(n_slices * 1.1)
     options.experiment.pixel_size = 1
-    projections = pyxalign.data_structures.PhaseProjections(
-        projections=projection_data,
-        angles=angles,
-        masks=masks,
-        options=options,
-    )
+    if make_complex:
+        projections = pyxalign.data_structures.ComplexProjections(
+            projections=np.exp(1j * projection_data).astype(np.complex64),
+            angles=angles,
+            masks=masks,
+            options=options,
+        )
+    else:
+        projections = pyxalign.data_structures.PhaseProjections(
+            projections=projection_data,
+            angles=angles,
+            masks=masks,
+            options=options,
+        )
     projections.pin_arrays()
     # create pyxalign alignment task object
-    task = pyxalign.data_structures.LaminographyAlignmentTask(
-        pyxalign.options.AlignmentTaskOptions(),
-        phase_projections=projections,
-    )
+    if make_complex:
+        task = pyxalign.data_structures.LaminographyAlignmentTask(
+            pyxalign.options.AlignmentTaskOptions(),
+            complex_projections=projections,
+        )
+    else:
+        task = pyxalign.data_structures.LaminographyAlignmentTask(
+            pyxalign.options.AlignmentTaskOptions(),
+            phase_projections=projections,
+        )
 
     # shift the projections
     projections.shift_manager.stage_shift(
@@ -74,6 +89,33 @@ def get_simulated_phantom_task(angles: np.ndarray, shift: np.ndarray):
     # )
 
     return task
+
+
+def save_phantom_to_npy(output_dir: str, make_complex: bool = True):
+    """Generate a simulated phantom and save projection data, angles, and
+    scan numbers as separate .npy files.
+
+    Args:
+        output_dir (str): Directory in which to save the .npy files.
+        make_complex (bool): If True, the task will contain complex
+            projections; if False, phase projections. Defaults to True.
+
+    Saves the following files to ``output_dir``:
+        - ``projections.npy``: projection data array
+        - ``angles.npy``: array of angles (degrees)
+        - ``scan_numbers.npy``: array of scan numbers
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    angles = np.linspace(0, 360, 180, endpoint=False).astype(np.float32)
+    shift = get_simulated_displacement_curve(angles)
+    task = get_simulated_phantom_task(angles, shift, make_complex=make_complex)
+    if make_complex:
+        projections_obj = task.complex_projections
+    else:
+        projections_obj = task.phase_projections
+    np.save(os.path.join(output_dir, "projections.npy"), projections_obj.data)
+    np.save(os.path.join(output_dir, "angles.npy"), projections_obj.angles)
+    np.save(os.path.join(output_dir, "scan_numbers.npy"), projections_obj.scan_numbers)
 
 
 def calculate_projection_size(

@@ -127,10 +127,12 @@ def _update_all_config_parameters(task: LaminographyAlignmentTask, config: Autor
     # Update projection level options
     if task.phase_projections is not None:
         projections = task.phase_projections
-        config.projection_matching_masks = projections.options.mask_from_positions
+        config.projection_matching_masks_from_position = projections.options.mask_from_positions
+        config.projection_matching_masks_from_roi = projections.options.mask_from_positions
     else:
         projections = task.complex_projections
-        config.phase_unwrap_masks = projections.options.mask_from_positions
+        config.phase_unwrap_masks_from_position = projections.options.mask_from_positions
+        config.phase_unwrap_masks_from_roi = projections.options.masks_from_roi
     config.unwrap_phase = projections.options.phase_unwrap
     # reconstruct parameters
     # update sample thickness in config
@@ -151,12 +153,15 @@ def _update_all_config_parameters(task: LaminographyAlignmentTask, config: Autor
 def _update_pyxalign_object_settings(task: LaminographyAlignmentTask, config: AutorunnerConfig):
     task.options.projection_matching = config.projection_matching
     task.options.cross_correlation = config.cross_correlation
+
     if task.phase_projections is not None:
         projections = task.phase_projections
-        projections.options.mask_from_positions = config.projection_matching_masks
+        projections.options.mask_from_positions = config.projection_matching_masks_from_position
+        projections.options.masks_from_roi = config.projection_matching_masks_from_roi
     else:
         projections = task.complex_projections
-        projections.options.mask_from_positions = config.phase_unwrap_masks
+        projections.options.mask_from_positions = config.phase_unwrap_masks_from_position
+        projections.options.masks_from_roi = config.phase_unwrap_masks_from_roi
 
     projections.options.phase_unwrap = config.unwrap_phase
     # reconstruct parameters

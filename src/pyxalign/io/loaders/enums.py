@@ -6,16 +6,22 @@ class ExperimentInfoSourceType(StrEnum):
     PTYCHO_FOLDERS = auto()
     BEAMLINE_2IDE_MDA_FILE = auto()
 
-class PtychoFileStructureType(StrEnum):
-    PEAR = auto()
-    # PTYCHODUS = auto()# eventually..
-
 class ExperimentType(StrEnum):
-    LYNX = "LYNX: ptycho"
-    BEAMLINE_2IDE_PTYCHO = "2-ID-E: ptycho"
-    BEAMLINE_2IDD_PTYCHO = "2-ID-D: ptycho"
-    BEAMLINE_12IDE_PTYCHO = "12-ID-E: ptycho"
+    LYNX_PEAR = "LYNX: PEAR ptychography files"
+    BEAMLINE_2IDE_PTYCHO_PEAR = "2-ID-E: PEAR ptychography files"
+    BEAMLINE_2IDD_PTYCHO_PEAR = "2-ID-D: PEAR ptychography files"
+    BEAMLINE_12IDE_PTYCHO_PEAR = "12-ID-E: PEAR ptychography files"
     BEAMLINE_2IDE_XRF = "2-ID-E: XRF"
+    # BEAMLINE_2IDE_PTYCHO = "2-ID-E: ptycho"
+    # BEAMLINE_2IDD_PTYCHO = "2-ID-D: ptycho"
+    # BEAMLINE_12IDE_PTYCHO = "12-ID-E: ptycho"
+
+    @classmethod
+    def _missing_(cls, value):
+        # backwards compatibility: old state files use "LYNX: ptycho"
+        if value == "LYNX: ptycho":
+            return cls.LYNX_PEAR
+        return None
 
 
 class MDAFilePatterns(StrEnum):

@@ -33,6 +33,7 @@ from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 from pyxalign.interactions.reconstruction_parameter_tuner import (
     launch_reconstruction_parameter_tuner,
 )
+from pyxalign.interactions.roi_selector import launch_mask_selection_from_roi
 from pyxalign.io.loaders.base import StandardData
 
 from pyxalign.io.loaders.load_any import load_dataset_from_arbitrary_options
@@ -280,10 +281,22 @@ class AutorunnerPtycho(Autorunner):
     @save_state_file_wrapper
     @handle_checkpoint("phase_unwrap_masks")
     def _get_complex_projections_masks(self):
+        can_build_from_positions = self.task.complex_projections.probe_positions is not None
+
         if self.config.interactivity.phase_unwrap_masks:
-            content_gui = launch_mask_builder(self.task.complex_projections, wait_until_closed=True)
+            if can_build_from_positions:
+                content_gui = launch_mask_builder(
+                    self.task.complex_projections, wait_until_closed=True
+                )
+            else:
+                content_gui = launch_mask_selection_from_roi(
+                    self.task.complex_projections, wait_until_closed=True
+                )
         else:
-            self.task.complex_projections.get_masks_from_probe_positions()
+            if can_build_from_positions:
+                self.task.complex_projections.get_masks_from_probe_positions()
+            else:
+                self.task.complex_projections.get_masks_from_roi_selection()
 
     @save_state_file_wrapper
     @handle_checkpoint("phase_unwrapping")
@@ -310,10 +323,22 @@ class AutorunnerPtycho(Autorunner):
     def _get_phase_projections_masks(self):
         print("Select masks used in projection-matching alignment...")
 
-        if self.config.interactivity.pma_masks:
-            content_gui = launch_mask_builder(self.task.phase_projections, wait_until_closed=True)
+        can_build_from_positions = self.task.phase_projections.probe_positions is not None
+
+        if self.config.interactivity.phase_unwrap_masks:
+            if can_build_from_positions:
+                content_gui = launch_mask_builder(
+                    self.task.phase_projections, wait_until_closed=True
+                )
+            else:
+                content_gui = launch_mask_selection_from_roi(
+                    self.task.phase_projections, wait_until_closed=True
+                )
         else:
-            self.task.phase_projections.get_masks_from_probe_positions()
+            if can_build_from_positions:
+                self.task.phase_projections.get_masks_from_probe_positions()
+            else:
+                self.task.phase_projections.get_masks_from_roi_selection()
 
     @save_state_file_wrapper
     @handle_checkpoint("reconstruction_tuning")

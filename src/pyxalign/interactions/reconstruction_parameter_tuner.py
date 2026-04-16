@@ -358,7 +358,7 @@ class ReconstructionParameterTuner(QWidget):
         thickness_label.setStyleSheet("font-size: 11pt;")
         self.thickness_spinbox = ScientificDoubleSpinBox()
         self.thickness_spinbox.setMinimum(0.0)
-        self.thickness_spinbox.setMaximum(1.0)
+        self.thickness_spinbox.setMaximum(100_000.0)
         self.thickness_spinbox.setSingleStep(1e-6)
         self.thickness_spinbox.setValue(
             self.phase_projections.options.experiment.sample_thickness
