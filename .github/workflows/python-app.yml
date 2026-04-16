@@ -27,6 +27,7 @@ jobs:
         run: |
           source ~/.bashrc
           echo "PYXALIGN_CI_TEST_DATA_DIR=$PYXALIGN_CI_TEST_DATA_DIR" >> $GITHUB_ENV
+          echo "CONTAINERS_CONF=/local/containers.conf" >> $GITHUB_ENV
 
       - name: build container
         run: podman build -t localhost/pyxalign-actions-runner-image .
