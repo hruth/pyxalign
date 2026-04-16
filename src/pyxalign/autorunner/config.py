@@ -11,15 +11,17 @@ from pyxalign.api.options.base import BaseOptions
 from pyxalign.api.options.options import PhaseUnwrapOptions
 from pyxalign.api.options.projections import ProbePositionMaskOptions, VolumeWidthOptions
 from pyxalign.api.options.reconstruct import ReconstructOptions
+from pyxalign.api.options.roi import ROIOptions
 from pyxalign.autorunner.enums import Checkpoints
 from pyxalign.interactions import initialize_projections
+from pyxalign.interactions.roi_selector import MaskFromROISelector
 from pyxalign.io.loaders.enums import ExperimentType
 from pyxalign.unwrap import unwrap_phase
 
 
 @dataclasses.dataclass
 class LoadingConfig(BaseOptions):
-    experiment_type: ExperimentType = ExperimentType.LYNX
+    experiment_type: ExperimentType = ExperimentType.LYNX_PEAR
 
     # initial_options_path: Optional[str] = None
     # # If none provided, or invalid path, or some error loading -- then interactivity is forced
@@ -137,11 +139,23 @@ class AutorunnerConfig(BaseOptions):
 
     unwrap_phase: PhaseUnwrapOptions = field(default_factory=PhaseUnwrapOptions)
 
-    phase_unwrap_masks: ProbePositionMaskOptions = field(default_factory=ProbePositionMaskOptions)
+    # phase_unwrap_masks: ProbePositionMaskOptions = field(default_factory=ProbePositionMaskOptions)
 
-    projection_matching_masks: ProbePositionMaskOptions = field(
+    # projection_matching_masks: ProbePositionMaskOptions = field(
+    #     default_factory=ProbePositionMaskOptions
+    # )
+
+    phase_unwrap_masks_from_position: ProbePositionMaskOptions = field(
         default_factory=ProbePositionMaskOptions
     )
+
+    projection_matching_masks_from_position: ProbePositionMaskOptions = field(
+        default_factory=ProbePositionMaskOptions
+    )
+
+    phase_unwrap_masks_from_roi: ROIOptions = field(default_factory=ROIOptions)
+
+    projection_matching_masks_from_roi: ROIOptions = field(default_factory=ROIOptions)
 
     reconstruct: ReconstructionGeometryConfig = field(default_factory=ReconstructionGeometryConfig)
 

@@ -22,15 +22,12 @@ dependencies = [
     "jupyter",
     "PyYAML",
     "astra-toolbox",
+    "cupy",
 ]
 requires-python = ">=3.13"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
-cupy = ["cupy"]
-cupy11 = ["cupy-cuda11x"]
-cupy12 = ["cupy-cuda12x"]
-cupy13 = ["cupy-cuda13x"]
 
 [project.scripts]
 pyxalign-autorunner = "pyxalign.cli:main"

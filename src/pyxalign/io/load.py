@@ -1,7 +1,9 @@
 from numbers import Complex
 import h5py
+import numpy as np
 
 from pyxalign import gpu_utils
+from pyxalign.api import enums
 from pyxalign.api.enums import ProjectionType
 from pyxalign.data_structures import xrf_projections
 from pyxalign.data_structures.projections import (
@@ -82,6 +84,15 @@ def load_projections_object(
     shift_manager.past_shift_functions = load_list_of_arrays_or_str(
         proj_h5_obj, "applied_shifts_function_types"
     )
+    # fix case where past shift functions were not saved
+    if shift_manager.past_shift_functions is None:
+        shift_manager.past_shift_functions = []
+        for shift in shift_manager.past_shifts:
+            if np.all((shift.astype(int) - shift[-1]) == 0):
+                 shift_manager.past_shift_functions += [enums.ShiftType.CIRC]
+            else:
+                 shift_manager.past_shift_functions += [enums.ShiftType.FFT]
+
     if "staged_shift" in proj_h5_obj.keys():
         staged_shift = proj_h5_obj["staged_shift"][()]
         if "staged_shift_function_type" in proj_h5_obj.keys():

@@ -15,11 +15,23 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass
 class BaseOptions:
     def __setattr__(self, name, value):
+        # # Check if the attribute already exists in the class fields.
+        # if name not in {f.name for f in dataclasses.fields(self)}:
+        #     raise AttributeError(f"{name} is not a valid field in {self.__class__.__name__}.")
+        # # If it exists, allow setting the value.
+        # super().__setattr__(name, value)
+
         # Check if the attribute already exists in the class fields.
-        if name not in {f.name for f in dataclasses.fields(self)}:
+        if name in {f.name for f in dataclasses.fields(self)}:
+            # If it exists, allow setting the value.
+            super().__setattr__(name, value)
+        # backwards compatibility elifs
+        elif name == "phase_unwrap_masks":
+            super().__setattr__("phase_unwrap_masks_from_position", value)
+        elif name == "projection_matching_masks":
+            super().__setattr__("projection_matching_masks_from_position", value)
+        else:
             raise AttributeError(f"{name} is not a valid field in {self.__class__.__name__}.")
-        # If it exists, allow setting the value.
-        super().__setattr__(name, value)
 
     def check(self, *args, **kwargs) -> None:
         """Check if options values are valid."""
