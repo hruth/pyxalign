@@ -1,4 +1,3 @@
-# this file currently only tests the pear v3 loader
 import os
 
 import pytest
@@ -102,6 +101,7 @@ def generate_results_load_2ide_ptycho(
     ci_test_helper.save_or_compare_results(
         standard_data.probe, f"{ci_filename_prefix}_" + "standard_data_probe"
     )
+    print(standard_data.scan_numbers)
     ci_test_helper.save_or_compare_results(
         standard_data.scan_numbers, f"{ci_filename_prefix}_" + "standard_data_scan_numbers"
     )

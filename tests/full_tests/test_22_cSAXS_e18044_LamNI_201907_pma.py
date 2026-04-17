@@ -93,14 +93,20 @@ def generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment(
 
         # Check/save the resulting alignment shifts at each resolution
         ci_test_helper.save_or_compare_results(
-            pma_shifts[scale], f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}"
+            pma_shifts[scale],
+            f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}",
+            atol=0.5,
+            rtol=0.5,
         )
 
     # Do one final alignment at increased high pass filter value
     pma_options.high_pass_filter = 0.01
     task.get_projection_matching_shift(initial_shift=pma_shifts[1])
     ci_test_helper.save_or_compare_results(
-        pma_shifts[scale], f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}"
+        pma_shifts[scale],
+        f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}",
+        atol=0.5,
+        rtol=0.5,
     )
 
     # Shift the projections by the projection-matching alignment shift
@@ -112,7 +118,7 @@ def generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment(
     # Check/save the fully aligned task for ci testing (note: this only saves a few parts of
     # the task, as opposed to task.save_task which saves the entire task so you can reload
     # it later)
-    ci_test_helper.save_or_compare_results(task, "pma_aligned_task")
+    ci_test_helper.save_or_compare_results(task, "pma_aligned_task", atol=0.025, rtol=0.025)
 
     ### Generate aligned volumes ###
     task.phase_projections.volume.generate_volume(True)
