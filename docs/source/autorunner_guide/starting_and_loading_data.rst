@@ -59,6 +59,32 @@ dataset to ``.npy`` files.
         options=options,
     )
 
+If you have ptychographic probe positions and a probe array, pass them as
+well.  ``probe_positions`` must be a list of one ``(N, 2)`` float array per
+projection, where each row is a ``[row, col]`` coordinate **relative to the
+image centre**.  ``probe`` is a 2-D array of the reconstructed probe.
+
+.. code-block:: python
+
+    # Load probe positions (one (N_pos, 2) array per projection)
+    probe_positions = [
+        np.load(f"/local/pyxalign-test-examples/positions_{i}.npy")
+        for i in range(len(projection_data))
+    ]
+
+    # Load (or supply) the probe array
+    probe = np.load("/local/pyxalign-test-examples/probe.npy")
+
+    # Create the ComplexProjections object with probe information
+    projections = pyxalign.data_structures.ComplexProjections(
+        projections=projection_data,
+        angles=angles,
+        scan_numbers=scan_numbers,
+        options=options,
+        probe_positions=probe_positions,
+        probe=probe,
+    )
+
     # Wrap it in a LaminographyAlignmentTask
     task = pyxalign.data_structures.LaminographyAlignmentTask(
         pyxalign.options.AlignmentTaskOptions(),
