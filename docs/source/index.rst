@@ -10,11 +10,17 @@ pyxalign Documentation
 .. `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
 .. documentation for details.
 
-Welcome to the docs page for **pyxalign**!
+.. image:: _static/pyxalign-logo.svg
+   :width: 400px
+   :alt: pyxalign logo
+   :align: center
 
-pyxalign is a python package for loading, aligning, and reconstructing 3D volumes for tomography or laminography datasets. pyxalign currently supports ptychography and x-ray flourescence (XRF) datasets.
+**pyxalign** is a python package for loading, aligning, and reconstructing 3D volumes for tomography or laminography datasets. pyxalign currently supports ptychography and x-ray flourescence (XRF) datasets.
 
-To get started with pyxalign, try running an :doc:`example </examples/index>` and consult the :doc:`file loading documentation </api/io>` to learn how to load data from your beamline.
+To get started with pyxalign:
+
+* :doc:`Get started with scripting </examples/index>`
+* :doc:`Get started with the pyxalign-autorunner GUI </autorunner_guide/starting_and_loading_data>`
 
 If you have any questions about pyxalign or if you would like me to add a data loader for your experiment, please email me at hruth@anl.gov.
 
