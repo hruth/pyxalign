@@ -1,16 +1,19 @@
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 import numpy as np
 import tifffile
+import tqdm
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
+from pyxalign.data_structures.task import load_task
 from pyxalign.plotting.plotters import add_scalebar
 from pyxalign.transformations.functions import image_crop
 
 
 def plot_slice_comparison_with_insets(
-    volume_paths: list[str],
-    layer_indices: list[int],
-    pixel_sizes: list[float],
+    layer_indices: Union[int, list[int]],
+    pixel_sizes: Union[float, list[float]],
+    volume_arrays: Optional[list[np.ndarray]] = None,
+    volume_paths: Optional[list[str]] = None,
     outer_crop_width_m: float = 20e-6,
     zoom_width_m: float = 2e-6,
     inset_zoom: int = 4,
@@ -25,25 +28,32 @@ def plot_slice_comparison_with_insets(
     figsize: Optional[tuple[int]] = None,
     show_plot: bool = True,
     invert: Optional[list[bool]] = None,
+    include_inset: bool = True,
 ):
     """
-    Plot a comparison of image slices from multiple TIFF volumes with
-    zoomed insets.
+    Plot a comparison of image slices from multiple TIFF volumes or 3D
+    numpy arrays with zoomed insets. This function applies an outer crop
+    to focus on a larger region, and then adds a zoomed inset showing a
+    smaller subregion centered at some user specified position.
 
-    This function reads a specified layer (slice) from each TIFF volume
-    on disk, applies an outer crop to focus on a larger region, and then
-    adds a zoomed inset showing a smaller subregion centered at a
-    fractional position. Each subplot displays its own scalebar and
+    The inputs can be provided as a list of file paths to tiff files
+    or as a list of 3D arrays. If `volume_paths` is provided, this function
+    reads a specified layer (slice) from each TIFF volume on disk. If
+    `volume_arrays` is provided, volume arrays are used in the plot
+
+    Each subplot displays its own scalebar and
     optional contrast adjustment, and titles can be automatically
     generated or appended to.
 
     Args:
-        volume_paths (list[str]):
-            Paths to the TIFF volume files.
-        layer_indices (list[int]):
+        layer_indices:
             Slice indices to extract from each volume.
-        pixel_sizes (list[float]):
+        pixel_sizes:
             Physical pixel sizes (in meters) corresponding to each volume.
+        volume_arrays(Optional[list[np.ndarray]]):
+            List of arrays to plot.
+        volume_paths (Optional[list[str]])
+            Paths to the TIFF volume files.
         outer_crop_width_m (float):
             Side length (in meters) of the outer crop applied to each
             slice. Defaults to 20e-6.
@@ -81,16 +91,41 @@ def plot_slice_comparison_with_insets(
         matplotlib.figure.Figure:
             The figure object containing the grid of subplots, each with its inset.
     """
-    if clim_mult_list is None:
-        clim_mult_list = [None] * (len(volume_paths))
-    if invert is None:
-        invert = [False] * (len(volume_paths))
+    if volume_arrays is None and volume_paths is None:
+        raise ValueError("Must provide volume array or path to tiff of 3D volume")
+    elif volume_arrays is not None and volume_paths is not None:
+        raise ValueError("Must provide only volume_arrays OR volume_paths, not both")
+    elif volume_arrays is not None:
+        n_plots = len(volume_arrays)
+    elif volume_paths is not None:
+        n_plots = len(volume_paths)
 
-    n_cols = int(np.ceil(len(volume_paths) / n_rows))
-    fig, ax = plt.subplots(n_rows, n_cols, layout="compressed", figsize=figsize)
-    ax = ax.ravel()
+    if clim_mult_list is None:
+        clim_mult_list = [None] * n_plots
+    if invert is None:
+        invert = [False] * n_plots
+    if not hasattr(layer_indices, "__len__"):
+        layer_indices = [layer_indices] * n_plots
+    if not hasattr(pixel_sizes, "__len__"):
+        pixel_sizes = [pixel_sizes] * n_plots
+
+    n_cols = int(np.ceil(n_plots / n_rows))
+    fig, axs = plt.subplots(n_rows, n_cols, layout="compressed", figsize=figsize)
+    if n_plots > 1:
+        axs = axs.ravel()
+
+    array, path = None, None
     for i in range(n_cols * n_rows):
-        plt.sca(ax[i])
+        if n_plots > 1:
+            plt.sca(axs[i])
+            ax = axs[i]
+        else:
+            ax = axs
+
+        if i >= n_plots:
+            plt.axis("off")
+            continue
+
         plot_title = rf"$\nu$ = {pixel_sizes[i] * 1e9:.1f} nm"
         if append_title_list is not None:
             plot_title += f"{append_title_list[i]}"
@@ -98,11 +133,16 @@ def plot_slice_comparison_with_insets(
         # pick exact pixel center on the shown (large-cropped) image
         outer_crop_width_px = int(outer_crop_width_m / pixel_sizes[i])
         zoom_width_px = int(zoom_width_m / pixel_sizes[i])
-        plot_tiff_layer(
-            ax[i],
-            volume_paths[i],
-            layer_indices[i],
-            zoom_width_px,
+        if volume_paths is not None:
+            path = volume_paths[i]
+        elif volume_arrays is not None:
+            array = volume_arrays[i]
+        plot_array_layer(
+            ax=ax,
+            layer_index=layer_indices[i],
+            plot_crop_width=zoom_width_px,
+            array=array,
+            filepath=path,
             pixel_size=pixel_sizes[i],
             inset_loc=inset_loc,
             inset_zoom=inset_zoom,
@@ -113,6 +153,7 @@ def plot_slice_comparison_with_insets(
             colorbar=colorbar,
             plot_center_frac=plot_center_frac,
             invert=invert[i],
+            include_inset=include_inset,
         )
     if show_plot:
         plt.show()
@@ -120,12 +161,13 @@ def plot_slice_comparison_with_insets(
     return fig
 
 
-def plot_tiff_layer(
+def plot_array_layer(
     ax,
-    filepath: str,
     layer_index: int,
     plot_crop_width: int,
     pixel_size: float,
+    array: Optional[np.ndarray] = None,
+    filepath: Optional[str] = None,
     inset_loc="upper right",
     inset_zoom=4,
     large_crop_size=1200,
@@ -133,8 +175,8 @@ def plot_tiff_layer(
     clim_mult=None,
     clim: Optional[list[float]] = None,
     colorbar: bool = False,
-    return_layer=False,
     invert: bool = False,
+    include_inset: bool = True,
     *,
     plot_center=None,  # (y, x) in pixels on the (possibly) cropped image
     plot_center_frac=None,  # (fy, fx) in [0,1]; ignored if plot_center is provided
@@ -147,8 +189,11 @@ def plot_tiff_layer(
       - plot_center_frac=(fy, fx) in [0,1].
     If neither is provided, center of the image is used.
     """
-    with tifffile.TiffFile(filepath) as tif:
-        layer = tif.pages[layer_index].asarray()
+    if filepath is not None:
+        with tifffile.TiffFile(filepath) as tif:
+            layer = tif.pages[layer_index].asarray()
+    elif array is not None:
+        layer = array[layer_index]
 
     # Apply your larger background crop first (your image_crop)
     layer = image_crop(layer, large_crop_size, large_crop_size)
@@ -175,56 +220,59 @@ def plot_tiff_layer(
 
     h, w = layer.shape[:2]
 
-    # Determine inset center
-    if plot_center is not None:
-        cy, cx = plot_center
-    elif plot_center_frac is not None:
-        fy, fx = plot_center_frac
-        # clamp fractions just in case
-        fy = float(np.clip(fy, 0.0, 1.0))
-        fx = float(np.clip(fx, 0.0, 1.0))
-        cy = int(round(fy * (h - 1)))
-        cx = int(round(fx * (w - 1)))
-    else:
-        cy, cx = h // 2, w // 2
+    if include_inset:
+        # Determine inset center
+        if plot_center is not None:
+            cy, cx = plot_center
+        elif plot_center_frac is not None:
+            fy, fx = plot_center_frac
+            # clamp fractions just in case
+            fy = float(np.clip(fy, 0.0, 1.0))
+            fx = float(np.clip(fx, 0.0, 1.0))
+            cy = int(round(fy * (h - 1)))
+            cx = int(round(fx * (w - 1)))
+        else:
+            cy, cx = h // 2, w // 2
 
-    # Inset crop bounds
-    x1, x2, y1, y2 = _clamped_crop_bounds(h, w, plot_crop_width, cy, cx)
+        # Inset crop bounds
+        x1, x2, y1, y2 = _clamped_crop_bounds(h, w, plot_crop_width, cy, cx)
 
-    # Inset axes & view
-    inset_color = "sandybrown"
-    ls = "-"
-    inset_linewidth = 1.1
-    axins = zoomed_inset_axes(ax, zoom=inset_zoom, loc=inset_loc, borderpad=0.3)
-    im = axins.imshow(layer, cmap="bone")
-    if clim_mult is not None:
-        im.set_clim(new_clim)
-    elif clim is not None:
-        im.set_clim(clim)
-    axins.set_xlim(x1, x2)
-    axins.set_ylim(y2, y1)  # origin='upper' default -> invert y to show correctly
-    axins.set_xticks([])
-    axins.set_yticks([])
-    for spine in axins.spines.values():
-        spine.set_edgecolor(inset_color)
-        spine.set_linewidth(inset_linewidth)  # optional, to match thickness
-        spine.set_linestyle(ls)
-    plt.sca(axins)
-    add_scalebar(pixel_size, plot_crop_width, scalebar_fractional_width=scalebar_fractional_width)
-    # Connect and outline the marked region on the parent
-    if inset_loc == "upper right" or inset_loc == "upper left":
-        loc1, loc2 = 3, 4
-    elif inset_loc == "lower right" or inset_loc == "lower left":
-        loc1, loc2 = 1, 2
-    else:
-        loc1, loc2 = None, None
-    mark_inset(
-        ax, axins, loc1=loc1, loc2=loc2, fc="none", ec=inset_color, lw=inset_linewidth, ls=ls
-    )
-    if not return_layer:
+        # Inset axes & view
+        inset_color = "sandybrown"
+        ls = "-"
+        inset_linewidth = 1.1
+        axins = zoomed_inset_axes(ax, zoom=inset_zoom, loc=inset_loc, borderpad=0.3)
+        im = axins.imshow(layer, cmap="bone")
+        if clim_mult is not None:
+            im.set_clim(new_clim)
+        elif clim is not None:
+            im.set_clim(clim)
+        axins.set_xlim(x1, x2)
+        axins.set_ylim(y2, y1)  # origin='upper' default -> invert y to show correctly
+        axins.set_xticks([])
+        axins.set_yticks([])
+        for spine in axins.spines.values():
+            spine.set_edgecolor(inset_color)
+            spine.set_linewidth(inset_linewidth)  # optional, to match thickness
+            spine.set_linestyle(ls)
+        plt.sca(axins)
+        add_scalebar(
+            pixel_size, plot_crop_width, scalebar_fractional_width=scalebar_fractional_width
+        )
+        # Connect and outline the marked region on the parent
+        if inset_loc == "upper right" or inset_loc == "upper left":
+            loc1, loc2 = 3, 4
+        elif inset_loc == "lower right" or inset_loc == "lower left":
+            loc1, loc2 = 1, 2
+        else:
+            loc1, loc2 = None, None
+        mark_inset(
+            ax, axins, loc1=loc1, loc2=loc2, fc="none", ec=inset_color, lw=inset_linewidth, ls=ls
+        )
+    if include_inset:
         return im, axins
     else:
-        return im, axins, layer
+        return im
 
 
 def _clamped_crop_bounds(h: int, w: int, crop: int, cy: int, cx: int):
@@ -240,3 +288,28 @@ def _clamped_crop_bounds(h: int, w: int, crop: int, cy: int, cx: int):
     if y2 - y1 < 1:
         y2 = min(h, y1 + 1)
     return x1, x2, y1, y2
+
+
+def collect_volumes_from_task_files(
+    file_paths: list[str],
+    rotate_volumes: bool = False,
+    volume_width_multiplier: Optional[float] = None,
+    rotation_angles: Optional[list[float]] = None,
+):
+    volumes = []
+    for i, path in tqdm.tqdm(enumerate(file_paths)):
+        task = load_task(path, exclude="complex_projections")
+        if volume_width_multiplier is not None:
+            task.phase_projections.options.volume_width.use_custom_width = True
+            task.phase_projections.options.volume_width.multiplier = volume_width_multiplier 
+        task.phase_projections.masks = None
+        task.phase_projections.apply_staged_shift()
+        task.phase_projections.get_3D_reconstruction()
+        if i == 0 and rotate_volumes and (rotation_angles is None):
+            task.phase_projections.volume.get_optimal_rotation_of_reconstruction()
+            rotation_angles = task.phase_projections.volume.optimal_rotation_angles
+        if rotate_volumes:
+            task.phase_projections.volume.optimal_rotation_angles = rotation_angles
+            task.phase_projections.volume.rotate_reconstruction()
+        volumes += [task.phase_projections.volume.data]
+    return volumes

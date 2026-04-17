@@ -3,11 +3,17 @@ import cupy as cp
 import numpy as np
 import scipy
 import math
+import tqdm
+import matplotlib.pyplot as plt
 from pyxalign.api.enums import ImageGradientMethods, ImageIntegrationMethods, PhaseUnwrapMethods
 from pyxalign.api.options.options import PhaseUnwrapOptions
+from pyxalign.api.options.roi import ROIOptions, RectangularROIOptions
+from pyxalign.api.options.transform import CropOptions
 from pyxalign.api.types import r_type, c_type, ArrayType
 from pyxalign.gpu_utils import memory_releasing_error_handler, get_scipy_module
+from pyxalign.mask import get_masks_from_roi
 from pyxalign.timing.timer_utils import timer, InlineTimer
+from pyxalign.transformations.classes import Cropper
 from pyxalign.transformations.functions import image_shift_fft
 
 
@@ -43,12 +49,11 @@ def unwrap_phase(
             images,
             weights,
             options.iterative_residual.iterations,
-            options.iterative_residual.lsq_fit_ramp_removal,
         )
     elif options.method == PhaseUnwrapMethods.GRADIENT_INTEGRATION:
         unwrapped_phase = xp.zeros(shape=images.shape, dtype=r_type)
         for i in range(len(images)):
-            if options.gradient_integration.use_masks:
+            if weights is not None:
                 weight_map = weights[i]
             else:
                 weight_map = None
@@ -58,8 +63,16 @@ def unwrap_phase(
                 image_integration_method=options.gradient_integration.integration_method,
                 fourier_shift_step=options.gradient_integration.fourier_shift_step,
                 weight_map=weight_map,
-                deramp_polyfit_order=options.gradient_integration.deramp_polyfit_order,
             )
+
+    # remove phase ramp
+    if options.remove_ramp_using_air_gap.enabled:
+        unwrapped_phase = remove_phase_ramp(
+            unwrapped_phase,
+            air_gap_roi=options.remove_ramp_using_air_gap.air_region,
+            weights=weights,
+            polyfit_order=options.remove_ramp_using_air_gap.polyfit_order,
+        )
     return unwrapped_phase
 
 
@@ -69,7 +82,6 @@ def unwrap_phase_iterative_residual_correction(
     images: ArrayType,
     weights: ArrayType,
     iterations: int,
-    lsq_fit_ramp_removal: Optional[bool] = False,
 ):
     """Unwrap phase using iterative residual correction method.
 
@@ -95,24 +107,20 @@ def unwrap_phase_iterative_residual_correction(
     # Ensure the weights are all between 0 and 1
     weights[weights < 0] = 0
     weights = weights / weights.max()
-    bool_weights = weights.astype(bool)
+    # bool_weights = weights.astype(bool)
     phase_block = 0
     for i in range(iterations):
         if i == 0:
             images_resid = images
         else:
             images_resid = images * xp.exp(-1j * phase_block)
-        phase_block = phase_block + weights * phase_unwrap_2D(images_resid, weights)
-        # if empty_region != []:
-        #   raise NotImplementedError
-        # phase_block = remove_sinogram_ramp(phase_block, empty_region, options.poly_fit_order)
-    # Remove phase ramp
-    if lsq_fit_ramp_removal:
-        for j in range(len(phase_block)):
-            phase_block[j] = remove_phase_ramp(phase_block[j], bool_weights[j])
+        phase_block = phase_block + phase_unwrap_2D(images_resid, weights) * weights
+        # if enable_air_gap_ramp_removal:
+        #     phase_block = remove_sinogram_ramp(phase_block, weights, air_gap_roi=air_gap, polyfit_order=polyfit_order)
     return phase_block
 
 
+@timer()
 def phase_unwrap_2D(images: ArrayType, weights: ArrayType, padding: int = 64):
     """Perform 2D phase unwrapping using Fourier gradient integration.
 
@@ -152,7 +160,6 @@ def phase_unwrap_2D(images: ArrayType, weights: ArrayType, padding: int = 64):
     return phase[:, start_idx_1:stop_idx_1, start_idx_2:stop_idx_2]
 
 
-
 def get_images_int_2D(dX: ArrayType, dY: ArrayType):
     """Integrate 2D phase gradients using Fourier domain integration.
 
@@ -178,13 +185,9 @@ def get_images_int_2D(dX: ArrayType, dY: ArrayType):
     n_z, n_y, n_x = dX.shape
 
     fD = scipy_module.fft.fft2(dX + 1j * dY, axes=(1, 2))
-    x_grid = scipy_module.fft.ifftshift(
-        xp.arange(-np.fix(n_x / 2), np.ceil(n_x / 2), dtype=r_type)
-    )
+    x_grid = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_x / 2), np.ceil(n_x / 2), dtype=r_type))
     x_grid /= n_x
-    y_grid = scipy_module.fft.ifftshift(
-        xp.arange(-np.fix(n_y / 2), np.ceil(n_y / 2), dtype=r_type)
-    )
+    y_grid = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_y / 2), np.ceil(n_y / 2), dtype=r_type))
     y_grid /= n_y
 
     X = xp.exp((2j * xp.pi) * x_grid + y_grid[:, None])
@@ -269,9 +272,7 @@ def unwrap_phase_gradient_integration(
             padding_mode = "reflect"
         else:
             padding_mode = "replicate"
-        image = xp.pad(
-            image, (padding[1], padding[1], padding[0], padding[0]), mode=padding_mode
-        )
+        image = xp.pad(image, (padding[1], padding[1], padding[0], padding[0]), mode=padding_mode)
         image = vignette(image, margin=10, sigma=2.5)
 
     gy, gx = get_phase_gradient(
@@ -299,6 +300,7 @@ def unwrap_phase_gradient_integration(
         phase = phase[padding[0] : -padding[0], padding[1] : -padding[1]]
 
     if flat_region_mask is not None:
+        # doesn't run
         phase = remove_polynomial_background(
             phase, flat_region_mask, polyfit_order=deramp_polyfit_order
         )
@@ -310,6 +312,7 @@ def unwrap_phase_gradient_integration(
     return phase
 
 
+# doesn't run
 @timer()
 def remove_polynomial_background(
     images: ArrayType,
@@ -359,12 +362,10 @@ def remove_polynomial_background(
     const_basis = xp.ones(len(ys))
     const_basis_full = xp.ones(len(y_full))
 
-    a_mat = xp.stack(y_all_orders + x_all_orders + [const_basis], dim=1)
+    a_mat = xp.stack(y_all_orders + x_all_orders + [const_basis], axis=1)
     b_vec = images[flat_region_mask].reshape(-1, 1)
     x_vec = xp.linalg.solve(a_mat, b_vec)
-    a_mat_full = xp.stack(
-        y_full_all_orders + x_full_all_orders + [const_basis_full], dim=1
-    )
+    a_mat_full = xp.stack(y_full_all_orders + x_full_all_orders + [const_basis_full], axis=1)
     bg = a_mat_full @ x_vec
     bg = bg.reshape(images.shape)
     return images - bg
@@ -444,9 +445,7 @@ def vignette(
             window_func = scipy_module.signal.windows.general_hamming(
                 images.shape[i_dim], periodic=True, alpha=0.5, beta=0.5
             )
-            images = images * window_func.reshape(
-                [-1] + [1] * (images.ndim - i_dim - 1)
-            )
+            images = images * window_func.reshape([-1] + [1] * (images.ndim - i_dim - 1))
         else:
             raise ValueError(f"Unknown method: {method}")
 
@@ -503,9 +502,7 @@ def integrate_image_2d_fourier(grad_y: ArrayType, grad_x: ArrayType) -> ArrayTyp
 
 
 @timer()
-def integrate_image_2d(
-    grad_y: ArrayType, grad_x: ArrayType, bc_center: float = 0
-) -> ArrayType:
+def integrate_image_2d(grad_y: ArrayType, grad_x: ArrayType, bc_center: float = 0) -> ArrayType:
     """Integrate an image with the gradient in y and x directions.
 
     Args:
@@ -520,9 +517,7 @@ def integrate_image_2d(
 
     left_boundary = xp.cumsum(grad_y[:, 0], axis=0)
     int_img = xp.cumsum(grad_x, axis=1) + left_boundary[:, None]
-    int_img = (
-        int_img + bc_center - int_img[int_img.shape[0] // 2, int_img.shape[1] // 2]
-    )
+    int_img = int_img + bc_center - int_img[int_img.shape[0] // 2, int_img.shape[1] // 2]
     return int_img
 
 
@@ -574,9 +569,7 @@ def integrate_image_2d_deconvolution(
     # f_grad_x = pmath.fft2_precise(grad_x)
     f_grad_y = scipy_module.fft.fft2(grad_y)
     f_grad_x = scipy_module.fft.fft2(grad_x)
-    images = (f_grad_y * tf_y + f_grad_x * tf_x) / (
-        xp.abs(tf_y) ** 2 + xp.abs(tf_x) ** 2 + 1e-5
-    )
+    images = (f_grad_y * tf_y + f_grad_x * tf_x) / (xp.abs(tf_y) ** 2 + xp.abs(tf_x) ** 2 + 1e-5)
     # images = -pmath.ifft2_precise(images)
     images = -scipy_module.fft.ifft2(images)
     images = images + bc_center - images[images.shape[0] // 2, images.shape[1] // 2]
@@ -660,25 +653,36 @@ def convolve1d(
 
 
 @timer()
-def remove_phase_ramp(phase: ArrayType, mask: np.ndarray):
-    """Remove the phase ramp from a 2D phase array using masked region estimation.
+def remove_phase_ramp_using_empty_region(
+    phase: ArrayType, empty_region_mask: np.ndarray, order: int = 1
+):
+    """Remove polynomial phase trends from a 2D phase array using masked region estimation.
 
-    This function removes linear phase ramps from a 2D phase array by fitting
-    a plane to the masked region and subtracting it from the entire array.
+    This function removes polynomial phase trends from a 2D phase array by fitting
+    a polynomial surface to the masked region and subtracting it from the entire array.
 
     Args:
         phase: A 2D array representing the phase (in radians).
-        mask: A 2D boolean array (same shape as `phase`), where True indicates
-            the region to use for phase ramp estimation.
+        empty_region_mask: A 2D boolean array (same shape as `phase`),
+            where True indicates the region to use for phase trend
+            estimation.
+        order: Polynomial order for the fit (default=1 for linear/planar fit).
+            - order=1: linear ramp (a*x + b*y + c)
+            - order=2: quadratic (a*x² + b*y² + c*xy + d*x + e*y + f)
+            - order=3: cubic, etc.
 
     Returns:
         The phase-corrected 2D array.
 
     Raises:
         ValueError: If phase and mask arrays have different shapes.
+        ValueError: If order is less than 1.
     """
-    if phase.shape != mask.shape:
+    if phase.shape != empty_region_mask.shape:
         raise ValueError("Phase and mask arrays must have the same shape.")
+
+    if order < 1:
+        raise ValueError("Polynomial order must be at least 1.")
 
     xp = cp.get_array_module(phase)
 
@@ -691,15 +695,24 @@ def remove_phase_ramp(phase: ArrayType, mask: np.ndarray):
     inline_timer = InlineTimer("extract masked data")
     inline_timer.start()
     # Extract only masked data
-    x_masked = x[mask]
-    y_masked = y[mask]
-    phase_masked = phase[mask]
+    x_masked = x[empty_region_mask]
+    y_masked = y[empty_region_mask]
+    phase_masked = phase[empty_region_mask]
     inline_timer.end()
 
     inline_timer = InlineTimer("get design matrix")
     inline_timer.start()
-    # Construct the design matrix A for Ax = b (where A contains x, y, and constant terms)
-    A = xp.column_stack((x_masked, y_masked, xp.ones_like(x_masked)))
+    # Construct the design matrix A for polynomial fit
+    # Generate all polynomial terms up to the specified order
+    A_columns = []
+    for total_degree in range(order + 1):
+        for x_degree in range(total_degree + 1):
+            y_degree = total_degree - x_degree
+            # Add term: x^x_degree * y^y_degree
+            term = (x_masked**x_degree) * (y_masked**y_degree)
+            A_columns.append(term)
+
+    A = xp.column_stack(A_columns)
     b = phase_masked
     inline_timer.end()
 
@@ -716,18 +729,25 @@ def remove_phase_ramp(phase: ArrayType, mask: np.ndarray):
     atb_timer.end()
     solve_timer = InlineTimer("solve")
     solve_timer.start()
-    params_opt = AtA_inv @ Atb  # Solve for [a, b, c]
+    params_opt = AtA_inv @ Atb  # Solve for polynomial coefficients
     solve_timer.end()
     inline_timer.end()
 
     inline_timer = InlineTimer("compute ramp over full grid")
     inline_timer.start()
-    # Compute the phase ramp over the full grid
-    phase_ramp = params_opt[0] * x + params_opt[1] * y + params_opt[2]
+    # Compute the polynomial surface over the full grid
+    phase_trend = xp.zeros_like(phase)
+    param_idx = 0
+    for total_degree in range(order + 1):
+        for x_degree in range(total_degree + 1):
+            y_degree = total_degree - x_degree
+            # Add term: coefficient * x^x_degree * y^y_degree
+            phase_trend += params_opt[param_idx] * (x**x_degree) * (y**y_degree)
+            param_idx += 1
     inline_timer.end()
 
-    # Remove the phase ramp
-    return phase - phase_ramp
+    # Remove the phase trend
+    return phase - phase_trend
 
 
 @timer()
@@ -781,13 +801,10 @@ def get_phase_gradient(
             # non-zero values that dangles around 0. This can cause the phase
             # of the shifted image to dangle between pi and -pi. In that case, use
             # `finite_diff_method="nearest" instead`, or use `step=1`.
-            complex_prod = (
-                image_shift_fft(image, sy1) * image_shift_fft(image, sy2).conj()
-            )
+            complex_prod = image_shift_fft(image, sy1) * image_shift_fft(image, sy2).conj()
         elif image_grad_method == ImageGradientMethods.NEAREST:
             complex_prod = (
-                image
-                * xp.concatenate([image[:, :1, :], image[:, :-1, :]], axis=1).conj()
+                image * xp.concatenate([image[:, :1, :], image[:, :-1, :]], axis=1).conj()
             )
         else:
             raise ValueError(f"Unknown finite-difference method: {image_grad_method}")
@@ -801,13 +818,10 @@ def get_phase_gradient(
         sx1 = xp.array([[0, -fourier_shift_step]]).repeat(image.shape[0], 1)
         sx2 = xp.array([[0, fourier_shift_step]]).repeat(image.shape[0], 1)
         if image_grad_method == ImageGradientMethods.FOURIER_SHIFT:
-            complex_prod = (
-                image_shift_fft(image, sx1) * image_shift_fft(image, sx2).conj()
-            )
+            complex_prod = image_shift_fft(image, sx1) * image_shift_fft(image, sx2).conj()
         elif image_grad_method == ImageGradientMethods.NEAREST:
             complex_prod = (
-                image
-                * xp.concatenate([image[:, :, :1], image[:, :, :-1]], axis=2).conj()
+                image * xp.concatenate([image[:, :, :1], image[:, :, :-1]], axis=2).conj()
             )
         complex_prod = xp.where(
             xp.abs(complex_prod) < xp.abs(complex_prod).max() * 1e-6, 0, complex_prod
@@ -847,9 +861,7 @@ def torch_pad_to_numpy_pad(input, pad_lengths, mode="replicate"):
     # NumPy: ((dim0_before, dim0_after), (dim1_before, dim1_after), ...)
 
     # Group into pairs: [(left, right), (top, bottom), (front, back), ...]
-    pad_pairs = [
-        (pad_lengths[i], pad_lengths[i + 1]) for i in range(0, len(pad_lengths), 2)
-    ]
+    pad_pairs = [(pad_lengths[i], pad_lengths[i + 1]) for i in range(0, len(pad_lengths), 2)]
 
     # Reverse to get forward dimension order
     pad_pairs = pad_pairs[::-1]
@@ -863,7 +875,7 @@ def torch_pad_to_numpy_pad(input, pad_lengths, mode="replicate"):
     return np.pad(input, pad_width=pad_width, mode=numpy_mode)
 
 
-#### shared functions #### 
+#### shared functions ####
 def get_phase_gradient_fourier(images: ArrayType):
     """Compute phase gradients using Fourier differentiation.
 
@@ -913,18 +925,199 @@ def get_image_grad(images: ArrayType):
 
     n_z, n_y, n_x = images.shape
 
-    X = scipy_module.fft.ifftshift(
-        xp.arange(-np.fix(n_x / 2), np.ceil(n_x / 2), dtype=c_type)
-    )
+    X = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_x / 2), np.ceil(n_x / 2), dtype=c_type))
     X *= 2j * xp.pi / n_x
     dX = scipy_module.fft.fft(images, axis=2) * X
     dX = scipy_module.fft.ifft(dX, axis=2)
 
-    Y = scipy_module.fft.ifftshift(
-        xp.arange(-np.fix(n_y / 2), np.ceil(n_y / 2), dtype=c_type)
-    )
+    Y = scipy_module.fft.ifftshift(xp.arange(-np.fix(n_y / 2), np.ceil(n_y / 2), dtype=c_type))
     Y *= 2j * xp.pi / n_y
     dY = scipy_module.fft.fft(images, axis=1) * Y[:, None]
     dY = scipy_module.fft.ifft(dY, axis=1)
 
     return dX, dY
+
+
+@timer()
+def remove_phase_ramp(
+    sinogram: ArrayType,
+    air_gap_roi: CropOptions,
+    weights: Optional[ArrayType] = None,
+    polyfit_order: int = 1,
+) -> ArrayType:
+    # the air_region mask manipulation is what is taking the longest here
+    air_region_mask = get_masks_from_roi(ROIOptions(rectangle=air_gap_roi), sinogram.shape)
+    if weights is not None:
+        if cp.get_array_module(weights) == cp:
+            air_region_mask *= weights.get()
+        else:
+            air_region_mask *= weights
+    for i in range(len(sinogram)):
+        sinogram[i] = remove_phase_ramp_using_empty_region(
+            sinogram[i], air_region_mask[i].astype(bool), polyfit_order
+        )
+        if weights is not None:
+            sinogram[i] *= weights[i]
+
+    return sinogram
+
+
+def remove_ramp_using_adjacent_scans(
+    phase: np.ndarray,
+    masks: np.ndarray,
+    angles: np.ndarray,
+    ramp_threshold: int = 5,
+    plot_fits: bool = False,
+    apply_edge_compensation: bool = True,
+    order: int = 1,
+    angular_ranges: Optional[list[tuple[int]]] = None,
+    reset_ramp_after_n: Optional[int] = None,
+    low_memory_mode: bool = False,
+):
+    """Remove phase ramps from tomographic scans using adjacent scan comparison.
+
+    This function processes a series of phase images acquired at different angles,
+    identifying and removing systematic phase ramps by comparing adjacent scans.
+    The algorithm accumulates detected ramps and applies corrections while handling
+    edge cases and angular range restrictions.
+
+    Args:
+        phase: Phase data array of shape (n_scans, height, width) containing the
+            phase images to be corrected.
+        masks: Binary mask array of shape (n_scans, height, width) indicating
+            empty/reference regions for each scan used in ramp fitting.
+        angles: Array of shape (n_scans,) containing the acquisition angle for
+            each scan in degrees or radians.
+        ramp_threshold: Peak-to-peak threshold value for ramp detection. Ramps
+            with amplitude below this value are ignored. Defaults to 5.
+        plot_fits: If True, displays matplotlib plots showing the fitting results
+            for each detected ramp exceeding the threshold. Defaults to False.
+        apply_edge_compenstation: If True, applies edge compensation by distributing
+            the ramp difference between first and last scans evenly across all
+            projections. Defaults to True.
+        order: Polynomial order for ramp fitting (1 for linear, 2 for quadratic,
+            etc.). Defaults to 1.
+        angular_ranges: List of tuples defining angular ranges (min, max) where
+            ramp removal should be applied. If None, applies to all angles.
+            Defaults to None.
+        reset_ramp_after_n: Number of consecutive scans without detected ramps
+            after which the accumulated phase trend is reset to zero.
+
+    Returns:
+        tuple: A 4-element tuple containing:
+            - updated_phase (np.ndarray): Corrected phase data with ramps removed,
+            same shape as input phase array.
+            - ramp_fit (np.ndarray): Final edge compensation ramp fit of shape
+            (height, width).
+            - all_pk_to_pk (list): List of peak-to-peak amplitudes for each
+            scan-to-scan ramp fit.
+            - all_ramp_fits (np.ndarray): Array of shape (n_scans, height, width)
+            containing the ramp fit applied at each scan position.
+    """
+
+    # there is no ramp accumulation, which needs to change
+    # could try accumulating the ramp only when there is a ramp detected to prevent errors
+    n = len(angles)
+
+    if angular_ranges is None:
+        angular_ranges = [(angles.min(), angles.max())]
+    def in_angle_range(angle):
+        for ranges in angular_ranges:
+            if angle < ranges[1] and angle > ranges[0]:
+                return True
+        return False
+
+
+    sort_data = True
+    if sort_data:
+        sort_idx = np.argsort(angles)
+    else:
+        sort_idx = np.arange(0, n, dtype=int)
+
+    # neighbor_diffs = phase[sort_idx[1:]] - phase[sort_idx[:-1]]
+    updated_phase = np.zeros_like(phase)
+    updated_phase[sort_idx[0]] = phase[sort_idx[0]] * 1
+    phase_trend = 0
+    n_trend_updates = 0
+    all_pk_to_pk = []
+    if not low_memory_mode:
+        all_ramp_fits = np.zeros_like(phase)
+
+    no_ramp_counter = 0
+    for i in tqdm.tqdm(range(n - 1)):
+        idx_ref, idx_upd = sort_idx[i], sort_idx[i + 1]
+        if in_angle_range(angles[idx_upd]):
+            neighbor_diff = phase[idx_upd] - phase[idx_ref]
+            empty_region_mask = masks[idx_ref] * masks[idx_upd]
+            new_phase = remove_phase_ramp_using_empty_region(
+                # cp.array(neighbor_diffs[i]),
+                cp.array(neighbor_diff),
+                cp.array(empty_region_mask.astype(bool)),
+                order=order,
+            ).get()
+
+            # accumulate the phase trend (maybe add threshold later)
+            # ramp_fit = neighbor_diffs[i] - new_phase
+            ramp_fit = neighbor_diff - new_phase
+            pk_to_pk = ramp_fit.max() - ramp_fit.min()
+            all_pk_to_pk += [pk_to_pk]
+
+            if pk_to_pk > ramp_threshold:
+                print(f"{i}: {pk_to_pk:.2f}")
+                print(f"ramp added at {i}")
+                phase_trend += ramp_fit
+                n_trend_updates += 1
+                if no_ramp_counter != 0:
+                    print(f"Ramp counter reset after {no_ramp_counter} fits")
+                no_ramp_counter = 0
+            else:
+                no_ramp_counter += 1
+                if reset_ramp_after_n is not None and (no_ramp_counter >= reset_ramp_after_n):
+                    phase_trend = 0
+                    no_ramp_counter = 0
+                    print(f"ramp reset at {i}")
+        else:
+            phase_trend = 0
+            no_ramp_counter = 0
+            ramp_fit = 0
+            pk_to_pk = 0
+        # needs thresholding of some sort
+        updated_phase[idx_upd] = phase[idx_upd] - phase_trend
+        # save ramp update
+        if not low_memory_mode:
+            all_ramp_fits[idx_upd] = ramp_fit
+
+        # plot slice results
+        if pk_to_pk > ramp_threshold and plot_fits:
+            slice_idx = new_phase.shape[0] // 2
+            plt.plot(
+                (neighbor_diff[slice_idx] * empty_region_mask[slice_idx]),
+                # (neighbor_diffs[i, slice_idx] * empty_region_mask[slice_idx]),
+                "k",
+                label="diff of neighbors",
+            )
+            plt.plot(new_phase[slice_idx] * empty_region_mask[slice_idx], label="fit to phase")
+            plt.plot(ramp_fit[slice_idx] * empty_region_mask[slice_idx])
+            plt.show()
+    plt.grid(ls=":")
+    plt.axhline(ramp_threshold, color="red")
+    plt.plot(all_pk_to_pk, ".", ms=3)
+    plt.autoscale(True, "x", True)
+    plt.show()
+    print(f"ramp accumulated {n_trend_updates} times")
+
+    # spread accumulation of ramp evenly across all projections
+    # incrementally remove ramps by using difference between first and last values
+    if apply_edge_compensation:
+        edge_neighbor_diff = updated_phase[sort_idx[0]] - updated_phase[sort_idx[-1]]
+        empty_region_mask  = masks[sort_idx[-1]] * masks[sort_idx[0]]
+        new_phase = remove_phase_ramp_using_empty_region(
+            cp.array(edge_neighbor_diff), cp.array(empty_region_mask.astype(bool)), order=order,
+        ).get()
+        ramp_fit = edge_neighbor_diff - new_phase
+        for i in range(n):
+            updated_phase[sort_idx[i]] += ramp_fit * i / n
+
+    if low_memory_mode: 
+        all_ramp_fits = None
+    return updated_phase, ramp_fit, all_pk_to_pk, all_ramp_fits

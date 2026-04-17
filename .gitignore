@@ -11,3 +11,5 @@ untracked_tests/*
 *src/paths/*
 **hidden/
 docs/build*
+*.nfs*
+docs/_build/*

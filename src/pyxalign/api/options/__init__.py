@@ -21,15 +21,24 @@ from .alignment import (
     StepMomentum,
     RefineGeometryOptions,
     PositivityConstraint,
+    SaveOptions,
 )
 from .projections import (
     CoordinateSearchOptions,
     EstimateCenterOptions,
+    FSCOptions,
     ProjectionOptions,
     ProjectionTransformOptions,
     ProbePositionMaskOptions,
+    VolumeWidthOptions,
 )
-from .reconstruct import ReconstructOptions, FilterOptions, AstraOptions, GeometryOptions
+from .reconstruct import (
+    ReconstructOptions,
+    FilterOptions,
+    AstraOptions,
+    GeometryOptions,
+    SARTOptions,
+)
 from .task import AlignmentTaskOptions
 from .options import (
     ExperimentOptions,
@@ -47,13 +56,12 @@ from .plotting import (
     ArrayViewerOptions,
     ProjectionViewerOptions,
 )
+from .roi import ROIOptions, RectangularROIOptions
 from .tests import CITestOptions
 
 __all__ = [
-    # Device options
     "DeviceOptions",
     "GPUOptions",
-    # Transform options
     "ShiftOptions",
     "DownsampleOptions",
     "CropOptions",
@@ -62,7 +70,6 @@ __all__ = [
     "RotationOptions",
     "ShearOptions",
     "PadOptions",
-    # Alignment options
     "AlignmentOptions",
     "CrossCorrelationOptions",
     "ProjectionMatchingOptions",
@@ -71,21 +78,16 @@ __all__ = [
     "ReconstructionMaskOptions",
     "StepMomentum",
     "RefineGeometryOptions",
-    "PositivityConstraint"
-    # Projection options
-    "CoordinateSearchOptions",
+    "PositivityConstraintCoordinateSearchOptions",
     "EstimateCenterOptions",
     "ProjectionOptions",
     "ProjectionTransformOptions",
     "ProbePositionMaskOptions",
-    # Reconstruction options
     "ReconstructOptions",
     "FilterOptions",
     "AstraOptions",
     "GeometryOptions",
-    # Task options
     "AlignmentTaskOptions",
-    # General options
     "ExperimentOptions",
     "MorphologicalMaskOptions",
     "PhaseRampRemovalOptions",
@@ -93,14 +95,19 @@ __all__ = [
     "RegularizationOptions",
     "GradientIntegrationUnwrapOptions",
     "IterativeResidualUnwrapOptions",
-    # Plotting options
     "UpdatePlotOptions",
     "PlotDataOptions",
     "ScalebarOptions",
     "ArrayViewerOptions",
     "ProjectionViewerOptions",
-    # Test options
     "CITestOptions",
-    # utility functions
     "utils",
+    "ROIOptions",
+    "RectangularROIOptions",
+    "PositivityConstraint",
+    "CoordinateSearchOptions",
+    "FSCOptions",
+    "SARTOptions",
+    "SaveOptions",
+    "VolumeWidthOptions",
 ]

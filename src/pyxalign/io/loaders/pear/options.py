@@ -5,6 +5,7 @@ import numpy as np
 import dataclasses
 from dataclasses import field
 
+from pyxalign.api.options.base import BaseOptions
 from pyxalign.io.loaders.enums import MDAFilePatterns, RotationAnglePVStrings
 
 
@@ -17,7 +18,7 @@ class LoaderType(StrEnum):
 
 
 @dataclasses.dataclass
-class BaseLoadOptions:
+class BaseLoadOptions(BaseOptions):
     """Options for loading ptychography reconstructions saved using the PEAR
     wrapper for Pty-Chi."""
 
@@ -101,7 +102,7 @@ class BaseLoadOptions:
 
 
 @dataclasses.dataclass
-class PEARLoadOptions(ABC):
+class PEARLoadOptions(ABC, BaseOptions):
     base: BaseLoadOptions = field(default_factory=BaseLoadOptions)
 
 
@@ -147,6 +148,12 @@ class LYNXLoadOptions(PEARLoadOptions):
     allowed value is equal to the number of tiles.
     """
 
+@dataclasses.dataclass
+class Ptycho12IDELoadOptions(PEARLoadOptions):
+    angles_file_path: str = ""
+
+    sample_name: str = ""
+
 
 @dataclasses.dataclass
 class MDAPEARLoadOptions(PEARLoadOptions):
@@ -170,7 +177,7 @@ class Microprobe2IDELoadOptions(MDAPEARLoadOptions):
     * processed using the **PEAR wrapper** for **Pty-Chi**
     """
 
-    _mda_file_pattern: MDAFilePatterns = MDAFilePatterns.XFM_MDA_H5
+    _mda_file_pattern: MDAFilePatterns = MDAFilePatterns.XFM_MDA
 
     _angle_pv_string: RotationAnglePVStrings = RotationAnglePVStrings.XFM_M60_VAL
 
@@ -186,3 +193,5 @@ class BNP2IDDLoadOptions(MDAPEARLoadOptions):
     _mda_file_pattern: MDAFilePatterns = MDAFilePatterns.BNP_FLY_MDA
 
     _angle_pv_string: RotationAnglePVStrings = RotationAnglePVStrings.IDBTAU_SM_ST_ACTPOS
+
+

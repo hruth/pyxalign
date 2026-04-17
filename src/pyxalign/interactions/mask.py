@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 
 import pyxalign.data_structures.projections as p
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
-from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend, center_window_on_screen
 from pyxalign.mask import get_simulated_probe_for_masks, place_patches_fourier_batch
 from pyxalign.interactions.viewers.base import IndexSelectorWidget
 from pyxalign.mask import clip_masks
@@ -293,6 +293,8 @@ class ThresholdSelector(QWidget):
             self.projections.masks[:] = new_masks
         # update threshold in projection options
         self.projections.options.mask_from_positions.threshold = self.threshold
+        # print selected threshold value
+        print(f"Selected threshold value: {self.threshold}")
 
         # Emit and close
         self.masks_created.emit(self.masks)
@@ -323,6 +325,7 @@ def launch_mask_builder(
     """
     app = QApplication.instance() or QApplication([])
     gui = ThresholdSelector(projections)
+    center_window_on_screen(gui, width_fraction=0.75, height_fraction=0.75)
     gui.show()
     gui.setAttribute(Qt.WA_DeleteOnClose)
     if wait_until_closed:

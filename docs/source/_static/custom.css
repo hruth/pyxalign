@@ -1,0 +1,8 @@
+.bordered-image img {
+    border: 2px solid #2980b9;
+    border-radius: 4px;
+}
+
+.align-bottom-cells td {
+    vertical-align: bottom;
+}

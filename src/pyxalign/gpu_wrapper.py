@@ -317,19 +317,46 @@ class Iterator:
 
     @timer(enabled=timer_enabled)
     def run(self, kwargs: dict = {}):
-        gpu_idx = 0
+        n_chunks = self.inputs.n_chunks
+        n_gpus = self.n_gpus
+        # pending[gpu_idx] = (iter, result, event) while that GPU's work is in-flight
+        pending: List[Optional[tuple]] = [None] * n_gpus
+
+        iterate_over = range(n_chunks)
         if self.display_progress_bar:
-            iterate_over = tqdm(range(self.inputs.n_chunks), desc=self.func.__name__)
-        else:
-            iterate_over = range(self.inputs.n_chunks)
+            iterate_over = tqdm(iterate_over, desc=self.func.__name__)
+
         for iter in iterate_over:
+            gpu_idx = iter % n_gpus
+
+            # Before reusing this GPU's input buffer, collect its previous result.
+            # Other GPUs continue running on the hardware during this D2H transfer.
+            if pending[gpu_idx] is not None:
+                prev_iter, prev_result, prev_event = pending[gpu_idx]
+                prev_event.synchronize()
+                self.outputs.update_results(prev_result, prev_iter)
+
+            # Enqueue H2D + compute — non-blocking on the host so other GPUs
+            # can be submitted and run in parallel.
             gpu = self.inputs.gpu_list[gpu_idx]
             cp.cuda.Device(gpu).use()
             with self.stream_list[gpu_idx]:
                 self.inputs.update_chunked_list(iter, gpu_idx)
                 chunked_results = self.func(*self.inputs.current_iter_args, **kwargs)
-                self.outputs.update_results(chunked_results, iter)
-            gpu_idx = (iter + 1) % self.n_gpus
+            event = cp.cuda.Event()
+            event.record(self.stream_list[gpu_idx])
+            pending[gpu_idx] = (iter, chunked_results, event)
+
+        # Drain remaining in-flight results. Sort by iter so iter==0 is always
+        # collected first, which is required for OutputResultsHandler initialization.
+        remaining = sorted(
+            ((gpu_idx, p) for gpu_idx, p in enumerate(pending) if p is not None),
+            key=lambda x: x[1][0],
+        )
+        for _gpu_idx, (prev_iter, prev_result, prev_event) in remaining:
+            prev_event.synchronize()
+            self.outputs.update_results(prev_result, prev_iter)
+
         if len(self.outputs.full_results) == 1:
             self.outputs.full_results = self.outputs.full_results[0]
 

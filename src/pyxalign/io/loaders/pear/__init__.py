@@ -4,6 +4,7 @@ from .options import (
     LYNXLoadOptions,
     Microprobe2IDELoadOptions,
     BNP2IDDLoadOptions,
+    Ptycho12IDELoadOptions,
     LoaderType,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "LYNXLoadOptions",
     "Microprobe2IDELoadOptions",
     "BNP2IDDLoadOptions",
+    "Ptycho12IDELoadOptions",
     "LoaderType",
 ]

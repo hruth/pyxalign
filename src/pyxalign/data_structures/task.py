@@ -109,7 +109,7 @@ class LaminographyAlignmentTask:
             options = self.options.projection_matching
 
         # run the pma algorithm
-        self.pma_object, shift = run_projection_matching(
+        shift = self.run_projection_matching(
             self.phase_projections, initial_shift, options
         )
 
@@ -128,8 +128,13 @@ class LaminographyAlignmentTask:
             gui.close()
         self.pma_gui_list = []
 
-    def get_unwrapped_phase(self, pinned_results: Optional[np.ndarray] = None):
-        if pinned_results is None:
+    def get_unwrapped_phase(
+        self, pinned_results: Optional[np.ndarray] = None, skip_pinning: bool = False
+    ):
+        if self.complex_projections is None:
+            raise ValueError("No complex projections available for phase unwrapping")
+
+        if not skip_pinning and pinned_results is None:
             if (
                 self.phase_projections is not None
                 and self.phase_projections.data.shape == self.complex_projections.data.shape
@@ -165,25 +170,26 @@ class LaminographyAlignmentTask:
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
 
-
-def run_projection_matching(
-    phase_projections: PhaseProjections,
-    initial_shift: np.ndarray,
-    projection_matching_options: ProjectionMatchingOptions,
-) -> tuple[ProjectionMatchingAligner, np.ndarray]:
-    # Initialize the projection-matching alignment object
-    pma_object = ProjectionMatchingAligner(phase_projections, projection_matching_options)
-    try:
-        if pma_object.options.interactive_viewer.update.enabled:
-            # Run PMA algorithm
-            shift = pma_object.run_with_GUI(initial_shift=initial_shift)
-        else:
-            # Run PMA algorithm
-            shift = pma_object.run(initial_shift=initial_shift)
-    except (Exception, KeyboardInterrupt):
-        shift = pma_object.total_shift * pma_object.scale
-    finally:
-        return pma_object, shift
+    def run_projection_matching(
+        self,
+        phase_projections: PhaseProjections,
+        initial_shift: np.ndarray,
+        projection_matching_options: ProjectionMatchingOptions,
+    ) -> tuple[ProjectionMatchingAligner, np.ndarray]:
+        # Initialize the projection-matching alignment object
+        self.pma_object = ProjectionMatchingAligner(phase_projections, projection_matching_options)
+        try:
+            if self.pma_object.options.interactive_viewer.update.enabled:
+                # Run PMA algorithm
+                shift = self.pma_object.run_with_GUI(initial_shift=initial_shift)
+            else:
+                # Run PMA algorithm
+                shift = self.pma_object.run(initial_shift=initial_shift)
+        except (Exception, KeyboardInterrupt) as ex:
+            print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
+            shift = self.pma_object.total_shift * self.pma_object.scale
+        finally:
+            return shift
 
 
 def load_task(file_path: str, exclude: Optional[str] = None) -> LaminographyAlignmentTask:

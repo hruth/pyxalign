@@ -4,8 +4,6 @@ from pyxalign.api.types import r_type
 from pyxalign.gpu_utils import memory_releasing_error_handler
 from pyxalign.timing.timer_utils import timer
 
-timerOn = False
-
 @memory_releasing_error_handler
 def div(P):
     xp = cp.get_array_module(P)
@@ -65,19 +63,13 @@ def chambolleLocalTV3D(x, alpha, Niter):
     for i in range(Niter):
         # Chambolle step
         gdv = grad(div(xi) - x / alpha)
-        # lam.utils.timerEnd(t0, "Chambolle Step", False)
 
         # Anisotropic
-
-        # d = xp.abs(gdv.sum(axis=0))
         d = xp.abs(gdv).sum(axis=0)
         xi = (xi + tau * gdv) / (1 + tau * d)
-        # lam.utils.timerEnd(t0, "Anisotropic", False)
 
         # Reconstruct
-
         x = x - alpha * div(xi)
-        # print("iteration", i)
 
     # prevent pushing values to zero by the TV regularization
     x = xp.sum(x0 * x) / xp.sum(x**2) * x

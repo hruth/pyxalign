@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
 import dataclasses
 from dataclasses import field
-from typing import Union
-import numpy as np
+from typing import Optional, Union
 from pyxalign.api.enums import ShiftType, DownsampleType, UpsampleType, RotationType, ShearType
 from pyxalign.api.options.device import DeviceOptions
+from .base import BaseOptions
 
 
 # @dataclasses.dataclass
-class TransformOptions(ABC):
+class TransformOptions(ABC, BaseOptions):
     @property
     @abstractmethod
     def enabled(self) -> bool:
@@ -78,13 +78,32 @@ class UpsampleOptions(TransformOptions):
 
 @dataclasses.dataclass
 class CropOptions(TransformOptions):
-    horizontal_range: int = 0
+    horizontal_range: Optional[int] = None
 
-    vertical_range: int = 0
+    vertical_range: Optional[int] = None
 
     horizontal_offset: int = 0
 
     vertical_offset: int = 0
+
+    enabled: bool = False
+
+    return_view: bool = False
+
+
+@dataclasses.dataclass
+class Crop3DOptions(TransformOptions):
+    horizontal_range: Optional[int] = None
+
+    vertical_range: Optional[int] = None
+
+    depth_range: Optional[int] = None
+
+    horizontal_offset: int = 0
+
+    vertical_offset: int = 0
+
+    depth_offset: int = 0
 
     enabled: bool = False
 
@@ -102,3 +121,5 @@ class PadOptions(TransformOptions):
     pad_value: int = 0#"mode"
 
     enabled: bool = False
+
+

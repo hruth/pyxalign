@@ -101,3 +101,25 @@ class ImageIntegrationMethods(StrEnum):
     FOURIER = auto()
     DECONVOLUTION = auto()
     # DISCRETE = auto()
+
+
+class FSCBitCurveTypes(StrEnum):
+    HALF_BIT = auto()
+    ONE_BIT = auto()
+    NONE = auto()
+
+
+class ReconstructionMethods(StrEnum):
+    ASTRA = auto()
+    SART = auto()
+
+
+class VolumeWidthTypes(StrEnum):
+    MULTIPLIER = auto()
+    METERS = auto()
+
+
+class SARTInitialVolumes(StrEnum):
+    FBP = auto()
+    ONES = auto()
+    ZEROS = auto()

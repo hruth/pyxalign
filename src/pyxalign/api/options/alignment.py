@@ -2,12 +2,16 @@ from abc import ABC
 import dataclasses
 from dataclasses import field
 from functools import partial
+from typing import Optional
+
+from numpy import save
 import pyxalign.api.enums as enums
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.options import RegularizationOptions
 from pyxalign.api.options.plotting import UpdatePlotOptions, PlotDataOptions
 from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.api.options.transform import CropOptions, DownsampleOptions
+from .base import BaseOptions
 
 
 @dataclasses.dataclass
@@ -16,7 +20,7 @@ class AlignmentOptions(ABC):
 
 
 @dataclasses.dataclass
-class CrossCorrelationOptions:
+class CrossCorrelationOptions(BaseOptions):
     iterations: int = 10
 
     binning: int = 4
@@ -25,7 +29,7 @@ class CrossCorrelationOptions:
 
     filter_data: float = 0.005
 
-    remove_slow_variation: bool = False
+    remove_slow_variation: bool = True
 
     use_end_corrections: bool = True
 
@@ -41,7 +45,7 @@ class CrossCorrelationOptions:
 
 
 @dataclasses.dataclass
-class ProjectionMatchingPlotOptions:
+class ProjectionMatchingPlotOptions(BaseOptions):
     update: UpdatePlotOptions = field(default_factory=UpdatePlotOptions)
 
     reconstruction: PlotDataOptions = field(default_factory=PlotDataOptions)
@@ -50,7 +54,7 @@ class ProjectionMatchingPlotOptions:
 
 
 @dataclasses.dataclass
-class ReconstructionMaskOptions:
+class ReconstructionMaskOptions(BaseOptions):
     enabled: bool = True
 
     rad_apod: int = 0
@@ -59,7 +63,7 @@ class ReconstructionMaskOptions:
 
 
 @dataclasses.dataclass
-class SecondaryMaskOptions:
+class SecondaryMaskOptions(BaseOptions):
     enabled: bool = False
 
     rad_apod: int = 100
@@ -68,7 +72,7 @@ class SecondaryMaskOptions:
 
 
 @dataclasses.dataclass
-class StepMomentum:
+class StepMomentum(BaseOptions):
     enabled: bool = False
 
     memory: int = 2
@@ -79,7 +83,7 @@ class StepMomentum:
 
 
 @dataclasses.dataclass
-class RefineGeometryOptions:
+class RefineGeometryOptions(BaseOptions):
     enabled: bool = False
 
     device: DeviceOptions = field(default_factory=DeviceOptions)
@@ -92,7 +96,7 @@ class RefineGeometryOptions:
 
 
 @dataclasses.dataclass
-class InteractiveViewerOptions:
+class InteractiveViewerOptions(BaseOptions):
     close_old_windows: bool = True
 
     update: UpdatePlotOptions = field(
@@ -105,14 +109,29 @@ def downsample_factory_for_estimate_center_options() -> DownsampleOptions:
 
 
 @dataclasses.dataclass
-class PositivityConstraint:
+class PositivityConstraint(BaseOptions):
     enabled: bool = False
 
     threshold: float = 0.0
 
 
 @dataclasses.dataclass
-class ProjectionMatchingOptions:
+class SaveOptions(BaseOptions):
+    enabled: bool = False
+
+    folder: str = ""
+
+    suffix: str = ""
+
+    save_pma_volume: bool = False
+
+    save_pma_projections: bool = False
+
+    save_pma_forward_projections: bool = False
+
+
+@dataclasses.dataclass
+class ProjectionMatchingOptions(BaseOptions):
     device: DeviceOptions = field(default_factory=DeviceOptions)
 
     keep_on_gpu: bool = False
@@ -133,6 +152,9 @@ class ProjectionMatchingOptions:
 
     min_step_size: float = 0.01
 
+    exclude_scans_from_alignment: Optional[list[int]] = None
+    "These scans will not have their position updated"
+
     regularization: RegularizationOptions = field(default_factory=RegularizationOptions)
 
     refine_geometry: RefineGeometryOptions = field(default_factory=RefineGeometryOptions)
@@ -146,6 +168,8 @@ class ProjectionMatchingOptions:
     secondary_mask: SecondaryMaskOptions = field(default_factory=SecondaryMaskOptions)
 
     reconstruct: ReconstructOptions = field(default_factory=ReconstructOptions)
+
+    override_projection_geometry: bool = False
 
     tukey_shape_parameter: float = 0.2
 
@@ -163,4 +187,12 @@ class ProjectionMatchingOptions:
 
     positivity_constraint: PositivityConstraint = field(default_factory=PositivityConstraint)
 
-    plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
+    horizontal_offset: float = 0
+
+    vertical_offset: float = 0
+
+    sample_thickness: Optional[float] = None
+
+    save: SaveOptions = field(default_factory=SaveOptions)
+
+    # plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)

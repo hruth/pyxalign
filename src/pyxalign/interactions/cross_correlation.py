@@ -19,27 +19,125 @@ from PyQt5.QtWidgets import (
 )
 
 from pyxalign.api import enums
+from pyxalign.api.options.plotting import ArrayViewerOptions
 from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.api.types import r_type
 import pyxalign.data_structures.task as t
 import pyxalign.data_structures.projections as p
 from pyxalign.gpu_utils import create_empty_pinned_array_like
-from pyxalign.interactions.pma_runner import AlignmentResults, AlignmentResultsCollection
+from pyxalign.interactions.alignment_results import AlignmentResults, AlignmentResultsCollection
+from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.transform import CropOptions, ShiftOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.custom import action_button_style_sheet
+from pyxalign.interactions.roi_selector import GetBoxBoundsFromROISelector
+from pyxalign.interactions.viewers.arrays import get_projection_title_strings
 from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 from pyxalign.transformations.classes import Cropper, Shifter
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 
 
+class CCResultsCollection(AlignmentResultsCollection):
+    """
+    Widget for visualizing and comparing multiple cross-correlation alignment results.
+
+    This widget extends AlignmentResultsCollection to add a stage shift button
+    for cross-correlation alignment results.
+
+    Parameters
+    ----------
+    alignment_results_list : list[AlignmentResults]
+        List of alignment results to display and compare.
+    display_initial_shift : bool, optional
+        Whether to display initial shift in plots. Default is False.
+    task : t.LaminographyAlignmentTask, optional
+        Task object containing projections for staging shifts.
+    projection_type : enums.ProjectionType, optional
+        Type of projections being aligned (PHASE or COMPLEX).
+    projection_viewer : QWidget, optional
+        ProjectionViewer widget for refreshing after staging shifts.
+    parent : QWidget, optional
+        Parent widget for this interface.
+    """
+
+    def __init__(
+        self,
+        alignment_results_list: list[AlignmentResults],
+        display_initial_shift: bool = False,
+        task: Optional["t.LaminographyAlignmentTask"] = None,
+        projection_type: Optional[enums.ProjectionType] = None,
+        projection_viewer: Optional[QWidget] = None,
+        parent: Optional[QWidget] = None,
+    ):
+        self.task = task
+        self.projection_type = projection_type
+        self.projection_viewer = projection_viewer
+
+        # Call parent __init__ with stage_shift_callback
+        super().__init__(
+            alignment_results_list=alignment_results_list,
+            display_initial_shift=display_initial_shift,
+            stage_shift_callback=self.stage_shift,
+            parent=parent,
+        )
+
+    def stage_shift(self, row: int):
+        """
+        Stage the shift from the selected alignment result.
+
+        Parameters
+        ----------
+        row : int
+            The index of the alignment result to stage.
+        """
+        if self.task is None:
+            print("Cannot stage shift: task not available")
+            return
+
+        # Determine which projections to use based on projection_type
+        if self.projection_type == enums.ProjectionType.PHASE:
+            projections = self.task.phase_projections
+        elif self.projection_type == enums.ProjectionType.COMPLEX:
+            projections = self.task.complex_projections
+        else:
+            # Auto-detect based on what's available
+            if self.task.phase_projections is not None:
+                projections = self.task.phase_projections
+            elif self.task.complex_projections is not None:
+                projections = self.task.complex_projections
+            else:
+                print("Cannot stage shift: no projections available")
+                return
+
+        if projections is None:
+            print("Cannot stage shift: projections not available")
+            return
+
+        alignment_result = self.alignment_results_list[row]
+        shift = alignment_result.shift
+
+        # Stage the shift using the shift_manager
+        projections.shift_manager.stage_shift(
+            shift=shift,
+            function_type=enums.ShiftType.CIRC,
+            alignment_options=self.task.options.cross_correlation,
+            eliminate_wrapping=True,
+        )
+        print(f"Shift from cross-correlation alignment result {row} staged successfully")
+
+        # Refresh the Applied Shifts tab in the projection viewer
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
+
+
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
     def __init__(
         self,
         task: Optional["t.LaminographyAlignmentTask"] = None,
-        projection_type: enums.ProjectionType = enums.ProjectionType.COMPLEX,
+        projection_type: Optional[enums.ProjectionType] = None,
+        projection_viewer: Optional[QWidget] = None,
         multi_thread_func: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -48,6 +146,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             parent=parent,
         )
         self.task = task
+        self.projection_viewer = projection_viewer
         # If only one type of projection exists, use that type
         if self.task.phase_projections is None:  # only has complex projections
             self.projection_type = enums.ProjectionType.COMPLEX
@@ -67,7 +166,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
     def projections(self) -> "p.Projections":
         if self.projection_type == enums.ProjectionType.PHASE:
             return self.task.phase_projections
-        else:
+        elif self.projection_type == enums.ProjectionType.COMPLEX:
             return self.task.complex_projections
 
     def initialize_page(self, task: "t.LaminographyAlignmentTask"):
@@ -83,13 +182,12 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.make_options_setup_and_results_tab_layout(tabs)
         # Make display for resulting shift
         self.make_results_tab_layout(tabs)
-        # Make display comparing shifted and unshifted projections
-        # to do
 
     def start_alignment(self):
-        wrapped_func = loading_bar_wrapper("Getting cross-correlation alignment")(
-            self.task.get_cross_correlation_shift
-        )
+        wrapped_func = loading_bar_wrapper(
+            load_message="Getting cross-correlation alignment...",
+            block_all_windows=True,
+        )(func=self.task.get_cross_correlation_shift)
         shift = wrapped_func(
             projection_type=self.projection_type,  # should perhaps move the type into "options"
             plot_results=False,
@@ -108,27 +206,38 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             )
         ]
         self.results_collection_widget.update_table()
-        shift_func = Shifter(
+
+        shifter = Shifter(
             ShiftOptions(type=enums.ShiftType.FFT, enabled=True, eliminate_wrapping=True)
         )
-        self.pinned_array = shift_func.run(
+        wrapped_shift_func = loading_bar_wrapper(
+            load_message="Shifting projections for display...",
+            block_all_windows=True,
+        )(func=shifter.run)
+        self.pinned_array = wrapped_shift_func(
             images=self.projections.data,
             shift=shift.astype(r_type),
             pinned_results=self.pinned_array,
         )
+        # self.pinned_array = shift_func.run(
+        #     images=self.projections.data,
+        #     shift=shift.astype(r_type),
+        #     pinned_results=self.pinned_array,
+        # )
 
-        sort_idx = np.argsort(self.projections.angles)
-        title_strings = [
-            f", scan {scan}, angle {angle:0.2f}"
-            for scan, angle in zip(self.projections.scan_numbers, self.projections.angles)
-        ]
         self.post_alignment_viewer.reinitialize_all(
             self.pinned_array,
-            sort_idx=sort_idx,
-            extra_title_strings_list=title_strings,
+            sort_idx=self.sort_idx,
+            extra_title_strings_list=self.title_strings,
+        )
+        self.post_alignment_viewer.indexing_widget.spinbox.setValue(
+            self.pre_alignment_viewer.indexing_widget.spinbox.value()
         )
         # Enable the ArrayViewer
         self.post_alignment_viewer.setEnabled(True)
+        # Refresh the Applied Shifts tab in the projection viewer
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
 
     def make_options_setup_and_results_tab_layout(self, tabs: QTabWidget):
         alignment_setup_widget = QWidget(self)
@@ -149,7 +258,14 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         basic_options_list += get_all_attribute_names(CropOptions(), parent_prefix="crop")
         self.options_editor = BasicOptionsEditor(
             self.task.options.cross_correlation,
-            skip_fields=["precision"],
+            skip_fields=[
+                "precision",
+                "crop.horizontal_range",
+                "crop.vertical_range",
+                "crop.horizontal_offset",
+                "crop.vertical_offset",
+                "crop.return_view"
+            ],
             enable_advanced_tab=True,
             basic_options_list=basic_options_list,
             open_panels_list=["crop"],
@@ -162,38 +278,45 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.start_button.clicked.connect(self.start_alignment)
         self.start_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         # add button for showing cropped projections
-        self.open_crop_viewer_button = QPushButton("View Cropped Projections")
+        self.open_crop_viewer_button = QPushButton("Edit Crop Region/Alignment ROI")
         self.open_crop_viewer_button.clicked.connect(self.show_cropped_projections_viewer)
         self.open_crop_viewer_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.options_editor.form_layout.addRow("", self.open_crop_viewer_button)
         # create button layout
         buttons_layout = QHBoxLayout()
         buttons_layout.setAlignment(Qt.AlignLeft)
         buttons_layout.addWidget(self.start_button)
-        buttons_layout.addWidget(self.open_crop_viewer_button)
+        # buttons_layout.addWidget(self.open_crop_viewer_button)
         # add shift results viewer
         self.create_shift_results_plot()
         # add editor and start button to sub-layout
         inputs_layout = QVBoxLayout()
-        inputs_layout.addWidget(self.options_editor)
-        inputs_layout.addWidget(self.canvas)
+        inputs_layout.addWidget(self.options_editor, stretch=2)
         inputs_layout.addLayout(buttons_layout)
+        # inputs_layout.addWidget(self.canvas, stretch=1)
         # inputs_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Preferred, QSizePolicy.Expanding))
         # inputs_layout.addWidget(self.start_button)
 
         # Make results display for showing before and after
-        title_strings = [
-            f", scan {scan}, angle {angle:0.2f}"
-            for scan, angle in zip(self.projections.scan_numbers, self.projections.angles)
-        ]
+        self.title_strings = get_projection_title_strings(
+                self.projections.scan_numbers, self.projections.angles
+            )
+        self.sort_idx = np.argsort(proj.angles)
         self.pre_alignment_viewer = ArrayViewer(
             array3d=proj.data,
-            sort_idx=np.argsort(proj.angles),
-            extra_title_strings_list=title_strings,
+            sort_idx=self.sort_idx,
+            return_index_selector_seperately=True,
+            extra_title_strings_list=self.title_strings,
+            options=ArrayViewerOptions(
+                additional_spinbox_indexing=[self.projections.scan_numbers],
+                additional_spinbox_titles=["scan number"],
+            )
         )
+
         pre_align_label = QLabel("Pre Alignment")
         pre_align_label.setStyleSheet("QLabel { font-size: 14pt;}")
         # viewer for showing aligned data
-        self.post_alignment_viewer = ArrayViewer(hide_index_selector_controls=True)
+        self.post_alignment_viewer = ArrayViewer(return_index_selector_seperately=True)
         self.post_alignment_viewer.setEnabled(False)  # Initially disabled
         post_align_label = QLabel("Post Alignment")
         post_align_label.setStyleSheet("QLabel { font-size: 14pt;}")
@@ -205,21 +328,35 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             self.pre_alignment_viewer.slider.setValue
         )
         # add results to sub-layout
-        viewers_layout = QVBoxLayout()
-        viewers_layout.addWidget(pre_align_label)
-        viewers_layout.addWidget(self.pre_alignment_viewer)
-        viewers_layout.addWidget(post_align_label)
-        viewers_layout.addWidget(self.post_alignment_viewer)
+        pre_align_layout = QVBoxLayout()
+        pre_align_layout.addWidget(pre_align_label)
+        pre_align_layout.addWidget(self.pre_alignment_viewer)
+        post_align_layout = QVBoxLayout()
+        post_align_layout.addWidget(post_align_label)
+        post_align_layout.addWidget(self.post_alignment_viewer)
+        viewers_layout = QHBoxLayout()
+        viewers_layout.addLayout(pre_align_layout)
+        viewers_layout.addLayout(post_align_layout)
+        outputs_layout = QVBoxLayout()
+        outputs_layout.addLayout(viewers_layout)
+        outputs_layout.addWidget(self.pre_alignment_viewer.indexing_widget)
+        outputs_layout.addWidget(self.canvas)
 
         # Finalize layout
         layout = QHBoxLayout()
         layout.addLayout(inputs_layout)
-        layout.addLayout(viewers_layout)
+        layout.addLayout(outputs_layout)
         alignment_setup_widget.setLayout(layout)
         tabs.addTab(alignment_setup_widget, "Configure && Start")
 
     def make_results_tab_layout(self, tabs: QTabWidget):
-        self.results_collection_widget = AlignmentResultsCollection(self.alignment_results_list)
+        self.results_collection_widget = CCResultsCollection(
+            alignment_results_list=self.alignment_results_list,
+            display_initial_shift=False,
+            task=self.task,
+            projection_type=self.projection_type,
+            projection_viewer=self.projection_viewer,
+        )
         empty_widget = QWidget()
         self._results_collection_layout = QVBoxLayout()
         empty_widget.setLayout(self._results_collection_layout)
@@ -253,12 +390,144 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.plot_item.addLegend()
 
     def show_cropped_projections_viewer(self):
-        self.crop_viewer = ArrayViewer(
-            array3d=Cropper(self.options_editor._data.crop).run(self.projections.data),
-            sort_idx=np.argsort(self.projections.angles),
-        )
-        # self.crop_viewer.setAttribute(Qt.WA_DeleteOnClose)
+        self.crop_viewer = GetBoxBoundsFromROISelector(self.projections, self.options_editor._data.crop)
+        self.crop_viewer.rectangular_roi_selected.connect(self.update_crop_options)
         self.crop_viewer.show()
+
+    def update_crop_options(self):
+        self.task.options.cross_correlation.crop = self.crop_viewer.options
+        self.crop_viewer.close()
+        # self.options_editor._data.crop.horizontal_range = self.crop_viewer.crop_options
+
+    def reinitialize_widget(self, task: "t.LaminographyAlignmentTask"):
+        """
+        Reinitialize the widget with updated projections from the task.
+
+        This method should be called when the task's phase_projections or
+        complex_projections have been updated. When projections are updated,
+        their .data, .scan_numbers, and .angles attributes will be different.
+
+        Parameters
+        ----------
+        task : LaminographyAlignmentTask
+            Task with updated projections (phase_projections or complex_projections).
+
+        Notes
+        -----
+        This method will:
+        - Update the task reference
+        - Clear the post-alignment viewer
+        - Re-initialize the pre-alignment viewer with new projection data
+        - Clear the alignment results list
+        """
+        print("reinitializing widget")
+        # Update the task reference
+        self.task = task
+
+        # Get the updated projections based on projection_type
+
+        projections = self.projections
+
+        # Update title strings and sort index
+        self.title_strings = get_projection_title_strings(
+            projections.scan_numbers, projections.angles
+        )
+        print("scan numbers length:",len(projections.scan_numbers))
+        self.sort_idx = np.argsort(projections.angles)
+        
+        # Re-initialize the pre-alignment viewer with new data
+        self.pre_alignment_viewer.reinitialize_all(
+            projections.data,
+            sort_idx=self.sort_idx,
+            extra_title_strings_list=self.title_strings,
+        )
+
+        # Update the additional spinbox indexing with new scan numbers
+        if hasattr(self.pre_alignment_viewer, 'additional_spinboxes'):
+            if len(self.pre_alignment_viewer.additional_spinboxes) > 0:
+                # Update the scan number spinbox if it exists
+                self.pre_alignment_viewer.additional_spinbox_indexing = [projections.scan_numbers]
+
+        # Clear the post-alignment viewer
+        if hasattr(self, 'post_alignment_viewer') and self.post_alignment_viewer is not None:
+            # Clear the viewer by reinitializing with empty data
+            empty_array = np.zeros((1, 1, 1))  # Minimal empty array
+            self.post_alignment_viewer.reinitialize_all(empty_array)
+            # Disable the viewer
+            self.post_alignment_viewer.setEnabled(False)
+
+        # Clear the alignment results
+        self.clear_alignment_results()
+
+        # Recreate the pinned array with new dimensions
+        self.pinned_array = create_empty_pinned_array_like(projections.data)
+
+    def clear_alignment_results(self):
+        """
+        Clear all alignment results and reset viewers.
+
+        This method is called when shift operations (apply or undo) are performed
+        on the ProjectionViewer, as those operations invalidate previously computed
+        alignment results. It clears:
+        - Alignment results list
+        - Results collection table
+        - Post-alignment viewer (disables and clears it)
+        - Cross-correlation shift plot
+        """
+        # Clear the alignment results list
+        self.alignment_results_list.clear()
+
+        # Update the results collection widget to reflect empty results
+        self.results_collection_widget.alignment_results_list = self.alignment_results_list
+        # Clear all rows from the results table
+        self.results_collection_widget.results_table.setRowCount(0)
+        # Clear the plots
+        if hasattr(self.results_collection_widget, 'clear_plots'):
+            self.results_collection_widget.clear_plots()
+
+        # Clear and disable the post-alignment viewer
+        if hasattr(self, 'post_alignment_viewer') and self.post_alignment_viewer is not None:
+            # Clear the viewer by reinitializing with empty data
+            empty_array = np.zeros((1, 1, 1))  # Minimal empty array
+            self.post_alignment_viewer.reinitialize_all(empty_array)
+            # Disable the viewer
+            self.post_alignment_viewer.setEnabled(False)
+
+        # Clear the cross-correlation shift plot
+        if hasattr(self, 'plot_item') and self.plot_item is not None:
+            self.plot_item.clear()
+            # Remove the legend if it exists
+            if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None and self.plot_item.legend.scene() is not None:
+                self.plot_item.legend.scene().removeItem(self.plot_item.legend)
+
+    # def clear_alignment_results(self):
+    #     """
+    #     Clear all alignment results from the collection.
+
+    #     This method is called when shift operations (apply or undo) are performed
+    #     on the ProjectionViewer, as those operations invalidate previously computed
+    #     alignment results.
+    #     """
+    #     # Clear the alignment results list
+    #     self.alignment_results_list.clear()
+
+    #     # Update the results collection widget to reflect empty results
+    #     self.results_collection_widget.alignment_results_list = self.alignment_results_list
+    #     # Clear all rows from the results table
+    #     self.results_collection_widget.results_table.setRowCount(0)
+    #     # Clear the plots
+    #     if hasattr(self.results_collection_widget, "clear_plots"):
+    #         self.results_collection_widget.clear_plots()
+
+    #     # Connect shift operations in ProjectionViewer to clear CC results
+    #     if (
+    #         hasattr(self.projection_viewer, "all_shifts_viewer")
+    #         and self.projection_viewer.all_shifts_viewer is not None
+    #     ):
+    #         # Connect the apply and undo shift buttons to clear CC results
+    #         self.projection_viewer.all_shifts_viewer.shift_operation_performed.connect(
+    #             self.cc_widget.clear_alignment_results
+    #         )
 
 
 @switch_to_matplotlib_qt_backend
@@ -286,7 +555,7 @@ def launch_cross_correlation_gui(
 
         First, launch the cross-correlation gui::
 
-            gui = pyxalign.gui.launch_cross_correlation_gui(task, "PHASE")
+            gui = pyxalign.gui.launch_cross_correlation_gui(task, "phase")
 
         Clicking the "start alignment" button will run the cross-
         correlation alignment algorithm with the selected parameters.
@@ -308,12 +577,14 @@ def launch_cross_correlation_gui(
     app = QApplication.instance() or QApplication([])
     if projection_type is None:
         if task.complex_projections is not None and task.phase_projections is not None:
-            print("""Task has both phase_projections and complex_projections; 
-                  specify what you want to align using `projection_type`""")
+            print("projection_type was not specified, defaulting to projection_type='phase'")
+            projection_type = enums.ProjectionType.PHASE
         if task.complex_projections is None:
             projection_type = enums.ProjectionType.PHASE
         elif task.phase_projections is None:
             projection_type = enums.ProjectionType.COMPLEX
+    else:
+        projection_type = projection_type.lower()
     gui = CrossCorrelationMasterWidget(task=task, projection_type=projection_type)
     gui.setAttribute(Qt.WA_DeleteOnClose)
     gui.show()

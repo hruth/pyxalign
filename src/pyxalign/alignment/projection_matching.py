@@ -1,25 +1,28 @@
+import os
 from functools import partial
 from typing import Callable, Optional
 import numpy as np
 import cupy as cp
 import copy
+import h5py
 from scipy.optimize import minimize
 from PyQt5.QtWidgets import QApplication
 
 from pyxalign.alignment.base import Aligner
 from pyxalign.api.options.projections import ProjectionTransformOptions
 from pyxalign.api.options.transform import ShiftOptions
-from pyxalign.api.options_utils import set_all_device_options
+from pyxalign.api.options_utils import print_options, set_all_device_options
 import pyxalign.data_structures.projections as projections
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
+from pyxalign.transformations.classes import force_crop_options_in_bounds
 from pyxalign.regularization import chambolleLocalTV3D
 from pyxalign.style.text import text_colors
 from pyxalign.timing.timer_utils import InlineTimer, timer
-from pyxalign.transformations.classes import Shifter
+from pyxalign.transformations.classes import Cropper, Shifter
 import pyxalign.image_processing as ip
 import pyxalign.api.maps as maps
-from pyxalign.api.enums import DeviceType, MemoryConfig
+from pyxalign.api.enums import DeviceType, MemoryConfig, RoundType
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
 import pyxalign.gpu_utils as gutils
 from pyxalign.api.types import ArrayType, r_type
@@ -28,6 +31,8 @@ from IPython.display import clear_output
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import astra
+
+from pyxalign.transformations.helpers import round_to_divisor
 
 
 class ProjectionMatchingAligner(Aligner):
@@ -39,13 +44,26 @@ class ProjectionMatchingAligner(Aligner):
         print_updates: bool = True,
     ):
         super().__init__(projections, options)
-        self.options: ProjectionMatchingOptions = self.options
+        self.options: ProjectionMatchingOptions = copy.deepcopy(self.options)
         self.print_updates = print_updates
         self.gui: ProjectionMatchingViewer = None
+        self.external_stop_flag = False
+        self.alignment_loop_started = False
+        self.gui = None
 
     @gutils.memory_releasing_error_handler
     @timer()
     def run(self, initial_shift: Optional[np.ndarray] = None) -> np.ndarray:
+        # Record the downsampling scale
+        if self.options.downsample.enabled:
+            self.scale = int(self.options.downsample.scale)
+        else:
+            self.scale = 1
+
+        # check options validity for crop and downsampling options and 
+        # fix them if possible.
+        self.check_if_valid_options()
+
         if self.options.keep_on_gpu:
             cp.cuda.Device(self.options.device.gpu.gpu_indices[0]).use()
         # Create the projections object
@@ -59,20 +77,26 @@ class ProjectionMatchingAligner(Aligner):
             mask_downsample_use_gaussian_filter=self.options.downsample.use_gaussian_filter,
         )
 
-        # projection_options.reconstruct = self.options.reconstruct
         projection_options.reconstruct = copy.deepcopy(self.options.reconstruct)
+        if not self.options.override_projection_geometry:
+            # Use tilt and shear angle in projections
+            projection_options.reconstruct.geometry = copy.deepcopy(
+                self.projections.options.reconstruct.geometry
+            )
+
+        center_of_rotation = self.projections.center_of_rotation + np.array(
+            [self.options.vertical_offset, self.options.horizontal_offset]
+        )
+        if self.options.sample_thickness is not None:
+            projection_options.experiment.sample_thickness = self.options.sample_thickness
         self.aligned_projections = projections.PhaseProjections(
             projections=self.projections.data,
             angles=self.projections.angles,
             scan_numbers=self.projections.scan_numbers,
             options=projection_options,
             masks=self.projections.masks,
-            center_of_rotation=self.projections.center_of_rotation,
+            center_of_rotation=center_of_rotation,
         )
-        if self.options.downsample.enabled:
-            self.scale = int(self.options.downsample.scale)
-        else:
-            self.scale = 1
 
         # When cropping and not downsampling, you need to make a new copy
         # of the array. I don't fully understand why this is needed, but
@@ -101,7 +125,31 @@ class ProjectionMatchingAligner(Aligner):
         # Clear astra objects
         self.aligned_projections.volume.clear_astra_objects()
 
+        # save results
+        if self.options.save.enabled:
+            try:
+                self.save_results()
+            except Exception as ex:
+                print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
         return shift
+    
+    def check_if_valid_options(self):
+        # throw error if disallowed option is checked
+        if self.options.reconstruct.exclude_scans is not None:
+            raise ValueError(
+                "reconstruct.exclude_scans is not supported in the PMA algorithm yet and must have the value 'None'"
+            )
+        # check validity of downsampling options
+        if np.log2(self.scale) % 1 != 0:
+            raise ValueError(f"""Values for downsample.scale must be a power of 2.
+                            Input downsampling value: {self.scale}""")
+        # fix crop options
+        if self.options.crop.enabled:
+            self.options.crop = Cropper.fix_crop_range(
+                self.options.crop,
+                multiple_of=2 * self.scale,
+                array_2d_size=self.projections.data.shape[1:],
+            )
 
     @gutils.memory_releasing_error_handler
     @timer()
@@ -112,11 +160,12 @@ class ProjectionMatchingAligner(Aligner):
         tukey_window, circulo = self.initialize_windows()
         self.circulo = circulo
 
-        print(f"Starting projection-matching alignment downsampling = {self.scale}...")
         if self.print_updates:
+            print(f"Starting projection-matching alignment downsampling = {self.scale}...")
             loop_prog_bar = tqdm(range(self.options.iterations), desc="projection matching loop")
         else:
             loop_prog_bar = range(self.options.iterations)
+        self.alignment_loop_started = True
         for self.iteration in loop_prog_bar:
             self.iterate(unshifted_projections, unshifted_masks, tukey_window, circulo)
             max_shift_step_size = self.get_step_size_update()
@@ -127,7 +176,7 @@ class ProjectionMatchingAligner(Aligner):
                 )
                 loop_prog_bar.set_description(prog_bar_update_string)
             stopping_condition_met = self.check_stopping_condition(max_shift_step_size)
-            if stopping_condition_met:
+            if stopping_condition_met or self.external_stop_flag:
                 break
             self.check_for_error()
 
@@ -144,18 +193,13 @@ class ProjectionMatchingAligner(Aligner):
 
         self.apply_new_shift(unshifted_projections, unshifted_masks)
         self.apply_window_to_masks(tukey_window)
-        if self.options.refine_geometry:
-            # When using geometry refinement, the astra vectors need
-            # to be updated on every iteration.
-            update_geometries = True
-        else:
-            update_geometries = False
         self.aligned_projections.volume.generate_volume(
             filter_inputs=True,
             pinned_filtered_sinogram=self.pinned_filtered_sinogram,
             reinitialize_astra=False,
             n_pix=self.n_pix,
-            update_geometries=update_geometries,
+            update_geometries=self.options.refine_geometry.enabled,
+            clear_astra_objects_at_end=False,
         )
         # optionally apply mask, regularization, and thresholding to volume
         self.post_process_volume()
@@ -171,7 +215,7 @@ class ProjectionMatchingAligner(Aligner):
         )
         # Find optimal shift
         self.get_shift_update()
-        self.plot_update()
+        # self.plot_update()
         self.update_GUI()
         self.get_geometry_update()
 
@@ -340,6 +384,15 @@ class ProjectionMatchingAligner(Aligner):
             self.shift_update[:, 0] - xp.matmul(orthbase.transpose(), coefs)[:, 0]
         )
 
+        # only shift those that are allowed to be shifted
+        if self.options.exclude_scans_from_alignment is not None:
+            idx = [
+                i
+                for i, scan in enumerate(self.aligned_projections.scan_numbers)
+                if scan in self.options.exclude_scans_from_alignment
+            ]
+            self.shift_update[idx] = 0
+
     @timer()
     def get_shift_momentum(self):
         if not self.options.momentum.enabled:
@@ -424,11 +477,16 @@ class ProjectionMatchingAligner(Aligner):
                 self.pinned_error,
                 self.pinned_unfiltered_error,
             )
+
+        common_inputs_for_gpu_idx = [4]
+        if self.options.secondary_mask.enabled:
+            common_inputs_for_gpu_idx += [5]
+
         wrapped_func = device_handling_wrapper(
             func=self.calculate_shift_update,
             options=self.options.device,
             chunkable_inputs_for_gpu_idx=[0, 1, 2],
-            common_inputs_for_gpu_idx=[4, 5],
+            common_inputs_for_gpu_idx=common_inputs_for_gpu_idx,
             pinned_results=pinned_results,
         )
         return wrapped_func
@@ -440,12 +498,13 @@ class ProjectionMatchingAligner(Aligner):
         forward_projection_model: ArrayType,
         high_pass_filter: ArrayType,
         mass: float,
-        secondary_mask: ArrayType,
+        secondary_mask: Optional[ArrayType] = None,
         filter_directions: tuple[int] = (2,),
         debug: bool = False,
     ) -> tuple[ArrayType, ArrayType, ArrayType]:
         xp = cp.get_array_module(sinogram)
-        masks = secondary_mask * masks
+        if secondary_mask is not None:
+            masks = secondary_mask * masks
 
         projections_residuals = forward_projection_model - sinogram
 
@@ -505,11 +564,19 @@ class ProjectionMatchingAligner(Aligner):
     @timer()
     def regularize_reconstruction(self):
         if self.options.regularization.enabled:
-            self.aligned_projections.volume.data[:] = chambolleLocalTV3D(
-                self.aligned_projections.volume.data,
+            if self.options.regularization.use_gpu:
+                volume_array = cp.array(self.aligned_projections.volume.data)
+            else:
+                volume_array  = self.aligned_projections.volume.data
+            volume_array = chambolleLocalTV3D(
+                volume_array,
                 self.options.regularization.local_TV_lambda,
                 self.options.regularization.iterations,
             )
+            if self.options.regularization.use_gpu:
+                self.aligned_projections.volume.data[:] = volume_array.get()
+            else:
+                self.aligned_projections.volume.data = volume_array
 
     @timer()
     def apply_positivity_constraint(self):
@@ -600,6 +667,8 @@ class ProjectionMatchingAligner(Aligner):
         tukey_window = ip.get_tukey_window(
             self.aligned_projections.size, A=self.options.tukey_shape_parameter, xp=self.xp
         )
+        if self.memory_config == MemoryConfig.MIXED:
+            tukey_window = gutils.pin_memory(tukey_window)
 
         # Generate circular mask for reconstruction
         if self.options.reconstruction_mask.enabled:
@@ -618,14 +687,13 @@ class ProjectionMatchingAligner(Aligner):
                     rad_apod=self.options.secondary_mask.rad_apod / self.scale,
                 )
             )
-        else:
-            self.secondary_mask = np.ones_like(self.aligned_projections.data[0])
+            if self.memory_config == MemoryConfig.MIXED:
+                self.secondary_mask = gutils.pin_memory(self.secondary_mask)
+            elif self.memory_config == MemoryConfig.GPU_ONLY:
+                self.secondary_mask = cp.array(self.secondary_mask)
 
-        if self.memory_config == MemoryConfig.MIXED:
-            tukey_window = gutils.pin_memory(tukey_window)
-            self.secondary_mask = gutils.pin_memory(self.secondary_mask)
-        elif self.memory_config == MemoryConfig.GPU_ONLY:
-            self.secondary_mask = cp.array(self.secondary_mask)
+        else:
+            self.secondary_mask = None  # np.ones_like(self.aligned_projections.data[0])
 
         return tukey_window, circulo
 
@@ -640,7 +708,8 @@ class ProjectionMatchingAligner(Aligner):
         self.pinned_lamino_angle_correction = self.pinned_lamino_angle_correction.get()
         self.pinned_tilt_angle_correction = self.pinned_tilt_angle_correction.get()
         self.pinned_skew_angle_correction = self.pinned_skew_angle_correction.get()
-        self.secondary_mask = self.secondary_mask.get()
+        if self.secondary_mask is not None:
+            self.secondary_mask = self.secondary_mask.get()
 
     def get_step_size_update(self) -> float:
         # Check if the step size update is small enough to stop the loop
@@ -714,124 +783,124 @@ class ProjectionMatchingAligner(Aligner):
             app = QApplication.instance() or QApplication([])
             self.gui.show()
 
-    @timer()
-    def plot_update(self):
-        if self.options.plot.update.enabled and (
-            self.iteration and self.options.plot.update.stride == 0
-        ):
-            # matplotlib.use("module://matplotlib_inline.backend_inline")
-            sort_idx = np.argsort(self.aligned_projections.angles)
-            sorted_angles = self.aligned_projections.angles[sort_idx]
-            total_shift = self.total_shift[sort_idx]
-            initial_shift = self.initial_shift[sort_idx]
-            if self.options.keep_on_gpu:
-                total_shift = total_shift.get()
+    # @timer()
+    # def plot_update(self):
+    #     if self.options.plot.update.enabled and (
+    #         self.iteration and self.options.plot.update.stride == 0
+    #     ):
+    #         # matplotlib.use("module://matplotlib_inline.backend_inline")
+    #         sort_idx = np.argsort(self.aligned_projections.angles)
+    #         sorted_angles = self.aligned_projections.angles[sort_idx]
+    #         total_shift = self.total_shift[sort_idx]
+    #         initial_shift = self.initial_shift[sort_idx]
+    #         if self.options.keep_on_gpu:
+    #             total_shift = total_shift.get()
 
-            pixel_size = self.aligned_projections.pixel_size
+    #         pixel_size = self.aligned_projections.pixel_size
 
-            clear_output(wait=True)
-            fig = plt.figure(layout="compressed", figsize=(10, 10))
+    #         clear_output(wait=True)
+    #         fig = plt.figure(layout="compressed", figsize=(10, 10))
 
-            gs = fig.add_gridspec(5, 2, height_ratios=[1, 1, 2, 1, 1])
-            total_shift_axis = fig.add_subplot(gs[0, 0])
-            new_shift_axis = fig.add_subplot(gs[1, 0])
-            rec_axis = fig.add_subplot(gs[0:2, 1])
-            proj_axis = fig.add_subplot(gs[2, 0])
-            forward_proj_axis = fig.add_subplot(gs[2, 1])
-            error_axis = fig.add_subplot(gs[3:5, 0])
-            error_vs_iter_axis = fig.add_subplot(gs[3, 1])
-            unfiltered_error_vs_iter_axis = fig.add_subplot(gs[4, 1])
+    #         gs = fig.add_gridspec(5, 2, height_ratios=[1, 1, 2, 1, 1])
+    #         total_shift_axis = fig.add_subplot(gs[0, 0])
+    #         new_shift_axis = fig.add_subplot(gs[1, 0])
+    #         rec_axis = fig.add_subplot(gs[0:2, 1])
+    #         proj_axis = fig.add_subplot(gs[2, 0])
+    #         forward_proj_axis = fig.add_subplot(gs[2, 1])
+    #         error_axis = fig.add_subplot(gs[3:5, 0])
+    #         error_vs_iter_axis = fig.add_subplot(gs[3, 1])
+    #         unfiltered_error_vs_iter_axis = fig.add_subplot(gs[4, 1])
 
-            plt.suptitle(f"Projection-matching alignment\nIteration {self.iteration}")
+    #         plt.suptitle(f"Projection-matching alignment\nIteration {self.iteration}")
 
-            plt.sca(total_shift_axis)
-            plt.title("Alignment shift")
-            plt.ylabel("Shift (px)")
-            plt.xlabel("Angle (deg)")
-            initial_shift_colors = ((0.75, 0.75, 1), (1, 0.75, 0.75))
-            for i in range(2):
-                plt.plot(
-                    sorted_angles, initial_shift[:, i] / self.scale, color=initial_shift_colors[i]
-                )
-            plt.plot(sorted_angles, total_shift)
-            plt.grid()
-            plt.xlim([sorted_angles[0], sorted_angles[-1]])
-            ylim = plt.ylim()
+    #         plt.sca(total_shift_axis)
+    #         plt.title("Alignment shift")
+    #         plt.ylabel("Shift (px)")
+    #         plt.xlabel("Angle (deg)")
+    #         initial_shift_colors = ((0.75, 0.75, 1), (1, 0.75, 0.75))
+    #         for i in range(2):
+    #             plt.plot(
+    #                 sorted_angles, initial_shift[:, i] / self.scale, color=initial_shift_colors[i]
+    #             )
+    #         plt.plot(sorted_angles, total_shift)
+    #         plt.grid()
+    #         plt.xlim([sorted_angles[0], sorted_angles[-1]])
+    #         ylim = plt.ylim()
 
-            twin_ax = plt.gca().twinx()
-            plt.sca(twin_ax)
-            plt.ylim([y * pixel_size * 1e6 for y in ylim])
-            plt.ylabel(r"Shift ($\mu m$)")
-            ax_color = "palevioletred"
-            twin_ax.spines["right"].set_color(ax_color)
-            twin_ax.yaxis.label.set_color(ax_color)
-            twin_ax.tick_params(axis="y", colors=ax_color)
+    #         twin_ax = plt.gca().twinx()
+    #         plt.sca(twin_ax)
+    #         plt.ylim([y * pixel_size * 1e6 for y in ylim])
+    #         plt.ylabel(r"Shift ($\mu m$)")
+    #         ax_color = "palevioletred"
+    #         twin_ax.spines["right"].set_color(ax_color)
+    #         twin_ax.yaxis.label.set_color(ax_color)
+    #         twin_ax.tick_params(axis="y", colors=ax_color)
 
-            plt.sca(new_shift_axis)
-            plt.title("total_shift - initial_shift")
-            plt.ylabel("Shift (px)")
-            plt.xlabel("Angle (deg)")
-            plt.plot(sorted_angles, total_shift - initial_shift / self.scale)
-            plt.grid()
-            plt.xlim([sorted_angles[0], sorted_angles[-1]])
+    #         plt.sca(new_shift_axis)
+    #         plt.title("total_shift - initial_shift")
+    #         plt.ylabel("Shift (px)")
+    #         plt.xlabel("Angle (deg)")
+    #         plt.plot(sorted_angles, total_shift - initial_shift / self.scale)
+    #         plt.grid()
+    #         plt.xlim([sorted_angles[0], sorted_angles[-1]])
 
-            ylim = plt.ylim()
-            twin_ax = plt.gca().twinx()
-            plt.sca(twin_ax)
-            plt.ylim([y * pixel_size * 1e6 for y in ylim])
-            plt.ylabel(r"Shift ($\mu m$)")
-            ax_color = "palevioletred"
-            twin_ax.spines["right"].set_color(ax_color)
-            twin_ax.yaxis.label.set_color(ax_color)
-            twin_ax.tick_params(axis="y", colors=ax_color)
+    #         ylim = plt.ylim()
+    #         twin_ax = plt.gca().twinx()
+    #         plt.sca(twin_ax)
+    #         plt.ylim([y * pixel_size * 1e6 for y in ylim])
+    #         plt.ylabel(r"Shift ($\mu m$)")
+    #         ax_color = "palevioletred"
+    #         twin_ax.spines["right"].set_color(ax_color)
+    #         twin_ax.yaxis.label.set_color(ax_color)
+    #         twin_ax.tick_params(axis="y", colors=ax_color)
 
-            plt.sca(rec_axis)
-            self.aligned_projections.volume.plot_data(
-                self.options.plot.reconstruction, show_plot=False
-            )
+    #         plt.sca(rec_axis)
+    #         self.aligned_projections.volume.plot_data(
+    #             self.options.plot.reconstruction, show_plot=False
+    #         )
 
-            plt.sca(proj_axis)
-            self.aligned_projections.plot_data(self.options.plot.projections, show_plot=False)
-            plt.sca(forward_proj_axis)
-            self.aligned_projections.volume.forward_projections.plot_data(
-                self.options.plot.projections, title_string="Forward Projection", show_plot=False
-            )
+    #         plt.sca(proj_axis)
+    #         self.aligned_projections.plot_data(self.options.plot.projections, show_plot=False)
+    #         plt.sca(forward_proj_axis)
+    #         self.aligned_projections.volume.forward_projections.plot_data(
+    #             self.options.plot.projections, title_string="Forward Projection", show_plot=False
+    #         )
 
-            plt.sca(error_axis)
-            plt.title("Error")
-            # plt.plot(
-            #     sorted_angles,
-            #     self.all_unfiltered_errors[self.iteration, sort_idx],
-            #     label="Unfiltered",
-            # )
-            plt.plot(
-                sorted_angles, self.all_errors[self.iteration, sort_idx], ".", label="Filtered"
-            )
-            plt.grid()
-            plt.xlabel("Angle (deg)")
-            plt.ylabel("Error")
-            plt.legend()
+    #         plt.sca(error_axis)
+    #         plt.title("Error")
+    #         # plt.plot(
+    #         #     sorted_angles,
+    #         #     self.all_unfiltered_errors[self.iteration, sort_idx],
+    #         #     label="Unfiltered",
+    #         # )
+    #         plt.plot(
+    #             sorted_angles, self.all_errors[self.iteration, sort_idx], ".", label="Filtered"
+    #         )
+    #         plt.grid()
+    #         plt.xlabel("Angle (deg)")
+    #         plt.ylabel("Error")
+    #         plt.legend()
 
-            plt.sca(error_vs_iter_axis)
-            plt.title("Error vs Iteration")
-            plt.plot(self.all_errors[: self.iteration].mean(axis=1), label="Filtered")
-            plt.grid()
-            plt.xlabel("Iteration")
-            plt.ylabel("Mean Error")
-            plt.legend()
+    #         plt.sca(error_vs_iter_axis)
+    #         plt.title("Error vs Iteration")
+    #         plt.plot(self.all_errors[: self.iteration].mean(axis=1), label="Filtered")
+    #         plt.grid()
+    #         plt.xlabel("Iteration")
+    #         plt.ylabel("Mean Error")
+    #         plt.legend()
 
-            plt.sca(unfiltered_error_vs_iter_axis)
-            # plt.title("Error vs Iteration")
-            # plt.plot(self.all_unfiltered_errors[: self.iteration].mean(axis=1), label="Unfiltered")
-            plt.title("Max step size update")
-            plt.plot(self.all_max_shift_step_size, label="update")
-            plt.grid()
-            plt.xlabel("Iteration")
-            plt.ylabel("Update size")
-            plt.legend()
+    #         plt.sca(unfiltered_error_vs_iter_axis)
+    #         # plt.title("Error vs Iteration")
+    #         # plt.plot(self.all_unfiltered_errors[: self.iteration].mean(axis=1), label="Unfiltered")
+    #         plt.title("Max step size update")
+    #         plt.plot(self.all_max_shift_step_size, label="update")
+    #         plt.grid()
+    #         plt.xlabel("Iteration")
+    #         plt.ylabel("Update size")
+    #         plt.legend()
 
-            # fig.tight_layout()
-            plt.show()
+    #         # fig.tight_layout()
+    #         plt.show()
 
     def debug_get_shift_update(self) -> tuple:
         wrapped_shift_calc_func = self.return_wrapped_get_shift_update(debug=True)
@@ -860,6 +929,7 @@ class ProjectionMatchingAligner(Aligner):
         numerator_clim: Optional[np.ndarray] = None,
         denominator_clim: Optional[np.ndarray] = None,
         use_colorbars: bool = False,
+        plot_shift: bool = False,
     ):
         if sort:
             sort_idx = np.argsort(self.aligned_projections.angles)
@@ -868,7 +938,9 @@ class ProjectionMatchingAligner(Aligner):
 
         proj = self.aligned_projections.data[sort_idx[i]]
         forward_proj = self.aligned_projections.volume.forward_projections.data[sort_idx[i]]
-        mask = self.aligned_projections.masks[sort_idx[i]] * self.secondary_mask
+        mask = self.aligned_projections.masks[sort_idx[i]]
+        if self.secondary_mask is not None:
+            mask *= self.secondary_mask
 
         fig, ax = plt.subplots(3, 4, layout="compressed", figsize=(15, 7.5))
         plt.suptitle(f"Arrays for {i}")
@@ -928,23 +1000,24 @@ class ProjectionMatchingAligner(Aligner):
                 plt.colorbar()
         plt.show()
 
-        print((self.total_shift * self.scale)[sort_idx[i]])
-        fig, ax = plt.subplots(2, 1, layout="compressed")
-        for axis in ax.ravel():
-            plt.sca(axis)
-            plt.axvline(i, color="gray", label=f"Index {i}")
-            plt.grid(linestyle=":")
-            plt.autoscale(enable=True, axis="x", tight=True)
-            plt.ylabel("Shift (px)")
+        if plot_shift:
+            print((self.total_shift * self.scale)[sort_idx[i]])
+            fig, ax = plt.subplots(2, 1, layout="compressed")
+            for axis in ax.ravel():
+                plt.sca(axis)
+                plt.axvline(i, color="gray", label=f"Index {i}")
+                plt.grid(linestyle=":")
+                plt.autoscale(enable=True, axis="x", tight=True)
+                plt.ylabel("Shift (px)")
 
-        plt.sca(ax[0])
-        plt.title("Total Shift")
-        plt.plot((self.total_shift * self.scale)[sort_idx])
-        plt.sca(ax[1])
-        plt.title("Shift Update")
-        plt.plot(shift[sort_idx])
-        plt.legend()
-        plt.show()
+            plt.sca(ax[0])
+            plt.title("Total Shift")
+            plt.plot((self.total_shift * self.scale)[sort_idx])
+            plt.sca(ax[1])
+            plt.title("Shift Update")
+            plt.plot(shift[sort_idx])
+            plt.legend()
+            plt.show()
 
     @timer()
     def get_geometry_update(self):
@@ -976,6 +1049,7 @@ class ProjectionMatchingAligner(Aligner):
                 reinitialize_astra=False,
                 n_pix=self.n_pix,
                 update_geometries=True,
+                clear_astra_objects_at_end=False,
             )
             self.post_process_volume()
 
@@ -1101,6 +1175,34 @@ class ProjectionMatchingAligner(Aligner):
         self.all_skew_angle_updates = np.append(
             self.all_skew_angle_updates,
             self.aligned_projections.options.reconstruct.geometry.skew_angle,
+        )
+
+    def save_results(self):
+        results_file = os.path.join(
+            self.options.save.folder, f"pma_results{self.options.save.suffix}.h5"
+        )
+        with h5py.File(results_file, "w") as F:
+            F["initial_shift"] = self.initial_shift
+            F["final_shift"] = self.initial_shift * self.scale
+            F["all_shift_updates"] = self.all_shift_updates[: self.iteration]
+            F["all_errors"] = self.all_errors[: self.iteration]
+            F["angles"] = self.aligned_projections.angles
+            F["scan_numbers"] = self.aligned_projections.scan_numbers
+            F["iterations"] = self.iteration
+            F["scale"] = self.scale
+            if self.options.save.save_pma_volume:
+                F["volume"] = self.aligned_projections.volume.data
+            if self.options.save.save_pma_projections:
+                F["projections"] = self.aligned_projections.data
+            if self.options.save.save_pma_forward_projections:
+                F["forward_projections"] = self.aligned_projections.volume.forward_projections.data
+        self.options.save_to_dict(
+            os.path.join(self.options.save.folder, f"pma_options{self.options.save.suffix}.yaml")
+        )
+        self.projections.options.save_to_dict(
+            os.path.join(
+                self.options.save.folder, f"projection_options{self.options.save.suffix}.yaml"
+            )
         )
 
 

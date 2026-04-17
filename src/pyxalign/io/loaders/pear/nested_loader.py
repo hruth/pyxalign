@@ -7,23 +7,28 @@ from pyxalign.timing.timer_utils import timer, InlineTimer
 from pyxalign.io.loaders.utils import count_digits, extract_s_digit_strings
 from abc import ABC
 from pathlib import Path
+import re
 
 
 class PEARNestedLoader(PEARBaseLoader, ABC):
     analysis_folders: dict[int, list[str]] = {}
     n_digits: int = None
+    folder_suffix: str = None
 
     def get_projection_sub_folder(self, scan_number: int):
-        # Determine how many digits are in the folder strings
+        # Determine how many digits are in the folder strings and get the file suffix
         if self.n_digits is None:
             example_scan_folder = extract_s_digit_strings(
                 os.listdir(self.parent_projections_folder)
             )[0]
             self.n_digits = count_digits(example_scan_folder)
+            # get the suffix
+            self.folder_suffix = re.match(r"\D+", example_scan_folder)[0]
         # Return folder string corresponding to this scan number
         return generate_single_projection_sub_folder(
             scan_number,
             n_digits=self.n_digits,
+            suffix=self.folder_suffix,
         )
 
     @timer()

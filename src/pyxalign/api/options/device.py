@@ -3,10 +3,10 @@ from dataclasses import field
 from typing import Sequence
 
 from pyxalign.api import enums
-
+from .base import BaseOptions
 
 @dataclasses.dataclass
-class GPUOptions:
+class GPUOptions(BaseOptions):
     chunking_enabled: bool = True
 
     chunk_length: int = 20
@@ -18,7 +18,7 @@ class GPUOptions:
 
 
 @dataclasses.dataclass
-class DeviceOptions:
+class DeviceOptions(BaseOptions):
     device_type: enums.DeviceType = enums.DeviceType.GPU
 
     gpu: GPUOptions = field(default_factory=GPUOptions)

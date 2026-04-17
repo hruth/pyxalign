@@ -210,6 +210,7 @@ def plot_slice_of_3D_array(
         axis_image = axis_image.set_data(image)
     else:
         axis_image = plt.imshow(image, cmap=options.cmap)
+        plt.gca().invert_yaxis()
 
     if options.scalebar.enabled and pixel_size is not None:
         add_scalebar(pixel_size, image.shape[1], options.scalebar.fractional_width)

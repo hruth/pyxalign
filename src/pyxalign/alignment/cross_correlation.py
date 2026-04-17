@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import cupy as cp
 import scipy
@@ -24,11 +25,17 @@ from pyxalign.transformations.functions import gaussian_filter_conv_n
 class CrossCorrelationAligner(Aligner):
     def __init__(self, projections: Projections, options: CrossCorrelationOptions):
         super().__init__(projections, options)
-        self.options: CrossCorrelationOptions = self.options  # for static checker and type checking
+        self.options: CrossCorrelationOptions = copy.deepcopy(self.options)
 
     @memory_releasing_error_handler
     @timer()
     def run(self, illum_sum: np.ndarray) -> np.ndarray:
+        # fix options
+        self.options.crop = Cropper.fix_crop_range(
+            self.options.crop,
+            multiple_of=2 * self.options.binning,
+            array_2d_size=self.projections.data.shape[1:],
+        )
         projections = Cropper(self.options.crop).run(self.projections.data)
         illum_sum = Cropper(self.options.crop).run(illum_sum)
         projections = pin_memory(projections)

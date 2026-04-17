@@ -60,6 +60,69 @@ def image_crop(
 
 
 @timer(enable_timing)
+def crop_3d(
+    volume: ArrayType,
+    horizontal_range: int,
+    vertical_range: int,
+    depth_range: int,
+    horizontal_offset: int = 0,
+    vertical_offset: int = 0,
+    depth_offset: int = 0,
+) -> ArrayType:
+    """
+    Crop a 3D volume along all three axes.
+
+    Args:
+        volume: 3D array to crop (depth, vertical, horizontal)
+        horizontal_range: Width of crop in horizontal dimension
+        vertical_range: Height of crop in vertical dimension
+        depth_range: Depth of crop in depth dimension
+        horizontal_offset: Offset from center in horizontal dimension
+        vertical_offset: Offset from center in vertical dimension
+        depth_offset: Offset from center in depth dimension
+
+    Returns:
+        Cropped 3D volume
+    """
+    if volume.ndim != 3:
+        raise ValueError(f"Volume must be 3-dimensional, got {volume.ndim}D")
+
+    volume_shape = volume.shape  # (depth, vertical, horizontal)
+
+    # Calculate centers with offsets
+    depth_center = volume_shape[0] / 2 + depth_offset
+    vertical_center = volume_shape[1] / 2 + vertical_offset
+    horizontal_center = volume_shape[2] / 2 + horizontal_offset
+
+    # Calculate slice indices
+    depth_start = int(depth_center - depth_range / 2)
+    depth_end = int(depth_center + depth_range / 2)
+
+    vertical_start = int(vertical_center - vertical_range / 2)
+    vertical_end = int(vertical_center + vertical_range / 2)
+
+    horizontal_start = int(horizontal_center - horizontal_range / 2)
+    horizontal_end = int(horizontal_center + horizontal_range / 2)
+
+    # Validate bounds
+    if (
+        depth_start < 0
+        or depth_end > volume_shape[0]
+        or vertical_start < 0
+        or vertical_end > volume_shape[1]
+        or horizontal_start < 0
+        or horizontal_end > volume_shape[2]
+    ):
+        raise ValueError("Invalid values entered for 3D cropping - crop region exceeds volume bounds.")
+
+    return volume[
+        depth_start:depth_end,
+        vertical_start:vertical_end,
+        horizontal_start:horizontal_end,
+    ]
+
+
+@timer(enable_timing)
 def image_crop_pad(
     images: ArrayType,
     new_extent_y: int,

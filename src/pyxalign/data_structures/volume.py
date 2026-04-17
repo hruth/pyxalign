@@ -1,3 +1,4 @@
+import enum
 from typing import Optional, Sequence
 from matplotlib import pyplot as plt
 import numpy as np
@@ -5,18 +6,23 @@ import cupy as cp
 import astra
 import copy
 import h5py
+import scipy
+import tqdm
 
 from pyxalign.api.constants import divisor
+from pyxalign.api.enums import SARTInitialVolumes
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
-from pyxalign.gpu_utils import create_empty_pinned_array_like, get_scipy_module, pin_memory
+from pyxalign.gpu_utils import create_empty_pinned_array_like, get_scipy_module, memory_releasing_error_handler, pin_memory
 
 import pyxalign.image_processing as ip
 from pyxalign import reconstruct
 from pyxalign.io.save import save_array_as_tiff
 from pyxalign.plotting.plotters import plot_slice_of_3D_array
 import pyxalign.data_structures.projections as projections
+from pyxalign.regularization import chambolleLocalTV3D
+from pyxalign.sart import sart, sart_prepare
 from pyxalign.timing.timer_utils import timer
 import matplotlib.pyplot as plt
 
@@ -44,17 +50,28 @@ class Volume:
         self.optimal_rotation_angles: Sequence[float] = [0, 0, 0]
         self.data = None
         self.forward_projections = None
+        self.sart_error = None
 
     @property
     def n_layers(self):
         return self.projections.reconstructed_object_dimensions[2]
 
-    def intialize_astra_reconstructor_inputs(self, n_pix: Optional[Sequence[int]] = None):
+    def intialize_astra_reconstructor_inputs(self, n_pix: Optional[Sequence[int]] = None) -> tuple:
+        if self.options.exclude_scans is not None:
+            idx_reconstruct = [
+                i
+                for i, scan in enumerate(self.projections.scan_numbers)
+                if scan not in self.options.exclude_scans
+            ]
+            angles = self.projections.angles[idx_reconstruct]
+        else:
+            idx_reconstruct = None
+            angles = self.projections.angles
         if n_pix is None:
             n_pix = self.projections.reconstructed_object_dimensions
         scan_geometry_config, vectors = reconstruct.get_astra_reconstructor_geometry(
             size=self.projections.size,
-            angles=self.projections.angles,
+            angles=angles,
             n_pix=n_pix,
             center_of_rotation=self.projections.center_of_rotation,
             lamino_angle=self.experiment_options.laminography_angle,
@@ -62,7 +79,7 @@ class Volume:
             skew_angle=self.options.geometry.skew_angle,
         )
         object_geometries = reconstruct.get_object_geometries(scan_geometry_config, vectors)
-        return scan_geometry_config, vectors, object_geometries
+        return scan_geometry_config, vectors, object_geometries, idx_reconstruct
 
     @timer()
     def generate_volume(
@@ -73,6 +90,7 @@ class Volume:
         n_pix: Optional[Sequence[int]] = None,
         update_stored_sinogram: bool = True,
         update_geometries: bool = False,
+        clear_astra_objects_at_end: bool = True,
     ):
         # reinforce references
         self.options = self.projections.options.reconstruct
@@ -83,15 +101,16 @@ class Volume:
         # self.experiment_options = copy.deepcopy(self.projections.options.experiment)
         device = cp.cuda.Device()
         # Re-initialize the inputs and clear outputs
+        idx_reconstruct = None
         if reinitialize_astra or not self.is_initialized:
-            self.clear_astra_objects()
-            self.scan_geometry_config, self.vectors, self.object_geometries = (
+            self.clear_astra_objects() # clear astra objects if they already exist
+            self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
             self.is_initialized = True
         elif update_geometries and not reinitialize_astra:
             # Re-initialize geometries, but not the whole astra object
-            self.scan_geometry_config, self.vectors, self.object_geometries = (
+            self.scan_geometry_config, self.vectors, self.object_geometries, idx_reconstruct = (
                 self.intialize_astra_reconstructor_inputs(n_pix=n_pix)
             )
             # update the geometries, but do not update the stored projections
@@ -103,17 +122,20 @@ class Volume:
         if update_stored_sinogram:
             # Prepare the projections before doing the back-projection
             # if (sinogram is None) and update_stored_sinogram:
+            projections = self.projections.data
+            if idx_reconstruct is not None:
+                projections = self.projections.data[idx_reconstruct]
             if filter_inputs:
                 if pinned_filtered_sinogram is None:
-                    pinned_filtered_sinogram = create_empty_pinned_array_like(self.projections.data)
+                    pinned_filtered_sinogram = create_empty_pinned_array_like(projections)
                 sinogram = reconstruct.filter_sinogram(
-                    sinogram=self.projections.data,
+                    sinogram=projections,
                     vectors=self.vectors,
                     device_options=self.options.filter.device,
                     pinned_results=pinned_filtered_sinogram,
                 )
             else:
-                sinogram = self.projections.data
+                sinogram = projections
 
         if self.astra_config is None:
             # allocate memory for volume and projections, and store projections
@@ -143,6 +165,95 @@ class Volume:
         else:
             self.data[:] = reconstruct.get_3D_reconstruction(self.astra_config)
         cp.cuda.Device(device).use()
+        if clear_astra_objects_at_end:
+            self.clear_astra_objects()
+
+    @timer()
+    def update_astra_stored_volume(self):
+        astra.data3d.store(
+            self.astra_config["ReconstructionDataId"],
+            self.data,
+        )
+
+    @timer()
+    def get_sart_solver_volume(self, sart_input_volume: Optional[np.ndarray] = None):
+        # if sart_input_volume is None:
+        #     sart_input_volume = np.zeros(
+        #         shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+        #         dtype=r_type,
+        #     )
+
+        # Get initial volume
+        if self.options.sart.initial_volume == SARTInitialVolumes.FBP:
+            self.generate_volume(
+                filter_inputs=True,
+                clear_astra_objects_at_end=True,
+            )
+            sart_input_volume = self.data * 1
+        elif self.options.sart.initial_volume == SARTInitialVolumes.ONES:
+            sart_input_volume = np.ones(
+                shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+                dtype=r_type,
+            )
+        elif self.options.sart.initial_volume == SARTInitialVolumes.ZEROS:
+            sart_input_volume = np.zeros(
+                shape=np.roll(self.projections.reconstructed_object_dimensions, 1),
+                dtype=r_type,
+            )
+
+        device = cp.cuda.Device()
+        astra.set_gpu_index(self.options.astra.forward_project_gpu_indices)
+        r, scan_geometry_config, vectors = sart_prepare(
+            volume=sart_input_volume,
+            projection_size=self.projections.size,
+            angles=self.projections.angles,
+            reconstruction_size=np.roll(sart_input_volume.shape, -1),
+            center_of_rotation=self.projections.center_of_rotation,
+            laminography_angle=self.experiment_options.laminography_angle,
+            tilt_angle=self.options.geometry.tilt_angle,
+            skew_angle=self.options.geometry.skew_angle,
+        )
+        cp.cuda.Device(device).use()
+
+        if self.options.sart.use_circular_constraint:
+            circulo = ip.apply_3D_apodization(
+                image=np.zeros(shape=(sart_input_volume.shape[1:])),
+                rad_apod=5,
+                radial_smooth=5,
+            ).astype(r_type)
+
+            def volume_constraint(volume):
+                return np.abs(volume) * (0.9 + 0.1 * circulo)
+        else:
+            volume_constraint = None
+
+        self.data, err = sart(
+            volume=sart_input_volume,
+            sinogram=self.projections.data,
+            scan_geometry_config=scan_geometry_config,
+            vectors=vectors,
+            r=r,
+            iterations=self.options.sart.iterations,
+            relaxation=self.options.sart.relaxation,
+            constraint=volume_constraint,
+            n_sets=self.options.sart.n_subtomograms,
+        )
+        self.sart_error = err
+
+    @memory_releasing_error_handler
+    @timer()
+    def get_regularized_reconstruction(self) -> np.ndarray:
+        data = self.data
+        if self.options.regularization.use_gpu:
+            data = cp.array(data)
+        regularized_data = chambolleLocalTV3D(
+            data,
+            alpha=self.options.regularization.local_TV_lambda,
+            Niter=self.options.regularization.iterations,
+        )
+        if self.options.regularization.use_gpu:
+            regularized_data = regularized_data.get()
+        return regularized_data
 
     @timer()
     def get_forward_projection(
@@ -206,7 +317,7 @@ class Volume:
         reconstruction_mask = self.get_circular_window(radial_smooth, rad_apod)
         reconstruction_mask = np.repeat(reconstruction_mask[None], self.n_layers, axis=0)
 
-        _, _, object_geometries = self.intialize_astra_reconstructor_inputs()
+        _, _, object_geometries, _ = self.intialize_astra_reconstructor_inputs()
         mask, sino_id = reconstruct.get_forward_projection(
             reconstruction=reconstruction_mask,
             object_geometries=object_geometries,
@@ -233,6 +344,7 @@ class Volume:
         self.scan_geometry_config = None
         self.vectors = None
         self.forward_projection_id = None
+        self.is_initialized = False
 
     @timer()
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):
@@ -281,9 +393,10 @@ class Volume:
         use_gpu: bool = True,
         slice_index: Optional[int] = None,
         pad_mult: int = 4,
+        show_plots: bool = False,
     ):
         self.optimal_rotation_angles = get_tomogram_rotation_angles(
-            self.data, use_gpu, slice_index, pad_mult
+            self.data, use_gpu, slice_index, pad_mult, show_plots,
         )
         print(
             "Optimal rotation values:\n"
@@ -327,13 +440,14 @@ class Volume:
         min: Optional[float] = None,
         max: Optional[float] = None,
         data: Optional[np.ndarray] = None,
+        crop_to_single_file: bool = False,
     ):
         if data is None and self.data is None:
             print("There is no volume data to save!")
         if data is None:
             data = self.data
 
-        save_array_as_tiff(data, file_path, min, max)
+        save_array_as_tiff(data, file_path, min, max, crop_to_single_file=crop_to_single_file)
 
     def save_as_h5(self, file_path: str):
         if self.data is None:
@@ -348,6 +462,7 @@ def get_tomogram_rotation_angles(
     use_gpu: bool = True,
     slice_index: Optional[int] = None,
     pad_mult: int = 4,
+    show_plots: bool = False,
 ):
     if use_gpu:
         xp = cp
@@ -373,13 +488,17 @@ def get_tomogram_rotation_angles(
         rotation_angle[i] = get_optimized_sparseness_angle(
             xp.array(reconstruction_slice),
             angle_search_bounds=[-max_search_angle, max_search_angle],
+            show_plots=show_plots,
         )
 
     return rotation_angle
 
 
 def get_optimized_sparseness_angle(
-    image_slice: ArrayType, angle_search_bounds: Sequence, n_iter: int = 500
+    image_slice: ArrayType,
+    angle_search_bounds: Sequence,
+    n_iter: int = 500,
+    show_plots: bool = False,
 ):
     """
     Find the rotation of the object that maximizes sparsity
@@ -444,18 +563,20 @@ def get_optimized_sparseness_angle(
 
     # Do grid search of the sparsity score and plot results
     # fig, ax = plt.subplots(2, 2, layout="compressed")
-    fig = plt.figure(layout="compressed")
-    gs = fig.add_gridspec(2, 2, height_ratios=[1, 2])
-    sparsity_axis = fig.add_subplot(gs[0, 0:2])
-    orig_slice_axis = fig.add_subplot(gs[1, 0])
-    rotated_slice_axis = fig.add_subplot(gs[1, 1])
+    if show_plots:
+        fig = plt.figure(layout="compressed")
+        gs = fig.add_gridspec(2, 2, height_ratios=[1, 2])
+        sparsity_axis = fig.add_subplot(gs[0, 0:2])
+        orig_slice_axis = fig.add_subplot(gs[1, 0])
+        rotated_slice_axis = fig.add_subplot(gs[1, 1])
 
-    # Find and plot the sparsity score
-    plt.sca(sparsity_axis)
-    plt.title("Hoyer Sparsity Score")
-    plt.xlabel("angle (deg)")
-    plt.grid(linestyle=":")
-    plt.autoscale(enable=True, axis="x", tight=True)
+        plt.sca(sparsity_axis)
+        plt.title("Hoyer Sparsity Score")
+        plt.xlabel("angle (deg)")
+        plt.grid(linestyle=":")
+        plt.autoscale(enable=True, axis="x", tight=True)
+
+    # find the sparsity score
     for i in range(3):
         score = get_score_vs_angle(test_image, angles)
         plt.plot(angles, score)
@@ -465,19 +586,20 @@ def get_optimized_sparseness_angle(
         next_range = next_range / 10
     angle = angles[np.argmin(score)]
 
-    # Plot the image slice
-    plt.title("Original slice")
-    plt.sca(orig_slice_axis)
-    if isinstance(image_slice, cp.ndarray):
-        plt.imshow(image_slice.get(), cmap="bone")
-    else:
-        plt.imshow(image_slice, cmap="bone")
-    # Plot the rotated image slice
-    plt.sca(rotated_slice_axis)
-    rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
-    if isinstance(rotated_image_slice, cp.ndarray):
-        rotated_image_slice = rotated_image_slice.get()
-    plt.imshow(rotated_image_slice, cmap="bone")
-    plt.show()
+    if show_plots:
+        # Plot the image slice
+        plt.title("Original slice")
+        plt.sca(orig_slice_axis)
+        if isinstance(image_slice, cp.ndarray):
+            plt.imshow(image_slice.get(), cmap="bone")
+        else:
+            plt.imshow(image_slice, cmap="bone")
+        # Plot the rotated image slice
+        plt.sca(rotated_slice_axis)
+        rotated_image_slice = image_rotate_fft(image_slice[None], angle)[0]
+        if isinstance(rotated_image_slice, cp.ndarray):
+            rotated_image_slice = rotated_image_slice.get()
+        plt.imshow(rotated_image_slice, cmap="bone")
+        plt.show()
 
     return angle

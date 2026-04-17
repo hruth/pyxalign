@@ -523,5 +523,5 @@ def count_digits(s):
 
 
 def extract_s_digit_strings(strings):
-    pattern = r"^S\d+$"  # Matches 'S' followed by one or more digits
-    return [s for s in strings if re.match(pattern, s)]
+    known_suffixes = "(S|fly)"
+    return [s for s in strings if re.match(rf"^{known_suffixes}\d+$", s)]

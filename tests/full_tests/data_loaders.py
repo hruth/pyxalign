@@ -44,13 +44,13 @@ def load_cSAXS_e18044_LamNI_201907_test_data(scan_start: int, scan_end: int) -> 
     return lamni_data
 
 
-def load_2ide_xrf_test_data() -> tuple[dict[str, StandardData], dict]:
+def load_2ide_xrf_test_data() -> dict[str, StandardData]:
     base = xrf_options.XRFBaseLoadOptions(
         folder=os.path.join(ci_test_data_dir, "2ide", "2025-1_Lamni-4", "inputs")
     )
     xrf_load_options = xrf_options.XRF2IDELoadOptions(base=base)
-    xrf_standard_data_dict, extra_PVs = load_data_from_xrf_format(xrf_load_options)
-    return xrf_standard_data_dict, extra_PVs
+    xrf_standard_data_dict = load_data_from_xrf_format(xrf_load_options)
+    return xrf_standard_data_dict
 
 
 def load_2ide_ptycho_test_data() -> StandardData:

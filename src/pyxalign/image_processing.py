@@ -41,7 +41,7 @@ def filtered_fft(image: ArrayType, shift: ArrayType, filter_data: float) -> Arra
     return image
 
 
-def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> ArrayType:
+def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType, return_cross_corr_matrix: bool = False) -> ArrayType:
     "Fast subpixel cross correlation"
     xp = cp.get_array_module(image)
     scipy_module: scipy = get_scipy_module(image)
@@ -49,6 +49,8 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
     cross_corr_matrix = scipy_module.fft.fftshift(
         xp.abs(scipy_module.fft.ifft2(image * xp.conj(image_ref))), (1, 2)
     )
+    if return_cross_corr_matrix:
+        saved_xcorr_matrix = cross_corr_matrix * 1
 
     # Get a mask for a small region around the maximum
     kernel_width = 5
@@ -89,7 +91,10 @@ def get_cross_correlation_shift(image: ArrayType, image_ref: ArrayType) -> Array
     # if xp == cp:
     # relative_shifts = relative_shifts.get()
 
-    return relative_shifts
+    if not return_cross_corr_matrix:
+        return relative_shifts
+    else:
+        return relative_shifts, saved_xcorr_matrix
 
 
 def apply_3D_apodization(image: ArrayType, rad_apod: float, radial_smooth: float):

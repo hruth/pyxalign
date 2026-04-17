@@ -322,10 +322,10 @@ class PEARBaseLoader(ABC):
         n_tiles = stats.mode(np.diff(self.scan_numbers)).mode
         tmp = np.repeat(self.scan_numbers, n_tiles)
         self.scan_numbers = np.array(
-            [scan - n_tiles + i % n_tiles for i, scan in enumerate(tmp)], dtype=int
+            [scan - n_tiles + 1 + (i % n_tiles) for i, scan in enumerate(tmp)], dtype=int
         )
         self.sequences = np.repeat(self.sequences, n_tiles)
-        self.tile_numbers = np.tile(range(n_tiles), int(len(self.scan_numbers) / n_tiles))
+        self.tile_numbers = np.tile(range(n_tiles), int(len(self.scan_numbers) / n_tiles)) + 1
         keep_idx = self.tile_numbers == selected_tile
 
         self.scan_numbers = self.scan_numbers[keep_idx]
@@ -346,9 +346,13 @@ class PEARBaseLoader(ABC):
         raise NotImplementedError
 
 
-def generate_single_projection_sub_folder(scan_number: int, n_digits) -> str:
+def generate_single_projection_sub_folder(
+    scan_number: int, n_digits: int, suffix: Optional[str] = None
+) -> str:
     "Generate name of subfolder corresponding to a single projection"
-    return f"S{str(scan_number).zfill(n_digits)}"
+    if suffix is None:
+        suffix = "S" 
+    return f"{suffix}{str(scan_number).zfill(n_digits)}"
 
 
 def filter_string(input_string: str) -> str:

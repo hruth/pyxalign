@@ -1,20 +1,15 @@
-from functools import wraps
 from ctypes import ArgumentError
-from operator import index
-from re import L
-from tkinter import Spinbox
 from typing import Optional, Sequence, Callable, TypeVar, ParamSpec
 import numpy as np
 import cupy as cp
-import traceback
 import bisect
 from pyxalign.api.options.plotting import ArrayViewerOptions
+from pyxalign.interactions.viewers.climit_window import ClimitAdjustmentWindow
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QLayout,
     QSlider,
     QLabel,
     QSpinBox,
@@ -22,27 +17,17 @@ from PyQt5.QtWidgets import (
     QApplication,
     QSpacerItem,
     QSizePolicy,
-    QFrame,
     QCheckBox,
-    QScrollArea,
+    QGridLayout,
 )
 from PyQt5.QtCore import (
     Qt,
     QTimer,
-    QRunnable,
-    pyqtSlot,
-    QThreadPool,
     pyqtSignal,
-    QObject,
     QEventLoop,
     QThread,
 )
-from PyQt5.QtGui import QPalette, QColor, QValidator
-
-# Matplotlib imports remain here, but are not used in ArrayViewer anymore
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
+from PyQt5.QtGui import QValidator
 
 import pyqtgraph as pg
 
@@ -104,8 +89,12 @@ class ArrayViewer(MultiThreadedWidget):
         options: Optional[ArrayViewerOptions] = None,
         sort_idx: Optional[Sequence] = None,
         hide_index_selector_controls: bool = False,
+        return_index_selector_seperately: bool = False,
+        hide_climit_controls: bool = False,
+        hide_axis_controls: bool = True,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
+        include_array_saving_widget: bool = False,
         process_func: Optional[Callable] = None,
         parent=None,
     ):
@@ -145,6 +134,22 @@ class ArrayViewer(MultiThreadedWidget):
             self.num_frames = 1
 
         self.playing = False
+        self.climit_window = None
+        self.include_array_saving_widget = include_array_saving_widget
+        self.save_array_window = None
+
+        # Dictionary to store the last selected index for each axis
+        self.axis_index_memory = {}
+        if self.array3d is not None:
+            # Initialize with middle indices for each axis
+            for axis in range(3):
+                axis_size = self.array3d.shape[axis]
+                self.axis_index_memory[axis] = axis_size // 2
+
+            # Override the start_index to use the middle of the current axis
+            # unless a non-zero start_index was explicitly provided
+            if self.options.start_index == 0:
+                self.options.start_index = self.num_frames // 2
 
         # Create a pyqtgraph GraphicsLayoutWidget to hold the image
         self.graphics_layout = pg.GraphicsLayoutWidget()
@@ -157,6 +162,33 @@ class ArrayViewer(MultiThreadedWidget):
         self.auto_clim_check_box = QCheckBox("Enable amplitude rescaling")
         self.auto_clim_check_box.setStyleSheet("QCheckBox {font-size: 15px;}")
         self.auto_clim_check_box.stateChanged.connect(self.refresh_frame)
+
+        # Create button for adjusting color limits
+        self.adjust_climit_button = QPushButton("Adjust Color Limits")
+        self.adjust_climit_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.adjust_climit_button.clicked.connect(self.open_climit_window)
+        if hide_climit_controls:
+            self.adjust_climit_button.hide()
+
+        # Create Save Array button if enabled
+        if include_array_saving_widget:
+            self.save_array_button = QPushButton("Save Array")
+            self.save_array_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            self.save_array_button.clicked.connect(self.open_save_array_window)
+
+        # Create grid layout for checkbox and buttons
+        clim_controls_layout = QGridLayout()
+        clim_controls_layout.addWidget(self.auto_clim_check_box, 0, 0, alignment=Qt.AlignLeft)
+
+        if include_array_saving_widget:
+            # Add spacer to push Save Array button to the right
+            spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+            clim_controls_layout.addItem(spacer, 0, 1)
+            clim_controls_layout.addWidget(self.save_array_button, 0, 2, alignment=Qt.AlignRight)
+
+        clim_controls_layout.addWidget(self.adjust_climit_button, 1, 0, 1, 3)
+        clim_controls_widget = QWidget()
+        clim_controls_widget.setLayout(clim_controls_layout)
 
         # Create index selection widget (slider, spinbox, play button, etc.)
         self.indexing_widget = IndexSelectorWidget(
@@ -179,12 +211,53 @@ class ArrayViewer(MultiThreadedWidget):
         self.play_button.clicked.connect(self.toggle_play)
         self.timer.timeout.connect(self.next_frame)
 
+        # Create buttons for cycling slider axis
+        self.prev_axis_button = QPushButton("←")
+        self.prev_axis_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.prev_axis_button.setFixedWidth(30)
+        self.prev_axis_button.clicked.connect(self.cycle_axis_backward)
+
+        self.next_axis_button = QPushButton("→")
+        self.next_axis_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.next_axis_button.setFixedWidth(30)
+        self.next_axis_button.clicked.connect(self.cycle_axis_forward)
+
+        # Create label for current axis
+        self.axis_label = QLabel(f"axis: {self.options.slider_axis}")
+        self.axis_label.setStyleSheet("QLabel {font-size: 14px;}")
+
+        # Create horizontal layout for axis controls
+        axis_controls_layout = QHBoxLayout()
+        axis_controls_layout.addWidget(self.prev_axis_button)
+        axis_controls_layout.addWidget(self.next_axis_button)
+        axis_controls_layout.addWidget(self.axis_label)
+        axis_controls_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        axis_controls_widget = QWidget()
+        axis_controls_widget.setLayout(axis_controls_layout)
+
+        # Hide axis controls if requested
+        if hide_axis_controls:
+            self.prev_axis_button.hide()
+            self.next_axis_button.hide()
+            self.axis_label.hide()
+
+        # Create a container for indexing and axis controls to keep them together
+        self.controls_container = QWidget()
+        controls_container_layout = QVBoxLayout()
+        controls_container_layout.setContentsMargins(0, 0, 0, 0)
+        controls_container_layout.addWidget(self.indexing_widget)
+        controls_container_layout.addWidget(axis_controls_widget)
+        self.controls_container.setLayout(controls_container_layout)
+        self.controls_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+
         # Main layout
         layout = QVBoxLayout()
-        # In the original code, a matplotlib toolbar was added, but we omit it for pyqtgraph usage
-        layout.addWidget(self.auto_clim_check_box)
+        layout.setSpacing(2)  # Reduce spacing between widgets
+        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        layout.addWidget(clim_controls_widget)
         layout.addWidget(self.graphics_layout)
-        layout.addWidget(self.indexing_widget)
+        if not return_index_selector_seperately:
+            layout.addWidget(self.controls_container)
         self.setLayout(layout)
 
         # Font and style adjustments
@@ -203,9 +276,14 @@ class ArrayViewer(MultiThreadedWidget):
 
         # If array3d was provided, show the initial image
         if self.array3d is not None:
+            # Update the memory with the actual start index being used
+            self.axis_index_memory[self.options.slider_axis] = self.options.start_index
+
             self.display_frame(index=self.options.start_index)
             # force scaling
             self.image_item.setImage(autoLevels=True)
+            # initialize manual climit editing widget
+            self.initialize_climit_window()
 
     def display_frame(self, index=0, force_autolim: bool = False):
         """Display a given slice (frame) from array3d."""
@@ -236,6 +314,41 @@ class ArrayViewer(MultiThreadedWidget):
             title += self.extra_title_strings_list[plot_index]
         title = "<b>" + title + "</b>"
         self.plot_item.setTitle(title)
+
+    def get_current_frame_data(self) -> np.ndarray:
+        """
+        Extract the currently displayed frame as a 2D numpy array.
+
+        Returns:
+            2D numpy array with processing function and transpose applied
+            (matches what is displayed on screen)
+
+        Raises:
+            ValueError: If no array data is loaded
+        """
+        if self.array3d is None:
+            raise ValueError("No array data loaded")
+
+        index = self.slider.value()
+        if self.sort_idx is not None:
+            plot_index = self.sort_idx[index]
+        else:
+            plot_index = index
+
+        # Extract frame along current axis
+        image = self.array3d.take(indices=plot_index, axis=self.options.slider_axis)
+
+        # Convert from GPU if needed
+        if cp.get_array_module(image) == cp:
+            image = image.get()
+
+        # Apply processing function (e.g., np.angle for complex arrays)
+        image = self.process_func(image)
+
+        # Apply transpose to match displayed image
+        image = np.transpose(image)
+
+        return image
 
     def update_frame(self, value, force_autolim: bool = False):
         self.display_frame(index=value, force_autolim=force_autolim)
@@ -299,9 +412,83 @@ class ArrayViewer(MultiThreadedWidget):
                     sort_idx=sort_idx,
                     new_selected_value_list=new_selected_value_list,
                 )
+            if self.climit_window is None:
+                self.initialize_climit_window()
+            else:
+                self.climit_window.load_current_levels()
+
+    def open_climit_window(self):
+        self.climit_window.load_current_levels()
+        self.climit_window.show()
+
+    def open_save_array_window(self):
+        """Open the array save dialog window."""
+        if self.save_array_window is None:
+            from pyxalign.interactions.viewers.array_save_window import ArraySaveWindow
+
+            self.save_array_window = ArraySaveWindow(self, parent=self)
+        self.save_array_window.show()
+
+    def initialize_climit_window(self):
+        if self.array3d is not None:
+            self.climit_window = ClimitAdjustmentWindow(self.image_item, parent=self)
+            self.climit_window.load_current_levels()
+            # make sure climit updates when slider is moving
+            self.slider.valueChanged.connect(self.climit_window.load_current_levels)
+
+    def cycle_axis_forward(self):
+        """Cycle to the next axis."""
+        if self.array3d is None:
+            return
+
+        # Cycle forward through axes (0 -> 1 -> 2 -> 0)
+        self._update_axis_memory(self.slider.value())
+        self.options.slider_axis = (self.options.slider_axis + 1) % 3
+        self._update_after_axis_change()
+
+    def cycle_axis_backward(self):
+        """Cycle to the previous axis."""
+        if self.array3d is None:
+            return
+
+        # Cycle backward through axes (0 -> 2 -> 1 -> 0)
+        self.options.slider_axis = (self.options.slider_axis - 1) % 3
+        self._update_after_axis_change()
+
+    def _update_axis_memory(self, value):
+        """Store the current slider value for the current axis."""
+        if hasattr(self, 'axis_index_memory'):
+            self.axis_index_memory[self.options.slider_axis] = value
+
+    def _update_after_axis_change(self):
+        """Update the viewer after the slider axis has changed."""
+        # Update num_frames based on new axis
+        self.num_frames = self.array3d.shape[self.options.slider_axis]
+
+        # Update slider and spinbox ranges
+        self.slider.setMaximum(self.num_frames - 1)
+        self.spinbox.setMaximum(self.num_frames - 1)
+
+        # Update axis label
+        self.axis_label.setText(f"axis: {self.options.slider_axis}")
+
+        # Restore the remembered index for this axis, or use middle if not set
+        if self.options.slider_axis in self.axis_index_memory:
+            remembered_index = self.axis_index_memory[self.options.slider_axis]
+            # Clamp to valid range in case array size changed
+            remembered_index = min(remembered_index, self.num_frames - 1)
+        else:
+            # Default to middle index
+            remembered_index = self.num_frames // 2
+            self.axis_index_memory[self.options.slider_axis] = remembered_index
+
+        # Set the slider to the remembered index
+        self.slider.setValue(remembered_index)
+
+        # Refresh the display
+        self.refresh_frame(force_autolim=True)
 
     def start(self):
-        """Show the widget."""
         """Show the widget."""
         self.show()
 
@@ -315,6 +502,7 @@ class LinkedArrayViewer(MultiThreadedWidget):
         sort_idx: Optional[Sequence] = None,
         multi_thread_func: Optional[Callable] = None,
         extra_title_strings_list: Optional[list[str]] = None,
+        n_rows: Optional[int] = None,
         process_func: Optional[Callable] = None,
         parent=None,
     ):
@@ -323,10 +511,18 @@ class LinkedArrayViewer(MultiThreadedWidget):
             parent=parent,
         )
         # main layout
-        layout = QHBoxLayout()
+        layout = QGridLayout()
+        n = len(array_list)
+        if n_rows is None:
+            n_rows = 1
+        n_cols = int(np.ceil(n / n_rows))
         # create array viewers
         self.array_viewer_list = []
         for i, array3d in enumerate(array_list):
+            if i == 0:
+                hide_index_selector_controls = False
+            else:
+                hide_index_selector_controls = True
             array_viewer = ArrayViewer(
                 array3d,
                 options=options,
@@ -334,13 +530,18 @@ class LinkedArrayViewer(MultiThreadedWidget):
                 multi_thread_func=multi_thread_func,
                 extra_title_strings_list=extra_title_strings_list,
                 process_func=process_func,
+                hide_index_selector_controls=hide_index_selector_controls,
             )
             self.array_viewer_list += [array_viewer]
             # connect all sliders
             if i != 0:
                 array_viewer.slider.valueChanged.connect(self.array_viewer_list[0].slider.setValue)
                 self.array_viewer_list[0].slider.valueChanged.connect(array_viewer.slider.setValue)
-            layout.addWidget(array_viewer)
+
+            row, col = np.unravel_index(i, (n_rows, n_cols))
+            # layout.addWidget(array_viewer)
+
+            layout.addWidget(array_viewer, row, col)
         self.setLayout(layout)
 
 
@@ -500,8 +701,6 @@ class IndexSelectorWidget(QWidget):
         if hide_controls:
             self.slider.hide()
             self.play_button.hide()
-            # self.playback_speed_spin.hide()
-            # self.spinbox.hide()
             main_spinbox_widget.hide()
             playback_speed_widget.hide()
 
@@ -705,6 +904,8 @@ def launch_array_viewer(
     options: Optional[ArrayViewerOptions] = None,
     sort_idx: Optional[Sequence] = None,
     extra_title_strings_list: Optional[list[str]] = None,
+    include_array_saving_widget: bool = False,
+    hide_axis_controls: bool = True,
     process_func: Optional[Callable] = None,
     wait_until_closed: bool = False,
 ) -> ArrayViewer:
@@ -733,6 +934,8 @@ def launch_array_viewer(
         options,
         sort_idx,
         extra_title_strings_list=extra_title_strings_list,
+        include_array_saving_widget=include_array_saving_widget,
+        hide_axis_controls=hide_axis_controls,
         process_func=process_func,
     )
     gui.setAttribute(Qt.WA_DeleteOnClose)
@@ -748,6 +951,7 @@ def launch_linked_array_viewer(
     options: Optional[ArrayViewerOptions] = None,
     sort_idx: Optional[Sequence] = None,
     extra_title_strings_list: Optional[list[str]] = None,
+    n_rows: Optional[int] = None,
     process_func: Optional[Callable] = None,
     wait_until_closed: bool = False,
 ):
@@ -756,7 +960,7 @@ def launch_linked_array_viewer(
 
     Args:
         array_list (np.ndarray): A list of 3-dimensional arrays. The GUI
-            indexes along the 0th axis of the input `array3d`. Each 
+            indexes along the 0th axis of the input `array3d`. Each
             array in the list must have the same length
         options (Optional[ArrayViewerOptions]): Optional settings for
             specifying the state that each `ArrayViewer` GUI is initialized in.
@@ -772,7 +976,7 @@ def launch_linked_array_viewer(
             blocking call until the GUI window is closed.
 
     Example:
-        Compare two different volume 
+        Compare two different volume
         arrays::
 
             gui = pyxalign.gui.launch_linked_array_viewer([volume_array_1, volume_array_2])
@@ -784,6 +988,7 @@ def launch_linked_array_viewer(
         options,
         sort_idx,
         extra_title_strings_list=extra_title_strings_list,
+        n_rows=n_rows,
         process_func=process_func,
     )
     gui.setAttribute(Qt.WA_DeleteOnClose)

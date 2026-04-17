@@ -107,10 +107,8 @@ def create_empty_pinned_array_like(array: ArrayType):
 def is_pinned(array: ArrayType) -> bool:
     # Temporary -- this will only give the proper answer for large arrays
     min_array_size = 200
-    if array.nbytes < min_array_size:
-        raise NotImplementedError(
-            f"This function does not work to check if arrays smaller than {min_array_size} bytes"
-        )
+    # if array.nbytes < min_array_size:
+    #     print(f"Warning: pyxalign function is_pinned does not work for arrays smaller than {min_array_size} bytes.")
     return array.nbytes > 2 * array.__sizeof__()
 
 
@@ -165,6 +163,7 @@ def memory_releasing_error_handler(func, show_info: bool = False) -> T:
         except Exception as ex:
             print(f"An error occurred: {type(ex).__name__}: {str(ex)}")
             traceback.print_exc()
+            # should probably remove the top two lines and add a raise?
         finally:
             for gpu in get_available_gpus():
                 with cp.cuda.Device(gpu):

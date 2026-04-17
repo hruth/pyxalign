@@ -36,7 +36,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from pyxalign.interactions.utils.loading_display_tools import OverlayWidget, loading_bar_wrapper
-from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
+from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend, center_window_on_screen
 from pyxalign.io.loaders.load_any import load_dataset_from_arbitrary_options
 from pyxalign.io.loaders.xrf.api import load_data_from_xrf_format
 import sip
@@ -103,14 +103,9 @@ class SelectLoadSettingsWidget(QWidget):
         self.experiment_type_combo = QComboBox()
         self.experiment_type_combo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         layout.addWidget(self.experiment_type_combo)
-        experiment_options = {
-            "LYNX": ExperimentType.LYNX,
-            "2IDE: ptycho": ExperimentType.BEAMLINE_2IDE_PTYCHO,
-            "2IDD: ptycho": ExperimentType.BEAMLINE_2IDD_PTYCHO,
-            "2IDE: XRF-maps": ExperimentType.BEAMLINE_2IDE_XRF,
-        }
-        for key, val in experiment_options.items():
-            self.experiment_type_combo.addItem(key, val)
+
+        for experiment_type in ExperimentType:
+            self.experiment_type_combo.addItem(experiment_type, experiment_type)
 
         # On changing the index, the displayed options should change between
         # pear_options.LYNXLoadOptions, Beamline2IDELoadOptions, and the xrf maps options!
@@ -268,13 +263,12 @@ def launch_data_loader(
             opening the GUI.
 
     Returns:
-        The loaded data
+        Tuple containing the loaded data and the selected loading options
 
     Example:
         Launch the data loader
         GUI::
 
-            import pyxalign
             loaded_data, load_options = pyxalign.gui.launch_data_loader()
     """
     app = QApplication.instance() or QApplication([])
@@ -290,6 +284,7 @@ def launch_data_loader(
 
     gui.data_loaded_signal.connect(on_data_loaded)
 
+    center_window_on_screen(gui, width_fraction=0.75, height_fraction=0.75)
     gui.show()
     app.exec()
     gui.close()
@@ -304,6 +299,18 @@ def launch_data_loader(
     print_options(gui.options)
 
     return loaded_data, gui.options
+
+@switch_to_matplotlib_qt_backend
+def launch_load_options_editor(
+    load_options: Optional[OptionsClass] = None,
+    wait_until_closed: bool = False,
+) -> SelectLoadSettingsWidget:
+    app = QApplication.instance() or QApplication([])
+    gui = SelectLoadSettingsWidget(load_options)
+    gui.show()
+    gui.setAttribute(Qt.WA_DeleteOnClose)
+    if wait_until_closed:
+        app.exec_()
 
 
 if __name__ == "__main__":

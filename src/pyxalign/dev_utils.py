@@ -28,6 +28,10 @@ def refresh_task(stale_task: LaminographyAlignmentTask) -> LaminographyAlignment
 def refresh_projections(stale_projections: Projections) -> Projections:
     for projection_class in [PhaseProjections, ComplexProjections]:
         if projection_class.__name__ == stale_projections.__class__.__name__:
+            if stale_projections.probe_positions is not None:
+                position_data = stale_projections.probe_positions.data
+            else:
+                position_data = None
             new_projections: Projections = projection_class(
                 projections=stale_projections.data,
                 angles=stale_projections.angles,
@@ -35,7 +39,7 @@ def refresh_projections(stale_projections: Projections) -> Projections:
                 options=refresh_options(stale_projections.options, ProjectionOptions),
                 masks=stale_projections.masks,
                 probe=stale_projections.probe,
-                probe_positions=stale_projections.probe_positions.data,
+                probe_positions=position_data,
                 shift_manager=stale_projections.shift_manager, # not refreshed
                 transform_tracker=stale_projections.transform_tracker, # not refreshed
                 center_of_rotation=stale_projections.center_of_rotation,

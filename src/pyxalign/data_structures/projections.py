@@ -8,6 +8,8 @@ from pyxalign.alignment.utils import (
     get_shift_from_different_resolution_alignment,
 )
 from pyxalign.api.options.plotting import PlotDataOptions
+from pyxalign.api.options.roi import ROIType
+from pyxalign.api.options_utils import print_options
 from pyxalign.estimate_center import (
     estimate_center_of_rotation,
     CenterOfRotationEstimateResults,
@@ -32,11 +34,17 @@ from pyxalign.api.options.transform import (
     UpsampleOptions,
     DownsampleOptions,
 )
+from pyxalign.fsc import FourierShellCorrelation
 import pyxalign.gpu_utils as gpu_utils
 from pyxalign.gpu_wrapper import device_handling_wrapper
 from pyxalign.data_structures.volume import Volume
-from pyxalign.mask import build_masks_from_threshold, get_simulated_probe_for_masks
-from pyxalign.io.utils import load_list_of_arrays
+from pyxalign.transformations.helpers import force_rectangular_roi_in_bounds
+from pyxalign.mask import (
+    build_masks_from_threshold,
+    get_masks_from_roi,
+    get_simulated_probe_for_masks,
+)
+from pyxalign.io.utils import load_list_of_arrays_or_str
 from pyxalign.io.save import save_generic_data_structure_to_h5
 
 from pyxalign.mask import estimate_reliability_region_mask, blur_masks
@@ -45,6 +53,7 @@ import pyxalign.plotting.plotters as plotters
 from pyxalign.style.text import ordinal
 from pyxalign.timing.timer_utils import timer, clear_timer_globals
 from pyxalign.transformations.classes import (
+    Cropper3D,
     Downsampler,
     Rotator,
     Shearer,
@@ -65,6 +74,7 @@ from pyxalign.data_structures.positions import ProbePositions
 from pyxalign.api.types import ArrayType, r_type
 
 __all__ = ["Projections", "PhaseProjections", "ComplexProjections"]
+
 
 class TransformTracker:
     def __init__(
@@ -182,7 +192,9 @@ class Projections:
         n_lateral_pixels = self.data.shape[2]
         if self.options.volume_width.use_custom_width:
             n_lateral_pixels *= self.options.volume_width.multiplier
-        n_pix = np.array([n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size])
+        n_pix = np.array(
+            [n_lateral_pixels, n_lateral_pixels, sample_thickness / self.pixel_size]
+        )
         # n_pix = round_to_divisor(n_pix, "ceil", divisor)
         return np.ceil(n_pix).astype(int)
 
@@ -312,7 +324,9 @@ class Projections:
                         shape=(self.n_projections, *self.size[::-1]),
                         dtype=self.data.dtype,
                     )
-                    self.data = Rotator(options).run(self.data, pinned_results=pinned_array)
+                    self.data = Rotator(options).run(
+                        self.data, pinned_results=pinned_array
+                    )
                 else:
                     self.data = Rotator(options).run(self.data)
                 # Do the same procedure for the masks
@@ -322,7 +336,9 @@ class Projections:
                             shape=(self.n_projections, *self.size),
                             dtype=self.masks.dtype,
                         )
-                        self.masks = Rotator(options).run(self.masks, pinned_results=pinned_array)
+                        self.masks = Rotator(options).run(
+                            self.masks, pinned_results=pinned_array
+                        )
                     else:
                         self.masks = Rotator(options).run(self.masks)
 
@@ -346,7 +362,9 @@ class Projections:
             # To do: insert code for updating center of rotation
 
     @timer()
-    def shear_projections(self, options: ShearOptions, apply_to_center_of_rotation: bool = True):
+    def shear_projections(
+        self, options: ShearOptions, apply_to_center_of_rotation: bool = True
+    ):
         if options.enabled and options.angle != 0:
             Shearer(options).run(self.data, pinned_results=self.data)
             if self.masks is not None:
@@ -372,7 +390,9 @@ class Projections:
         shift = np.round(np.array(self.size) / 2 - self.center_of_rotation)
         self.center_of_rotation = self.center_of_rotation + shift
         shift = shift[::-1][None].repeat(self.n_projections, 0)
-        shifter_function = Shifter(ShiftOptions(type=enums.ShiftType.CIRC, enabled=True))
+        shifter_function = Shifter(
+            ShiftOptions(type=enums.ShiftType.CIRC, enabled=True)
+        )
         self.data = shifter_function.run(self.data, shift)
         if self.masks is not None:
             self.masks = shifter_function.run(self.masks, shift)
@@ -394,16 +414,42 @@ class Projections:
             self.options.mask_from_positions.threshold,
         )
 
+    def get_masks_from_roi_selection(self):
+        """
+        Create masks using the parameters in `self.options.masks_from_roi`.
+
+        To launch the interactive gui for this function, use:
+            `gui = pyxalign.gui.launch_mask_selection_from_roi()`.
+        """
+        if self.options.masks_from_roi.shape == ROIType.RECTANGULAR:
+            # handle default values of rectangular ROI options and force
+            # ROI in bounds if necessary
+            updated_rect_roi_options = force_rectangular_roi_in_bounds(
+                self.options.masks_from_roi.rectangle, self.data.shape[1:]
+            )
+            updated_roi_options = copy.copy(self.options.masks_from_roi)
+            updated_roi_options.rectangle = updated_rect_roi_options
+        self.masks = get_masks_from_roi(updated_roi_options, self.data.shape)
+        print("Updated masks, used mask ROI options:")
+        print_options(updated_roi_options, include_class_name=False)
+
     def drop_projections(self, remove_scans: list[int], repin_array: bool = False):
         "Permanently remove specific projections from object"
         # keep_idx = [i for i in range(0, self.n_projections) if i not in remove_idx]
         # self.dropped_scan_numbers += self.scan_numbers[remove_idx].tolist()
+        remove_scans = [scan for scan in remove_scans if scan in self.scan_numbers]
         if not hasattr(remove_scans, "__len__"):
-            raise TypeError("Input argument `remove_scans` should be a list of integers")
+            raise TypeError(
+                "Input argument `remove_scans` should be a list of integers"
+            )
         if isinstance(remove_scans, np.ndarray):
             remove_scans = list(remove_scans)
-        keep_idx = [i for i, scan in enumerate(self.scan_numbers) if scan not in remove_scans]
-        remove_idx = [i for i, scan in enumerate(self.scan_numbers) if scan in remove_scans]
+        keep_idx = [
+            i for i, scan in enumerate(self.scan_numbers) if scan not in remove_scans
+        ]
+        remove_idx = [
+            i for i, scan in enumerate(self.scan_numbers) if scan in remove_scans
+        ]
         # update list of dropped scans
         # self.dropped_scan_numbers += [scan for scan in remove_scans if scan in self.scan_numbers]
         self.dropped_scan_numbers += [self.scan_numbers[i] for i in remove_idx]
@@ -435,8 +481,11 @@ class Projections:
         # Update the past shifts and staged shift
         self.shift_manager.staged_shift = self.shift_manager.staged_shift[keep_idx]
         for i, shift in enumerate(self.shift_manager.past_shifts):
-            self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][keep_idx]
+            self.shift_manager.past_shifts[i] = self.shift_manager.past_shifts[i][
+                keep_idx
+            ]
 
+        print(f"Removed scans: {[int(x) for x in remove_scans]}")
 
     def _post_init(self):
         "For running children specific code after instantiation"
@@ -474,14 +523,20 @@ class Projections:
         if downsample_options.enabled:
             mask_options = copy.deepcopy(mask_options)
             scale = downsample_options.scale
-            mask_options.binary_close_coefficient = mask_options.binary_close_coefficient / scale
-            mask_options.binary_erode_coefficient = mask_options.binary_erode_coefficient / scale
+            mask_options.binary_close_coefficient = (
+                mask_options.binary_close_coefficient / scale
+            )
+            mask_options.binary_erode_coefficient = (
+                mask_options.binary_erode_coefficient / scale
+            )
             mask_options.fill = mask_options.fill / scale
         else:
             mask_options = mask_options
         # Calculate masks
         self.masks = estimate_reliability_region_mask(
-            images=Downsampler(self.options.masks_from_morphology.downsample).run(self.data),
+            images=Downsampler(self.options.masks_from_morphology.downsample).run(
+                self.data
+            ),
             options=mask_options,
             enable_plotting=enable_plotting,
         )
@@ -494,7 +549,10 @@ class Projections:
         # return Upsampler(upsample_options).run(self.masks)
 
     def _blur_masks(
-        self, kernel_sigma: int, use_gpu: bool = False, masks: Optional[np.ndarray] = None
+        self,
+        kernel_sigma: int,
+        use_gpu: bool = False,
+        masks: Optional[np.ndarray] = None,
     ):
         if masks is None:
             masks = self.masks
@@ -523,8 +581,15 @@ class Projections:
             image = process_func(self.data[proj_idx])
 
         plt.imshow(image, cmap="bone")
-        plt.plot(center_of_rotation[1], center_of_rotation[0], ".m", label="Center of Rotation")
-        plt.title(f"Center of Rotation\n(x={center_of_rotation[1]}, y={center_of_rotation[0]})")
+        plt.plot(
+            center_of_rotation[1],
+            center_of_rotation[0],
+            ".m",
+            label="Center of Rotation",
+        )
+        plt.title(
+            f"Center of Rotation\n(x={center_of_rotation[1]}, y={center_of_rotation[0]})"
+        )
         plt.legend()
         if show_plot:
             plt.show()
@@ -545,7 +610,9 @@ class Projections:
             np.issubdtype(self.data.dtype, np.complexfloating)
             and options.process_func is enums.ProcessFunc.NONE
         ):
-            print("process_func not provided, defaulting to plotting angle of complex projections")
+            print(
+                "process_func not provided, defaulting to plotting angle of complex projections"
+            )
             options.process_func = enums.ProcessFunc.ANGLE
 
         if options.index is None:
@@ -635,13 +702,6 @@ class Projections:
             print(shift_type)
             self.plot_shift(shift_type, plot_kwargs=plot_kwargs)
 
-    # def replace_probe_with_gaussian(
-    #     self, amplitude: float, sigma: float, shape: Optional[float] = None
-    # ):
-    #     if shape is None:
-    #         shape = self.probe.shape
-    #     self.probe = symmetric_gaussian_2d(shape, amplitude, sigma)
-
     def _save_projections_object(
         self,
         save_path: Optional[str] = None,
@@ -650,7 +710,9 @@ class Projections:
         if save_path is None and h5_obj is None:
             raise ValueError("Error: you must pass in either file_path or h5_obj.")
         elif save_path is not None and h5_obj is not None:
-            raise ValueError("Error: you must pass in only file_path OR h5_obj, not both.")
+            raise ValueError(
+                "Error: you must pass in only file_path OR h5_obj, not both."
+            )
         elif save_path is not None:
             h5_obj = h5py.File(save_path, "w")
 
@@ -676,6 +738,7 @@ class Projections:
             "shear": self.transform_tracker.shear,
             "downsample": self.transform_tracker.scale,
             "applied_shifts": self.shift_manager.past_shifts,
+            "applied_shifts_function_types": self.shift_manager.past_shift_functions,
             "staged_shift": self.shift_manager.staged_shift,
             "staged_shift_function_type": self.shift_manager.staged_function_type,
             "file_paths": file_paths,
@@ -703,6 +766,7 @@ class Projections:
         drop_unshared_scans: bool = False,
         reference_tile_num: Optional[int] = None,
         current_tile_num: Optional[int] = None,
+        update_geometries: bool = False,
     ):
         # Load data
         with h5py.File(task_file_path, "r") as F:
@@ -710,11 +774,15 @@ class Projections:
                 group = "phase_projections"
             elif "complex_projections" in F.keys():
                 group = "complex_projections"
-            past_shifts = load_list_of_arrays(F[group], "applied_shifts")
+            past_shifts = load_list_of_arrays_or_str(F[group], "applied_shifts")
             reference_scan_numbers = np.array(F[group]["scan_numbers"][()], dtype=int)
             reference_pixel_size = F[group]["pixel_size"][()]
             reference_center_of_rotation = F[group]["center_of_rotation"][()]
             reference_shape = F[group]["data"].shape
+            reference_sample_thickness = F[group]["options/experiment/sample_thickness"][()]
+            reference_lamino_angle = F[group]["options/experiment/laminography_angle"][()]
+            reference_tilt_angle = F[group]["options/reconstruct/geometry/tilt_angle"][()]
+            reference_skew_angle = F[group]["options/reconstruct/geometry/skew_angle"][()]
         reference_shift = np.sum(past_shifts, 0).astype(r_type)
         # get new shift and scan numbers to drop
         shared_scan_numbers, new_shift = get_shift_from_different_resolution_alignment(
@@ -726,11 +794,15 @@ class Projections:
             reference_tile_num,
             current_tile_num,
         )
-        remove_scans = [scan for scan in self.scan_numbers if scan not in shared_scan_numbers]
+        remove_scans = [
+            scan for scan in self.scan_numbers if scan not in shared_scan_numbers
+        ]
         if drop_unshared_scans:
             # remove scans that were not in reference data
             keep_idx = [
-                i for i, scan in enumerate(self.scan_numbers) if scan in shared_scan_numbers
+                i
+                for i, scan in enumerate(self.scan_numbers)
+                if scan in shared_scan_numbers
             ]
             new_shift = new_shift[keep_idx]
             self.drop_projections(remove_scans)
@@ -747,19 +819,38 @@ class Projections:
         self.shift_manager.stage_shift(new_shift, staged_function_type)
         # Update center of rotation
         if update_center_of_rotation:
-            self.center_of_rotation[:] = get_center_of_rotation_from_different_resolution_alignment(
-                reference_shape=reference_shape[1:],
-                reference_center_of_rotation=reference_center_of_rotation,
-                current_shape=self.data.shape[1:],
-                reference_pixel_size=reference_pixel_size,
-                current_pixel_size=self.pixel_size,
+            self.center_of_rotation[:] = (
+                get_center_of_rotation_from_different_resolution_alignment(
+                    reference_shape=reference_shape[1:],
+                    reference_center_of_rotation=reference_center_of_rotation,
+                    current_shape=self.data.shape[1:],
+                    reference_pixel_size=reference_pixel_size,
+                    current_pixel_size=self.pixel_size,
+                )
             )
+        
+        # update lamino angle, tilt angle, and shear angle if specified
+        if update_geometries:
+            self.options.reconstruct.geometry.tilt_angle = reference_tilt_angle
+            self.options.reconstruct.geometry.skew_angle = reference_skew_angle
+            self.options.experiment.laminography_angle = reference_lamino_angle
+            self.options.experiment.sample_thickness = reference_sample_thickness
 
         return new_shift
 
 
 class ComplexProjections(Projections):
     def unwrap_phase(self, pinned_results: Optional[np.ndarray] = None) -> ArrayType:
+        ramp_options = self.options.phase_unwrap.remove_ramp_using_air_gap
+        if (
+            ramp_options.enabled
+            and ramp_options.air_region.horizontal_range is None
+            and ramp_options.air_region.vertical_range is None
+        ):
+            raise ValueError(
+                "Air gap ramp removal is enabled, but the air_region ROI was not specified."
+            )
+
         # this method always needs a mask
         bool_1 = (
             self.options.phase_unwrap.method
@@ -767,13 +858,15 @@ class ComplexProjections(Projections):
         )
         # this method does not need a mask
         bool_2 = (
-            self.options.phase_unwrap.method == enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION
+            self.options.phase_unwrap.method
+            == enums.PhaseUnwrapMethods.GRADIENT_INTEGRATION
         ) and (self.options.phase_unwrap.gradient_integration.use_masks)
         use_masks = bool_1 or bool_2
-        if use_masks is True and self.masks is None:
+        if use_masks and self.masks is None:
             raise ValueError(
                 "Phase unwrapping requires masks for the selected phase_unwrap settings, but masks do not exist"
             )
+
         # the configuration of the device_handling_wrapper depends on the number
         # of chunked arguments passed to it, so it depends on whether or not
         # we are passing in masks
@@ -789,7 +882,9 @@ class ComplexProjections(Projections):
             display_progress_bar=True,
         )
         if use_masks:
-            return unwrap_phase_wrapped(self.data, self.masks, self.options.phase_unwrap)
+            return unwrap_phase_wrapped(
+                self.data, self.masks, self.options.phase_unwrap
+            )
         else:
             return unwrap_phase_wrapped(self.data, None, self.options.phase_unwrap)
 
@@ -804,18 +899,29 @@ class PhaseProjections(Projections):
         pinned_filtered_sinogram: Optional[np.ndarray] = None,
         reinitialize_astra: bool = True,
         n_pix: Optional[Sequence[int]] = None,
+        apply_positivity_constraint: bool = False,
+        initial_volume_sart: Optional[np.ndarray] = None,
+        clear_astra_objects_at_end: bool = True,
     ):
-        self.volume.generate_volume(
-            filter_inputs=filter_inputs,
-            pinned_filtered_sinogram=pinned_filtered_sinogram,
-            reinitialize_astra=reinitialize_astra,
-            n_pix=n_pix,
-        )
+        if self.options.reconstruct.method == enums.ReconstructionMethods.ASTRA:
+            self.volume.generate_volume(
+                filter_inputs=filter_inputs,
+                pinned_filtered_sinogram=pinned_filtered_sinogram,
+                reinitialize_astra=reinitialize_astra,
+                n_pix=n_pix,
+                clear_astra_objects_at_end=clear_astra_objects_at_end,
+            )
+        elif self.options.reconstruct.method == enums.ReconstructionMethods.SART:
+            self.volume.get_sart_solver_volume(sart_input_volume=initial_volume_sart)
+        if apply_positivity_constraint:
+            self.volume.apply_positivity_constraint()
 
     def estimate_center_of_rotation(self) -> CenterOfRotationEstimateResults:
         clear_timer_globals()
         estimate_center_options = self.return_auto_centered_search_options()
-        return estimate_center_of_rotation(self, self.angles, self.masks, estimate_center_options)
+        return estimate_center_of_rotation(
+            self, self.angles, self.masks, estimate_center_options
+        )
 
     def plot_coordinate_search_points(
         self,
@@ -841,10 +947,83 @@ class PhaseProjections(Projections):
     def return_auto_centered_search_options(self) -> EstimateCenterOptions:
         modified_options = copy.deepcopy(self.options.estimate_center)
         if self.options.estimate_center.horizontal_coordinate.center_estimate is None:
-            modified_options.horizontal_coordinate.center_estimate = self.center_of_rotation[1]
+            modified_options.horizontal_coordinate.center_estimate = (
+                self.center_of_rotation[1]
+            )
         if self.options.estimate_center.vertical_coordinate.center_estimate is None:
             modified_options.vertical_coordinate.center_estimate = self.center_of_rotation[0]
         return modified_options
+
+    @timer()
+    def get_fourier_shell_correlation(
+        self,
+        volumes: list[np.ndarray],
+        # n_bins: Optional[int] = None,
+        # include_missing_cone: bool = False,
+    ):
+        if (
+            self.options.fsc.include_missing_cone
+            or self.options.experiment.laminography_angle == 90
+        ):
+            lamino_angle = None
+        else:
+            lamino_angle = self.options.experiment.laminography_angle
+        self.fsc = FourierShellCorrelation(self.pixel_size, lamino_angle)
+        print("Calculating fourier shell correlation...")
+        self.fsc.get_fourier_shell_correlation(
+            Cropper3D(self.options.fsc.crop_3d).run(volumes[0]),
+            Cropper3D(self.options.fsc.crop_3d).run(volumes[1]),
+            n_bins=self.options.fsc.n_bins,
+        )
+
+    @timer()
+    def get_volumes_for_fourier_shell_correlation(
+        self, scramble_idx: Optional[np.ndarray] = None, return_scramble_idx: bool = False
+    ) -> Union[tuple[np.ndarray], tuple[tuple[np.ndarray], np.ndarray]]:
+        # hold onto current setting for excluding scans
+        saved_exclude_scans = self.options.reconstruct.exclude_scans
+        if saved_exclude_scans is not None:
+            scan_numbers = [
+                scan
+                for scan in self.scan_numbers
+                if scan not in self.options.reconstruct.exclude_scans
+            ]
+        else:
+            scan_numbers = self.scan_numbers
+        exclude_scans = [scan_numbers[0::2], scan_numbers[1::2]]
+        # randomly scramble exclude scans; this is so if there are
+        # multiple cycles of data you don't end up with specific
+        # sequences in one of the volumes (ex: without scrambling
+        # if there are 8 sequences then the first volume would mostly
+        # be sequences 1,3,5,7 and the second volume would be
+        # 2,4,6,8.
+        if scramble_idx is None:
+            scramble_idx = np.random.randint(size=len(exclude_scans[0]) - 1, low=0, high=2)
+        exclude_scans = [
+            [exclude_scans[x][i] for i, x in enumerate(scramble_idx)],
+            [exclude_scans[x - 1][i] for i, x in enumerate(scramble_idx)],
+        ]
+        # get volumes
+        n_pix = self.reconstructed_object_dimensions
+        if self.options.fsc.volume_width is not None:
+            n_pix[:2] = int(self.options.fsc.volume_width)
+        # if self.options.fsc.volume_thickness_px is not None:
+        #     n_pix[2] = self.options.fsc.volume_thickness_px
+        print(n_pix)
+        volumes = []
+        for i in range(2):
+            volume_names = ["first", "second"]
+            print(f"Calculating {volume_names[i]} 3D volume...")
+            self.options.reconstruct.exclude_scans = exclude_scans[i]
+            volume_object = Volume(self)
+            volume_object.generate_volume(n_pix=n_pix)
+            volumes += [volume_object.data]
+        # revert to original options
+        self.options.reconstruct.exclude_scans = saved_exclude_scans
+        if not return_scramble_idx:
+            return volumes
+        else:
+            return volumes, scramble_idx
 
 
 class ShiftManager:
@@ -876,6 +1055,14 @@ class ShiftManager:
         self.past_shift_functions += [self.staged_function_type]
         self.past_eliminate_wrapping += [self.staged_eliminate_wrapping]
         self.past_alignment_options += [self.staged_alignment_options]
+        # Clear the staged variables
+        self.clear_staged_shift()
+        # self.staged_shift = np.zeros_like(self.staged_shift)
+        # self.staged_function_type = None
+        # self.staged_eliminate_wrapping = None
+        # self.staged_alignment_options = None
+
+    def clear_staged_shift(self):
         # Clear the staged variables
         self.staged_shift = np.zeros_like(self.staged_shift)
         self.staged_function_type = None
@@ -933,10 +1120,13 @@ class ShiftManager:
                 device_options=device_options,
             )
             self.unstage_shift()
+            # self.clear_staged_shift()
         else:
             print("There is no shift to apply!")
 
-    def undo_last_shift(self, images: np.ndarray, masks: np.ndarray, device_options: DeviceOptions):
+    def undo_last_shift(
+        self, images: np.ndarray, masks: np.ndarray, device_options: DeviceOptions
+    ):
         if len(self.past_shifts) == 0:
             print("There is no shift to undo!")
             return
@@ -951,6 +1141,7 @@ class ShiftManager:
         self.past_shifts = self.past_shifts[:-1]
         self.past_shift_functions = self.past_shift_functions[:-1]
         self.past_alignment_options = self.past_alignment_options[:-1]
+        # self.unstage_shift()
 
     def is_shift_nonzero(self):
         if self.staged_function_type is enums.ShiftType.CIRC:
@@ -988,5 +1179,3 @@ def get_kwargs_for_copying_to_new_projections_object(
         kwargs["projections"] = projections.data * 1
 
     return kwargs
-
-

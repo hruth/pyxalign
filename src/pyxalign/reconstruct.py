@@ -338,7 +338,6 @@ def get_forward_projection(
         )
     else:
         raise ValueError("Improper inputs provided")
-
     inline_timer.end()
 
     # if you are having issues with segmentation faults, it may be due to the

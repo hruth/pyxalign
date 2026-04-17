@@ -2,11 +2,12 @@ import os
 from typing import Optional
 import pandas as pd
 import numpy as np
+import re
 from pathlib import Path
 from pyxalign.io.file_readers.mda import MDAFile, convert_extra_PVs_to_dict
 import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign.io.loaders.maps import get_loader_class_by_enum
-from pyxalign.io.loaders.utils import generate_input_user_prompt
+from pyxalign.io.loaders.utils import generate_input_user_prompt, extract_s_digit_strings
 from pyxalign.api.types import r_type
 from pyxalign.io.loaders.xrf.utils import get_scan_file_dict
 from pyxalign.timing.timer_utils import timer
@@ -142,6 +143,27 @@ def extract_info_from_lamni_dat_file(
 
     return (scan_numbers, angles, experiment_names, sequence_number)
 
+def extract_info_from_12ide_scan_file(
+    angles_file_path: str, sample_name: str, parent_projections_folder: str
+) -> tuple[np.ndarray, np.ndarray]:
+    if angles_file_path is not "":
+        # read from file path... probably going to be obsolete
+        df = pd.read_csv(
+            angles_file_path, header=None, names=["scan_number", "angle", "sample_name"], delimiter=", "
+        )
+        idx = df["sample_name"] == sample_name
+        angles = np.array(df[idx]["angle"], dtype=r_type)
+        scan_numbers =  np.array(df[idx]["scan_number"], dtype=int)
+    else:
+        # read from ptychi_recons folder... not ideal, this should be replaced
+        # at some point when there is a better data format to read from
+        folder_name_strings = extract_s_digit_strings(os.listdir(parent_projections_folder))
+        scan_numbers = [int(re.search(r'\d+', s).group()) for s in folder_name_strings]
+        scan_numbers = np.array(scan_numbers, dtype=int)
+        angles = np.zeros(len(scan_numbers), dtype=r_type)
+
+    return scan_numbers, angles
+
 
 @timer()
 def load_experiment(
@@ -150,7 +172,7 @@ def load_experiment(
     options: pear_options.PEARLoadOptions,
 ) -> PEARBaseLoader:
     """
-    Load an experiment that is saved with the lamni structure.
+    Load an experiment that is saved with the pear structure.
     """
     scan_numbers, angles, experiment_names, sequences = extract_experiment_info(options)
     # If there is only one experiment name found, automatically select that one
@@ -173,6 +195,9 @@ def load_experiment(
         is_tile_scan = False
         selected_tile = None
 
+    scan_numbers, angles, experiment_names, sequences = _ensure_sorted(
+        scan_numbers, angles, experiment_names, sequences
+    )
     selected_experiment = select_experiment_and_sequences(
         parent_projections_folder,
         scan_numbers,
@@ -244,6 +269,12 @@ def extract_experiment_info(
         # make dummy values
         experiment_names = [""] * len(scan_numbers)
         sequences = np.zeros(len(scan_numbers), dtype=int)
+    elif isinstance(options, pear_options.Ptycho12IDELoadOptions):
+        scan_numbers, angles = extract_info_from_12ide_scan_file(
+            options.angles_file_path, options.sample_name, options.base.parent_projections_folder,
+        )
+        experiment_names = [""] * len(scan_numbers)
+        sequences = np.zeros(len(scan_numbers), dtype=int)
 
     # Filter scan numbers
     if options.base.scan_list is not None:
@@ -309,3 +340,18 @@ def extract_info_from_mda_file(
     angles[:] = -angles
 
     return scan_numbers, angles
+
+
+def _ensure_sorted(
+    scan_numbers: np.ndarray,
+    angles: np.ndarray,
+    experiment_names: list[str],
+    sequences: np.ndarray,
+) -> tuple:
+    sort_idx = np.argsort(scan_numbers)
+    return (
+        scan_numbers[sort_idx],
+        angles[sort_idx],
+        np.array(experiment_names)[sort_idx].tolist(),
+        sequences[sort_idx],
+    )

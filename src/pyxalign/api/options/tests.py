@@ -4,10 +4,11 @@ from numbers import Number
 from typing import Optional, Sequence
 from pyxalign.api import enums
 from pyxalign.api.options.transform import CropOptions
+from .base import BaseOptions
 
 
 @dataclasses.dataclass
-class CITestOptions:
+class CITestOptions(BaseOptions):
     test_data_name: str
 
     update_tester_results: bool = False

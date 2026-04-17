@@ -36,7 +36,7 @@ class Worker(QObject):
             result = self.func(*self.args, **self.kwargs)
         except Exception as e:
             exception = e
-            traceback.print_exc()
+            # traceback.print_exc()
         finally:
             self.done.emit(result, exception)
 

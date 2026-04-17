@@ -1,13 +1,15 @@
 import dataclasses
 from dataclasses import field
 from pyxalign.api.options.device import DeviceOptions
-from pyxalign.api.options.transform import DownsampleOptions
+from pyxalign.api.options.roi import ROIOptions, RectangularROIOptions
+from pyxalign.api.options.transform import CropOptions, DownsampleOptions
 from pyxalign.api import enums
 from functools import partial
+from .base import BaseOptions
 
 
 @dataclasses.dataclass
-class ExperimentOptions:
+class ExperimentOptions(BaseOptions):
     """Options related to the experimental configuration."""
 
     laminography_angle: float = 61.1
@@ -27,7 +29,7 @@ class ExperimentOptions:
 
 
 @dataclasses.dataclass
-class MorphologicalMaskOptions:
+class MorphologicalMaskOptions(BaseOptions):
     downsample: DownsampleOptions = field(
         default_factory=partial(
             DownsampleOptions,
@@ -51,14 +53,14 @@ class MorphologicalMaskOptions:
 
 
 @dataclasses.dataclass
-class PhaseRampRemovalOptions:
+class PhaseRampRemovalOptions(BaseOptions):
     iterations: int = 5
 
     downsampling: int = 8
 
 
 @dataclasses.dataclass
-class GradientIntegrationUnwrapOptions:
+class GradientIntegrationUnwrapOptions(BaseOptions):
     gradient_method: enums.ImageGradientMethods = enums.ImageGradientMethods.FOURIER_DIFFERENTIATION
     "The method used to calculate the phase gradient"
 
@@ -77,31 +79,39 @@ class GradientIntegrationUnwrapOptions:
     projections before unwrapping
     """
 
-    deramp_polyfit_order: int = 1
-    "The order of the polynomial fit used to de-ramp the phase"
+    # deramp_polyfit_order: int = 1
+    # "The order of the polynomial fit used to de-ramp the phase"
 
 
 @dataclasses.dataclass
-class IterativeResidualUnwrapOptions:
+class IterativeResidualUnwrapOptions(BaseOptions):
     iterations: int = 10
     "Number of iterative correction steps to perform"
 
-    lsq_fit_ramp_removal: bool = False
-    """
-    Whether to remove phase ramps using least-squares fitting after 
-    unwrapping
-    """
+    # lsq_fit_ramp_removal: bool = False
+    # """
+    # Whether to remove phase ramps using least-squares fitting after 
+    # unwrapping
+    # """
+
+@dataclasses.dataclass
+class AirGapRampRemovalOptions(BaseOptions):
+    enabled: bool = False
+
+    # air_region: CropOptions = field(default_factory=CropOptions)
+    air_region: RectangularROIOptions = field(default_factory=RectangularROIOptions)
+    "ROI for defining the air region"
+
+    polyfit_order: int = 1
 
 
 @dataclasses.dataclass
-class PhaseUnwrapOptions:
-    device: DeviceOptions = field(default_factory=DeviceOptions)
-
+class PhaseUnwrapOptions(BaseOptions):
     method: enums.PhaseUnwrapMethods = enums.PhaseUnwrapMethods.ITERATIVE_RESIDUAL_CORRECTION
     """
     Phase unwrapping method to use
 
-    Options:
+    Options(BaseOptions):
     - PhaseUnwrapMethods.IterativeResidualCorrection
         - default choice; typically performs better
     - PhaseUnwrapMethods.GradientIntegration
@@ -120,11 +130,19 @@ class PhaseUnwrapOptions:
     )
     "Options for IterativeResidualCorrection unwrapping"
 
+    remove_ramp_using_air_gap: AirGapRampRemovalOptions = field(
+        default_factory=AirGapRampRemovalOptions
+    )
+
+    device: DeviceOptions = field(default_factory=DeviceOptions)
+
 
 @dataclasses.dataclass
-class RegularizationOptions:
+class RegularizationOptions(BaseOptions):
     enabled: bool = False
 
     local_TV_lambda: float = 1e-4
 
     iterations: int = 10
+
+    use_gpu: bool = False

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 import cupy as cp
 import numpy as np
 import scipy
@@ -7,6 +7,7 @@ import cupyx.scipy.ndimage
 import scipy.ndimage
 import skimage
 import scipy.fft
+import copy
 from scipy.ndimage import distance_transform_edt
 from tqdm import tqdm
 from contextlib import nullcontext
@@ -14,11 +15,12 @@ from pyxalign import gpu_utils
 from pyxalign.api.enums import RoundType
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.projections import SimulatedProbeOptions
+from pyxalign.api.options.roi import ROIOptions, ROIType
 from pyxalign.gpu_wrapper import device_handling_wrapper
 
 # from pyxalign.interactions.mask import ThresholdSelector, illum_map_threshold_plotter
 from pyxalign.model_functions import symmetric_gaussian_2d
-from pyxalign.transformations.helpers import is_array_real, round_to_divisor
+from pyxalign.transformations.helpers import force_rectangular_roi_in_bounds, is_array_real, round_to_divisor
 from IPython.display import display
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -400,3 +402,28 @@ def get_simulated_probe_for_masks(
     )
     probe = symmetric_gaussian_2d(shape, amplitude=1, sigma=probe_width)
     return probe
+
+
+@timer()
+def get_masks_from_roi(roi_options: ROIOptions, array_3d_size: tuple) -> np.ndarray:
+    if roi_options.shape == ROIType.RECTANGULAR:
+        roi_options = copy.deepcopy(roi_options)
+        roi_options.rectangle = force_rectangular_roi_in_bounds(
+            roi_options.rectangle,  array_3d_size[1:]
+        )
+        masks = np.zeros(array_3d_size, dtype=r_type)
+        c_x, c_y, w_x, w_y = (
+            roi_options.rectangle.horizontal_offset + int(np.floor(array_3d_size[2] / 2)),
+            roi_options.rectangle.vertical_offset + int(np.floor(array_3d_size[1] / 2)),
+            roi_options.rectangle.horizontal_range,
+            roi_options.rectangle.vertical_range,
+        )
+        masks[
+            :,
+            c_y - int(np.floor(w_y / 2)) : c_y + int(np.floor(w_y / 2)),
+            c_x - int(np.floor(w_x / 2)) : c_x + int(np.floor(w_x / 2)),
+        ] = 1
+    elif roi_options.shape == ROIType.ELLIPTICAL:
+        raise NotImplementedError("Elliptical ROI not yet supported")
+    return masks
+
