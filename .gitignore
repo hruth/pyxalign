@@ -13,3 +13,4 @@ untracked_tests/*
 docs/build*
 *.nfs*
 docs/_build/*
+dist/*
