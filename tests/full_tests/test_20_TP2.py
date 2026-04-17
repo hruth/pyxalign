@@ -1,7 +1,7 @@
 import os
 import multiprocessing as mp
 import cupy as cp
-
+import pytest
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
@@ -11,20 +11,17 @@ import pyxalign.io.loaders.pear.options as pear_options
 from pyxalign import gpu_utils
 from pyxalign.io.loaders.pear.api import load_data_from_pear_format
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
-from pyxalign.test_utils_2 import CITestHelper, CITestArgumentParser
+from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string, CITestArgumentParser
 from pyxalign.api.options_utils import set_all_device_options
+from pyxalign.test_utils_2 import skip_if_data_not_found
 
-from conftest import register_processing_function
 
-
-@register_processing_function("TP2_full_test")
-def run_full_test_TP2(
+def generate_results_TP2(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
     show_gui: bool = False,
-)-> dict[str, bool]:
-
+) -> dict[str, bool]:
     # Setup the test
     ci_options = opts.CITestOptions(
         test_data_name="TP2",
@@ -343,20 +340,49 @@ def run_full_test_TP2(
         ci_test_helper.finish_test()
         return ci_test_helper.test_result_dict
 
-def test_single_result(test_name, result):
-    """
-    The conftest.pytest_generate_tests hook uses this to parameterize the
-    results of the registered processing functions
-    """
-    assert result, f"Check '{test_name}' failed"
 
+@pytest.fixture(scope="module")
+def results():
+    return generate_results_TP2()
+
+
+TP2_test_names = [
+    "lamni_data_probe",
+    "lamni_data_scan_numbers",
+    "lamni_data_angles",
+    "projection_array_0",
+    "probe_positions_0",
+    "input_processed_task",
+    "cross_corr_aligned_task",
+    "unwrapped_phase",
+    "estimated_center_of_rotation",
+    "pre_pma_volume",
+    "pma_shift_32x",
+    "pma_shift_16x",
+    "pma_shift_8x",
+    "pma_shift_4x",
+    "pma_shift_2x",
+    "pma_shift_1x",
+    "pma_aligned_task",
+    "pma_aligned_volume",
+    "tomogram_rotation_angles",
+    "pma_aligned_rotated_volume",
+]
+
+sub_path = os.path.join("TP2")
+reason = f"Expected data folder does not exist: {os.path.join(os.environ[primary_ci_test_folder_string], sub_path)}"
+
+
+@pytest.mark.skipif(skip_if_data_not_found(sub_path), reason=reason)
+@pytest.mark.parametrize("key", TP2_test_names)
+def test_TP2_alignment(results, key):
+    assert results[key]
 
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    run_full_test_TP2(
+    generate_results_TP2(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
-        test_start_point=args.start_point,
         show_gui=args.show_gui,
     )

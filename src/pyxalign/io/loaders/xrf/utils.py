@@ -16,12 +16,16 @@ def load_xrf_experiment(
     angles = []
     extra_PVs_dict = {}
     scan_file_dict = get_scan_file_dict(file_names, options._mda_file_pattern)
-    scan_file_dict = remove_scans_from_dict(scan_file_dict, options.base.scan_start, options.base.scan_end, options.base.scan_list)
+    scan_file_dict = remove_scans_from_dict(
+        scan_file_dict, options.base.scan_start, options.base.scan_end, options.base.scan_list
+    )
     file_paths = {k: os.path.join(options.base.folder, v) for k, v in scan_file_dict.items()}
 
     # Load data from each file
     for scan_number, file_name in scan_file_dict.items():
-        counts_dict, angle, extra_PVs = get_single_file_data(options.base.folder, file_name, options)
+        counts_dict, angle, extra_PVs = get_single_file_data(
+            options.base.folder, file_name, options
+        )
         all_counts_dict[scan_number] = counts_dict
         angles += [angle]
         extra_PVs_dict[scan_number] = extra_PVs
@@ -36,17 +40,19 @@ def load_xrf_experiment(
         print("Laminography angle not found")
         lamino_angle = None
 
-
     # Make StandardData object for each xrf projection
     channels = all_counts_dict[scan_number].keys()
     angles = np.array(angles)
+    sort_idx = np.argsort(scan_numbers)
     channel_data_objects = {}
     for channel in channels:
-        projections_dict = {scan_num: v[channel] for scan_num, v in all_counts_dict.items()}
+        projections_dict = {
+            scan_num: all_counts_dict[scan_num][channel] for scan_num in scan_numbers[sort_idx]
+        }
         channel_data_objects[channel] = StandardData(
             projections=projections_dict,
-            angles=angles * 1,
-            scan_numbers=scan_numbers * 1,
+            angles=angles[sort_idx] * 1,
+            scan_numbers=scan_numbers[sort_idx] * 1,
             file_paths=file_paths,
             lamino_angle=lamino_angle,
         )
@@ -116,8 +122,7 @@ def get_single_file_data(folder: str, file_name: str, options: XRF2IDELoadOption
         counts_per_second = F[options._channel_data_path][()]
         channel_names = F[options._channel_names_path][()]
         channel_names = [name.decode() for name in channel_names]
-        counts_dict = {channel: counts for channel, counts in zip(
-            channel_names, counts_per_second)}
+        counts_dict = {channel: counts for channel, counts in zip(channel_names, counts_per_second)}
         PVs = {
             k.decode(): v.decode()
             for k, v in zip(

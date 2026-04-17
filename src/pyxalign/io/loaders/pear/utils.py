@@ -195,6 +195,9 @@ def load_experiment(
         is_tile_scan = False
         selected_tile = None
 
+    scan_numbers, angles, experiment_names, sequences = _ensure_sorted(
+        scan_numbers, angles, experiment_names, sequences
+    )
     selected_experiment = select_experiment_and_sequences(
         parent_projections_folder,
         scan_numbers,
@@ -337,3 +340,18 @@ def extract_info_from_mda_file(
     angles[:] = -angles
 
     return scan_numbers, angles
+
+
+def _ensure_sorted(
+    scan_numbers: np.ndarray,
+    angles: np.ndarray,
+    experiment_names: list[str],
+    sequences: np.ndarray,
+) -> tuple:
+    sort_idx = np.argsort(scan_numbers)
+    return (
+        scan_numbers[sort_idx],
+        angles[sort_idx],
+        np.array(experiment_names)[sort_idx].tolist(),
+        sequences[sort_idx],
+    )

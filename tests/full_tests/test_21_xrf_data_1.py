@@ -1,20 +1,20 @@
 import os
 import numpy as np
+import pytest
 from PyQt5.QtWidgets import QApplication
 from pyxalign import options as opts
 from pyxalign.api import enums
 from pyxalign.api.types import r_type
 from pyxalign.data_structures.xrf_task import XRFTask
 from pyxalign.io.loaders.xrf.api import convert_xrf_projection_dicts_to_arrays
-from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
+from pyxalign.test_utils_2 import CITestHelper, primary_ci_test_folder_string, CITestArgumentParser
 from pyxalign.interactions.viewers.xrf import XRFProjectionsViewer, XRFVolumeViewer
 
 import data_loaders
-from conftest import register_processing_function
+from pyxalign.test_utils_2 import skip_if_data_not_found
 
 
-@register_processing_function("2ide_xrf_full_test")
-def full_2ide_xrf_processing(
+def generate_results_2ide_xrf(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
     test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,  # not yet used
@@ -74,7 +74,7 @@ def full_2ide_xrf_processing(
         xrf_task.center_of_rotation = np.array([30, 130], dtype=r_type)
 
         ci_test_helper.save_checkpoint_task(xrf_task, "initial_xrf_task.h5")
-        
+
         # check projection arrays, angles, cor, and sample thickness for all channels
         for channel, proj in xrf_task.projections_dict.items():
             ci_test_helper.save_or_compare_results(
@@ -171,27 +171,40 @@ def full_2ide_xrf_processing(
         return ci_test_helper.test_result_dict
 
 
-def test_single_result(test_name, result):
-    """
-    The conftest.pytest_generate_tests hook uses this to parameterize the
-    results of the registered processing functions
-    """
-    assert result, f"Check '{test_name}' failed"
+@pytest.fixture(scope="module")
+def results():
+    return generate_results_2ide_xrf()
+
+
+channel = "Ti"
+xrf_2ide_test_names = [
+    f"input_projections_{channel}",
+    f"pre_pma_projections_{channel}",
+    f"angles_{channel}",
+    f"scan_numbers_{channel}",
+    f"center_of_rotation_{channel}",
+    f"pre_pma_volume_{channel}",
+    "pma_shift_2x",
+    "pma_shift_1x",
+    f"pma_aligned_volume_{channel}",
+    f"pma_aligned_rotated_volume_{channel}",
+]
+
+sub_path = os.path.join("2ide", "2025-1_Lamni-4")
+reason = f"Expected data folder does not exist: {os.path.join(os.environ[primary_ci_test_folder_string], sub_path)}"
+
+
+@pytest.mark.skipif(skip_if_data_not_found(sub_path), reason=reason)
+@pytest.mark.parametrize("key", xrf_2ide_test_names)
+def test_2ide_xrf_alignment(results, key):
+    assert results[key]
 
 
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    full_2ide_xrf_processing(
+    generate_results_2ide_xrf(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
-        test_start_point=args.start_point,
         show_gui=args.show_gui,
     )
-
-
-# from conftest import register_processing_function
-
-# @register_processing_function("2ide_xrf")
-# def full_2ide_xrf_processing():
-#     return {"a": True, "b": False, "c":True}

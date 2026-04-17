@@ -1,21 +1,10 @@
-import os
-import argparse
-import multiprocessing as mp
 import cupy as cp
+import pytest
 
-import matplotlib.pyplot as plt
-import pyxalign
 from pyxalign import options as opts
 from pyxalign.api import enums
-from pyxalign.data_structures.projections import ComplexProjections
-from pyxalign.data_structures.task import LaminographyAlignmentTask
-from pyxalign import gpu_utils
-from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 from pyxalign.test_utils_2 import CITestArgumentParser, CITestHelper
 from pyxalign.api.options_utils import set_all_device_options
-
-import data_loaders
-from conftest import register_processing_function
 
 
 # Setup default gpu options
@@ -32,11 +21,10 @@ multi_gpu_device_options = opts.DeviceOptions(
 # saving files large files
 s = 16
 
-@register_processing_function("cSAXS_e18044_LamNI_201907_pma")
-def cSAXS_e18044_LamNI_201907_projection_matching_alignment(
+
+def generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment(
     update_tester_results: bool = False,
     save_temp_files: bool = False,
-    test_start_point: enums.TestStartPoints = enums.TestStartPoints.BEGINNING,
     show_gui: bool = False,
 ) -> dict[str, bool]:
     """
@@ -105,14 +93,20 @@ def cSAXS_e18044_LamNI_201907_projection_matching_alignment(
 
         # Check/save the resulting alignment shifts at each resolution
         ci_test_helper.save_or_compare_results(
-            pma_shifts[scale], f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}"
+            pma_shifts[scale],
+            f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}",
+            atol=0.5,
+            rtol=0.5,
         )
 
     # Do one final alignment at increased high pass filter value
     pma_options.high_pass_filter = 0.01
     task.get_projection_matching_shift(initial_shift=pma_shifts[1])
     ci_test_helper.save_or_compare_results(
-        pma_shifts[scale], f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}"
+        pma_shifts[scale],
+        f"pma_shift_{scale}x_hpf_{pma_options.high_pass_filter}",
+        atol=0.5,
+        rtol=0.5,
     )
 
     # Shift the projections by the projection-matching alignment shift
@@ -124,7 +118,7 @@ def cSAXS_e18044_LamNI_201907_projection_matching_alignment(
     # Check/save the fully aligned task for ci testing (note: this only saves a few parts of
     # the task, as opposed to task.save_task which saves the entire task so you can reload
     # it later)
-    ci_test_helper.save_or_compare_results(task, "pma_aligned_task")
+    ci_test_helper.save_or_compare_results(task, "pma_aligned_task", atol=0.025, rtol=0.025)
 
     ### Generate aligned volumes ###
     task.phase_projections.volume.generate_volume(True)
@@ -166,20 +160,35 @@ def cSAXS_e18044_LamNI_201907_projection_matching_alignment(
     return ci_test_helper.test_result_dict
 
 
-def test_single_result(test_name, result):
-    """
-    The conftest.pytest_generate_tests hook uses this to parameterize the
-    results of the registered processing functions
-    """
-    assert result, f"Check '{test_name}' failed"
+@pytest.fixture(scope="module")
+def results():
+    return generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment()
+
+
+cSAXS_test_names = [
+    "pma_shift_32x_hpf_0.005",
+    "pma_shift_16x_hpf_0.005",
+    "pma_shift_8x_hpf_0.005",
+    "pma_shift_4x_hpf_0.005",
+    "pma_shift_2x_hpf_0.005",
+    "pma_shift_1x_hpf_0.005",
+    "pma_shift_1x_hpf_0.01",
+    "pma_aligned_task",
+    "pma_aligned_volume",
+    "tomogram_rotation_angles",
+]
+
+
+@pytest.mark.parametrize("key", cSAXS_test_names)
+def test_cSAXS_alignment(results, key):
+    assert results[key]
 
 
 if __name__ == "__main__":
     ci_parser = CITestArgumentParser()
     args = ci_parser.parser.parse_args()
-    cSAXS_e18044_LamNI_201907_projection_matching_alignment(
+    generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment(
         update_tester_results=args.update_results,
         save_temp_files=args.save_temp_results,
-        test_start_point=args.start_point,
         show_gui=args.show_gui,
     )

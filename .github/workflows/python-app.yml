@@ -1,34 +1,49 @@
-# # This workflow will install Python dependencies, run tests and lint with a single version of Python
-# # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-# name: Python application
+name: Python application
 
-# on:
-#   push:
-#     branches: [ "master" ]
-#   pull_request:
-#     branches: [ "master" ]
-#   workflow_dispatch:
+on:
+  push:
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
 
-# env:
-#   LAMINO_ALIGN_DATA_DIR: /local/hruth/lamino_ci_test_data/
+env:
+  CUDA_VISIBLE_DEVICES: 1
 
-# permissions:
-#   contents: read
+permissions:
+  contents: read
 
-# jobs:
-#   build:
+jobs:
+  build:
 
-#     runs-on: self-hosted
+    runs-on: self-hosted
 
-#     steps:
-#     - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-#     - name: Activate environment
-#       id: activate_env
-#       run: |
-#         source /home/beams/HRUTH/miniconda3/bin/activate pyxalign_2
+      - name: setup
+        run: |
+          source ~/.bashrc
+          echo "PYXALIGN_CI_TEST_DATA_DIR=$PYXALIGN_CI_TEST_DATA_DIR" >> $GITHUB_ENV
+          echo "CONTAINERS_CONF=/local/containers.conf" >> $GITHUB_ENV
 
-#     - name: Test with pytest
-#       run: |
-#         pytest
+      - name: build container
+        run: podman build -t localhost/pyxalign-actions-runner-image .
+
+      - name: start container and run pytest
+        run: |
+          echo  $PYXALIGN_CI_TEST_DATA_DIR
+          podman run --rm --env DISPLAY \
+            --security-opt label=type:container_runtime_t --network host \
+            --device nvidia.com/gpu=all \
+            -v="$HOME/.Xauthority:/root/.Xauthority:rw" \
+            --env PYXALIGN_CI_TEST_DATA_DIR=$PYXALIGN_CI_TEST_DATA_DIR \
+            -v=$PYXALIGN_CI_TEST_DATA_DIR:$PYXALIGN_CI_TEST_DATA_DIR \
+            pyxalign-actions-runner-image:latest bash -c \
+            "pip install pytest && cd pyxalign && pytest -s"
+
+      - name: container cleanup
+        run: |
+          podman rmi pyxalign-actions-runner-image
