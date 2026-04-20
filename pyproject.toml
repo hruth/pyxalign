@@ -1,8 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "pyxalign"
 authors = [{name = "Hanna Ruth", email = "hruth@anl.gov"}]
 version = "1.1.0"
 description = "Package for alignment and reconstruction of laminography and tomography datasets."
+readme = "README.md"
 dependencies = [
     "h5py",
     "matplotlib",
@@ -44,8 +49,6 @@ addopts = [
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-
-[tool.setuptools_scm]
 
 [tool.mypy]
 plugins = "numpy.typing.mypy_plugin"
