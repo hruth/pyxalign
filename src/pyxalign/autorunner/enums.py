@@ -5,7 +5,7 @@ from typing import Union
 class Checkpoints(StrEnum):
     INITIALIZATION = auto()
     CROSS_CORRELATION = auto()
-    PHASE_UNWRAP_MASKS = auto()
+    # PHASE_UNWRAP_MASKS = auto()
     PHASE_UNWRAPPING = auto()
     RECONSTRUCTION_TUNING = auto()
     PMA_MASKS = auto()
@@ -23,7 +23,7 @@ def get_checkpoint_order_value(checkpoint: Union[str, Checkpoints]) -> int:
     return {
         Checkpoints.INITIALIZATION: 1,
         Checkpoints.CROSS_CORRELATION: 2,
-        Checkpoints.PHASE_UNWRAP_MASKS: 3,
+        # Checkpoints.PHASE_UNWRAP_MASKS: 3,
         Checkpoints.PHASE_UNWRAPPING: 4,
         Checkpoints.RECONSTRUCTION_TUNING: 5,
         Checkpoints.PMA_MASKS: 6,

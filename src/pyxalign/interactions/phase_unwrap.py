@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QLabel,
     QPushButton,
     QSizePolicy,
     QMessageBox,
@@ -33,8 +34,9 @@ from pyxalign.api.options.options import (
 from pyxalign.api.options_utils import get_all_attribute_names
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.interactions.custom import action_button_style_sheet
+from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.interactions.roi_selector import GetBoxBoundsFromROISelector
+from pyxalign.interactions.roi_selector import GetBoxBoundsFromROISelector, launch_mask_selection_from_roi
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.viewers.base import ArrayViewer
@@ -106,6 +108,27 @@ class PhaseUnwrapWidget(QWidget):
         self.open_crop_viewer_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.open_crop_viewer_button.clicked.connect(self.show_cropped_projections_viewer)
         self.options_editor.form_layout.addRow("", self.open_crop_viewer_button)
+
+        # Create mask buttons
+        self.mask_from_probe_button = QPushButton("Get Masks from Probe Positions")
+        self.mask_from_probe_button.clicked.connect(self.open_mask_creation_window)
+        if self.task is None or self.task.complex_projections is None or self.task.complex_projections.probe_positions is None:
+            self.mask_from_probe_button.setDisabled(True)
+
+        self.mask_from_roi_button = QPushButton("Get Masks from ROI")
+        self.mask_from_roi_button.clicked.connect(self.open_mask_from_roi_window)
+        if self.task is None or self.task.complex_projections is None:
+            self.mask_from_roi_button.setDisabled(True)
+
+        left_panel_layout.addWidget(QLabel("Select Region for Unwrapping"))
+        left_panel_layout.addWidget(self.mask_from_probe_button)
+        left_panel_layout.addWidget(self.mask_from_roi_button)
+        has_masks = (
+            self.task is not None
+            and self.task.complex_projections is not None
+            and self.task.complex_projections.masks is not None
+        )
+        self.options_editor.setEnabled(has_masks)
         left_panel_layout.addWidget(self.options_editor, stretch=2)
 
         # Create unwrap phase button
@@ -114,8 +137,8 @@ class PhaseUnwrapWidget(QWidget):
         self.unwrap_button.clicked.connect(self.unwrap_phase)
         self.unwrap_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        # Initially disable button if no task is provided
-        if self.task is None or self.task.complex_projections is None:
+        # Disable if no task/projections, or if masks haven't been set yet
+        if self.task is None or self.task.complex_projections is None or not has_masks:
             self.unwrap_button.setEnabled(False)
 
         left_panel_layout.addWidget(self.unwrap_button)
@@ -145,6 +168,25 @@ class PhaseUnwrapWidget(QWidget):
             self.crop_viewer.options
         )
         self.crop_viewer.close()
+
+    def open_mask_creation_window(self):
+        self.mask_gui = launch_mask_builder(
+            self.task.complex_projections,
+            wait_until_closed=False,
+        )
+        self.mask_gui.masks_created.connect(self.on_masks_created)
+
+    def open_mask_from_roi_window(self):
+        self.mask_gui = launch_mask_selection_from_roi(
+            self.task.complex_projections,
+            wait_until_closed=False,
+        )
+        self.mask_gui.masks_created.connect(self.on_masks_created)
+
+    def on_masks_created(self):
+        self.options_editor.setEnabled(True)
+        self.unwrap_button.setEnabled(True)
+        self.mask_gui.close()
 
     def set_task(self, task: LaminographyAlignmentTask):
         """

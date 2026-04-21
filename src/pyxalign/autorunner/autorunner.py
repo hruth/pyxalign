@@ -75,7 +75,7 @@ class AutorunnerPtycho(Autorunner):
         self._get_initialization_options()
         self._create_projections_object()
         self._get_cross_correlation_alignment()
-        self._get_complex_projections_masks()
+        # self._get_complex_projections_masks()
         self._unwrap_phase()
         self._select_center_of_rotation()
         self._get_phase_projections_masks()
@@ -278,25 +278,25 @@ class AutorunnerPtycho(Autorunner):
             self.task.get_cross_correlation_shift(plot_results=False)
             self.task.complex_projections.apply_staged_shift()
 
-    @save_state_file_wrapper
-    @handle_checkpoint("phase_unwrap_masks")
-    def _get_complex_projections_masks(self):
-        can_build_from_positions = self.task.complex_projections.probe_positions is not None
+    # @save_state_file_wrapper
+    # @handle_checkpoint("phase_unwrap_masks")
+    # def _get_complex_projections_masks(self):
+    #     can_build_from_positions = self.task.complex_projections.probe_positions is not None
 
-        if self.config.interactivity.phase_unwrap_masks:
-            if can_build_from_positions:
-                content_gui = launch_mask_builder(
-                    self.task.complex_projections, wait_until_closed=True
-                )
-            else:
-                content_gui = launch_mask_selection_from_roi(
-                    self.task.complex_projections, wait_until_closed=True
-                )
-        else:
-            if can_build_from_positions:
-                self.task.complex_projections.get_masks_from_probe_positions()
-            else:
-                self.task.complex_projections.get_masks_from_roi_selection()
+    #     if self.config.interactivity.phase_unwrap_masks:
+    #         if can_build_from_positions:
+    #             content_gui = launch_mask_builder(
+    #                 self.task.complex_projections, wait_until_closed=True
+    #             )
+    #         else:
+    #             content_gui = launch_mask_selection_from_roi(
+    #                 self.task.complex_projections, wait_until_closed=True
+    #             )
+    #     else:
+    #         if can_build_from_positions:
+    #             self.task.complex_projections.get_masks_from_probe_positions()
+    #         else:
+    #             self.task.complex_projections.get_masks_from_roi_selection()
 
     @save_state_file_wrapper
     @handle_checkpoint("phase_unwrapping")

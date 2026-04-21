@@ -3,7 +3,10 @@ from PyQt5.QtGui import QValidator, QRegExpValidator
 from PyQt5.QtCore import QRegExp
 from pyxalign.api.constants import divisor
 
-action_button_style_sheet = "QPushButton { background-color: green; font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px;}"
+action_button_style_sheet = (
+    "QPushButton { background-color: green; font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px; }"
+    "QPushButton:disabled { background-color: #a0a0a0; color: #d0d0d0; }"
+)
 
 class NoScrollSpinBox(QSpinBox):
     def wheelEvent(self, event):

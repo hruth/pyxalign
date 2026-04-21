@@ -84,7 +84,7 @@ class EnabledCheckpoints(BaseOptions):
 
     cross_correlation: bool = True
 
-    phase_unwrap_masks: bool = True
+    # phase_unwrap_masks: bool = True
 
     phase_unwrapping: bool = True
 
