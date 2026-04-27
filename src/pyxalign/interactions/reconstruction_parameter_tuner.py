@@ -277,7 +277,7 @@ class ReconstructionParameterTuner(QWidget):
         sart_circular_label.setStyleSheet("font-size: 11pt;")
         self.sart_circular_checkbox = QCheckBox()
         self.sart_circular_checkbox.setChecked(
-            self.phase_projections.options.reconstruct.sart.use_circular_constraint
+            bool(self.phase_projections.options.reconstruct.sart.use_circular_constraint)
         )
         self.sart_circular_checkbox.setStyleSheet("font-size: 11pt;")
         self.sart_circular_checkbox.stateChanged.connect(self.on_sart_circular_changed)
