@@ -22,13 +22,17 @@ def load_xrf_experiment(
     file_paths = {k: os.path.join(options.base.folder, v) for k, v in scan_file_dict.items()}
 
     # Load data from each file
-    for scan_number, file_name in scan_file_dict.items():
-        counts_dict, angle, extra_PVs = get_single_file_data(
-            options.base.folder, file_name, options
-        )
-        all_counts_dict[scan_number] = counts_dict
-        angles += [angle]
-        extra_PVs_dict[scan_number] = extra_PVs
+    for scan_number, file_name in tqdm(scan_file_dict.items()):
+        try:
+            counts_dict, angle, extra_PVs = get_single_file_data(
+                options.base.folder, file_name, options
+            )
+            all_counts_dict[scan_number] = counts_dict
+            angles += [angle]
+            extra_PVs_dict[scan_number] = extra_PVs
+        except Exception as ex:
+            print(f"Encountered error: {ex}")
+            print(f"Scan number {scan_number} not loaded")
     if np.all([a == 0 for a in angles]):
         print("WARNING: no angle data found; enter angle data manually.")
 
