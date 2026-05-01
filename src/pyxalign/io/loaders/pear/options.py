@@ -152,7 +152,7 @@ class LYNXLoadOptions(PEARLoadOptions):
 class Ptycho12IDELoadOptions(PEARLoadOptions):
     angles_file_path: str = ""
 
-    sample_name: str = ""
+    # sample_name: str = ""
 
 
 @dataclasses.dataclass

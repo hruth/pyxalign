@@ -66,6 +66,7 @@ basic_options_list = [
     "base.folder",
     "dat_file_path",
     "mda_folder",
+    "angles_file_path",
 ]
 
 

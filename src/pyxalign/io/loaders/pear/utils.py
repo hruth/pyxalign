@@ -144,23 +144,21 @@ def extract_info_from_lamni_dat_file(
     return (scan_numbers, angles, experiment_names, sequence_number)
 
 def extract_info_from_12ide_scan_file(
-    angles_file_path: str, sample_name: str, parent_projections_folder: str
+    angles_file_path: str, scan_start: int, scan_end: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    if angles_file_path is not "":
-        # read from file path... probably going to be obsolete
-        df = pd.read_csv(
-            angles_file_path, header=None, names=["scan_number", "angle", "sample_name"], delimiter=", "
-        )
-        idx = df["sample_name"] == sample_name
-        angles = np.array(df[idx]["angle"], dtype=r_type)
-        scan_numbers =  np.array(df[idx]["scan_number"], dtype=int)
-    else:
-        # read from ptychi_recons folder... not ideal, this should be replaced
-        # at some point when there is a better data format to read from
-        folder_name_strings = extract_s_digit_strings(os.listdir(parent_projections_folder))
-        scan_numbers = [int(re.search(r'\d+', s).group()) for s in folder_name_strings]
-        scan_numbers = np.array(scan_numbers, dtype=int)
-        angles = np.zeros(len(scan_numbers), dtype=r_type)
+    df = pd.read_csv(
+        angles_file_path, header=None, names=["scan_numbers", "angles"], delimiter=",", skiprows=1,
+    )
+
+    scan_numbers = np.array(df["scan_numbers"], dtype=int)
+    angles = np.array(df["angles"], dtype=r_type)
+    idx = (
+        ~np.isnan(angles)
+        * np.array((scan_numbers > scan_start))
+        * np.array((scan_numbers < scan_end))
+    )
+    angles = angles[idx]
+    scan_numbers = scan_numbers[idx]
 
     return scan_numbers, angles
 
@@ -271,7 +269,7 @@ def extract_experiment_info(
         sequences = np.zeros(len(scan_numbers), dtype=int)
     elif isinstance(options, pear_options.Ptycho12IDELoadOptions):
         scan_numbers, angles = extract_info_from_12ide_scan_file(
-            options.angles_file_path, options.sample_name, options.base.parent_projections_folder,
+            options.angles_file_path, options.base.scan_start, options.base.scan_end
         )
         experiment_names = [""] * len(scan_numbers)
         sequences = np.zeros(len(scan_numbers), dtype=int)
