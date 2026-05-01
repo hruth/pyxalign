@@ -5,6 +5,7 @@ This module provides an interactive GUI for configuring initialization parameter
 while viewing the loaded data.
 """
 
+import copy
 from typing import Optional
 from PyQt5.QtWidgets import (
     QWidget,
@@ -18,9 +19,14 @@ from PyQt5.QtGui import QFont
 
 from pyxalign.interactions.io.input_data_viewer import StandardDataViewer
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
+from pyxalign.api.options.projections import ProjectionOptions
+from pyxalign.api.options.transform import RotationOptions, ShearOptions
+from pyxalign.data_structures.projections import ComplexProjections
+from pyxalign.interactions.viewers.base import ArrayViewer
 from pyxalign.autorunner.config import InitializationConfig
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend, center_window_on_screen
 from pyxalign.io.loaders.base import StandardData
+from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
 class InitializationConfigWidget(QWidget):
@@ -55,6 +61,11 @@ class InitializationConfigWidget(QWidget):
         """
         super().__init__(parent)
 
+        self._standard_data = standard_data
+        self._array_viewer: Optional[ArrayViewer] = None
+        self.complex_projections: Optional[ComplexProjections] = None
+        self._config_at_last_initialize: Optional[InitializationConfig] = None
+
         # Store or create config
         if initialization_config is None:
             initialization_config = InitializationConfig()
@@ -87,7 +98,7 @@ class InitializationConfigWidget(QWidget):
         right_layout.addWidget(self.options_editor)
 
         # Green button
-        self.initialize_button = QPushButton("Initialize Projections Object")
+        self.initialize_button = QPushButton("Preview Projections Object")
         self.initialize_button.setStyleSheet(
             """
             QPushButton {
@@ -121,9 +132,53 @@ class InitializationConfigWidget(QWidget):
         main_layout.addWidget(right_panel, stretch=1)
 
     def _on_initialize_clicked(self):
-        """Handle initialize button click."""
-        self.config_confirmed.emit()
-        self.close()
+        """Build a ComplexProjections object from current config and display its data in an ArrayViewer."""
+        if self._array_viewer is not None:
+            self._array_viewer.close()
+            self._array_viewer = None
+
+        new_array_size = self._standard_data.get_minimum_size_for_projection_array()
+        new_array_size += self.config.pad
+        projection_array = convert_projection_dict_to_array(
+            self._standard_data.projections, new_array_size, pad_with_mode=True
+        )
+
+        projection_options = ProjectionOptions()
+        projection_options.experiment.laminography_angle = self.config.laminography_angle
+        projection_options.experiment.pixel_size = self._standard_data.pixel_size
+        if self.config.rotation_angle != 0:
+            projection_options.input_processing.rotation = RotationOptions(
+                enabled=True, angle=self.config.rotation_angle
+            )
+        if self.config.shear_angle != 0:
+            projection_options.input_processing.shear = ShearOptions(
+                enabled=True, angle=self.config.shear_angle
+            )
+
+        complex_projections = ComplexProjections(
+            projections=projection_array,
+            angles=self._standard_data.angles,
+            scan_numbers=self._standard_data.scan_numbers,
+            options=projection_options,
+            probe_positions=list(self._standard_data.probe_positions.values()),
+            probe=self._standard_data.probe,
+            skip_pre_processing=False,
+            file_paths=list(self._standard_data.file_paths.values()),
+        )
+        if self.config.remove_scan_numbers is not None:
+            complex_projections.drop_projections(self.config.remove_scan_numbers)
+
+        self.complex_projections = complex_projections
+        self._config_at_last_initialize = copy.deepcopy(self.config)
+        self._array_viewer = ArrayViewer(array3d=complex_projections.data)
+        self._array_viewer.setWindowTitle("Projection Array Preview")
+        self._array_viewer.show()
+
+    def closeEvent(self, event):
+        if self._array_viewer is not None:
+            self._array_viewer.close()
+            self._array_viewer = None
+        super().closeEvent(event)
 
     def setStandardData(self, data: StandardData):
         """
@@ -132,14 +187,19 @@ class InitializationConfigWidget(QWidget):
         Args:
             data: StandardData object to display
         """
+        self._standard_data = data
         self.data_viewer.setStandardData(data)
+        if self._array_viewer is not None:
+            self._array_viewer.close()
+            self._array_viewer = None
 
 
 @switch_to_matplotlib_qt_backend
 def launch_initialization_config_widget(
     standard_data: StandardData,
     initialization_config: Optional[InitializationConfig] = None,
-) -> Optional[InitializationConfig]:
+    wait_until_closed: bool = True,
+):
     """
     Launch the initialization config editor GUI.
 
@@ -177,11 +237,10 @@ def launch_initialization_config_widget(
         initialization_config=initialization_config,
     )
 
-    # Store result
-    result = {}
+    if not wait_until_closed:
+        return gui
 
     def on_config_confirmed():
-        # result["config"] = gui.config
         app.quit()
 
     gui.config_confirmed.connect(on_config_confirmed)

@@ -14,6 +14,7 @@ Key Components:
 - Integration with ProjectionMatchingViewer for real-time visualization
 """
 
+import copy
 import sys
 from dataclasses import fields, is_dataclass
 from enum import Enum
@@ -37,6 +38,7 @@ from PyQt5.QtWidgets import (
     QLabel,
     QLayout,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QRadioButton,
     QScrollArea,
@@ -52,6 +54,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from pyxalign.api.enums import MaskSource
 from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.task as t
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
@@ -66,6 +69,7 @@ from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.api.types import OptionsClass
 from pyxalign.interactions.viewers.base import MultiThreadedWidget
 from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
+from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 from pyxalign.interactions.alignment_results import AlignmentResults, AlignmentResultsCollection
 from pyxalign.interactions.roi_selector import GetBoxBoundsFromROISelector
 
@@ -128,6 +132,10 @@ class PMAResults(AlignmentResults):
         Dictionary of settings that were changed via the sequencer for this alignment instance.
     total_applied_shift : np.ndarray, optional
         Total applied shift from phase_projections at the time of alignment.
+    center_of_rotation : np.ndarray, optional
+        Snapshot of phase_projections.center_of_rotation at the time of alignment.
+    mask_source : MaskSource, optional
+        Snapshot of phase_projections.mask_source at the time of alignment.
     """
 
     def __init__(
@@ -142,6 +150,8 @@ class PMAResults(AlignmentResults):
         run_type: Optional[str] = None,
         changed_settings: Optional[dict] = None,
         total_applied_shift: Optional[np.ndarray] = None,
+        center_of_rotation: Optional[np.ndarray] = None,
+        mask_source: Optional[MaskSource] = None,
     ):
         super().__init__(
             shift=shift,
@@ -155,6 +165,8 @@ class PMAResults(AlignmentResults):
         self.run_type = run_type if run_type is not None else "unknown"
         self.changed_settings = changed_settings if changed_settings is not None else {}
         self.total_applied_shift = total_applied_shift
+        self.center_of_rotation = center_of_rotation
+        self.mask_source = mask_source
 
 
 class PMAResultsCollection(AlignmentResultsCollection):
@@ -210,6 +222,7 @@ class PMAResultsCollection(AlignmentResultsCollection):
         # Build the layout manually to control widget order
         self.create_shift_plots()
         self.create_options_display()
+        self.create_reconstruction_parameters_display()
         self.create_stage_shift_button()
         self.update_table()
 
@@ -252,11 +265,11 @@ class PMAResultsCollection(AlignmentResultsCollection):
         settings_scroll.setMaximumHeight(200)
         left_layout.addWidget(settings_scroll)
 
-        # Add alignment options section
-        options_title = QLabel("Alignment Options")
-        options_title.setStyleSheet("QLabel {font-size: 18px;}")
-        left_layout.addWidget(options_title)
-        left_layout.addWidget(self.options_display)
+        # Add alignment options and reconstruction parameters in a tab widget
+        info_tabs = QTabWidget()
+        info_tabs.addTab(self.options_display, "Alignment Options")
+        info_tabs.addTab(self.reconstruction_parameters_display, "Reconstruction Parameters")
+        left_layout.addWidget(info_tabs)
 
         main_layout.addLayout(left_layout, stretch=1)
         main_layout.addWidget(display_widget, stretch=3)
@@ -300,6 +313,92 @@ class PMAResultsCollection(AlignmentResultsCollection):
         if current_row >= 0:
             self.change_shift_plot_index(current_row)
 
+    def create_reconstruction_parameters_display(self):
+        """Create the shell scroll area for reconstruction parameters (populated per-row)."""
+        self._recon_params_scroll = QScrollArea()
+        self._recon_params_scroll.setWidgetResizable(True)
+        self._recon_params_scroll.setWidget(QLabel("Select an alignment result to view parameters."))
+
+        outer = QWidget()
+        outer_layout = QVBoxLayout(outer)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(self._recon_params_scroll)
+        self.reconstruction_parameters_display = outer
+
+    def change_reconstruction_parameters_display_index(self, row: int):
+        """Rebuild the reconstruction parameters display from the selected alignment result."""
+        result = self.alignment_results_list[row]
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(4, 4, 4, 4)
+
+        def _row(form, label, value):
+            val_label = QLabel(str(value))
+            val_label.setWordWrap(True)
+            form.addRow(QLabel(label), val_label)
+
+        # Center of rotation
+        cor_group = QGroupBox("Center of Rotation")
+        cor_form = QFormLayout(cor_group)
+        cor = getattr(result, 'center_of_rotation', None)
+        if cor is not None:
+            _row(cor_form, "y (px):", f"{cor[0]:.4f}")
+            _row(cor_form, "x (px):", f"{cor[1]:.4f}")
+        else:
+            _row(cor_form, "Center of rotation:", "N/A")
+        layout.addWidget(cor_group)
+
+        # Reconstruction size
+        size_group = QGroupBox("Reconstruction Size")
+        size_form = QFormLayout(size_group)
+        opts = getattr(result, 'projection_options', None)
+        if opts is not None:
+            exp = opts.experiment
+            vw = opts.volume_width
+            _row(size_form, "Sample Thickness (m):", f"{exp.sample_thickness:.3e}")
+            _row(size_form, "Use Custom Width:", str(vw.use_custom_width))
+            _row(size_form, "Width Type:", str(vw.width_type.name if hasattr(vw.width_type, 'name') else vw.width_type))
+            _row(size_form, "Multiplier:", f"{vw.multiplier:.6f}")
+            _row(size_form, "Width (m):", str(vw.width_meters) if vw.width_meters is not None else "N/A")
+        else:
+            _row(size_form, "Options:", "N/A")
+        layout.addWidget(size_group)
+
+        # Reconstruction geometry
+        geom_group = QGroupBox("Reconstruction Geometry")
+        geom_form = QFormLayout(geom_group)
+        if opts is not None:
+            _row(geom_form, "Laminography Angle (deg):", f"{opts.experiment.laminography_angle:.6f}")
+            _row(geom_form, "Tilt Angle (deg):", f"{opts.reconstruct.geometry.tilt_angle:.6f}")
+            _row(geom_form, "Skew Angle (deg):", f"{opts.reconstruct.geometry.skew_angle:.6f}")
+        else:
+            _row(geom_form, "Options:", "N/A")
+        layout.addWidget(geom_group)
+
+        # Mask options
+        mask_group = QGroupBox("Mask Options")
+        mask_layout = QVBoxLayout(mask_group)
+        mask_source = getattr(result, 'mask_source', None)
+        source_label = QLabel(f"<b>Mask Source:</b> {mask_source if mask_source is not None else 'None / not set'}")
+        source_label.setWordWrap(True)
+        mask_layout.addWidget(source_label)
+        if opts is not None and mask_source is not None:
+            if mask_source == MaskSource.PROBE_POSITIONS:
+                mask_opts_widget = OptionsDisplayWidget(opts.mask_from_positions)
+            elif mask_source == MaskSource.ROI:
+                mask_opts_widget = OptionsDisplayWidget(opts.masks_from_roi)
+            elif mask_source == MaskSource.MORPHOLOGY:
+                mask_opts_widget = OptionsDisplayWidget(opts.masks_from_morphology)
+            else:
+                mask_opts_widget = None
+            if mask_opts_widget is not None:
+                mask_layout.addWidget(mask_opts_widget)
+        layout.addWidget(mask_group)
+
+        layout.addStretch()
+        self._recon_params_scroll.setWidget(container)
+
     def _get_table_column_count(self) -> int:
         """Return 3 columns: Index, Initial Shift, Run Type."""
         return 3
@@ -328,12 +427,13 @@ class PMAResultsCollection(AlignmentResultsCollection):
                 self.results_table.setItem(i, 2, run_type_item)
 
     def on_table_cell_changed(self, row: int, column: int):
-        """Override to also update changed settings display."""
+        """Override to also update changed settings and reconstruction parameters displays."""
         self.current_selected_row = row
         if len(self.alignment_results_list) == 0:
             return
         super().on_table_cell_changed(row, column)
         self.update_changed_settings_display(row)
+        self.change_reconstruction_parameters_display_index(row)
 
     def update_changed_settings_display(self, row: int):
         """Update the changed settings display for the selected alignment result."""
@@ -403,15 +503,27 @@ class PMAResultsCollection(AlignmentResultsCollection):
         self.canvas.draw()
 
     def create_stage_shift_button(self):
-        """Create a button to stage the selected shift."""
-        self.stage_shift_button = QPushButton("Stage Selected Shift")
+        """Create a button to stage and apply the selected shift."""
+        self.stage_shift_button = QPushButton("Stage and Apply Selected Shift")
         self.stage_shift_button.setStyleSheet(action_button_style_sheet)
         self.stage_shift_button.clicked.connect(self.on_stage_shift_clicked)
 
     def on_stage_shift_clicked(self):
-        """Handle the stage shift button click."""
-        if self.current_selected_row is not None:
-            self.stage_shift(self.current_selected_row)
+        """Handle the stage-and-apply shift button click."""
+        if self.current_selected_row is None:
+            return
+        reply = QMessageBox.question(
+            self,
+            "Confirm",
+            "Projections will be shifted and the projection-matching alignment results will be cleared. Continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        self.stage_shift(self.current_selected_row)
+        if self.projection_viewer is not None:
+            self.projection_viewer.apply_staged_shift()
 
     def stage_shift(self, row: int):
         """
@@ -801,18 +913,21 @@ class PMAMasterWidget(MultiThreadedWidget):
         # Calculate total applied shift at this moment
         total_applied_shift = self.calculate_total_applied_shift()
 
+        pp = self.task.phase_projections
         self.alignment_results_list += [
             PMAResults(
                 shift,
                 self.task.pma_object.initial_shift,
                 self.task.pma_object.aligned_projections.angles,
                 options=options,
-                projection_options=self.task.phase_projections.options,
-                scan_numbers=self.task.phase_projections.scan_numbers.copy(),
+                projection_options=copy.deepcopy(pp.options),
+                scan_numbers=pp.scan_numbers.copy(),
                 initial_shift_source=initial_shift_source,
                 run_type=run_type,
                 changed_settings=changed_settings,
                 total_applied_shift=total_applied_shift,
+                center_of_rotation=pp.center_of_rotation.copy(),
+                mask_source=getattr(pp, 'mask_source', None),
             )
         ]
         self.update_pma_viewer_tab()

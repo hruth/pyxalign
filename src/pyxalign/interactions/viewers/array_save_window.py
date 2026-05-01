@@ -21,6 +21,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 import numpy as np
+import os
+from pyxalign.interactions.options.options_editor import get_default_dialog_dir
 
 
 class ArraySaveWindow(QDialog):
@@ -183,7 +185,7 @@ class ArraySaveWindow(QDialog):
                 default_name = f"frame_{frame_idx}.tif"
 
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Array", default_name, filter_str
+            self, "Save Array", os.path.join(get_default_dialog_dir(), default_name), filter_str
         )
 
         if file_path:

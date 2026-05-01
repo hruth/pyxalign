@@ -103,10 +103,14 @@ class InteractiveViewerOptions(BaseOptions):
         default_factory=partial(UpdatePlotOptions, enabled=True, stride=10)
     )
 
+    volume_view_type: enums.VolumeViewType = enums.VolumeViewType.AXIS_SWITCHER
+
 
 def downsample_factory_for_estimate_center_options() -> DownsampleOptions:
     return DownsampleOptions(enabled=True)
 
+def regularizaton_factory_for_pma() -> RegularizationOptions:
+    return RegularizationOptions(use_gpu=True)
 
 @dataclasses.dataclass
 class PositivityConstraint(BaseOptions):
@@ -155,7 +159,7 @@ class ProjectionMatchingOptions(BaseOptions):
     exclude_scans_from_alignment: Optional[list[int]] = None
     "These scans will not have their position updated"
 
-    regularization: RegularizationOptions = field(default_factory=RegularizationOptions)
+    regularization: RegularizationOptions = field(default_factory=regularizaton_factory_for_pma)
 
     refine_geometry: RefineGeometryOptions = field(default_factory=RefineGeometryOptions)
 

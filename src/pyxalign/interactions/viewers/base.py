@@ -370,6 +370,10 @@ class ArrayViewer(MultiThreadedWidget):
     def refresh_frame(self, force_autolim: bool = False):
         self.update_frame(self.slider.value(), force_autolim=force_autolim)
 
+    def update_arrays(self, array3d: np.ndarray):
+        self.array3d = array3d
+        self.refresh_frame()
+
     def update_index_externally(self, index: int):
         self.slider.setValue(index)
 

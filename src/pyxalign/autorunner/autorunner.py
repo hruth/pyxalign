@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 import multiprocessing as mp
 from PyQt5.QtWidgets import QApplication
 
@@ -16,18 +15,20 @@ from pyxalign.autorunner.abstract import (
     _get_high_level_config_options,
 )
 from pyxalign.autorunner.config import AutorunnerConfig
+from pyxalign.autorunner.enums import AutorunnerStep, Checkpoints
 from pyxalign.data_structures.projections import  ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.interactions.autorunner.initialization_widget import (
+    InitializationConfigWidget,
     launch_initialization_config_widget,
 )
-from pyxalign.interactions.autorunner.wrapper import AutorunnerGUIWrapper
+from pyxalign.interactions.autorunner.wrapper import AutorunnerGUIWrapper, AutorunnerRestarted
 from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
-from pyxalign.interactions.io.loader import launch_data_loader
+from pyxalign.interactions.io.loader import launch_data_loader_widget
+from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 from pyxalign.interactions.mask import launch_mask_builder
-from pyxalign.interactions.options.options_editor import (
-    launch_basic_options_editor,
-)
+from pyxalign.interactions.options.options_editor import launch_basic_options_editor
+from pyxalign.interactions.dialog_defaults import set_default_dialog_dir
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
 
 from pyxalign.interactions.reconstruction_parameter_tuner import (
@@ -68,20 +69,22 @@ class AutorunnerPtycho(Autorunner):
 
     def run(self):
         self.app = QApplication.instance() or QApplication([])
-        self._edit_autorunner_settings()
-        self._create_state_folders_and_files()
-        self._get_loading_options()
-        self._load_data()
-        self._get_initialization_options()
-        self._create_projections_object()
-        self._get_cross_correlation_alignment()
-        # self._get_complex_projections_masks()
-        self._unwrap_phase()
-        self._select_center_of_rotation()
-        self._get_phase_projections_masks()
-        self._run_projection_matching_sequence()
-        self._get_final_reconstruction()
-        # save volumes ?
+        while True:
+            try:
+                self._edit_autorunner_settings()
+                self._create_state_folders_and_files()
+                self._get_loading_options()
+                self._load_data()
+                self._get_initialization_options()
+                self._create_projections_object()
+                self._get_cross_correlation_alignment()
+                self._unwrap_phase()
+                self._run_projection_matching_sequence()
+                break
+            except AutorunnerRestarted:
+                print("Restarting autorunner...")
+                if hasattr(self, "task"):
+                    del self.task
 
     @save_state_file_wrapper
     def _create_state_folders_and_files(self):
@@ -105,6 +108,7 @@ class AutorunnerPtycho(Autorunner):
         app = QApplication.instance() or QApplication([])
 
         valid_checkpoint = False
+        set_default_dialog_dir(self.state_folder)
         while not valid_checkpoint:
             content_gui = launch_basic_options_editor(
                 self.config,
@@ -123,11 +127,13 @@ class AutorunnerPtycho(Autorunner):
             )
             wrapper = AutorunnerGUIWrapper(
                 content_gui,
-                title="Autorunner Configuration",
+                title=AutorunnerStep.AUTORUNNER_CONFIGURATION_WINDOW,
                 task=getattr(self, "task", None),
                 checkpoints_folder=self._checkpoints_folder,
                 config=self.config,
                 state_file_path=self._state_file_path,
+                show_sync_button=False,
+                show_restart_button=False,
             )
             wrapper.wait_for_user_action()
             # if self.config.state.use_state_file_settings:
@@ -177,50 +183,98 @@ class AutorunnerPtycho(Autorunner):
     @save_state_file_wrapper
     def _load_data(self):
         if self.config.interactivity.loading or self.loading_options is None:
-            self._standardized_data, self.loading_options = launch_data_loader(self.loading_options)
+            data_loader_gui = launch_data_loader_widget(self.loading_options)
+            init_widget = InitializationConfigWidget(
+                standard_data=None,
+                initialization_config=self.config.initialize,
+            )
+
+            sidebar = SidebarNavigator()
+            sidebar.addPage(data_loader_gui, "Data Loader")
+            sidebar.addPage(init_widget, "Initialization")
+
+            wrapper = AutorunnerGUIWrapper(
+                sidebar,
+                title=AutorunnerStep.DATA_LOADER_WINDOW,
+                task=getattr(self, "task", None),
+                checkpoints_folder=self._checkpoints_folder,
+                config=self.config,
+                state_file_path=self._state_file_path,
+                show_sync_button=False,
+            )
+            wrapper.proceed_button.setEnabled(False)
+
+            def _on_data_loaded():
+                wrapper.proceed_button.setEnabled(True)
+                init_widget.setStandardData(data_loader_gui.loaded_data)
+                sidebar.setCurrentPage(1)
+
+            data_loader_gui.data_loaded_signal.connect(_on_data_loaded)
+            wrapper.wait_for_user_action()
+            self._init_widget = init_widget
+            self._standardized_data = data_loader_gui.loaded_data
+            self.loading_options = data_loader_gui.options
         else:
+            self._init_widget = None
             self._standardized_data = load_dataset_from_arbitrary_options(
                 self.loading_options, int(mp.cpu_count() * 0.8)
             )
 
         if self.config.state.update_state_file:
-            # save options
-            # initial_options_path = os.path.join(
-            #     self.state_folder, "loading_options.yaml"
-            # )
             self.loading_options.save_to_dict(self.loading_options_path)
             print(f"Loading options saved to: {self.loading_options_path}")
             # update autorunner config
             self.config.loading.experiment_type = get_experiment_type_enum_from_options(
                 self.loading_options
             )
-            # self.config.loading.initial_options_path = initial_options_path
 
     @skip_if_loading_from_checkpoint
     @save_state_file_wrapper
     def _get_initialization_options(self):
-        if self.config.interactivity.initialization:
-            self.config.initialize = launch_initialization_config_widget(
-                self._standardized_data, self.config.initialize
-            )
+        init_widget = getattr(self, "_init_widget", None)
+        self._init_widget = None
 
-    # @save_state_file  # needs to be done within fnction
-    @handle_checkpoint("initialization")
-    def _create_projections_object(self):
-        # create padded projection array
+        if init_widget is not None:
+            # This is what runs currently, other options havent been tested but will 
+            # come up in non interactive case 
+            content_gui = init_widget
+        # elif self.config.interactivity.initialization:
+        #     content_gui = launch_initialization_config_widget(
+        #         self._standardized_data, self.config.initialize, wait_until_closed=False
+        #     )
+        #     wrapper = AutorunnerGUIWrapper(
+        #         content_gui,
+        #         title=AutorunnerStep.INITIALIZATION_WINDOW,
+        #         task=getattr(self, "task", None),
+        #         checkpoints_folder=self._checkpoints_folder,
+        #         config=self.config,
+        #         state_file_path=self._state_file_path,
+        #         show_sync_button=False,
+        #     )
+        #     wrapper.wait_for_user_action()
+        else:
+            self.complex_projections = self._build_complex_projections()
+            return
+
+        self.config.initialize = content_gui.config
+        config_changed = (
+            content_gui._config_at_last_initialize is None
+            or content_gui.config != content_gui._config_at_last_initialize
+        )
+        self.complex_projections = content_gui.complex_projections
+        if self.complex_projections is None or config_changed:
+            self.complex_projections = self._build_complex_projections()
+
+    def _build_complex_projections(self) -> ComplexProjections:
         new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
         new_array_size += self.config.initialize.pad
         projection_array = convert_projection_dict_to_array(
             self._standardized_data.projections, new_array_size, pad_with_mode=True
         )
 
-        # define projection options
         projection_options = ProjectionOptions()
-        # experiment parameters
         projection_options.experiment.laminography_angle = self.config.initialize.laminography_angle
-        # projection_options.experiment.sample_thickness = self.config.initialize.sample_thickness
         projection_options.experiment.pixel_size = self._standardized_data.pixel_size
-        # input processing
         if self.config.initialize.rotation_angle != 0:
             projection_options.input_processing.rotation = RotationOptions(
                 enabled=True, angle=self.config.initialize.rotation_angle
@@ -230,7 +284,6 @@ class AutorunnerPtycho(Autorunner):
                 enabled=True, angle=self.config.initialize.shear_angle
             )
 
-        # create complex_projections object
         complex_projections = ComplexProjections(
             projections=projection_array,
             angles=self._standardized_data.angles,
@@ -241,19 +294,20 @@ class AutorunnerPtycho(Autorunner):
             skip_pre_processing=False,
             file_paths=list(self._standardized_data.file_paths.values()),
         )
-        self.task = LaminographyAlignmentTask(complex_projections=complex_projections)
         if self.config.initialize.remove_scan_numbers is not None:
-            self.task.complex_projections.drop_projections(
-                self.config.initialize.remove_scan_numbers
-            )
+            complex_projections.drop_projections(self.config.initialize.remove_scan_numbers)
+        return complex_projections
 
+    @handle_checkpoint(Checkpoints.AFTER_LOADING)
+    def _create_projections_object(self):
+        self.task = LaminographyAlignmentTask(complex_projections=self.complex_projections)
         self._standardized_data = None
 
         _update_pyxalign_object_settings(self.task, self.config)
         _update_all_config_parameters(self.task, self.config)
 
     @save_state_file_wrapper
-    @handle_checkpoint("cross_correlation")
+    @handle_checkpoint(Checkpoints.AFTER_COMPLEX_PROJECTIONS_WINDOW)
     def _get_cross_correlation_alignment(self):
         if not self.config.cross_correlation_enabled:
             return
@@ -267,7 +321,7 @@ class AutorunnerPtycho(Autorunner):
             )
             wrapper = AutorunnerGUIWrapper(
                 content_gui,
-                title="Cross Correlation Alignment",
+                title=AutorunnerStep.COMPLEX_PROJECTIONS_WINDOW,
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
                 config=self.config,
@@ -278,28 +332,8 @@ class AutorunnerPtycho(Autorunner):
             self.task.get_cross_correlation_shift(plot_results=False)
             self.task.complex_projections.apply_staged_shift()
 
-    # @save_state_file_wrapper
-    # @handle_checkpoint("phase_unwrap_masks")
-    # def _get_complex_projections_masks(self):
-    #     can_build_from_positions = self.task.complex_projections.probe_positions is not None
-
-    #     if self.config.interactivity.phase_unwrap_masks:
-    #         if can_build_from_positions:
-    #             content_gui = launch_mask_builder(
-    #                 self.task.complex_projections, wait_until_closed=True
-    #             )
-    #         else:
-    #             content_gui = launch_mask_selection_from_roi(
-    #                 self.task.complex_projections, wait_until_closed=True
-    #             )
-    #     else:
-    #         if can_build_from_positions:
-    #             self.task.complex_projections.get_masks_from_probe_positions()
-    #         else:
-    #             self.task.complex_projections.get_masks_from_roi_selection()
-
     @save_state_file_wrapper
-    @handle_checkpoint("phase_unwrapping")
+    @handle_checkpoint(Checkpoints.AFTER_PHASE_UNWRAPPING_WINDOW)
     def _unwrap_phase(self):
         print("Perform phase unwrapping...")
 
@@ -307,61 +341,21 @@ class AutorunnerPtycho(Autorunner):
             content_gui = launch_phase_unwrap_widget(self.task, wait_until_closed=False)
             wrapper = AutorunnerGUIWrapper(
                 content_gui,
-                title="Phase Unwrapping",
+                title=AutorunnerStep.PHASE_UNWRAPPING_WINDOW,
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
                 config=self.config,
                 state_file_path=self._state_file_path,
             )
+            wrapper.proceed_button.setEnabled(False)
+            content_gui.phase_unwrapped.connect(lambda: wrapper.proceed_button.setEnabled(True))
             wrapper.wait_for_user_action()
         else:
             self.task.get_unwrapped_phase()
         self.task.complex_projections = None
 
     @save_state_file_wrapper
-    @handle_checkpoint("pma_masks")
-    def _get_phase_projections_masks(self):
-        print("Select masks used in projection-matching alignment...")
-
-        can_build_from_positions = self.task.phase_projections.probe_positions is not None
-
-        if self.config.interactivity.phase_unwrap_masks:
-            if can_build_from_positions:
-                content_gui = launch_mask_builder(
-                    self.task.phase_projections, wait_until_closed=True
-                )
-            else:
-                content_gui = launch_mask_selection_from_roi(
-                    self.task.phase_projections, wait_until_closed=True
-                )
-        else:
-            if can_build_from_positions:
-                self.task.phase_projections.get_masks_from_probe_positions()
-            else:
-                self.task.phase_projections.get_masks_from_roi_selection()
-
-    @save_state_file_wrapper
-    @handle_checkpoint("reconstruction_tuning")
-    def _select_center_of_rotation(self):
-        print("Select reconstruction parameters...")
-        app = QApplication.instance() or QApplication([])
-
-        if self.config.interactivity.reconstruction_tuning:
-            content_gui = launch_reconstruction_parameter_tuner(
-                self.task.phase_projections, wait_until_closed=False
-            )
-            wrapper = AutorunnerGUIWrapper(
-                content_gui,
-                title="Reconstruction Parameter Tuning",
-                task=self.task,
-                checkpoints_folder=self._checkpoints_folder,
-                config=self.config,
-                state_file_path=self._state_file_path,
-            )
-            wrapper.wait_for_user_action()
-
-    @save_state_file_wrapper
-    @handle_checkpoint("projection_matching")
+    @handle_checkpoint(Checkpoints.FINAL)
     def _run_projection_matching_sequence(self):
         if not self.config.projection_matching_enabled:
             return
@@ -380,27 +374,7 @@ class AutorunnerPtycho(Autorunner):
             )
             wrapper = AutorunnerGUIWrapper(
                 content_gui,
-                title="Projection Matching Sequence",
-                task=self.task,
-                checkpoints_folder=self._checkpoints_folder,
-                config=self.config,
-                state_file_path=self._state_file_path,
-            )
-            wrapper.wait_for_user_action()
-
-    @save_state_file_wrapper
-    @handle_checkpoint("final_reconstruction")
-    def _get_final_reconstruction(self):
-        print("Select reconstruction parameters...")
-        app = QApplication.instance() or QApplication([])
-
-        if self.config.interactivity.reconstruction_tuning:
-            content_gui = launch_reconstruction_parameter_tuner(
-                self.task.phase_projections, is_already_aligned=True, wait_until_closed=False
-            )
-            wrapper = AutorunnerGUIWrapper(
-                content_gui,
-                title="Final 3D Reconstruction",
+                title=AutorunnerStep.UNWRAPPED_PROJECTIONS_WINDOW,
                 task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
                 config=self.config,

@@ -174,6 +174,7 @@ class SelectLoadSettingsWidget(QWidget):
         self.load_data_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.load_data_button.setStyleSheet(
             "QPushButton { background-color: green; font-weight: bold; font-size: 11pt; color: white; padding: 2px 6px;}"
+            "QPushButton:disabled { background-color: #adb5bd; color: #6c757d; }"
         )
         self.layout().addWidget(self.load_data_button)
 
@@ -251,6 +252,19 @@ class MainLoadingWidget(QWidget):
 
     def open_file_loader_window(self):
         self.select_load_settings_widget.show()
+
+
+@switch_to_matplotlib_qt_backend
+def launch_data_loader_widget(
+    load_options: Optional[OptionsClass] = None,
+) -> SelectLoadSettingsWidget:
+    """Create and return a data loader widget without running the event loop.
+
+    Intended for embedding inside an AutorunnerGUIWrapper. The caller is
+    responsible for showing the widget and running the event loop.
+    """
+    QApplication.instance() or QApplication([])
+    return SelectLoadSettingsWidget(load_options)
 
 
 @switch_to_matplotlib_qt_backend

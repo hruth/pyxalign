@@ -17,6 +17,7 @@ from pyxalign.estimate_center import (
     plot_coordinate_search_points,
 )
 from pyxalign.api import enums
+from pyxalign.api.enums import MaskSource
 from pyxalign.api.options.alignment import AlignmentOptions
 from pyxalign.api.options.device import DeviceOptions
 
@@ -121,6 +122,7 @@ class Projections:
         transform_tracker: Optional[TransformTracker] = None,
         pin_arrays: bool = False,
         file_paths: Optional[list[str]] = None,
+        mask_source: Optional[MaskSource] = None,
     ):
         """
         Test description for `Projections`
@@ -130,6 +132,7 @@ class Projections:
         self.angles = np.array(angles, dtype=r_type)
         self.data = projections
         self.masks = masks
+        self.mask_source = mask_source
         if pin_arrays:
             self.pin_arrays()
         self.probe = probe
@@ -413,6 +416,7 @@ class Projections:
             self.probe_positions.data,
             self.options.mask_from_positions.threshold,
         )
+        self.mask_source = MaskSource.PROBE_POSITIONS
 
     def get_masks_from_roi_selection(self):
         """
@@ -430,6 +434,7 @@ class Projections:
             updated_roi_options = copy.copy(self.options.masks_from_roi)
             updated_roi_options.rectangle = updated_rect_roi_options
         self.masks = get_masks_from_roi(updated_roi_options, self.data.shape)
+        self.mask_source = MaskSource.ROI
         print("Updated masks, used mask ROI options:")
         print_options(updated_roi_options, include_class_name=False)
 
@@ -546,6 +551,7 @@ class Projections:
             scale=downsample_options.scale, enabled=downsample_options.enabled
         )
         self.masks = Upsampler(upsample_options).run(self.masks)
+        self.mask_source = MaskSource.MORPHOLOGY
         # return Upsampler(upsample_options).run(self.masks)
 
     def _blur_masks(
@@ -730,6 +736,7 @@ class Projections:
             "angles": self.angles,
             "scan_numbers": self.scan_numbers,
             "masks": self.masks,
+            "mask_source": self.mask_source,
             "center_of_rotation": self.center_of_rotation,
             "positions": positions,
             "probe": self.probe,
@@ -1174,6 +1181,7 @@ def get_kwargs_for_copying_to_new_projections_object(
         "skip_pre_processing": True,
         "add_center_offset_to_positions": False,
         "file_paths": copy.deepcopy(projections.file_paths),
+        "mask_source": copy.deepcopy(projections.mask_source)
     }
     if include_projections_copy:
         kwargs["projections"] = projections.data * 1

@@ -1,5 +1,8 @@
-from functools import wraps
+import ast
+from functools import wraps, lru_cache
+import inspect
 import sys
+import textwrap
 from dataclasses import fields, is_dataclass
 from enum import Enum
 from typing import Optional, Union, get_origin, get_args, Any, TypeVar
@@ -38,6 +41,30 @@ from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
 from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 
 T = TypeVar("T", bound=BaseOptions)
+
+from pyxalign.interactions.dialog_defaults import get_default_dialog_dir  # noqa: E402
+
+
+@lru_cache(maxsize=None)
+def get_attribute_docstrings(cls) -> dict[str, str]:
+    """Extract attribute docstrings (string literals immediately after field definitions) from a class."""
+    try:
+        source = textwrap.dedent(inspect.getsource(cls))
+        tree = ast.parse(source)
+    except (OSError, TypeError, SyntaxError):
+        return {}
+
+    docstrings = {}
+    class_body = next(
+        (node.body for node in ast.walk(tree) if isinstance(node, ast.ClassDef)),
+        [],
+    )
+    for i, node in enumerate(class_body):
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            next_node = class_body[i + 1] if i + 1 < len(class_body) else None
+            if isinstance(next_node, ast.Expr) and isinstance(next_node.value, ast.Constant):
+                docstrings[node.target.id] = next_node.value.value.strip()
+    return docstrings
 
 
 class IntTupleInputWidget(QWidget):
@@ -143,10 +170,11 @@ class CustomFileDialog(QWidget):
         self.setWindowTitle("File Dialog Example")
 
     def open_file_dialog(self):
+        default = get_default_dialog_dir()
         if self.use_folder_dialog:
-            path = QFileDialog.getExistingDirectory(self, "Select a Folder")
+            path = QFileDialog.getExistingDirectory(self, "Select a Folder", default)
         else:
-            path, _ = QFileDialog.getOpenFileName(self, "Select a File")
+            path, _ = QFileDialog.getOpenFileName(self, "Select a File", default)
 
         if path:
             self.input_bar.setText(path)
@@ -858,6 +886,9 @@ class BasicOptionsEditor(QWidget):
             #     continue
 
             # If nested dataclass => collapsible panel
+            tooltips = get_attribute_docstrings(type(data_obj))
+            tooltip = tooltips.get(field_name, "")
+
             if is_dataclass(field_value):
                 if field_name in open_panels_list:
                     keep_open = True
@@ -880,10 +911,11 @@ class BasicOptionsEditor(QWidget):
                     tab_type=tab_type,
                 )
 
+                label = self._make_label(field_name, tooltip)
                 if level == 0:
-                    form_layout.addRow(field_name, self.wrap_in_frame(panel))
+                    form_layout.addRow(label, self.wrap_in_frame(panel))
                 else:
-                    form_layout.addRow(field_name, panel)
+                    form_layout.addRow(label, panel)
 
             else:
                 # Check if file-dialog or folder-dialog
@@ -901,10 +933,18 @@ class BasicOptionsEditor(QWidget):
                     use_folder_dialog=use_folder_dialog,
                     parent=self,
                 )
+                label = self._make_label(field_name, tooltip)
                 if level == 0:
-                    form_layout.addRow(field_name, self.wrap_in_frame(editor))
+                    form_layout.addRow(label, self.wrap_in_frame(editor))
                 else:
-                    form_layout.addRow(field_name, editor)
+                    form_layout.addRow(label, editor)
+
+    def _make_label(self, text: str, tooltip: str = "") -> QLabel:
+        label = QLabel(text)
+        if tooltip:
+            label.setToolTip(tooltip)
+            label.setToolTipDuration(8000)
+        return label
 
     def wrap_in_frame(self, widget: QWidget) -> QFrame:
         frame = QFrame()
@@ -938,7 +978,7 @@ class BasicOptionsEditor(QWidget):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Options as YAML",
-            "",
+            get_default_dialog_dir(),
             "YAML Files (*.yaml *.yml);;All Files (*)"
         )
         if file_path:

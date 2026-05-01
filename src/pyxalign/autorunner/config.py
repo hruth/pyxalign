@@ -12,7 +12,7 @@ from pyxalign.api.options.options import PhaseUnwrapOptions
 from pyxalign.api.options.projections import ProbePositionMaskOptions, VolumeWidthOptions
 from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.api.options.roi import ROIOptions
-from pyxalign.autorunner.enums import Checkpoints
+from pyxalign.autorunner.enums import Checkpoints, LoadableCheckpoints
 from pyxalign.interactions import initialize_projections
 from pyxalign.interactions.roi_selector import MaskFromROISelector
 from pyxalign.io.loaders.enums import ExperimentType
@@ -58,78 +58,102 @@ class ReconstructionGeometryConfig(BaseOptions):
 @dataclasses.dataclass
 class InteractivityConfig(BaseOptions):
     loading: bool = True
+    """Pause after loading data to allow review before continuing."""
 
     initialization: bool = True
+    """Pause after initialization to allow review of initial parameters."""
 
     cross_correlation: bool = True
+    """Pause after cross-correlation alignment to allow review of results."""
 
     phase_unwrapping: bool = True
+    """Pause after phase unwrapping to allow review and adjustment."""
 
     phase_unwrap_masks: bool = True
+    """Pause to allow interactive mask creation for phase unwrapping."""
 
     reconstruction_tuning: bool = True
+    """Pause to allow interactive tuning of reconstruction parameters."""
 
     pma_masks: bool = True
+    """Pause to allow interactive mask creation for projection-matching alignment."""
 
     projection_matching: bool = True
+    """Pause after projection matching to allow review of results."""
 
     # final_reconstruction: bool = True
 
 
 @dataclasses.dataclass
 class EnabledCheckpoints(BaseOptions):
-    # loading: bool = True
+    # its not ideal, but these need to manually be made to match
+    # the strings in the 'Checkpoints' enum
 
-    initialization: bool = True
+    after_loading: bool = True
 
-    cross_correlation: bool = True
+    after_complex_projections_window: bool = True
 
-    # phase_unwrap_masks: bool = True
+    after_phase_unwrapping_window: bool = True
 
-    phase_unwrapping: bool = True
-
-    reconstruction_tuning: bool = True
-
-    pma_masks: bool = True
-
-    projection_matching: bool = True
-
-    final_reconstruction: bool = True
+    final: bool = True
 
 
 @dataclasses.dataclass
 class StateConfig(BaseOptions):
-    # state_folder: str = ""
-
     use_state_file_settings: bool = True
+    """Load settings from the state file at the start of the run, if one exists."""
 
     update_state_file: bool = True
+    """Write updated settings back to the state file after each step."""
 
 
 @dataclasses.dataclass
 class CheckpointConfig(BaseOptions):
     load_from_checkpoint: bool = False
+    """Resume the run from a previously saved checkpoint instead of starting from scratch."""
 
-    which_checkpoint: Checkpoints = Checkpoints.INITIALIZATION
+    which_checkpoint: LoadableCheckpoints = LoadableCheckpoints.AFTER_LOADING
+    """
+    The checkpoint stage to resume from when load_from_checkpoint is enabled.
+
+    Ex: if "after_loading" is selected, the autorunner will load the window that appears
+    after loading data. 
+    
+    If load_from_custom_task is NOT checked, the task will be loaded from 
+    checkpoints/after_loading_task.h5. If load_from_custom_task is checked,
+    then the task specified in custom_task_path will be loaded.
+    """
 
     load_from_custom_task: bool = False
+    """
+    Load the checkpoint from a custom task path instead of the default task path.
+    """
 
     custom_task_path: str = ""
+    """
+    Path to the custom task folder to load the checkpoint from.
+    """
 
     enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
+    """Choose the points at which a checkpoint task will be saved"""
 
 
 @dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):
     state: StateConfig = field(default_factory=StateConfig)
+    """Settings for reading from and writing to a state file."""
 
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
+    """Settings for saving and loading run checkpoints."""
 
     interactivity: InteractivityConfig = field(default_factory=InteractivityConfig)
+    """Controls which pipeline steps will pause and show an interactive GUI window."""
 
     cross_correlation_enabled: bool = True
+    """Run the cross-correlation alignment step."""
 
     projection_matching_enabled: bool = True
+    """Run the projection-matching alignment step."""
 
     loading: LoadingConfig = field(default_factory=LoadingConfig)
 

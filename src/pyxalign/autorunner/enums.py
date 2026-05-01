@@ -2,15 +2,30 @@ from csv import Error
 from enum import StrEnum, auto
 from typing import Union
 
+
+class AutorunnerStep(StrEnum):
+    AUTORUNNER_CONFIGURATION_WINDOW = "Autorunner Configuration Window"
+    DATA_LOADER_WINDOW = "Data Loading and Initialization Window"
+    COMPLEX_PROJECTIONS_WINDOW = "Complex Projections Window"
+    PHASE_UNWRAPPING_WINDOW = "Phase Unwrapping Window"
+    UNWRAPPED_PROJECTIONS_WINDOW = "Unwrapped Projections Window"
+
+
 class Checkpoints(StrEnum):
-    INITIALIZATION = auto()
-    CROSS_CORRELATION = auto()
-    # PHASE_UNWRAP_MASKS = auto()
-    PHASE_UNWRAPPING = auto()
-    RECONSTRUCTION_TUNING = auto()
-    PMA_MASKS = auto()
-    PROJECTION_MATCHING = auto()
-    FINAL_RECONSTRUCTION = auto()
+    # if you add to these, or change these, make sure to also update the
+    # CheckpointsConfig in the config.py file
+    AFTER_LOADING = auto()
+    AFTER_COMPLEX_PROJECTIONS_WINDOW = auto()
+    AFTER_PHASE_UNWRAPPING_WINDOW = auto()
+    FINAL = auto()
+
+
+class LoadableCheckpoints(StrEnum):
+    # has all members of checkpoints, except for FINAL
+    AFTER_LOADING = auto()
+    AFTER_COMPLEX_PROJECTIONS_WINDOW = auto()
+    AFTER_PHASE_UNWRAPPING_WINDOW = auto()
+
 
 def get_checkpoint_order_value(checkpoint: Union[str, Checkpoints]) -> int:
     if checkpoint is None:
@@ -21,12 +36,8 @@ def get_checkpoint_order_value(checkpoint: Union[str, Checkpoints]) -> int:
     #                 If so, it needs to be added to the Checkpoints enum and to 
     #                 get_checkpoint_order_value.""")
     return {
-        Checkpoints.INITIALIZATION: 1,
-        Checkpoints.CROSS_CORRELATION: 2,
-        # Checkpoints.PHASE_UNWRAP_MASKS: 3,
-        Checkpoints.PHASE_UNWRAPPING: 4,
-        Checkpoints.RECONSTRUCTION_TUNING: 5,
-        Checkpoints.PMA_MASKS: 6,
-        Checkpoints.PROJECTION_MATCHING: 7,
-        Checkpoints.FINAL_RECONSTRUCTION: 8,
+        Checkpoints.AFTER_LOADING: 1,
+        Checkpoints.AFTER_COMPLEX_PROJECTIONS_WINDOW: 2,
+        Checkpoints.AFTER_PHASE_UNWRAPPING_WINDOW: 3,
+        Checkpoints.FINAL: 4,
     }[checkpoint]

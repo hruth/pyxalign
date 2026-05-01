@@ -3,8 +3,9 @@ import traceback
 
 import pyxalign.alignment.projection_matching as pm
 from pyxalign.gpu_utils import return_cpu_array
+from pyxalign.api.enums import VolumeViewType
 from pyxalign.interactions.viewers.arrays import ProjectionViewer, VolumeViewer
-from pyxalign.interactions.viewers.base import MultiThreadedWidget
+from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -92,7 +93,14 @@ class ProjectionMatchingViewer(MultiThreadedWidget):
                 display_only=True,
             )
             # volume viewer
-            self.volume_viewer = VolumeViewer(self.pma_object.aligned_projections.volume.data)
+            volume_view_type = self.pma_object.options.interactive_viewer.volume_view_type
+            if volume_view_type == VolumeViewType.THREE_VIEWERS:
+                self.volume_viewer = VolumeViewer(self.pma_object.aligned_projections.volume.data)
+            else:
+                self.volume_viewer = ArrayViewer(
+                    self.pma_object.aligned_projections.volume.data,
+                    hide_axis_controls=False,
+                )
 
             # metrics viewer
             metrics_widget = QWidget()

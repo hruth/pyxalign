@@ -15,7 +15,7 @@ from pyxalign.data_structures.projections import (
     TransformTracker,
 )
 from pyxalign.api.options.projections import ProjectionOptions
-from pyxalign.api.enums import ShiftType
+from pyxalign.api.enums import MaskSource, ShiftType
 from pyxalign.api.types import c_type, r_type
 
 from typing import Optional, TypeVar, Union
@@ -132,6 +132,11 @@ def load_projections_object(
         add_center_offset_to_positions=False,
         file_paths=file_paths,
     )
+
+    if "mask_source" in proj_h5_obj.keys():
+        mask_source_val = proj_h5_obj["mask_source"][()]
+        if not is_null_type(mask_source_val):
+            projections.mask_source = MaskSource(mask_source_val.decode())
 
     if "dropped_scan_numbers" in proj_h5_obj.keys():
         dropped_scan_numbers = proj_h5_obj["dropped_scan_numbers"][()]

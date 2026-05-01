@@ -47,7 +47,6 @@ def save_state_file_wrapper(func):
     return wrapper
 
 def skip_if_loading_from_checkpoint(func):
-    """Decorator that saves the config to the state file after method execution."""
 
     @wraps(func)
     def wrapper(self: Autorunner, *args, **kwargs):
@@ -128,7 +127,7 @@ def _update_all_config_parameters(task: LaminographyAlignmentTask, config: Autor
     if task.phase_projections is not None:
         projections = task.phase_projections
         config.projection_matching_masks_from_position = projections.options.mask_from_positions
-        config.projection_matching_masks_from_roi = projections.options.mask_from_positions
+        config.projection_matching_masks_from_roi = projections.options.masks_from_roi
     else:
         projections = task.complex_projections
         config.phase_unwrap_masks_from_position = projections.options.mask_from_positions
@@ -189,16 +188,17 @@ def _get_high_level_config_options() -> list[str]:
         # "state.state_memory_enabled",
         # "state.use_state_file",
         "state.update_state_file",
-        "interactivity",
-        "cross_correlation_enabled",
-        "projection_matching_enabled",
+        # "interactivity",
+        # "cross_correlation_enabled",
+        # "projection_matching_enabled",
         "enabled_checkpoints",
         "checkpoint",
     ]
 
-    high_level_config_options += [
-        "interactivity." + x for x in get_all_attribute_names(AutorunnerConfig().interactivity)
-    ]
+    # commenting out to remove interactivity options from basic options panel
+    # high_level_config_options += [
+    #     "interactivity." + x for x in get_all_attribute_names(AutorunnerConfig().interactivity)
+    # ]
     high_level_config_options += [
         "checkpoint." + x for x in get_all_attribute_names(AutorunnerConfig().checkpoint)
     ]

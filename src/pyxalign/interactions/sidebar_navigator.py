@@ -83,6 +83,13 @@ class SidebarNavigator(QWidget):
         if self.stacked_widget.count() == 1:
             action.setChecked(True)
 
+    def setCurrentPage(self, index: int):
+        """Switch to the page at the given index and update the toolbar selection."""
+        self.stacked_widget.setCurrentIndex(index)
+        actions = self.action_group.actions()
+        if 0 <= index < len(actions):
+            actions[index].setChecked(True)
+
 
 def main():
     app = QApplication(sys.argv)

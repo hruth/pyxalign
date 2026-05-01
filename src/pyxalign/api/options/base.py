@@ -1,3 +1,4 @@
+from multiprocessing import Value
 from typing import Union, get_origin, get_args
 import dataclasses
 from dataclasses import fields
@@ -74,8 +75,11 @@ class BaseOptions:
                 and issubclass(field_type, enum.StrEnum)
                 and isinstance(v, str)
             ):
-                self.__setattr__(k, field_type(v))
-                # self.__setattr__(k, field_type[v.upper()])
+                try:
+                    self.__setattr__(k, field_type(v))
+                    # self.__setattr__(k, field_type[v.upper()])
+                except ValueError:
+                    print(f"{field_type} has no value {v}; using default value for {k} instead.")
             elif get_origin(field_type) is tuple and isinstance(v, list):
                 # Convert lists back to tuples when the field type is a tuple
                 self.__setattr__(k, tuple(v))

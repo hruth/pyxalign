@@ -477,7 +477,7 @@ class ProjectionViewer(MultiThreadedWidget):
             open_mask_from_roi_button = QPushButton("Get Masks from ROI")
             open_mask_from_roi_button.clicked.connect(self.open_mask_from_roi_window)
             # create button for updating reconstruction parameters
-            open_reconstruction_tuner_button = QPushButton("Update Reconstruction Parameters")
+            open_reconstruction_tuner_button = QPushButton("3D Volume Reconstruction Tool")
             open_reconstruction_tuner_button.clicked.connect(self.open_reconstruction_parameter_tuner)
             # Only enable for PhaseProjections
             if self.projections.__class__.__qualname__ != "PhaseProjections":
@@ -551,6 +551,7 @@ class ProjectionViewer(MultiThreadedWidget):
         if include_shifts:
             self.all_shifts_viewer = AllShiftsViewer(projections)
             tabs.addTab(self.all_shifts_viewer, "Applied Shifts")
+            self.all_shifts_viewer.shift_operation_performed.connect(self.refresh_array_viewer)
         if include_options:
             # create options viewer
             self.options_display = OptionsDisplayWidget(projections.options)
@@ -760,10 +761,26 @@ class ProjectionViewer(MultiThreadedWidget):
         # update the viewer display
         self.array_viewer.refresh_frame()
 
+    def refresh_array_viewer(self):
+        """Reinitialize the array viewer after a shift has been applied or undone."""
+        self.array_viewer.reinitialize_all(
+            array3d=self.projections.data,
+            sort_idx=np.argsort(self.projections.angles),
+            extra_title_strings_list=get_projection_title_strings(
+                self.projections.scan_numbers, self.projections.angles
+            ),
+            new_additional_spinbox_indexing=[self.projections.scan_numbers],
+        )
+
     def refresh_applied_shifts_tab(self):
         """Refresh the Applied Shifts tab if it exists."""
         if self.all_shifts_viewer is not None:
             self.all_shifts_viewer.refresh_data()
+
+    def apply_staged_shift(self):
+        """Apply the staged shift via the Applied Shifts tab viewer."""
+        if self.all_shifts_viewer is not None:
+            self.all_shifts_viewer.apply_staged_shift()
 
     def on_tab_changed(self, index):
         """Handle tab change event to refresh content when tabs are opened."""

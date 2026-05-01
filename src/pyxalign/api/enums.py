@@ -123,3 +123,14 @@ class SARTInitialVolumes(StrEnum):
     FBP = auto()
     ONES = auto()
     ZEROS = auto()
+
+
+class VolumeViewType(StrEnum):
+    AXIS_SWITCHER = auto()
+    THREE_VIEWERS = auto()
+
+
+class MaskSource(StrEnum):
+    PROBE_POSITIONS = auto()
+    ROI = auto()
+    MORPHOLOGY = auto()
