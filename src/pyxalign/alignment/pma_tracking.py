@@ -13,7 +13,7 @@ import dataclasses
 from dataclasses import field
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import List, Optional, TYPE_CHECKING
+from typing import Any, List, Optional, TYPE_CHECKING
 
 import h5py
 import numpy as np
@@ -31,7 +31,12 @@ from pyxalign.api.options.reconstruct import ReconstructOptions
 from pyxalign.api.options.roi import ROIOptions
 from pyxalign.api.options.transform import CropOptions
 from pyxalign.io.save import save_generic_data_structure_to_h5
-from pyxalign.io.utils import dict_to_dataclass, h5_to_dict
+from pyxalign.io.utils import (
+    dict_to_dataclass,
+    h5_to_dict,
+    handle_null_type,
+    is_null_type,
+)
 from pyxalign.transformations.classes import Cropper
 
 if TYPE_CHECKING:
@@ -215,28 +220,68 @@ class PMASequence:
     def __iter__(self):
         return iter(self.snapshots)
 
-    def save(self, file_path: str) -> None:
-        """Save the sequence to an HDF5 file."""
+    def save(self, file_path: str, include_volumes: bool = True) -> None:
+        """Save the sequence to a standalone HDF5 file."""
         with h5py.File(file_path, "w") as F:
-            F.attrs["n_snapshots"] = len(self.snapshots)
-            for i, snap in enumerate(self.snapshots):
-                save_generic_data_structure_to_h5(snap, F.create_group(_snapshot_key(i)))
+            self._save_to_group(F, include_volumes=include_volumes)
         print(f"PMASequence with {len(self.snapshots)} snapshot(s) saved to {file_path}")
 
+    def _save_to_group(self, group: h5py.Group, include_volumes: bool = True) -> None:
+        """Write the sequence into an existing h5 group (e.g. inside a task file)."""
+        group.attrs["n_snapshots"] = len(self.snapshots)
+        for i, snap in enumerate(self.snapshots):
+            snap_to_save = snap
+            if not include_volumes and snap.volume is not None:
+                # Shallow copy with the volume stripped — keeps the live
+                # snapshot intact while keeping the file small.
+                snap_to_save = dataclasses.replace(snap, volume=None)
+            save_generic_data_structure_to_h5(
+                snap_to_save, group.create_group(_snapshot_key(i))
+            )
+
     @classmethod
-    def load(cls, file_path: str) -> "PMASequence":
+    def load(cls, file_path: str, include_volumes: bool = True) -> "PMASequence":
         """Load a sequence previously written with `save`."""
         with h5py.File(file_path, "r") as F:
-            n = int(F.attrs["n_snapshots"])
-            snapshots = [_load_snapshot_group(F[_snapshot_key(i)]) for i in range(n)]
-        seq = cls(snapshots=snapshots)
+            seq = cls._load_from_group(F, include_volumes=include_volumes)
         print(f"Loaded PMASequence with {len(seq)} snapshot(s) from {file_path}")
         return seq
+
+    @classmethod
+    def _load_from_group(
+        cls, group: h5py.Group, include_volumes: bool = True
+    ) -> "PMASequence":
+        """Read a sequence out of an existing h5 group."""
+        n = int(group.attrs["n_snapshots"])
+        snapshots = [
+            _load_snapshot_group(group[_snapshot_key(i)], include_volume=include_volumes)
+            for i in range(n)
+        ]
+        return cls(snapshots=snapshots)
 
 
 def _snapshot_key(i: int) -> str:
     return f"snapshot_{i:04d}"
 
 
-def _load_snapshot_group(group: h5py.Group) -> PMASnapshot:
-    return dict_to_dataclass(PMASnapshot, h5_to_dict(group))
+def _load_snapshot_group(
+    group: h5py.Group, include_volume: bool = True
+) -> PMASnapshot:
+    if include_volume or "volume" not in group:
+        data = h5_to_dict(group)
+    else:
+        # Read every dataset / nested group except `volume` so we don't
+        # pull a possibly-large array off disk just to discard it.
+        data: dict[str, Any] = {}
+        for key, item in group.items():
+            if key == "volume":
+                data[key] = None
+                continue
+            if isinstance(item, h5py.Group):
+                data[key] = h5_to_dict(item)
+            else:
+                value = item[()]
+                if isinstance(value, bytes):
+                    value = handle_null_type(value) if is_null_type(value) else value.decode()
+                data[key] = value
+    return dict_to_dataclass(PMASnapshot, data)

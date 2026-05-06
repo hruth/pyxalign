@@ -208,7 +208,12 @@ class LaminographyAlignmentTask:
         self.phase_projections.dropped_angles = copy.copy(self.complex_projections.dropped_angles)
         self.phase_projections.dropped_file_paths = copy.copy(self.complex_projections.dropped_file_paths)
 
-    def save_task(self, file_path: str, exclude: list[str] = []):
+    def save_task(
+        self,
+        file_path: str,
+        exclude: list[str] = [],
+        save_pma_sequence_volumes: bool = False,
+    ):
         save_attr_strings = ["complex_projections", "phase_projections"]
         with h5py.File(file_path, "w") as h5_obj:
             for attr in save_attr_strings:
@@ -221,6 +226,14 @@ class LaminographyAlignmentTask:
                     projection: Projections = getattr(self, attr)
                     projection._save_projections_object(h5_obj=h5_obj.create_group(attr))
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
+            # Persist the PMA sequence alongside the task only when it
+            # actually has snapshots; old task files have no such group
+            # and the loader treats its absence as "empty sequence".
+            if len(self.pma_sequence) > 0:
+                self.pma_sequence._save_to_group(
+                    h5_obj.create_group("pma_sequence"),
+                    include_volumes=save_pma_sequence_volumes,
+                )
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
 
     def run_projection_matching(
@@ -283,7 +296,11 @@ def _align_shift_to_current_scans(
     return shift[rows].copy()
 
 
-def load_task(file_path: str, exclude: Optional[str] = None) -> LaminographyAlignmentTask:
+def load_task(
+    file_path: str,
+    exclude: Optional[str] = None,
+    load_pma_sequence_volumes: bool = False,
+) -> LaminographyAlignmentTask:
     print("Loading task from", file_path, "...")
 
     if exclude is None:
@@ -304,6 +321,16 @@ def load_task(file_path: str, exclude: Optional[str] = None) -> LaminographyAlig
 
         # make sure all device options work on the current machine
         gpu_utils.auto_update_gpu_options(task.options)
+
+        # Restore the PMA sequence if it was saved alongside the task.
+        # Older task files won't have this group; falling through here
+        # leaves task.pma_sequence as the empty sequence the constructor
+        # already created.
+        if "pma_sequence" in h5_obj:
+            task.pma_sequence = PMASequence._load_from_group(
+                h5_obj["pma_sequence"],
+                include_volumes=load_pma_sequence_volumes,
+            )
 
         print("Loading complete")
 
