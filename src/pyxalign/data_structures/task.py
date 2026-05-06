@@ -129,7 +129,14 @@ class LaminographyAlignmentTask:
                     "Cannot use the passed PMASnapshot as the initial shift: "
                     "its final_shift is None (the prior PMA run did not finish)."
                 )
-            initial_shift = np.asarray(parent_snapshot.final_shift).copy()
+            # The snapshot's final_shift is indexed parallel to the snapshot's
+            # scan_numbers at the time of that run. Scans may have been dropped
+            # since then, so subset the rows to the projections currently held.
+            initial_shift = _align_shift_to_current_scans(
+                parent_snapshot.final_shift,
+                snapshot_scan_numbers=parent_snapshot.scan_numbers,
+                current_scan_numbers=self.phase_projections.scan_numbers,
+            )
 
         # snapshot the inputs to this PMA call before running
         self.pma_sequence.append(
@@ -236,6 +243,44 @@ class LaminographyAlignmentTask:
             shift = self.pma_object.total_shift * self.pma_object.scale
         finally:
             return shift
+
+
+def _align_shift_to_current_scans(
+    shift: np.ndarray,
+    snapshot_scan_numbers: np.ndarray,
+    current_scan_numbers: np.ndarray,
+) -> np.ndarray:
+    """
+    Reorder/subset a shift array so its rows line up with `current_scan_numbers`.
+
+    The snapshot's `final_shift` is parallel to its own `scan_numbers`, but
+    scans may have been dropped (or reordered) since the snapshot was taken.
+    Returns a new array of shape (len(current_scan_numbers), shift.shape[1])
+    containing one row per current scan, pulled from the matching row of
+    `shift`. Raises if the current set contains a scan that wasn't in the
+    snapshot (in that case the snapshot can't supply an initial shift for
+    the new scan).
+    """
+    shift = np.asarray(shift)
+    snap_scans = np.asarray(snapshot_scan_numbers).astype(int)
+    cur_scans = np.asarray(current_scan_numbers).astype(int)
+
+    if shift.shape[0] != snap_scans.shape[0]:
+        raise ValueError(
+            f"Snapshot final_shift has {shift.shape[0]} rows but its "
+            f"scan_numbers has {snap_scans.shape[0]} entries; cannot align."
+        )
+
+    snap_scan_to_row = {int(s): r for r, s in enumerate(snap_scans)}
+    missing = [int(s) for s in cur_scans if int(s) not in snap_scan_to_row]
+    if missing:
+        raise ValueError(
+            "Cannot use the passed PMASnapshot as the initial shift: "
+            f"the projections currently include scan(s) {missing} that were "
+            "not present when that snapshot was recorded."
+        )
+    rows = np.array([snap_scan_to_row[int(s)] for s in cur_scans], dtype=int)
+    return shift[rows].copy()
 
 
 def load_task(file_path: str, exclude: Optional[str] = None) -> LaminographyAlignmentTask:
