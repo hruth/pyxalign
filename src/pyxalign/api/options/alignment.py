@@ -120,6 +120,27 @@ class PositivityConstraint(BaseOptions):
 
 
 @dataclasses.dataclass
+class PMASequenceOptions(BaseOptions):
+    """
+    Controls what gets recorded into the PMASequence snapshot for a
+    projection matching call. Only `record_volume` does anything when
+    False — the rest only matter when recording is enabled.
+    """
+
+    record_volume: bool = False
+    "Whether to capture the post-PMA volume in the PMASnapshot."
+
+    volume_crop: CropOptions = field(default_factory=CropOptions)
+    "In-plane (Y, X) crop applied to each recorded volume layer."
+
+    volume_start_layer_fractional: float = 0.0
+    "Fraction (0..1) of the volume's first axis to start recording from."
+
+    volume_end_layer_fractional: float = 1.0
+    "Fraction (0..1) of the volume's first axis to stop recording at."
+
+
+@dataclasses.dataclass
 class SaveOptions(BaseOptions):
     enabled: bool = False
 
@@ -198,5 +219,7 @@ class ProjectionMatchingOptions(BaseOptions):
     sample_thickness: Optional[float] = None
 
     save: SaveOptions = field(default_factory=SaveOptions)
+
+    pma_sequence: PMASequenceOptions = field(default_factory=PMASequenceOptions)
 
     # plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)

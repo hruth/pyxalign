@@ -1,0 +1,242 @@
+"""
+Data structures for tracking projection-matching alignment (PMA) runs.
+
+`PMASnapshot` captures every factor that influenced a single call to
+`LaminographyAlignmentTask.get_projection_matching_shift`. `PMASequence`
+holds the ordered list of snapshots produced over the course of an
+alignment session and can persist itself to (or be reloaded from) an
+HDF5 file.
+"""
+
+import copy
+import dataclasses
+from dataclasses import field
+from datetime import datetime
+from enum import StrEnum, auto
+from typing import List, Optional, TYPE_CHECKING
+
+import h5py
+import numpy as np
+
+from pyxalign.api.options.alignment import (
+    PMASequenceOptions,
+    ProjectionMatchingOptions,
+)
+from pyxalign.api.options.options import ExperimentOptions
+from pyxalign.api.options.projections import (
+    ProbePositionMaskOptions,
+    VolumeWidthOptions,
+)
+from pyxalign.api.options.reconstruct import ReconstructOptions
+from pyxalign.api.options.roi import ROIOptions
+from pyxalign.api.options.transform import CropOptions
+from pyxalign.io.save import save_generic_data_structure_to_h5
+from pyxalign.io.utils import dict_to_dataclass, h5_to_dict
+from pyxalign.transformations.classes import Cropper
+
+if TYPE_CHECKING:
+    from pyxalign.data_structures.projections import PhaseProjections
+
+
+@dataclasses.dataclass(eq=False)
+class PMASnapshot:
+    """All inputs that shaped one `get_projection_matching_shift` call.
+
+    `eq=False` keeps default identity-based equality so np.ndarray fields
+    don't break `__eq__` and so we can safely look snapshots up by `is`
+    when resolving parent links.
+    """
+
+    pma_options: ProjectionMatchingOptions
+
+    initial_shift: Optional[np.ndarray]
+
+    final_shift: Optional[np.ndarray]
+    """Shift returned by the PMA call. None until the call finishes."""
+
+    removed_scan_numbers: np.ndarray
+    """Scan numbers that were dropped from `phase_projections` before this call."""
+
+    removed_angles: np.ndarray
+    """Angles (parallel to `removed_scan_numbers`) of the dropped scans."""
+
+    volume: Optional[np.ndarray]
+    """Recorded post-PMA volume (or a layer/cropped subset). None unless `pma_options.pma_sequence.record_volume` was enabled."""
+
+    past_shift_sum: np.ndarray
+    """Sum of the shifts already applied via the projections' ShiftManager."""
+
+    angles: np.ndarray
+    scan_numbers: np.ndarray
+    center_of_rotation: np.ndarray
+
+    mask_source: Optional[str]
+    """String value of the `MaskSource` enum at the time of the call."""
+
+    reconstruct: ReconstructOptions
+    volume_width: VolumeWidthOptions
+    experiment: ExperimentOptions
+    mask_from_positions: ProbePositionMaskOptions
+    masks_from_roi: ROIOptions
+
+    timestamp: str = ""
+
+    parent_index: Optional[int] = None
+    """Index in the owning `PMASequence` of the snapshot whose `final_shift` was used as this run's `initial_shift`. None if no parent was recorded (manual or backward-compat path)."""
+
+    @classmethod
+    def from_phase_projections(
+        cls,
+        phase_projections: "PhaseProjections",
+        pma_options: ProjectionMatchingOptions,
+        initial_shift: Optional[np.ndarray],
+        parent_index: Optional[int] = None,
+    ) -> "PMASnapshot":
+        sm = phase_projections.shift_manager
+        if len(sm.past_shifts) > 0:
+            past_shift_sum = np.sum(sm.past_shifts, axis=0)
+        else:
+            past_shift_sum = np.zeros_like(sm.staged_shift)
+
+        dropped = list(getattr(phase_projections, "dropped_scan_numbers", []) or [])
+        dropped_angles_map = getattr(phase_projections, "dropped_angles", {}) or {}
+        removed_scan_numbers = np.array(dropped, dtype=int)
+        removed_angles = np.array(
+            [dropped_angles_map.get(s, np.nan) for s in dropped], dtype=float
+        )
+
+        po = phase_projections.options
+        ms = phase_projections.mask_source
+        return cls(
+            pma_options=copy.deepcopy(pma_options),
+            initial_shift=None if initial_shift is None else np.asarray(initial_shift).copy(),
+            final_shift=None,
+            removed_scan_numbers=removed_scan_numbers,
+            removed_angles=removed_angles,
+            volume=None,
+            past_shift_sum=np.asarray(past_shift_sum).copy(),
+            angles=np.asarray(phase_projections.angles).copy(),
+            scan_numbers=np.asarray(phase_projections.scan_numbers).copy(),
+            center_of_rotation=np.asarray(phase_projections.center_of_rotation).copy(),
+            mask_source=str(ms) if ms is not None else None,
+            reconstruct=copy.deepcopy(po.reconstruct),
+            volume_width=copy.deepcopy(po.volume_width),
+            experiment=copy.deepcopy(po.experiment),
+            mask_from_positions=copy.deepcopy(po.mask_from_positions),
+            masks_from_roi=copy.deepcopy(po.masks_from_roi),
+            timestamp=datetime.now().isoformat(timespec="seconds"),
+            parent_index=parent_index,
+        )
+
+
+def crop_volume_for_recording(
+    volume_data: np.ndarray, options: PMASequenceOptions
+) -> np.ndarray:
+    """Apply the PMASequenceOptions layer slice + in-plane crop to a volume."""
+    arr = np.asarray(volume_data)
+    n_layers = arr.shape[0]
+    start = int(np.clip(options.volume_start_layer_fractional, 0.0, 1.0) * n_layers)
+    end = int(np.clip(options.volume_end_layer_fractional, 0.0, 1.0) * n_layers)
+    end = max(end, start + 1)
+    sliced = arr[start:end]
+    crop_options = copy.deepcopy(options.volume_crop)
+    if crop_options.enabled:
+        # Cropper operates on (N, H, W); volume is (Z, Y, X) which matches.
+        sliced = Cropper(crop_options).run(sliced)
+    return np.asarray(sliced).copy()
+
+
+def compute_chains(snapshots: list["PMASnapshot"]) -> dict[int, list[int]]:
+    """
+    Group snapshots into linear chains by following `parent_index` links.
+
+    Returns a mapping from terminal-snapshot-index to the ordered list of
+    indices (root → terminal) in the chain ending at that terminal. A
+    "terminal" is an index that no later snapshot references as parent.
+    Snapshots whose `parent_index` points outside the sequence are
+    treated as roots.
+    """
+    n = len(snapshots)
+    has_child = [False] * n
+    for i, snap in enumerate(snapshots):
+        p = getattr(snap, "parent_index", None)
+        if p is not None and 0 <= p < n and p != i:
+            has_child[p] = True
+
+    chains: dict[int, list[int]] = {}
+    for terminal in range(n):
+        if has_child[terminal]:
+            continue
+        chain: list[int] = []
+        seen: set[int] = set()
+        cur: Optional[int] = terminal
+        while cur is not None and cur not in seen:
+            seen.add(cur)
+            chain.append(cur)
+            p = getattr(snapshots[cur], "parent_index", None)
+            cur = p if (p is not None and 0 <= p < n and p != cur) else None
+        chains[terminal] = list(reversed(chain))
+    return chains
+
+
+class PMASequencePlotType(StrEnum):
+    """Display modes for the PMA sequence viewer."""
+
+    INITIAL_FINAL_SHIFTS = auto()
+    ANGLES = auto()
+    VOLUME = auto()
+
+
+class PMASequenceSortAxis(StrEnum):
+    """X-axis ordering for the shift / angle plots."""
+
+    BY_ANGLE = auto()
+    BY_SCAN_NUMBER = auto()
+
+
+@dataclasses.dataclass
+class PMASequence:
+    """Ordered history of `PMASnapshot` records for a single task."""
+
+    snapshots: List[PMASnapshot] = field(default_factory=list)
+
+    def append(self, snapshot: PMASnapshot) -> None:
+        self.snapshots.append(snapshot)
+
+    def clear(self) -> None:
+        self.snapshots.clear()
+
+    def __len__(self) -> int:
+        return len(self.snapshots)
+
+    def __getitem__(self, idx) -> PMASnapshot:
+        return self.snapshots[idx]
+
+    def __iter__(self):
+        return iter(self.snapshots)
+
+    def save(self, file_path: str) -> None:
+        """Save the sequence to an HDF5 file."""
+        with h5py.File(file_path, "w") as F:
+            F.attrs["n_snapshots"] = len(self.snapshots)
+            for i, snap in enumerate(self.snapshots):
+                save_generic_data_structure_to_h5(snap, F.create_group(_snapshot_key(i)))
+        print(f"PMASequence with {len(self.snapshots)} snapshot(s) saved to {file_path}")
+
+    @classmethod
+    def load(cls, file_path: str) -> "PMASequence":
+        """Load a sequence previously written with `save`."""
+        with h5py.File(file_path, "r") as F:
+            n = int(F.attrs["n_snapshots"])
+            snapshots = [_load_snapshot_group(F[_snapshot_key(i)]) for i in range(n)]
+        seq = cls(snapshots=snapshots)
+        print(f"Loaded PMASequence with {len(seq)} snapshot(s) from {file_path}")
+        return seq
+
+
+def _snapshot_key(i: int) -> str:
+    return f"snapshot_{i:04d}"
+
+
+def _load_snapshot_group(group: h5py.Group) -> PMASnapshot:
+    return dict_to_dataclass(PMASnapshot, h5_to_dict(group))
