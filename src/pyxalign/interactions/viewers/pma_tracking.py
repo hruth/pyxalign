@@ -14,8 +14,13 @@ import sys
 from typing import Any, Optional
 
 import numpy as np
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
+import pyqtgraph as pg
+
+# Pinned colours for the shift traces — chosen to match the previous
+# matplotlib output ("gray" and "tab:blue") so the look is unchanged.
+_INITIAL_SHIFT_PEN = pg.mkPen(color=(128, 128, 128), width=2)
+_FINAL_SHIFT_PEN = pg.mkPen(color=(31, 119, 180), width=2)
+_ANGLES_PEN = pg.mkPen(color=(31, 119, 180), width=2)
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QBrush, QColor
@@ -23,6 +28,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QButtonGroup,
+    QCheckBox,
     QComboBox,
     QFormLayout,
     QGroupBox,
@@ -32,6 +38,7 @@ from PyQt5.QtWidgets import (
     QRadioButton,
     QScrollArea,
     QSizePolicy,
+    QSplitter,
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -67,7 +74,40 @@ _DATACLASS_OPTION_FIELDS = (
 )
 _SCALAR_OPTION_FIELDS = ("center_of_rotation", "mask_source")
 
+# Inside pma_options.reconstruct only these subfields are interesting enough
+# to surface in the PMA-options tree; the rest are hidden.
+_PMA_RECONSTRUCT_ALLOWED = {"geometry"}
+
+# Phase-projection option fields that logically belong with the PMA settings
+# (shown alongside pma_options) instead of in the "Other Options" tab.
+_PMA_TAB_EXTRA_FIELDS = ("volume_width",)
+
+# Dotted paths surfaced in the "3D Volume Options" tab. Each entry is
+# resolved against a PMASnapshot — leaf values are shown as a single row,
+# dataclass values are shown as an expanded subtree.
+_VOLUME_TAB_PATHS = (
+    "experiment.sample_thickness",
+    "volume_width",
+    "reconstruct.geometry",
+    "center_of_rotation",
+)
+
+# Dotted paths surfaced in the "Mask Options" tab.
+_MASK_TAB_PATHS = (
+    "mask_source",
+    "mask_from_positions",
+    "masks_from_roi",
+)
+
 _HIGHLIGHT_COLOR = QColor("#b00020")
+
+
+def _walk_dotted_path(obj: Any, dotted_path: str) -> Any:
+    """Resolve a dotted attribute path against `obj`, e.g. 'experiment.sample_thickness'."""
+    cur = obj
+    for part in dotted_path.split("."):
+        cur = getattr(cur, part)
+    return cur
 
 
 def _flatten_dataclass(obj: Any, prefix: str = "") -> dict[str, Any]:
@@ -167,7 +207,7 @@ class PMASequenceViewer(QWidget):
 
         self.results_table = QTableWidget(0, 4)
         self.results_table.setHorizontalHeaderLabels(
-            ["Index", "Timestamp", "# Changed", "Initial shift from"]
+            ["Index", "# Changed", "Initial shift from", "Timestamp"]
         )
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.results_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -181,57 +221,99 @@ class PMASequenceViewer(QWidget):
         self.changed_label.setStyleSheet(
             "QLabel { background-color: #f7f7f7; padding: 8px; border: 1px solid #ccc; }"
         )
-        changed_scroll = QScrollArea()
-        changed_scroll.setWidget(self.changed_label)
-        changed_scroll.setWidgetResizable(True)
-        changed_scroll.setMinimumHeight(120)
-        changed_scroll.setMaximumHeight(220)
+        self.changed_scroll = QScrollArea()
+        self.changed_scroll.setWidget(self.changed_label)
+        self.changed_scroll.setWidgetResizable(True)
+        self.changed_scroll.setMinimumHeight(60)
 
-        self.options_tree = QTreeWidget()
-        self.options_tree.setColumnCount(2)
-        self.options_tree.setHeaderLabels(["Field", "Value"])
-        self.options_tree.setAlternatingRowColors(True)
-        self.options_tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.pma_options_tree = self._make_options_tree()
+        self.volume_options_tree = self._make_options_tree()
+        self.mask_options_tree = self._make_options_tree()
 
         self.snapshot_info = QWidget()
         self.snapshot_info_layout = QFormLayout(self.snapshot_info)
 
         info_tabs = QTabWidget()
-        info_tabs.addTab(self.options_tree, "All Settings")
+        info_tabs.addTab(self.pma_options_tree, "PMA Options")
+        info_tabs.addTab(self.volume_options_tree, "3D Volume Options")
+        info_tabs.addTab(self.mask_options_tree, "Mask Options")
         info_tabs.addTab(self.snapshot_info, "Snapshot Info")
 
-        left_column = QVBoxLayout()
+        # Build three vertically-resizable sections via a QSplitter so the
+        # user can drag handles to grow/shrink each region.
+        snapshots_section = QWidget()
+        snapshots_layout = QVBoxLayout(snapshots_section)
+        snapshots_layout.setContentsMargins(0, 0, 0, 0)
         title = QLabel("Snapshots")
-        title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; }")
-        left_column.addWidget(title)
+        title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; color: #003366; }")
+        snapshots_layout.addWidget(title)
         chain_row = QHBoxLayout()
         chain_row.addWidget(QLabel("Chain:"))
         chain_row.addWidget(self.chain_combo, stretch=1)
-        left_column.addLayout(chain_row)
-        left_column.addWidget(self.results_table)
+        snapshots_layout.addLayout(chain_row)
+        snapshots_layout.addWidget(self.results_table)
+
+        changed_section = QWidget()
+        changed_layout = QVBoxLayout(changed_section)
+        changed_layout.setContentsMargins(0, 0, 0, 0)
         changed_title = QLabel("Changed Parameters")
-        changed_title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; }")
-        left_column.addWidget(changed_title)
-        left_column.addWidget(changed_scroll)
-        left_column.addWidget(info_tabs, stretch=1)
+        changed_title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; color: #003366; }")
+        changed_layout.addWidget(changed_title)
+        changed_layout.addWidget(self.changed_scroll)
 
-        # Right: stacked display area (canvas / volume viewer) + plot controls
-        self.figure = Figure(figsize=(5, 4), layout="compressed")
-        self.canvas = FigureCanvas(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.ax_horizontal = self.figure.add_subplot(211)
-        self.ax_vertical = self.figure.add_subplot(212)
+        options_section = QWidget()
+        options_layout = QVBoxLayout(options_section)
+        options_layout.setContentsMargins(0, 0, 0, 0)
+        options_title = QLabel("Options for Selected PMA Snapshot")
+        options_title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; color: #003366; }")
+        options_layout.addWidget(options_title)
+        options_layout.addWidget(info_tabs)
 
-        self.angles_figure = Figure(figsize=(5, 4), layout="compressed")
-        self.angles_canvas = FigureCanvas(self.angles_figure)
-        self.angles_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.ax_angles = self.angles_figure.add_subplot(111)
+        left_splitter = QSplitter(Qt.Vertical)
+        left_splitter.setChildrenCollapsible(False)
+        left_splitter.addWidget(snapshots_section)
+        left_splitter.addWidget(changed_section)
+        left_splitter.addWidget(options_section)
+        # Lower the minimum size hints so the splitter actually honours
+        # the requested initial proportions instead of being dominated by
+        # the tab widget's natural minimum height.
+        info_tabs.setMinimumHeight(120)
+        self.changed_scroll.setMinimumHeight(120)
+
+        # Initial proportions (snapshots : changed : options) — bias toward
+        # a larger Changed Parameters box and a smaller Options box.
+        left_splitter.setSizes([240, 320, 200])
+        left_splitter.setStretchFactor(0, 2)
+        left_splitter.setStretchFactor(1, 3)
+        left_splitter.setStretchFactor(2, 2)
+
+        left_column = QVBoxLayout()
+        left_column.addWidget(left_splitter)
+
+        # Right: stacked display area (shifts / angles / volume) + plot controls.
+        # Shifts: a single GraphicsLayoutWidget with two stacked plots.
+        self.shifts_widget = pg.GraphicsLayoutWidget()
+        self.shifts_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.plot_horizontal = self.shifts_widget.addPlot(row=0, col=0, title="horizontal shifts")
+        self.plot_vertical = self.shifts_widget.addPlot(row=1, col=0, title="vertical shifts")
+        for plot in (self.plot_horizontal, self.plot_vertical):
+            plot.setLabel("left", "shift (px)")
+            plot.showGrid(x=True, y=True, alpha=0.3)
+        # Link x-axes so panning/zooming the two shift plots stays in sync.
+        self.plot_vertical.setXLink(self.plot_horizontal)
+
+        # Angles: a single PlotWidget.
+        self.angles_widget = pg.PlotWidget(title="angles vs scan number")
+        self.angles_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.angles_widget.setLabel("bottom", "scan number")
+        self.angles_widget.setLabel("left", "angle (deg)")
+        self.angles_widget.showGrid(x=True, y=True, alpha=0.3)
 
         self.array_viewer = ArrayViewer(hide_axis_controls=False)
 
         self.display_stack = QStackedWidget()
-        self.display_stack.addWidget(self.canvas)          # 0: shifts
-        self.display_stack.addWidget(self.angles_canvas)   # 1: angles
+        self.display_stack.addWidget(self.shifts_widget)   # 0: shifts
+        self.display_stack.addWidget(self.angles_widget)   # 1: angles
         self.display_stack.addWidget(self.array_viewer)    # 2: volume
 
         # Plot type dropdown
@@ -275,6 +357,11 @@ class PMASequenceViewer(QWidget):
             btn.toggled.connect(self._on_view_mode_changed)
             view_layout.addWidget(btn)
             self.view_button_group.addButton(btn)
+        # Lock both axes' ranges across snapshot changes (shifts plot only).
+        self.lock_shift_axes_check = QCheckBox("Lock axis ranges across snapshots")
+        self.lock_shift_axes_check.setStyleSheet("font-size: 11pt;")
+        self.lock_shift_axes_check.toggled.connect(self._on_lock_axes_toggled)
+        view_layout.addWidget(self.lock_shift_axes_check)
 
         # Plot controls bar
         controls_row = QHBoxLayout()
@@ -376,16 +463,16 @@ class PMASequenceViewer(QWidget):
             snap = self.sequence.snapshots[idx]
             self.results_table.insertRow(row)
             self.results_table.setItem(row, 0, QTableWidgetItem(str(idx)))
-            self.results_table.setItem(row, 1, QTableWidgetItem(snap.timestamp or ""))
             n_changed = sum(
                 1
                 for path in self.varying_paths
                 if not _values_equal(flats[row].get(path, _MISSING), baseline.get(path, _MISSING))
             )
-            self.results_table.setItem(row, 2, QTableWidgetItem(str(n_changed)))
+            self.results_table.setItem(row, 1, QTableWidgetItem(str(n_changed)))
             parent = getattr(snap, "parent_index", None)
             parent_text = "N/A" if parent is None else f"snapshot {parent}"
-            self.results_table.setItem(row, 3, QTableWidgetItem(parent_text))
+            self.results_table.setItem(row, 2, QTableWidgetItem(parent_text))
+            self.results_table.setItem(row, 3, QTableWidgetItem(snap.timestamp or ""))
 
     def _row_to_snapshot_index(self, row: int) -> Optional[int]:
         if row < 0 or row >= len(self._visible_indices):
@@ -413,6 +500,17 @@ class PMASequenceViewer(QWidget):
         self.show_with_past_shifts = self.with_past_button.isChecked()
         snapshot = self._current_snapshot()
         if snapshot is not None:
+            self._update_display(snapshot)
+
+    def _on_lock_axes_toggled(self, _checked: bool) -> None:
+        # When the lock is released let the next refresh autorange; when
+        # it's engaged, freeze the current x and y ranges so subsequent
+        # snapshot selections don't rescale either axis.
+        snapshot = self._current_snapshot()
+        if not self.lock_shift_axes_check.isChecked():
+            for plot in (self.plot_horizontal, self.plot_vertical):
+                plot.enableAutoRange(axis="xy", enable=True)
+        if snapshot is not None and self.plot_type == PMASequencePlotType.INITIAL_FINAL_SHIFTS:
             self._update_display(snapshot)
 
     def _on_plot_type_changed(self, _index: int) -> None:
@@ -455,10 +553,10 @@ class PMASequenceViewer(QWidget):
 
     def _update_display(self, snapshot: PMASnapshot) -> None:
         if self.plot_type == PMASequencePlotType.INITIAL_FINAL_SHIFTS:
-            self.display_stack.setCurrentWidget(self.canvas)
+            self.display_stack.setCurrentWidget(self.shifts_widget)
             self._update_shifts_plot(snapshot)
         elif self.plot_type == PMASequencePlotType.ANGLES:
-            self.display_stack.setCurrentWidget(self.angles_canvas)
+            self.display_stack.setCurrentWidget(self.angles_widget)
             self._update_angles_plot(snapshot)
         elif self.plot_type == PMASequencePlotType.VOLUME:
             self.display_stack.setCurrentWidget(self.array_viewer)
@@ -477,35 +575,60 @@ class PMASequenceViewer(QWidget):
             if final is not None:
                 final = np.asarray(final) + offset
 
-        for i, ax in enumerate([self.ax_horizontal, self.ax_vertical]):
-            ax.clear()
-            label = "horizontal" if i == 0 else "vertical"
-            ax.set_title(f"{label} shifts")
-            ax.set_xlabel(x_label)
-            ax.set_ylabel("shift (px)")
+        lock_axes = self.lock_shift_axes_check.isChecked()
+        # Capture the current x and y ranges before we clear the plots; if
+        # the lock is engaged we restore them afterward instead of
+        # autoranging.
+        locked_ranges = []
+        if lock_axes:
+            for plot in (self.plot_horizontal, self.plot_vertical):
+                xrange, yrange = plot.getViewBox().viewRange()
+                locked_ranges.append((tuple(xrange), tuple(yrange)))
+
+        for i, plot in enumerate([self.plot_horizontal, self.plot_vertical]):
+            plot.clear()
+            # pyqtgraph re-creates the legend per addLegend() call; clear()
+            # already wipes the old one.
+            plot.addLegend(offset=(10, 10))
+            plot.setLabel("bottom", x_label)
             if initial is not None:
-                ax.plot(x_values, np.asarray(initial)[sort_idx, i], label="initial")
+                plot.plot(
+                    np.asarray(x_values),
+                    np.asarray(initial)[sort_idx, i],
+                    pen=_INITIAL_SHIFT_PEN,
+                    name="initial",
+                )
             if final is not None:
-                ax.plot(x_values, np.asarray(final)[sort_idx, i], label="final")
-            ax.autoscale(enable=True, axis="x", tight=True)
-            ax.grid(linestyle=":")
-            if initial is not None or final is not None:
-                ax.legend()
-        self.canvas.draw()
+                plot.plot(
+                    np.asarray(x_values),
+                    np.asarray(final)[sort_idx, i],
+                    pen=_FINAL_SHIFT_PEN,
+                    name="final",
+                )
+            if lock_axes:
+                (xmin, xmax), (ymin, ymax) = locked_ranges[i]
+                plot.enableAutoRange(axis="xy", enable=False)
+                plot.setXRange(xmin, xmax, padding=0)
+                plot.setYRange(ymin, ymax, padding=0)
+            else:
+                plot.enableAutoRange(axis="xy", enable=True)
 
     def _update_angles_plot(self, snapshot: PMASnapshot) -> None:
         sort_idx = np.argsort(np.asarray(snapshot.scan_numbers))
         x_values = np.asarray(snapshot.scan_numbers)[sort_idx]
         y_values = np.asarray(snapshot.angles)[sort_idx]
 
-        self.ax_angles.clear()
-        self.ax_angles.set_title("angles vs scan number")
-        self.ax_angles.set_xlabel("scan number")
-        self.ax_angles.set_ylabel("angle (deg)")
-        self.ax_angles.plot(x_values, y_values, marker=".", linestyle="-")
-        self.ax_angles.autoscale(enable=True, axis="x", tight=True)
-        self.ax_angles.grid(linestyle=":")
-        self.angles_canvas.draw()
+        self.angles_widget.clear()
+        self.angles_widget.plot(
+            x_values,
+            y_values,
+            pen=_ANGLES_PEN,
+            symbol="o",
+            symbolSize=5,
+            symbolBrush=(31, 119, 180),
+            symbolPen=None,
+        )
+        self.angles_widget.enableAutoRange(axis="xy", enable=True)
 
     def _update_volume_view(self, snapshot: PMASnapshot) -> None:
         volume = snapshot.volume
@@ -525,25 +648,25 @@ class PMASequenceViewer(QWidget):
     def _update_changed_label(self, snapshot: PMASnapshot) -> None:
         lines: list[str] = []
 
-        removed_scans = np.asarray(getattr(snapshot, "removed_scan_numbers", []))
-        removed_angles = np.asarray(getattr(snapshot, "removed_angles", []))
-        if removed_scans.size > 0:
-            lines.append(
-                f"<b>Removed scans ({removed_scans.size}):</b><br>"
-            )
-            for scan, angle in zip(removed_scans.tolist(), removed_angles.tolist()):
-                angle_str = "?" if angle != angle else f"{angle:.4f}"  # NaN check
-                lines.append(f"&nbsp;&nbsp;&bull; scan {int(scan)} (angle {angle_str})<br>")
-
         if self.varying_paths:
-            if lines:
-                lines.append("<br>")
             lines.append("<b>Differs across the sequence:</b><br>")
             flat = _flatten_snapshot(snapshot)
             for path in sorted(self.varying_paths):
                 value = flat.get(path, _MISSING)
                 shown = "&lt;missing&gt;" if value is _MISSING else _format_value(value)
                 lines.append(f"&bull; <b>{path}</b>: {shown}<br>")
+
+        removed_scans = np.asarray(getattr(snapshot, "removed_scan_numbers", []))
+        removed_angles = np.asarray(getattr(snapshot, "removed_angles", []))
+        if removed_scans.size > 0:
+            if lines:
+                lines.append("<br>")
+            lines.append(
+                f"<b>Removed scans ({removed_scans.size}):</b><br>"
+            )
+            for scan, angle in zip(removed_scans.tolist(), removed_angles.tolist()):
+                angle_str = "?" if angle != angle else f"{angle:.4f}"  # NaN check
+                lines.append(f"&nbsp;&nbsp;&bull; scan {int(scan)} (angle {angle_str})<br>")
 
         if not lines:
             self.changed_label.setText(
@@ -554,15 +677,29 @@ class PMASequenceViewer(QWidget):
 
     # ---- tree -----------------------------------------------------------
 
-    def _update_options_tree(self, snapshot: PMASnapshot) -> None:
-        self.options_tree.clear()
+    def _make_options_tree(self) -> QTreeWidget:
+        tree = QTreeWidget()
+        tree.setColumnCount(2)
+        tree.setHeaderLabels(["Field", "Value"])
+        tree.setAlternatingRowColors(True)
+        tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        return tree
+
+    def _populate_tree_from_root(
+        self,
+        tree: QTreeWidget,
+        snapshot: PMASnapshot,
+        dataclass_fields: tuple[str, ...],
+        scalar_fields: tuple[str, ...],
+    ) -> None:
+        tree.clear()
         snap_idx = self._row_to_snapshot_index(self._current_row) if self._current_row is not None else None
-        root = QTreeWidgetItem(self.options_tree, [f"snapshot[{snap_idx}]"])
+        root = QTreeWidgetItem(tree, [f"snapshot[{snap_idx}]"])
         font = root.font(0)
         font.setBold(True)
         root.setFont(0, font)
 
-        for name in _DATACLASS_OPTION_FIELDS:
+        for name in dataclass_fields:
             value = getattr(snapshot, name)
             child = QTreeWidgetItem(root, [name])
             child_font = child.font(0)
@@ -570,13 +707,65 @@ class PMASequenceViewer(QWidget):
             child.setFont(0, child_font)
             self._add_dataclass_to_tree(child, value, prefix=name)
 
-        for name in _SCALAR_OPTION_FIELDS:
+        for name in scalar_fields:
             value = getattr(snapshot, name)
             leaf = QTreeWidgetItem(root, [name, _format_value(value)])
             leaf.setToolTip(0, name)
             self._maybe_highlight_leaf(leaf, name)
 
-        self.options_tree.expandAll()
+        tree.expandAll()
+
+    def _update_options_tree(self, snapshot: PMASnapshot) -> None:
+        # Tab 1: pma_options plus phase-projection option fields that
+        # logically belong with the PMA settings (e.g. volume_width).
+        pma_dataclass = ("pma_options",) + _PMA_TAB_EXTRA_FIELDS
+        self._populate_tree_from_root(
+            self.pma_options_tree,
+            snapshot,
+            dataclass_fields=pma_dataclass,
+            scalar_fields=(),
+        )
+        # Tab 2: only the volume-shaping fields.
+        self._populate_tree_from_paths(
+            self.volume_options_tree, snapshot, _VOLUME_TAB_PATHS
+        )
+        # Tab 3: only the mask-related fields.
+        self._populate_tree_from_paths(
+            self.mask_options_tree, snapshot, _MASK_TAB_PATHS
+        )
+
+    def _populate_tree_from_paths(
+        self,
+        tree: QTreeWidget,
+        snapshot: PMASnapshot,
+        paths: tuple[str, ...],
+    ) -> None:
+        """Render only the explicitly-listed dotted paths from the snapshot."""
+        tree.clear()
+        snap_idx = self._row_to_snapshot_index(self._current_row) if self._current_row is not None else None
+        root = QTreeWidgetItem(tree, [f"snapshot[{snap_idx}]"])
+        font = root.font(0)
+        font.setBold(True)
+        root.setFont(0, font)
+
+        for path in paths:
+            try:
+                value = _walk_dotted_path(snapshot, path)
+            except AttributeError:
+                continue
+            if dataclasses.is_dataclass(value):
+                child = QTreeWidgetItem(root, [path])
+                child_font = child.font(0)
+                child_font.setBold(True)
+                child.setFont(0, child_font)
+                child.setToolTip(0, path)
+                self._add_dataclass_to_tree(child, value, prefix=path)
+            else:
+                leaf = QTreeWidgetItem(root, [path, _format_value(value)])
+                leaf.setToolTip(0, path)
+                self._maybe_highlight_leaf(leaf, path)
+
+        tree.expandAll()
 
     def _add_dataclass_to_tree(
         self, parent_item: QTreeWidgetItem, data: Any, prefix: str
@@ -589,6 +778,13 @@ class PMASequenceViewer(QWidget):
         non_dc: list[tuple[str, Any]] = []
         dc: list[tuple[str, Any]] = []
         for f in dataclasses.fields(data):
+            # Inside pma_options.reconstruct only the whitelisted children
+            # (e.g. geometry, volume_width) are surfaced.
+            if (
+                prefix == "pma_options.reconstruct"
+                and f.name not in _PMA_RECONSTRUCT_ALLOWED
+            ):
+                continue
             v = getattr(data, f.name)
             (dc if dataclasses.is_dataclass(v) else non_dc).append((f.name, v))
 
@@ -667,13 +863,14 @@ class PMASequenceViewer(QWidget):
 
     def _clear_displays(self) -> None:
         self._current_row = None
-        for ax in (self.ax_horizontal, self.ax_vertical, self.ax_angles):
-            ax.clear()
-        self.canvas.draw()
-        self.angles_canvas.draw()
+        for plot in (self.plot_horizontal, self.plot_vertical):
+            plot.clear()
+        self.angles_widget.clear()
         self.array_viewer.update_arrays(np.zeros((1, 1, 1), dtype=np.float32))
         self.changed_label.setText("<i>Sequence is empty.</i>")
-        self.options_tree.clear()
+        self.pma_options_tree.clear()
+        self.volume_options_tree.clear()
+        self.mask_options_tree.clear()
         while self.snapshot_info_layout.rowCount():
             self.snapshot_info_layout.removeRow(0)
 
