@@ -23,18 +23,21 @@ _FINAL_SHIFT_PEN = pg.mkPen(color=(31, 119, 180), width=2)
 _ANGLES_PEN = pg.mkPen(color=(31, 119, 180), width=2)
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtGui import QBrush, QColor, QFont, QTextCharFormat, QTextCursor
 from PyQt5.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QButtonGroup,
     QCheckBox,
     QComboBox,
+    QDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QListWidget,
+    QPushButton,
     QRadioButton,
     QScrollArea,
     QSizePolicy,
@@ -43,6 +46,7 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
+    QTextBrowser,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -174,6 +178,180 @@ def _format_value(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.6g}"
     return str(value)
+
+
+_HEADING_COLORS = {1: QColor("#060C78"), 2: QColor("#143dad")}
+
+
+def _style_headings(browser: "QTextBrowser") -> None:
+    """Apply colors to h1/h2 blocks after markdown is loaded."""
+    block = browser.document().begin()
+    while block.isValid():
+        level = block.blockFormat().headingLevel()
+        if level in _HEADING_COLORS:
+            fmt = QTextCharFormat()
+            fmt.setForeground(_HEADING_COLORS[level])
+            cursor = QTextCursor(block)
+            cursor.movePosition(QTextCursor.EndOfBlock, QTextCursor.KeepAnchor)
+            cursor.mergeCharFormat(fmt)
+        block = block.next()
+
+
+_VIEWER_HELP_TEXT = """\
+# PMA Sequence Viewer
+
+Inspect every `get_projection_matching_shift` call captured in
+`task.pma_sequence`.
+
+## Snapshots table
+
+- One row per PMA call. Click a row to load it into the right-hand display.
+- **# Changed**: how many configuration parameters in this snapshot differ
+  from the first snapshot in the current chain.
+- **Initial shift from**: the prior snapshot whose `final_shift` was used to
+  seed this run, or `N/A` if no parent was recorded.
+
+## Chain dropdown
+
+A chain is a linear path through `parent_index` links. 
+- **All snapshots** — the table shows entries for every time projection-matching
+    alignment was run. 
+- **Chain to most recent #N** — the table shows entries for the alignment sequence 
+    up to the latest run.
+- **Chain to #M** — the table shows entries for a previous chain.
+
+The "Changed Parameters" highlights and the "# Changed" counts are
+recomputed against whichever chain is selected.
+
+## Changed Parameters
+
+Lists every configuration parameter whose value isn't identical across the
+visible snapshots, plus any scans that were dropped before the selected
+snapshot was recorded.
+
+## Options for Selected PMA Snapshot
+
+Three tabs show the inputs that shaped the selected run:
+- **PMA Options** — the `ProjectionMatchingOptions` passed to PMA.
+- **3D Volume Options** — `experiment.sample_thickness`, `volume_width`,
+  `reconstruct.geometry`, `center_of_rotation`.
+- **Mask Options** — `mask_source`, `mask_from_positions`, `masks_from_roi`.
+
+Parameters that vary across the visible chain are bolded in red.
+
+## Display
+
+Pick what to plot for the selected snapshot:
+- **initial / final shifts** - 
+- **angles** — angle vs. scan number.
+- **volume** — array viewer of the recorded post-PMA volume (only available
+  if `pma_options.pma_sequence.record_volume` was on when PMA ran).
+
+## Plot controls (shifts plot)
+
+- **Sort x axis by** — angle or scan number.
+- **Include past shifts from projections** — adds any shifts that have previously 
+    been applied to the projections, so that you are seeing the absolute alignment 
+    instead of the delta from this run's starting point.
+- **Lock axis ranges across snapshots** — freezes the current x and y
+  ranges so switching snapshots doesn't autoscale.
+"""
+
+
+_GENERAL_HELP_TEXT = """\
+# General Help
+
+## Tips
+
+- Drag the splitter handles between **Snapshots**, **Changed Parameters**,
+  and **Options for Selected PMA Snapshot** to resize each section.
+- Hover over field names in the option trees to see their dotted path.
+- The viewer is read-only: closing it never modifies the underlying
+  `PMASequence` or task.
+"""
+
+
+class _HelpDialog(QDialog):
+    """Sidebar-based help/tips dialog with viewer and general content."""
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setWindowTitle("Help / Tips")
+        self.resize(640, 480)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+
+        pages = [
+            ("Viewer", _VIEWER_HELP_TEXT),
+            ("General Help", _GENERAL_HELP_TEXT),
+        ]
+
+        outer_layout = QHBoxLayout()
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+        self.setLayout(outer_layout)
+
+        # Left sidebar
+        self.sidebar = QListWidget()
+        self.sidebar.setFixedWidth(130)
+        self.sidebar.setStyleSheet(
+            "QListWidget { background-color: #2e2e2e; border: none; }"
+            "QListWidget::item { color: #cccccc; padding: 10px 12px; border: none; }"
+            "QListWidget::item:selected { background-color: #444; color: white; }"
+            "QListWidget::item:hover:!selected { background-color: #3a3a3a; }"
+        )
+        for name, _ in pages:
+            self.sidebar.addItem(name)
+        outer_layout.addWidget(self.sidebar)
+
+        # Right side: content area + font size controls
+        right_layout = QVBoxLayout()
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+        outer_layout.addLayout(right_layout)
+
+        self._font_size = 10
+        self._browsers: list[QTextBrowser] = []
+        self._texts: list[str] = []
+        self.stacked = QStackedWidget()
+        for _, text in pages:
+            browser = QTextBrowser()
+            browser.setReadOnly(True)
+            browser.setStyleSheet("QTextBrowser { padding: 12px; }")
+            self.stacked.addWidget(browser)
+            self._browsers.append(browser)
+            self._texts.append(text)
+        self._refresh_browsers()
+        right_layout.addWidget(self.stacked)
+
+        font_bar = QHBoxLayout()
+        font_bar.setContentsMargins(8, 4, 8, 4)
+        font_bar.addStretch()
+        for label, slot in (("−", self._zoom_out), ("+", self._zoom_in)):
+            btn = QPushButton(label)
+            btn.setFixedWidth(36)
+            btn.setStyleSheet("QPushButton { font-weight: bold; }")
+            btn.clicked.connect(slot)
+            font_bar.addWidget(btn)
+        right_layout.addLayout(font_bar)
+
+        self.sidebar.currentRowChanged.connect(self.stacked.setCurrentIndex)
+        self.sidebar.setCurrentRow(0)
+
+    def _refresh_browsers(self) -> None:
+        font = QFont()
+        font.setPointSize(self._font_size)
+        for browser, text in zip(self._browsers, self._texts):
+            browser.setFont(font)
+            browser.setMarkdown(text)
+            _style_headings(browser)
+
+    def _zoom_in(self) -> None:
+        self._font_size += 1
+        self._refresh_browsers()
+
+    def _zoom_out(self) -> None:
+        self._font_size = max(6, self._font_size - 1)
+        self._refresh_browsers()
 
 
 class PMASequenceViewer(QWidget):
@@ -375,11 +553,35 @@ class PMASequenceViewer(QWidget):
         right_column.addWidget(self.sort_group)
         right_column.addWidget(self.view_group)
 
-        main_layout = QHBoxLayout(self)
-        main_layout.addLayout(left_column, stretch=1)
-        main_layout.addLayout(right_column, stretch=3)
+        # Top bar with the Help / Tips button anchored to the right.
+        top_bar = QHBoxLayout()
+        top_bar.addStretch()
+        self.help_button = QPushButton("Help / Tips")
+        self.help_button.setStyleSheet(
+            "QPushButton { background-color: #868e96; color: white; font-weight: bold; }"
+        )
+        self.help_button.setToolTip("Open help and tips for this window.")
+        self.help_button.clicked.connect(self._on_help)
+        top_bar.addWidget(self.help_button)
+
+        body_layout = QHBoxLayout()
+        body_layout.addLayout(left_column, stretch=1)
+        body_layout.addLayout(right_column, stretch=3)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.addLayout(top_bar)
+        main_layout.addLayout(body_layout, stretch=1)
 
         self._sync_control_visibility()
+
+    def _on_help(self) -> None:
+        """Open the Help/Tips dialog (non-modal, single instance)."""
+        if not hasattr(self, "_help_dialog") or not self._help_dialog.isVisible():
+            self._help_dialog = _HelpDialog(parent=self)
+            self._help_dialog.show()
+        else:
+            self._help_dialog.raise_()
+            self._help_dialog.activateWindow()
 
     # ---- public API -----------------------------------------------------
 
