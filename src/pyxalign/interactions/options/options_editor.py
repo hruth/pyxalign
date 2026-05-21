@@ -7,6 +7,7 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 from typing import Optional, Union, get_origin, get_args, Any, TypeVar
 import cupy as cp
+import numpy as np
 import pyxalign.api.options as opts
 
 from PyQt5.QtWidgets import (
@@ -75,6 +76,8 @@ class IntTupleInputWidget(QWidget):
         self.setLayout(checkbox_layout)
         self.setContentsMargins(0, 0, 0, 0)
 
+        if isinstance(field_value, np.ndarray):
+            field_value = list(field_value)
         active_indices = set(field_value or ())
 
         checkboxes = []
