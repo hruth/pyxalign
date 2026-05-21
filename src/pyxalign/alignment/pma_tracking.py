@@ -89,6 +89,43 @@ class PMASnapshot:
     parent_index: Optional[int] = None
     """Index in the owning `PMASequence` of the snapshot whose `final_shift` was used as this run's `initial_shift`. None if no parent was recorded (manual or backward-compat path)."""
 
+    def compute_shift_relative_to(
+        self, phase_projections: "PhaseProjections"
+    ) -> np.ndarray:
+        """Re-express this snapshot's `final_shift` relative to a current `PhaseProjections`.
+
+        The "absolute" alignment recorded in a snapshot is
+        `past_shift_sum + final_shift` — that sum is invariant under any
+        shifts that have been applied to the projections since the
+        snapshot was recorded. To use the snapshot as an initial guess or
+        to stage it as a new shift on the *current* projections we need
+        to subtract whatever has been applied since then and align the
+        rows to the current scan ordering.
+
+        Raises ValueError if `final_shift` is None (the original PMA run
+        never completed) or if `phase_projections` contains scans that
+        weren't present when the snapshot was taken.
+        """
+        if self.final_shift is None:
+            raise ValueError(
+                "Cannot derive a shift from this PMASnapshot: its "
+                "final_shift is None (the prior PMA run did not finish)."
+            )
+        snap_absolute_shift = (
+            np.asarray(self.past_shift_sum) + np.asarray(self.final_shift)
+        )
+        snap_absolute_shift_current = _align_shift_to_current_scans(
+            snap_absolute_shift,
+            snapshot_scan_numbers=self.scan_numbers,
+            current_scan_numbers=phase_projections.scan_numbers,
+        )
+        sm = phase_projections.shift_manager
+        if len(sm.past_shifts) > 0:
+            current_past_sum = np.sum(sm.past_shifts, axis=0)
+        else:
+            current_past_sum = np.zeros_like(sm.staged_shift)
+        return snap_absolute_shift_current - current_past_sum
+
     @classmethod
     def from_phase_projections(
         cls,
@@ -139,6 +176,38 @@ class PMASnapshot:
             timestamp=datetime.now().isoformat(timespec="seconds"),
             parent_index=parent_index,
         )
+
+
+def _align_shift_to_current_scans(
+    shift: np.ndarray,
+    snapshot_scan_numbers: np.ndarray,
+    current_scan_numbers: np.ndarray,
+) -> np.ndarray:
+    """Reorder/subset `shift` so its rows line up with `current_scan_numbers`.
+
+    Raises ValueError if a current scan wasn't present when the snapshot
+    was recorded — the snapshot can't supply a shift for it.
+    """
+    shift = np.asarray(shift)
+    snap_scans = np.asarray(snapshot_scan_numbers).astype(int)
+    cur_scans = np.asarray(current_scan_numbers).astype(int)
+
+    if shift.shape[0] != snap_scans.shape[0]:
+        raise ValueError(
+            f"Snapshot shift has {shift.shape[0]} rows but its "
+            f"scan_numbers has {snap_scans.shape[0]} entries; cannot align."
+        )
+
+    snap_scan_to_row = {int(s): r for r, s in enumerate(snap_scans)}
+    missing = [int(s) for s in cur_scans if int(s) not in snap_scan_to_row]
+    if missing:
+        raise ValueError(
+            "Cannot use the passed PMASnapshot: the projections currently "
+            f"include scan(s) {missing} that were not present when that "
+            "snapshot was recorded."
+        )
+    rows = np.array([snap_scan_to_row[int(s)] for s in cur_scans], dtype=int)
+    return shift[rows].copy()
 
 
 def crop_volume_for_recording(

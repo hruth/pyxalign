@@ -11,10 +11,13 @@ emphasized.
 
 import dataclasses
 import sys
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 import numpy as np
 import pyqtgraph as pg
+
+if TYPE_CHECKING:
+    from pyxalign.data_structures.task import LaminographyAlignmentTask
 
 # Pinned colours for the shift traces — chosen to match the previous
 # matplotlib output ("gray" and "tab:blue") so the look is unchanged.
@@ -37,6 +40,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QLabel,
     QListWidget,
+    QMessageBox,
     QPushButton,
     QRadioButton,
     QScrollArea,
@@ -361,10 +365,19 @@ class PMASequenceViewer(QWidget):
         self,
         sequence: PMASequence,
         parent: Optional[QWidget] = None,
+        task: Optional["LaminographyAlignmentTask"] = None,
+        projection_viewer: Optional[QWidget] = None,
+        on_shift_staged: Optional[Callable[[], None]] = None,
     ):
         super().__init__(parent=parent)
         self.setWindowTitle("PMA Sequence Viewer")
         self.sequence = sequence
+        self.task = task
+        self.projection_viewer = projection_viewer
+        # Callback invoked after a snapshot's shift is successfully staged
+        # and applied — used by the PMA runner to clear stale alignment
+        # results.
+        self.on_shift_staged = on_shift_staged
         self.varying_paths: set[str] = set()
         self.show_with_past_shifts = False
         self.plot_type = PMASequencePlotType.INITIAL_FINAL_SHIFTS
@@ -430,6 +443,19 @@ class PMASequenceViewer(QWidget):
         chain_row.addWidget(self.chain_combo, stretch=1)
         snapshots_layout.addLayout(chain_row)
         snapshots_layout.addWidget(self.results_table)
+
+        self.stage_shift_button = QPushButton("Stage && Apply Selected Snapshot Shift")
+        self.stage_shift_button.setStyleSheet(
+            "QPushButton { background-color: #b3d9ff; font-weight: bold; padding: 6px; }"
+            "QPushButton:disabled { background-color: #e0e0e0; color: #888; }"
+        )
+        self.stage_shift_button.clicked.connect(self._on_stage_shift_clicked)
+        if self.task is None:
+            self.stage_shift_button.setEnabled(False)
+            self.stage_shift_button.setToolTip(
+                "No task is wired up to this viewer — staging is unavailable."
+            )
+        snapshots_layout.addWidget(self.stage_shift_button)
 
         changed_section = QWidget()
         changed_layout = QVBoxLayout(changed_section)
@@ -691,6 +717,75 @@ class PMASequenceViewer(QWidget):
         self._update_changed_label(snapshot)
         self._update_options_tree(snapshot)
         self._update_snapshot_info(snapshot)
+        self._update_stage_button_state(snapshot)
+
+    # ---- stage shift ----------------------------------------------------
+
+    def _update_stage_button_state(self, snapshot: Optional[PMASnapshot]) -> None:
+        """Disable the stage button if the snapshot has no usable final shift."""
+        if self.task is None:
+            # The no-task disabled state was set in `_build_ui`; nothing to do.
+            return
+        has_final = snapshot is not None and snapshot.final_shift is not None
+        self.stage_shift_button.setEnabled(has_final)
+        if has_final:
+            self.stage_shift_button.setToolTip(
+                "Stage and apply this snapshot's shift to the projections. "
+                "The shift is automatically re-expressed relative to whatever "
+                "has been applied since the snapshot was recorded."
+            )
+        else:
+            self.stage_shift_button.setToolTip(
+                "This snapshot has no final_shift (PMA did not complete)."
+            )
+
+    def _on_stage_shift_clicked(self) -> None:
+        from pyxalign.api import enums
+
+        if self.task is None or self.task.phase_projections is None:
+            return
+        snapshot = self._current_snapshot()
+        if snapshot is None or snapshot.final_shift is None:
+            return
+
+        # Resolve the snapshot's absolute alignment into a delta relative
+        # to the projections' current state. Catch the
+        # "scan no longer in projections" / "scan number mismatch" cases
+        # the helper raises so the user gets a clear message instead of
+        # an unhandled exception.
+        try:
+            shift_to_stage = snapshot.compute_shift_relative_to(
+                self.task.phase_projections
+            )
+        except ValueError as ex:
+            QMessageBox.warning(self, "Cannot stage shift", str(ex))
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Confirm",
+            "Projections will be shifted using this snapshot's final shift "
+            "(accounting for any shifts already applied). Continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        self.task.phase_projections.shift_manager.stage_shift(
+            shift=shift_to_stage,
+            function_type=enums.ShiftType.CIRC,
+            alignment_options=self.task.options.projection_matching,
+            eliminate_wrapping=True,
+        )
+        print("Snapshot shift staged from PMA Sequence Viewer")
+
+        if self.projection_viewer is not None:
+            self.projection_viewer.refresh_applied_shifts_tab()
+            self.projection_viewer.apply_staged_shift()
+
+        if self.on_shift_staged is not None:
+            self.on_shift_staged()
 
     # ---- view mode ------------------------------------------------------
 
@@ -1075,6 +1170,7 @@ class PMASequenceViewer(QWidget):
         self.mask_options_tree.clear()
         while self.snapshot_info_layout.rowCount():
             self.snapshot_info_layout.removeRow(0)
+        self._update_stage_button_state(None)
 
 
 def show_pma_sequence_viewer(sequence: PMASequence) -> PMASequenceViewer:

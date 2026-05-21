@@ -544,7 +544,16 @@ class PMAResultsCollection(AlignmentResultsCollection):
             return
         sequence = self.task.pma_sequence
         if self._pma_sequence_viewer is None or not self._pma_sequence_viewer.isVisible():
-            self._pma_sequence_viewer = PMASequenceViewer(sequence)
+            # Wire the task + projection viewer through so the viewer can
+            # stage/apply a snapshot's shift directly. The projection
+            # viewer's `shift_operation_performed` signal (when present)
+            # already triggers `PMAMasterWidget.clear_alignment_results`,
+            # so no explicit callback is needed here.
+            self._pma_sequence_viewer = PMASequenceViewer(
+                sequence,
+                task=self.task,
+                projection_viewer=self.projection_viewer,
+            )
             self._pma_sequence_viewer.resize(1200, 700)
             self._pma_sequence_viewer.show()
         else:

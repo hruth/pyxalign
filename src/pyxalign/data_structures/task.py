@@ -124,37 +124,9 @@ class LaminographyAlignmentTask:
                 if s is parent_snapshot:
                     parent_index = i
                     break
-            if parent_snapshot.final_shift is None:
-                raise ValueError(
-                    "Cannot use the passed PMASnapshot as the initial shift: "
-                    "its final_shift is None (the prior PMA run did not finish)."
-                )
-            # The "absolute" shift represented by this snapshot is the sum
-            # of the shifts that had already been applied at the time of
-            # that PMA call (`past_shift_sum`) plus the shift PMA produced
-            # (`final_shift`). It's invariant under any further shifts the
-            # user has since applied to phase_projections.
-            #
-            # To use it as the seed for a new PMA call we re-express it
-            # relative to the projections' current state by:
-            #   1. Aligning rows to the current scan order (some scans
-            #      may have been dropped since the snapshot was taken).
-            #   2. Subtracting whatever has been applied since then.
-            snap_absolute_shift = (
-                np.asarray(parent_snapshot.past_shift_sum)
-                + np.asarray(parent_snapshot.final_shift)
+            initial_shift = parent_snapshot.compute_shift_relative_to(
+                self.phase_projections
             )
-            snap_absolute_shift_current = _align_shift_to_current_scans(
-                snap_absolute_shift,
-                snapshot_scan_numbers=parent_snapshot.scan_numbers,
-                current_scan_numbers=self.phase_projections.scan_numbers,
-            )
-            sm = self.phase_projections.shift_manager
-            if len(sm.past_shifts) > 0:
-                current_past_sum = np.sum(sm.past_shifts, axis=0)
-            else:
-                current_past_sum = np.zeros_like(sm.staged_shift)
-            initial_shift = snap_absolute_shift_current - current_past_sum
 
         # snapshot the inputs to this PMA call before running
         self.pma_sequence.append(
@@ -274,44 +246,6 @@ class LaminographyAlignmentTask:
             shift = self.pma_object.total_shift * self.pma_object.scale
         finally:
             return shift
-
-
-def _align_shift_to_current_scans(
-    shift: np.ndarray,
-    snapshot_scan_numbers: np.ndarray,
-    current_scan_numbers: np.ndarray,
-) -> np.ndarray:
-    """
-    Reorder/subset a shift array so its rows line up with `current_scan_numbers`.
-
-    The snapshot's `final_shift` is parallel to its own `scan_numbers`, but
-    scans may have been dropped (or reordered) since the snapshot was taken.
-    Returns a new array of shape (len(current_scan_numbers), shift.shape[1])
-    containing one row per current scan, pulled from the matching row of
-    `shift`. Raises if the current set contains a scan that wasn't in the
-    snapshot (in that case the snapshot can't supply an initial shift for
-    the new scan).
-    """
-    shift = np.asarray(shift)
-    snap_scans = np.asarray(snapshot_scan_numbers).astype(int)
-    cur_scans = np.asarray(current_scan_numbers).astype(int)
-
-    if shift.shape[0] != snap_scans.shape[0]:
-        raise ValueError(
-            f"Snapshot final_shift has {shift.shape[0]} rows but its "
-            f"scan_numbers has {snap_scans.shape[0]} entries; cannot align."
-        )
-
-    snap_scan_to_row = {int(s): r for r, s in enumerate(snap_scans)}
-    missing = [int(s) for s in cur_scans if int(s) not in snap_scan_to_row]
-    if missing:
-        raise ValueError(
-            "Cannot use the passed PMASnapshot as the initial shift: "
-            f"the projections currently include scan(s) {missing} that were "
-            "not present when that snapshot was recorded."
-        )
-    rows = np.array([snap_scan_to_row[int(s)] for s in cur_scans], dtype=int)
-    return shift[rows].copy()
 
 
 def load_task(
