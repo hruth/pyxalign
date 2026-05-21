@@ -129,14 +129,32 @@ class LaminographyAlignmentTask:
                     "Cannot use the passed PMASnapshot as the initial shift: "
                     "its final_shift is None (the prior PMA run did not finish)."
                 )
-            # The snapshot's final_shift is indexed parallel to the snapshot's
-            # scan_numbers at the time of that run. Scans may have been dropped
-            # since then, so subset the rows to the projections currently held.
-            initial_shift = _align_shift_to_current_scans(
-                parent_snapshot.final_shift,
+            # The "absolute" shift represented by this snapshot is the sum
+            # of the shifts that had already been applied at the time of
+            # that PMA call (`past_shift_sum`) plus the shift PMA produced
+            # (`final_shift`). It's invariant under any further shifts the
+            # user has since applied to phase_projections.
+            #
+            # To use it as the seed for a new PMA call we re-express it
+            # relative to the projections' current state by:
+            #   1. Aligning rows to the current scan order (some scans
+            #      may have been dropped since the snapshot was taken).
+            #   2. Subtracting whatever has been applied since then.
+            snap_absolute_shift = (
+                np.asarray(parent_snapshot.past_shift_sum)
+                + np.asarray(parent_snapshot.final_shift)
+            )
+            snap_absolute_shift_current = _align_shift_to_current_scans(
+                snap_absolute_shift,
                 snapshot_scan_numbers=parent_snapshot.scan_numbers,
                 current_scan_numbers=self.phase_projections.scan_numbers,
             )
+            sm = self.phase_projections.shift_manager
+            if len(sm.past_shifts) > 0:
+                current_past_sum = np.sum(sm.past_shifts, axis=0)
+            else:
+                current_past_sum = np.zeros_like(sm.staged_shift)
+            initial_shift = snap_absolute_shift_current - current_past_sum
 
         # snapshot the inputs to this PMA call before running
         self.pma_sequence.append(

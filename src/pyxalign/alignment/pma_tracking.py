@@ -112,9 +112,16 @@ class PMASnapshot:
 
         po = phase_projections.options
         ms = phase_projections.mask_source
+        # If the caller didn't provide an initial shift, record an explicit
+        # zero array of the right shape so it shows up in the viewer's
+        # plots (a flat line at 0) and snapshot info.
+        if initial_shift is None:
+            initial_shift_to_store = np.zeros_like(sm.staged_shift)
+        else:
+            initial_shift_to_store = np.asarray(initial_shift).copy()
         return cls(
             pma_options=copy.deepcopy(pma_options),
-            initial_shift=None if initial_shift is None else np.asarray(initial_shift).copy(),
+            initial_shift=initial_shift_to_store,
             final_shift=None,
             removed_scan_numbers=removed_scan_numbers,
             removed_angles=removed_angles,
