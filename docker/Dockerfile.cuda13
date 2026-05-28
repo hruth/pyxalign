@@ -1,6 +1,6 @@
 # Use NVIDIA's official CUDA base image with Ubuntu 22.04
 # This already includes the CUDA toolkit and necessary drivers
-FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
+FROM nvidia/cuda:13.1.0-devel-ubuntu22.04
 
 # Set environment variables
 ENV VIRTUAL_ENV=/opt/venv
@@ -41,6 +41,6 @@ RUN python3.13 -m venv $VIRTUAL_ENV
 RUN pip install --upgrade pip setuptools wheel
 
 RUN cd /app/pyxalign && \
-    pip install -e .[cupy12]
+    pip install -e .
 
 CMD ["/bin/bash"]
