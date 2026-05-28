@@ -1185,3 +1185,29 @@ def show_pma_sequence_viewer(sequence: PMASequence) -> PMASequenceViewer:
     if own_app:
         app.exec_()
     return viewer
+
+
+def launch_pma_sequence_viewer(
+    task: "LaminographyAlignmentTask",
+    projection_viewer: Optional[QWidget] = None,
+    wait_until_closed: bool = False,
+) -> PMASequenceViewer:
+    """Launch the PMA Sequence Viewer for a task.
+
+    The viewer is opened with the task wired up so snapshot shifts can
+    be staged and applied directly. Pass `projection_viewer` if you
+    want the viewer to also drive the projection viewer's
+    Applied Shifts tab when staging.
+    """
+    app = QApplication.instance() or QApplication(sys.argv)
+    viewer = PMASequenceViewer(
+        task.pma_sequence,
+        task=task,
+        projection_viewer=projection_viewer,
+    )
+    viewer.resize(1200, 700)
+    viewer.setAttribute(Qt.WA_DeleteOnClose)
+    viewer.show()
+    if wait_until_closed:
+        app.exec_()
+    return viewer
