@@ -30,7 +30,7 @@ jobs:
           echo "CONTAINERS_CONF=/local/containers.conf" >> $GITHUB_ENV
 
       - name: build container
-        run: podman build -t localhost/pyxalign-actions-runner-image .
+        run: podman build -f docker/Dockerfile.cuda13 -t localhost/pyxalign-actions-runner-image .
 
       - name: start container and run pytest
         run: |
