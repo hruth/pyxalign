@@ -88,7 +88,7 @@ def generate_results_cSAXS_e18044_LamNI_201907_projection_matching_alignment(
         if i == 0:
             task.get_projection_matching_shift()
         else:
-            task.get_projection_matching_shift(initial_shift=pma_shifts[scales[i - 1]])
+            task.get_projection_matching_shift(initial_shift=task.pma_sequence.snapshots[-1])
         pma_shifts[scale] = task.phase_projections.shift_manager.staged_shift * 1
 
         # Check/save the resulting alignment shifts at each resolution
