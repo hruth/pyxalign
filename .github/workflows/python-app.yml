@@ -5,8 +5,13 @@ name: Python application
 
 on:
   push:
+      paths:
+        - 'src/**'
+        - 'tests/**'
+        - 'pyproject.toml'
+        - 'docker/Dockerfile.cuda13'
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "development" ]
   workflow_dispatch:
 
 env:
