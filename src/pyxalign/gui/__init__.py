@@ -15,6 +15,7 @@ from ..interactions.cross_correlation import launch_cross_correlation_gui
 from ..interactions.mask import launch_mask_builder
 from ..interactions.roi_selector import launch_mask_selection_from_roi, launch_crop_window_selection
 from ..interactions.phase_unwrap import launch_phase_unwrap_widget
+from ..interactions.viewers.pma_tracking import launch_pma_sequence_viewer
 
 __all__ = [
     "launch_array_viewer",
@@ -31,4 +32,5 @@ __all__ = [
     "launch_crop_window_selection",
     "launch_phase_unwrap_widget",
     "launch_combined_alignment_widget",
+    "launch_pma_sequence_viewer",
 ]

@@ -54,6 +54,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from pyxalign.alignment.pma_tracking import PMASnapshot
 from pyxalign.api.enums import MaskSource
 from pyxalign.api.options_utils import get_all_attribute_names
 import pyxalign.data_structures.task as t
@@ -68,6 +69,7 @@ from pyxalign.interactions.sequencer_v2 import SequencerWidgetV2
 from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.api.types import OptionsClass
 from pyxalign.interactions.viewers.base import MultiThreadedWidget
+from pyxalign.interactions.viewers.pma_tracking import PMASequenceViewer
 from pyxalign.interactions.viewers.projection_matching import ProjectionMatchingViewer
 from pyxalign.interactions.viewers.utils import OptionsDisplayWidget
 from pyxalign.interactions.alignment_results import AlignmentResults, AlignmentResultsCollection
@@ -136,6 +138,10 @@ class PMAResults(AlignmentResults):
         Snapshot of phase_projections.center_of_rotation at the time of alignment.
     mask_source : MaskSource, optional
         Snapshot of phase_projections.mask_source at the time of alignment.
+    pma_snapshot : PMASnapshot, optional
+        The `PMASnapshot` recorded by `task.get_projection_matching_shift`
+        for this run. Used to seed subsequent PMA calls so the chain
+        relationship is tracked in `task.pma_sequence`.
     """
 
     def __init__(
@@ -152,6 +158,7 @@ class PMAResults(AlignmentResults):
         total_applied_shift: Optional[np.ndarray] = None,
         center_of_rotation: Optional[np.ndarray] = None,
         mask_source: Optional[MaskSource] = None,
+        pma_snapshot: Optional[PMASnapshot] = None,
     ):
         super().__init__(
             shift=shift,
@@ -167,6 +174,7 @@ class PMAResults(AlignmentResults):
         self.total_applied_shift = total_applied_shift
         self.center_of_rotation = center_of_rotation
         self.mask_source = mask_source
+        self.pma_snapshot = pma_snapshot
 
 
 class PMAResultsCollection(AlignmentResultsCollection):
@@ -224,6 +232,7 @@ class PMAResultsCollection(AlignmentResultsCollection):
         self.create_options_display()
         self.create_reconstruction_parameters_display()
         self.create_stage_shift_button()
+        self.create_open_pma_sequence_viewer_button()
         self.update_table()
 
         main_layout = QHBoxLayout(self)
@@ -270,6 +279,10 @@ class PMAResultsCollection(AlignmentResultsCollection):
         info_tabs.addTab(self.options_display, "Alignment Options")
         info_tabs.addTab(self.reconstruction_parameters_display, "Reconstruction Parameters")
         left_layout.addWidget(info_tabs)
+
+        # Add PMA sequence viewer button last so it sits at the bottom of
+        # the left column.
+        left_layout.addWidget(self.open_pma_sequence_viewer_button)
 
         main_layout.addLayout(left_layout, stretch=1)
         main_layout.addWidget(display_widget, stretch=3)
@@ -507,6 +520,62 @@ class PMAResultsCollection(AlignmentResultsCollection):
         self.stage_shift_button = QPushButton("Stage and Apply Selected Shift")
         self.stage_shift_button.setStyleSheet(action_button_style_sheet)
         self.stage_shift_button.clicked.connect(self.on_stage_shift_clicked)
+
+    def create_open_pma_sequence_viewer_button(self):
+        """Create a button to open the PMA Sequence Viewer window."""
+        self.open_pma_sequence_viewer_button = QPushButton("Open Detailed PMA History")
+        self.open_pma_sequence_viewer_button.setStyleSheet(
+            "QPushButton { background-color: #add8e6; font-weight: bold; padding: 6px; }"
+        )
+        self.open_pma_sequence_viewer_button.clicked.connect(
+            self.on_open_pma_sequence_viewer_clicked
+        )
+        # Keep a reference so the standalone window isn't garbage collected.
+        self._pma_sequence_viewer: Optional[PMASequenceViewer] = None
+        if self.task is None:
+            self.open_pma_sequence_viewer_button.setEnabled(False)
+            self.open_pma_sequence_viewer_button.setToolTip(
+                "Task not available - cannot show PMA sequence."
+            )
+
+    def on_open_pma_sequence_viewer_clicked(self):
+        """Open (or raise) the PMA Sequence Viewer for `task.pma_sequence`."""
+        if self.task is None:
+            return
+        sequence = self.task.pma_sequence
+        if self._pma_sequence_viewer is None or not self._pma_sequence_viewer.isVisible():
+            # Wire the task + projection viewer through so the viewer can
+            # stage/apply a snapshot's shift directly. The projection
+            # viewer's `shift_operation_performed` signal (when present)
+            # already triggers `PMAMasterWidget.clear_alignment_results`,
+            # so no explicit callback is needed here.
+            self._pma_sequence_viewer = PMASequenceViewer(
+                sequence,
+                task=self.task,
+                projection_viewer=self.projection_viewer,
+            )
+            self._pma_sequence_viewer.resize(1200, 700)
+            self._pma_sequence_viewer.show()
+        else:
+            # Refresh in case new snapshots were appended since the window
+            # was last opened, then bring it to the front.
+            self._pma_sequence_viewer.refresh()
+            self._pma_sequence_viewer.raise_()
+            self._pma_sequence_viewer.activateWindow()
+
+    def refresh_pma_sequence_viewer_if_open(self):
+        """Re-read `task.pma_sequence` into the viewer if it's currently open."""
+        viewer = self._pma_sequence_viewer
+        if viewer is None:
+            return
+        try:
+            visible = viewer.isVisible()
+        except RuntimeError:
+            # Underlying Qt object was already deleted.
+            self._pma_sequence_viewer = None
+            return
+        if visible:
+            viewer.refresh()
 
     def on_stage_shift_clicked(self):
         """Handle the stage-and-apply shift button click."""
@@ -799,59 +868,6 @@ class PMAMasterWidget(MultiThreadedWidget):
         total_applied = np.sum(past_shifts, axis=0)
         return total_applied
 
-    def filter_shift_by_scan_numbers(
-        self, shift: np.ndarray, source_scan_numbers: np.ndarray, target_scan_numbers: np.ndarray
-    ) -> np.ndarray:
-        """
-        Filter a shift array to match the current scan numbers.
-
-        When using a previous alignment result as the initial shift, some scans
-        may have been removed. This method removes entries from the shift array
-        that correspond to removed scans.
-
-        Parameters
-        ----------
-        shift : np.ndarray
-            The shift array from a previous alignment result.
-        source_scan_numbers : np.ndarray
-            Scan numbers from the previous alignment result.
-        target_scan_numbers : np.ndarray
-            Current scan numbers in phase_projections.
-
-        Returns
-        -------
-        np.ndarray
-            Filtered shift array matching current scan numbers.
-        """
-        if source_scan_numbers is None or target_scan_numbers is None:
-            # If scan numbers aren't available, return original shift
-            return shift
-
-        # Find which scans from the source are still present in the target
-        mask = np.isin(source_scan_numbers, target_scan_numbers)
-
-        # Check if all target scans are in source
-        if not np.all(np.isin(target_scan_numbers, source_scan_numbers)):
-            print(
-                "Warning: Some current scans were not present in the selected "
-                "initial shift. These will be initialized with zero shift."
-            )
-            # Create a new shift array initialized to zeros
-            filtered_shift = np.zeros((len(target_scan_numbers), shift.shape[1]))
-            # Find indices where target scans match source scans
-            for i, scan in enumerate(target_scan_numbers):
-                source_indices = np.where(source_scan_numbers == scan)[0]
-                if len(source_indices) > 0:
-                    filtered_shift[i] = shift[source_indices[0]]
-            return filtered_shift
-        else:
-            # All target scans are in source, just filter out removed scans
-            filtered_shift = shift[mask]
-            # Reorder to match target scan order
-            source_filtered = source_scan_numbers[mask]
-            reorder_indices = np.array([np.where(source_filtered == scan)[0][0] for scan in target_scan_numbers])
-            return filtered_shift[reorder_indices]
-
     def start_alignment_sequence(self):
         # Disable configure tab widgets during execution, enable only sequence stop button
         self.set_configure_tab_enabled(False, run_mode='sequence')
@@ -905,9 +921,18 @@ class PMAMasterWidget(MultiThreadedWidget):
         run_type: Optional[str] = None,
         changed_settings: Optional[dict] = None,
     ):
-        initial_shift, initial_shift_source = self.get_initial_shift(shift_text=initial_shift_source)
+        initial_input, initial_shift_source = self.get_initial_shift(
+            shift_text=initial_shift_source
+        )
         shift = self.task.get_projection_matching_shift(
-            initial_shift=initial_shift, options=options
+            initial_shift=initial_input, options=options
+        )
+        # The task always appends a fresh snapshot for this PMA call; grab
+        # it so we can reuse it as a parent for subsequent runs.
+        new_snapshot = (
+            self.task.pma_sequence.snapshots[-1]
+            if len(self.task.pma_sequence) > 0
+            else None
         )
 
         # Calculate total applied shift at this moment
@@ -928,6 +953,7 @@ class PMAMasterWidget(MultiThreadedWidget):
                 total_applied_shift=total_applied_shift,
                 center_of_rotation=pp.center_of_rotation.copy(),
                 mask_source=getattr(pp, 'mask_source', None),
+                pma_snapshot=new_snapshot,
             )
         ]
         self.update_pma_viewer_tab()
@@ -938,7 +964,15 @@ class PMAMasterWidget(MultiThreadedWidget):
         if self.task.pma_object.gui is not None:
             self.task.pma_object.gui.close()
 
-    def get_initial_shift(self, shift_text: str) -> tuple[np.ndarray, str]:
+    def get_initial_shift(
+        self, shift_text: str
+    ) -> tuple[Optional[PMASnapshot], str]:
+        """Resolve the combobox selection to a PMASnapshot (or None).
+
+        Returns the snapshot from `task.pma_sequence` that corresponds to
+        the chosen prior result, so the new PMA call records a
+        `parent_index` link in the tracked sequence.
+        """
         if shift_text == "None":
             return None, shift_text
         elif shift_text == "Previous":
@@ -946,14 +980,13 @@ class PMAMasterWidget(MultiThreadedWidget):
         else:
             result_index = int(shift_text.split()[-1])
         selected_result = self.alignment_results_list[result_index]
-        # Filter the shift to match current scan numbers
-        initial_shift = self.filter_shift_by_scan_numbers(
-            shift=selected_result.shift,
-            source_scan_numbers=selected_result.scan_numbers,
-            target_scan_numbers=self.task.phase_projections.scan_numbers,
-        )
-        shift_text = f"Result {result_index}"
-        return initial_shift, shift_text
+        snapshot = getattr(selected_result, "pma_snapshot", None)
+        if snapshot is None:
+            raise RuntimeError(
+                f"Alignment result {result_index} has no associated PMASnapshot; "
+                "cannot use it as the initial shift."
+            )
+        return snapshot, f"Result {result_index}"
 
     def on_start_alignment_with_defaults_pushed(self):
         # Disable configure tab widgets during execution, enable only defaults stop button
@@ -1040,6 +1073,7 @@ class PMAMasterWidget(MultiThreadedWidget):
 
     def update_results_collection_tab(self):
         self.results_collection_widget.update_table()
+        self.results_collection_widget.refresh_pma_sequence_viewer_if_open()
         self.update_initial_shift_combobox()
 
     def update_initial_shift_combobox(self):

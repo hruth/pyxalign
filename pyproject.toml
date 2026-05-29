@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pyxalign"
 authors = [{name = "Hanna Ruth", email = "hruth@anl.gov"}]
-version = "1.1.0"
+version = "1.2.0"
 description = "Package for alignment and reconstruction of laminography and tomography datasets."
 readme = "README.md"
 dependencies = [

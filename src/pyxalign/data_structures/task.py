@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 import h5py
 import copy
@@ -12,6 +12,11 @@ from pyxalign.data_structures.projections import (
     get_kwargs_for_copying_to_new_projections_object,
 )
 from pyxalign.alignment.cross_correlation import CrossCorrelationAligner
+from pyxalign.alignment.pma_tracking import (
+    PMASequence,
+    PMASnapshot,
+    crop_volume_for_recording,
+)
 from pyxalign.alignment.projection_matching import ProjectionMatchingAligner
 from pyxalign.api.options.task import AlignmentTaskOptions
 from pyxalign.api import enums
@@ -46,6 +51,7 @@ class LaminographyAlignmentTask:
         self.phase_projections = phase_projections
         self.pma_object: ProjectionMatchingAligner = None
         self.pma_gui_list: list[ProjectionMatchingViewer] = []
+        self.pma_sequence = PMASequence()
 
     def get_cross_correlation_shift(
         self,
@@ -85,7 +91,7 @@ class LaminographyAlignmentTask:
 
     def get_projection_matching_shift(
         self,
-        initial_shift: Optional[np.ndarray] = None,
+        initial_shift: Optional[Union[np.ndarray, PMASnapshot]] = None,
         options: Optional[ProjectionMatchingOptions] = None,
     ) -> np.ndarray:
         # clear existing astra objects
@@ -108,10 +114,47 @@ class LaminographyAlignmentTask:
         if options is None:
             options = self.options.projection_matching
 
+        # If a prior snapshot is passed in, use its final shift as the
+        # starting point for this run and record the parent link so the
+        # alignment chain can be reconstructed later.
+        parent_index: Optional[int] = None
+        if isinstance(initial_shift, PMASnapshot):
+            parent_snapshot = initial_shift
+            for i, s in enumerate(self.pma_sequence.snapshots):
+                if s is parent_snapshot:
+                    parent_index = i
+                    break
+            initial_shift = parent_snapshot.compute_shift_relative_to(
+                self.phase_projections
+            )
+
+        # snapshot the inputs to this PMA call before running
+        self.pma_sequence.append(
+            PMASnapshot.from_phase_projections(
+                self.phase_projections,
+                pma_options=options,
+                initial_shift=initial_shift,
+                parent_index=parent_index,
+            )
+        )
+
         # run the pma algorithm
         shift = self.run_projection_matching(
             self.phase_projections, initial_shift, options
         )
+        last_snapshot = self.pma_sequence.snapshots[-1]
+        last_snapshot.final_shift = np.asarray(shift).copy()
+
+        # optionally record the post-PMA volume into the snapshot
+        if options.pma_sequence.record_volume:
+            try:
+                volume_data = self.pma_object.aligned_projections.volume.data
+            except AttributeError:
+                volume_data = None
+            if volume_data is not None:
+                last_snapshot.volume = crop_volume_for_recording(
+                    volume_data, options.pma_sequence
+                )
 
         # Store the result in the ShiftManager object
         self.phase_projections.shift_manager.stage_shift(
@@ -155,7 +198,12 @@ class LaminographyAlignmentTask:
         self.phase_projections.dropped_angles = copy.copy(self.complex_projections.dropped_angles)
         self.phase_projections.dropped_file_paths = copy.copy(self.complex_projections.dropped_file_paths)
 
-    def save_task(self, file_path: str, exclude: list[str] = []):
+    def save_task(
+        self,
+        file_path: str,
+        exclude: list[str] = [],
+        save_pma_sequence_volumes: bool = False,
+    ):
         save_attr_strings = ["complex_projections", "phase_projections"]
         with h5py.File(file_path, "w") as h5_obj:
             for attr in save_attr_strings:
@@ -168,6 +216,14 @@ class LaminographyAlignmentTask:
                     projection: Projections = getattr(self, attr)
                     projection._save_projections_object(h5_obj=h5_obj.create_group(attr))
             save_generic_data_structure_to_h5(self.options, h5_obj.create_group("options"))
+            # Persist the PMA sequence alongside the task only when it
+            # actually has snapshots; old task files have no such group
+            # and the loader treats its absence as "empty sequence".
+            if len(self.pma_sequence) > 0:
+                self.pma_sequence._save_to_group(
+                    h5_obj.create_group("pma_sequence"),
+                    include_volumes=save_pma_sequence_volumes,
+                )
             print(f"task saved to {h5_obj.file.filename}{h5_obj.name}")
 
     def run_projection_matching(
@@ -192,7 +248,11 @@ class LaminographyAlignmentTask:
             return shift
 
 
-def load_task(file_path: str, exclude: Optional[str] = None) -> LaminographyAlignmentTask:
+def load_task(
+    file_path: str,
+    exclude: Optional[str] = None,
+    load_pma_sequence_volumes: bool = False,
+) -> LaminographyAlignmentTask:
     print("Loading task from", file_path, "...")
 
     if exclude is None:
@@ -213,6 +273,16 @@ def load_task(file_path: str, exclude: Optional[str] = None) -> LaminographyAlig
 
         # make sure all device options work on the current machine
         gpu_utils.auto_update_gpu_options(task.options)
+
+        # Restore the PMA sequence if it was saved alongside the task.
+        # Older task files won't have this group; falling through here
+        # leaves task.pma_sequence as the empty sequence the constructor
+        # already created.
+        if "pma_sequence" in h5_obj:
+            task.pma_sequence = PMASequence._load_from_group(
+                h5_obj["pma_sequence"],
+                include_volumes=load_pma_sequence_volumes,
+            )
 
         print("Loading complete")
 
