@@ -456,6 +456,14 @@ class Volume:
             F.create_dataset(name="volume", data=self.data)
         print(f"File saved to: {file_path}")
 
+    def save_as_zarr(self, file_path: str):
+        if self.data is None:
+            print("There is no volume data to save!")
+            return
+        import zarr
+        zarr.save(file_path, self.data)
+        print(f"File saved to: {file_path}")
+
 
 def get_tomogram_rotation_angles(
     reconstruction: np.ndarray,

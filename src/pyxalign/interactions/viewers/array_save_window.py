@@ -69,17 +69,20 @@ class ArraySaveWindow(QDialog):
 
         self.radio_3d_tiff = QRadioButton("Save 3D array as TIFF")
         self.radio_3d_h5 = QRadioButton("Save 3D array as H5")
+        self.radio_3d_zarr = QRadioButton("Save 3D array as Zarr")
         self.radio_current_frame = QRadioButton("Save current frame as image")
         self.radio_3d_tiff.setChecked(True)
 
         self.button_group = QButtonGroup()
         self.button_group.addButton(self.radio_3d_tiff)
         self.button_group.addButton(self.radio_3d_h5)
+        self.button_group.addButton(self.radio_3d_zarr)
         self.button_group.addButton(self.radio_current_frame)
         self.button_group.buttonClicked.connect(self.on_save_mode_changed)
 
         mode_layout.addWidget(self.radio_3d_tiff)
         mode_layout.addWidget(self.radio_3d_h5)
+        mode_layout.addWidget(self.radio_3d_zarr)
         mode_layout.addWidget(self.radio_current_frame)
         mode_group.setLayout(mode_layout)
         main_layout.addWidget(mode_group)
@@ -152,6 +155,15 @@ class ArraySaveWindow(QDialog):
                 self.sort_checkbox.hide()
             # Hide crop checkbox for H5 saves (not applicable)
             self.crop_checkbox.hide()
+        elif self.radio_3d_zarr.isChecked():
+            self.format_widget.hide()
+            # Show sort checkbox only if sort_idx exists
+            if self.array_viewer.sort_idx is not None:
+                self.sort_checkbox.show()
+            else:
+                self.sort_checkbox.hide()
+            # Hide crop checkbox for Zarr saves (not applicable)
+            self.crop_checkbox.hide()
         else:  # 3D TIFF
             self.format_widget.hide()
             # Show sort checkbox only if sort_idx exists
@@ -171,6 +183,9 @@ class ArraySaveWindow(QDialog):
         elif self.radio_3d_h5.isChecked():
             filter_str = "HDF5 Files (*.h5 *.hdf5)"
             default_name = "array_3d.h5"
+        elif self.radio_3d_zarr.isChecked():
+            filter_str = "Zarr Files (*.zarr)"
+            default_name = "array_3d.zarr"
         else:
             format_type = self.format_combo.currentText()
             frame_idx = self.array_viewer.slider.value()
@@ -267,6 +282,36 @@ class ArraySaveWindow(QDialog):
                 # Save as H5
                 with h5py.File(file_path, "w") as F:
                     F.create_dataset(name="data", data=array)
+                print(f"File saved to: {file_path}")
+            elif self.radio_3d_zarr.isChecked():
+                # Save full 3D array as Zarr
+                import zarr
+
+                array = self.array_viewer.array3d
+                # Convert from GPU if needed
+                if hasattr(array, "get"):  # CuPy array
+                    array = array.get()
+
+                # Reorganize array to match displayed orientation
+                slider_axis = self.array_viewer.options.slider_axis
+
+                # Move slider axis to position 0 (stack direction)
+                if slider_axis != 0:
+                    array = np.moveaxis(array, slider_axis, 0)
+
+                # Apply sorting if checkbox is checked and sort_idx exists
+                if self.sort_checkbox.isChecked() and self.array_viewer.sort_idx is not None:
+                    # Reorder the array using sort_idx along axis 0 (after moveaxis)
+                    array = array[self.array_viewer.sort_idx]
+
+                # Transpose each 2D slice to match displayed orientation
+                # This transposes the last two axes (height, width) for all slices
+                array = np.transpose(array, (0, 2, 1))
+
+                # Rotate 90 degrees counterclockwise
+                array = np.rot90(array, k=1, axes=(1, 2))
+
+                zarr.save(file_path, array)
                 print(f"File saved to: {file_path}")
             else:
                 # Save current frame
