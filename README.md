@@ -36,7 +36,7 @@ cd pyxalign
 ```
 2. Build the container image
 ```bash
-podman build -t pyxalign:latest .
+podman build -t pyxalign:latest -f docker/Dockerfile.cuda13 .
 ```
 3. Run the container
 ```bash
