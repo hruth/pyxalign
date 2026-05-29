@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QTabWidget,
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt
 from pyxalign.api.options.base import BaseOptions
 from pyxalign.interactions.custom import NoScrollSpinBox, CustomDoubleSpinBox
 
@@ -633,7 +633,6 @@ class BasicOptionsEditor(QWidget):
         self.advanced_options_list = advanced_options_list or []
         self.basic_options_list = basic_options_list or []
         self.enable_advanced_tab = enable_advanced_tab
-        self.options_display = None
         if label is None:
             label = "Options Editor"
 
@@ -644,54 +643,32 @@ class BasicOptionsEditor(QWidget):
         title.setStyleSheet("QLabel {font-size: 16px;}")
         main_layout.addWidget(title)
 
+        self.tab_widget = QTabWidget()
+        main_layout.addWidget(self.tab_widget)
+
         if self.enable_advanced_tab and (
             self.advanced_options_list or self.basic_options_list
         ):
-            # Create tabbed interface
-            self.tab_widget = QTabWidget()
-            main_layout.addWidget(self.tab_widget)
-
-            # Create basic options tab
             self._create_basic_options_tab(
                 file_dialog_fields=file_dialog_fields,
                 folder_dialog_fields=folder_dialog_fields,
                 open_panels_list=open_panels_list,
             )
 
-            # Create advanced options tab
             self._create_advanced_options_tab(
                 file_dialog_fields=file_dialog_fields,
                 folder_dialog_fields=folder_dialog_fields,
                 open_panels_list=open_panels_list,
             )
         else:
-            # Create single interface (original behavior)
-            self._create_single_options_interface(
-                main_layout,
+            self._create_single_options_tab(
                 file_dialog_fields=file_dialog_fields,
                 folder_dialog_fields=folder_dialog_fields,
                 open_panels_list=open_panels_list,
             )
 
-        # Create a horizontal layout for buttons
-        button_layout = QHBoxLayout()
-
-        self.open_display_button = QPushButton("view selections")
-        self.open_display_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        self.open_display_button.clicked.connect(self.open_options_display_window)
-        button_layout.addWidget(self.open_display_button)
-
-        self.save_button = QPushButton("save as YAML")
-        self.save_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        self.save_button.clicked.connect(self.save_options_to_yaml)
-        button_layout.addWidget(self.save_button)
-
-        # Add spacer to push buttons to the left
-        button_layout.addStretch()
-
-        main_layout.addLayout(button_layout)
-
-        self.initialize_viewer()
+        self._create_view_all_selections_tab()
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
 
     def _should_include_field_in_tab(self, full_field_path: str, tab_type: str) -> bool:
         """
@@ -808,14 +785,17 @@ class BasicOptionsEditor(QWidget):
 
         self.tab_widget.addTab(advanced_tab, "Advanced Options")
 
-    def _create_single_options_interface(
+    def _create_single_options_tab(
         self,
-        main_layout: QVBoxLayout,
         file_dialog_fields: Optional[list[str]] = None,
         folder_dialog_fields: Optional[list[str]] = None,
         open_panels_list: list[str] = [],
     ):
-        """Create the original single-interface layout."""
+        """Create a single options tab (when basic/advanced split isn't enabled)."""
+        options_tab = QWidget()
+        options_layout = QVBoxLayout()
+        options_tab.setLayout(options_layout)
+
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -827,7 +807,7 @@ class BasicOptionsEditor(QWidget):
         scroll_widget.setLayout(self.form_layout)
 
         scroll_area.setWidget(scroll_widget)
-        main_layout.addWidget(scroll_area)
+        options_layout.addWidget(scroll_area)
 
         self._add_dataclass_fields(
             self._data,
@@ -836,6 +816,34 @@ class BasicOptionsEditor(QWidget):
             folder_dialog_fields=folder_dialog_fields,
             open_panels_list=open_panels_list,
         )
+
+        self.tab_widget.addTab(options_tab, "Options")
+
+    def _create_view_all_selections_tab(self):
+        """Create the View All Selections tab containing the options display
+        and a Save as YAML button at the bottom."""
+        selections_tab = QWidget()
+        selections_layout = QVBoxLayout()
+        selections_tab.setLayout(selections_layout)
+
+        self.options_display = OptionsDisplayWidget(self._data)
+        selections_layout.addWidget(self.options_display)
+
+        button_layout = QHBoxLayout()
+        self.save_button = QPushButton("save as YAML")
+        self.save_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.save_button.clicked.connect(self.save_options_to_yaml)
+        button_layout.addWidget(self.save_button)
+        button_layout.addStretch()
+        selections_layout.addLayout(button_layout)
+
+        self._selections_tab_index = self.tab_widget.addTab(
+            selections_tab, "View All Selections"
+        )
+
+    def _on_tab_changed(self, index: int):
+        if index == self._selections_tab_index:
+            self.options_display.update_display()
 
     def _add_dataclass_fields(
         self,
@@ -965,16 +973,6 @@ class BasicOptionsEditor(QWidget):
     ) -> bool:
         fields_to_check = skip_fields if skip_fields is not None else self.skip_fields
         return current_full_field_name in fields_to_check
-
-    def initialize_viewer(self):
-        self.options_display = OptionsDisplayWidget(self._data)
-        self.update_display_timer = QTimer(self)
-        self.update_display_timer.start(100)  # .5 seconds
-        self.update_display_timer.timeout.connect(self.options_display.update_display)
-
-    def open_options_display_window(self):
-        self.options_display.resize(550, 700)
-        self.options_display.show()
 
     def save_options_to_yaml(self):
         """Open a file dialog and save the current options to a YAML file."""
