@@ -6,6 +6,7 @@ import cupy as cp
 import astra
 import copy
 import h5py
+import zarr
 import scipy
 import tqdm
 
@@ -460,8 +461,8 @@ class Volume:
         if self.data is None:
             print("There is no volume data to save!")
             return
-        import zarr
-        zarr.save(file_path, self.data)
+        root = zarr.open_group(file_path, mode='w', zarr_format=2)
+        root.create_array('data', data=self.data)
         print(f"File saved to: {file_path}")
 
 

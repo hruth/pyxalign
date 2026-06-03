@@ -311,7 +311,8 @@ class ArraySaveWindow(QDialog):
                 # Rotate 90 degrees counterclockwise
                 array = np.rot90(array, k=1, axes=(1, 2))
 
-                zarr.save(file_path, array)
+                root = zarr.open_group(file_path, mode='w', zarr_format=2)
+                root.create_array('data', data=array)
                 print(f"File saved to: {file_path}")
             else:
                 # Save current frame
