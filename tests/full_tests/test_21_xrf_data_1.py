@@ -140,7 +140,7 @@ def generate_results_2ide_xrf(
             projections.volume.rotate_reconstruction()
             # Check/save the aligned, rotated volume
             ci_test_helper.save_or_compare_results(
-                proj.volume.data, f"pma_aligned_rotated_volume_{channel}"
+                projections.volume.data, f"pma_aligned_rotated_volume_{channel}"
             )
             # Save tiff file
             ci_test_helper.save_tiff(
