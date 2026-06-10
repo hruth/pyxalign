@@ -134,3 +134,15 @@ class MaskSource(StrEnum):
     PROBE_POSITIONS = auto()
     ROI = auto()
     MORPHOLOGY = auto()
+
+
+class BlendMode(StrEnum):
+    LINEAR = auto()
+    AVERAGE = auto()
+    MAX = auto()
+    OVERWRITE = auto()
+
+
+class OffsetMethod(StrEnum):
+    PHASE_CORRELATION = auto()
+    KNOWN_OVERLAP = auto()
