@@ -413,8 +413,6 @@ class Volume:
         rotation_options = RotationOptions(device=device_options, enabled=True)
         rotator = Rotator(rotation_options)
 
-        rotated_reconstruction = pin_memory(self.data)
-
         ax = [1, 0, 2]
         rotator.options.angle = self.optimal_rotation_angles[0]
         rotated_reconstruction = rotator.run(self.data.transpose(ax)).transpose(ax)
