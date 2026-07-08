@@ -130,7 +130,8 @@ class CombinedAlignmentWidget(SidebarNavigator):
             projections_for_viewer = self.task.phase_projections
         elif has_phase and has_complex:
             # Both available - default to phase for viewer, None for CC (will auto-detect)
-            projection_type_for_cc = None
+            # projection_type_for_cc = None
+            projection_type_for_cc = enums.ProjectionType.PHASE
             projections_for_viewer = self.task.phase_projections
         else:
             # Neither available
@@ -185,17 +186,11 @@ class CombinedAlignmentWidget(SidebarNavigator):
 
         # Create CrossCorrelationMasterWidget with the full task (if requested)
         if self.include_cross_correlation:
-            if projection_type_for_cc is not None:
-                self.cc_widget = CrossCorrelationMasterWidget(
-                    task=self.task,
-                    projection_type=projection_type_for_cc,
-                    projection_viewer=projection_viewer_for_pma,
-                )
-            else:
-                self.cc_widget = CrossCorrelationMasterWidget(
-                    task=self.task,
-                    projection_viewer=projection_viewer_for_pma,
-                )
+            self.cc_widget = CrossCorrelationMasterWidget(
+                task=self.task,
+                projection_type=projection_type_for_cc,
+                projection_viewer=projection_viewer_for_pma,
+            )
 
             # Connect shift operations in ProjectionViewer to clear CC results
             if hasattr(self.projection_viewer, 'all_shifts_viewer') and self.projection_viewer.all_shifts_viewer is not None:

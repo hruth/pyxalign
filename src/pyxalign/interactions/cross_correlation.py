@@ -153,7 +153,10 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         elif self.task.complex_projections is None:  # only has phase projections
             self.projection_type = enums.ProjectionType.PHASE
         else:  # has both types of projections
-            self.projection_type = projection_type
+            if projection_type is not None:
+                self.projection_type = projection_type
+            else:
+                projection_type = enums.ProjectionType.PHASE
 
         self.crop_viewer = None
         self.alignment_results_list: list[AlignmentResults] = []
