@@ -9,31 +9,19 @@ from pyxalign.autorunner.abstract import (
     skip_if_loading_from_checkpoint,
     handle_checkpoint,
     _update_all_config_parameters,
-    _update_pyxalign_object_settings,
     _get_high_level_config_options,
 )
 from pyxalign.autorunner.config import AutorunnerConfig
 from pyxalign.autorunner.enums import AutorunnerStep, Checkpoints
 from pyxalign.data_structures.task import LaminographyAlignmentTask
-from pyxalign.interactions.autorunner.data_load_and_init_widget import (
-    DataLoadAndInitWidget,
-)
-from pyxalign.interactions.autorunner.initialization_widget import (
-    build_complex_projections,
-)
+from pyxalign.interactions.autorunner.data_load_and_init_widget import DataLoadAndInitWidget
+from pyxalign.autorunner.support import build_complex_projections
 from pyxalign.interactions.autorunner.wrapper import AutorunnerGUIWrapper, AutorunnerRestarted
 from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
-from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import launch_basic_options_editor
 from pyxalign.interactions.dialog_defaults import set_default_dialog_dir
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
-
-from pyxalign.interactions.reconstruction_parameter_tuner import (
-    launch_reconstruction_parameter_tuner,
-)
-from pyxalign.interactions.roi_selector import launch_mask_selection_from_roi
 from pyxalign.io.loaders.base import StandardData
-
 from pyxalign.io.loaders.load_any import load_dataset_from_arbitrary_options
 from pyxalign.io.loaders.maps import (
     get_experiment_type_enum_from_options,
@@ -45,19 +33,11 @@ class AutorunnerPtycho(Autorunner):
     def __init__(self, state_folder: str):
         self._standardized_data: StandardData
         self.state_folder = state_folder
-        file_path = os.path.join(state_folder, "autorunner_state_file.yaml")
+        self._state_file_path = os.path.join(state_folder, "autorunner_state_file.yaml")
 
-        self._state_file_path = None
-        if file_path is not None:
-            if os.path.exists(file_path):
-                self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(file_path)
-                # make sure the state_folder path points to the correct location
-
-            else:
-                print("Autorunner config not found, using default configuration")
-                self.config = AutorunnerConfig()
-        else:
-            self.config = AutorunnerConfig()
+        # Initialize various attributes
+        self._data_load_init_widget = None
+        self.task = None
 
     @property
     def loading_options_path(self) -> str:
@@ -67,20 +47,26 @@ class AutorunnerPtycho(Autorunner):
         self.app = QApplication.instance() or QApplication([])
         while True:
             try:
+                self._initialize_autorunner_config()
                 self._edit_autorunner_settings()
                 self._create_state_folders_and_files()
                 self._get_loading_options()
-                self._load_data()
-                self._get_initialization_options()
-                self._create_projections_object()
-                self._get_cross_correlation_alignment()
+                self._load_data_and_create_task()
+                # self._create_projections_object()
+                self._open_complex_projections_window()
                 self._unwrap_phase()
                 self._run_projection_matching_sequence()
                 break
             except AutorunnerRestarted:
                 print("Restarting autorunner...")
-                if hasattr(self, "task"):
-                    del self.task
+                self.task = None
+
+    def _initialize_autorunner_config(self):
+        if os.path.exists(self._state_file_path):
+            self.config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
+        else:
+            print("Autorunner config not found, using default configuration")
+            self.config = AutorunnerConfig()
 
     @save_state_file_wrapper
     def _create_state_folders_and_files(self):
@@ -94,7 +80,7 @@ class AutorunnerPtycho(Autorunner):
 
         if not self.config.state.use_state_file_settings:
             return
-        
+
         # create the state file
         if not os.path.exists(self._state_file_path):
             self.config.save_to_dict(self._state_file_path)
@@ -132,16 +118,11 @@ class AutorunnerPtycho(Autorunner):
                 show_restart_button=False,
             )
             wrapper.wait_for_user_action()
-            # if self.config.state.use_state_file_settings:
-            self._state_file_path = os.path.join(
-                self.state_folder, "autorunner_state_file.yaml"
-            )
 
             # check that checkpoint exists
             if not self.config.checkpoint.load_from_checkpoint:
                 valid_checkpoint = True
             else:
-                # checkpoints_folder = os.path.join(self.state_folder, "checkpoints")
                 checkpoint_path = os.path.join(
                     self._checkpoints_folder, self.config.checkpoint.which_checkpoint + "_task.h5"
                 )
@@ -162,30 +143,32 @@ class AutorunnerPtycho(Autorunner):
                 else:
                     valid_checkpoint = True
         if self.config.state.update_state_file:
-            print(f"config.state.update_state_file is True -- the autorunner configuration file will be updated after every step.")
+            print(
+                f"config.state.update_state_file is True -- the autorunner configuration file will be updated after every step."
+            )
         if self.config.state.use_state_file_settings:
-            print(f"config.state.use_state_file_settings is True -- the pyxalign objects' settings will be updated with values from the task file.")
-
+            print(
+                f"config.state.use_state_file_settings is True -- the pyxalign objects' settings will be updated with values from the task file."
+            )
 
     @skip_if_loading_from_checkpoint
     def _get_loading_options(self):
-        # path = self.config.loading.initial_options_path
         options_type = self.config.loading.experiment_type
         self.loading_options: BaseOptions = get_loader_options_by_enum(options_type)
         if self.loading_options_path is not None and os.path.exists(self.loading_options_path):
             self.loading_options.load_from_path(self.loading_options_path)
 
-    @skip_if_loading_from_checkpoint
     @save_state_file_wrapper
-    def _load_data(self):
+    @handle_checkpoint(Checkpoints.AFTER_LOADING)
+    def _load_data_and_create_task(self):
         if self.config.interactivity.loading or self.loading_options is None:
-            widget = DataLoadAndInitWidget(
+            content_gui = DataLoadAndInitWidget(
                 load_options=self.loading_options,
                 initialization_config=self.config.initialize,
                 show_finish_button=False,
             )
             wrapper = AutorunnerGUIWrapper(
-                widget,
+                content_gui,
                 title=AutorunnerStep.DATA_LOADER_WINDOW,
                 task=getattr(self, "task", None),
                 checkpoints_folder=self._checkpoints_folder,
@@ -194,16 +177,16 @@ class AutorunnerPtycho(Autorunner):
                 show_sync_button=False,
             )
             wrapper.proceed_button.setEnabled(False)
-            widget.data_loaded.connect(lambda: wrapper.proceed_button.setEnabled(True))
+            content_gui.data_loaded.connect(lambda: wrapper.proceed_button.setEnabled(True))
             wrapper.wait_for_user_action()
-            self._data_load_init_widget = widget
-            self._standardized_data = widget.standard_data
-            self.loading_options = widget.loading_options
+            self.loading_options = content_gui.loading_options
+            complex_projections = content_gui.get_or_build_complex_projections()
         else:
-            self._data_load_init_widget = None
             self._standardized_data = load_dataset_from_arbitrary_options(
                 self.loading_options, int(mp.cpu_count() * 0.8)
             )
+            build_complex_projections(self._standardized_data, self.config.initialize)
+        self.task = LaminographyAlignmentTask(complex_projections=complex_projections)
 
         if self.config.state.update_state_file:
             self.loading_options.save_to_dict(self.loading_options_path)
@@ -212,30 +195,9 @@ class AutorunnerPtycho(Autorunner):
                 self.loading_options
             )
 
-    @skip_if_loading_from_checkpoint
-    @save_state_file_wrapper
-    def _get_initialization_options(self):
-        widget = getattr(self, "_data_load_init_widget", None)
-        self._data_load_init_widget = None
-        if widget is not None:
-            self.config.initialize = widget.init_widget.config
-            self.complex_projections = widget.get_or_build_complex_projections()
-        else:
-            self.complex_projections = build_complex_projections(
-                self._standardized_data, self.config.initialize
-            )
-
-    @handle_checkpoint(Checkpoints.AFTER_LOADING)
-    def _create_projections_object(self):
-        self.task = LaminographyAlignmentTask(complex_projections=self.complex_projections)
-        self._standardized_data = None
-
-        _update_pyxalign_object_settings(self.task, self.config)
-        _update_all_config_parameters(self.task, self.config)
-
     @save_state_file_wrapper
     @handle_checkpoint(Checkpoints.AFTER_COMPLEX_PROJECTIONS_WINDOW)
-    def _get_cross_correlation_alignment(self):
+    def _open_complex_projections_window(self):
         if not self.config.cross_correlation_enabled:
             return
 
@@ -262,8 +224,6 @@ class AutorunnerPtycho(Autorunner):
     @save_state_file_wrapper
     @handle_checkpoint(Checkpoints.AFTER_PHASE_UNWRAPPING_WINDOW)
     def _unwrap_phase(self):
-        print("Perform phase unwrapping...")
-
         if self.config.interactivity.phase_unwrapping:
             content_gui = launch_phase_unwrap_widget(self.task, wait_until_closed=False)
             wrapper = AutorunnerGUIWrapper(
@@ -288,15 +248,13 @@ class AutorunnerPtycho(Autorunner):
             return
 
         if not self.config.interactivity.projection_matching:
-            # need to figure out how to specify sequences first
+            # no automation exists
             pass
-            #  self.task.phase_projections.apply_staged_shift()
         else:
             content_gui = launch_combined_alignment_widget(
                 self.task,
                 include_projection_matching=True,
                 include_cross_correlation=True,
-                # self._options_dict["projection_matching_alignment"]["sequence"],
                 wait_until_closed=False,
             )
             wrapper = AutorunnerGUIWrapper(
@@ -311,19 +269,20 @@ class AutorunnerPtycho(Autorunner):
 
     def save_state_file(self):
         if self.config.state.update_state_file:
-            if hasattr(self, "task"):
+            if self.task is not None:
                 # config parameters are updated after the event completes
-                print("Task updated with state file parameters")
                 _update_all_config_parameters(self.task, self.config)
             self.config.save_to_dict(self._state_file_path)
             print(f"Updated state file at {self._state_file_path}")
         else:
             # should always at least update some state file parameters and all checkpoint parameters
             if self._state_file_path is not None and os.path.exists(self._state_file_path):
-                current_saved_config: AutorunnerConfig = AutorunnerConfig().load_from_path(self._state_file_path)
-                current_saved_config.state.use_state_file_settings = self.config.state.use_state_file_settings
+                current_saved_config: AutorunnerConfig = AutorunnerConfig().load_from_path(
+                    self._state_file_path
+                )
+                current_saved_config.state.use_state_file_settings = (
+                    self.config.state.use_state_file_settings
+                )
                 current_saved_config.state.update_state_file = self.config.state.update_state_file
                 current_saved_config.checkpoint = self.config.checkpoint
                 current_saved_config.save_to_dict(self._state_file_path)
-                print(current_saved_config.state)
-                print(self._state_file_path)
