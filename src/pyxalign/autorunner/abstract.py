@@ -182,11 +182,7 @@ def _update_pyxalign_object_settings(task: LaminographyAlignmentTask, config: Au
 
 def _get_high_level_config_options() -> list[str]:
     high_level_config_options = [
-        "state.state_folder",
         "state.use_state_file_settings",
-        "state.update_state_file",
-        # "state.state_memory_enabled",
-        # "state.use_state_file",
         "state.update_state_file",
         # "interactivity",
         # "cross_correlation_enabled",

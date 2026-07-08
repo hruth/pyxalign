@@ -52,7 +52,6 @@ class AutorunnerPtycho(Autorunner):
                 self._create_state_folders_and_files()
                 self._get_loading_options()
                 self._load_data_and_create_task()
-                # self._create_projections_object()
                 self._open_complex_projections_window()
                 self._unwrap_phase()
                 self._run_projection_matching_sequence()
@@ -105,6 +104,11 @@ class AutorunnerPtycho(Autorunner):
                 folder_dialog_fields=["state.state_folder"],
                 file_dialog_fields=["loading.initial_options_path", "checkpoint.custom_task_path"],
                 label="Update Autorunner Configuration",
+                skip_fields=[
+                    "interactivity.complex_projections_window",
+                    "interactivity.phase_unwrapping",
+                    "interactivity.phase_projections_window",
+                ],
                 wait_until_closed=False,
             )
             wrapper = AutorunnerGUIWrapper(
@@ -170,7 +174,7 @@ class AutorunnerPtycho(Autorunner):
             wrapper = AutorunnerGUIWrapper(
                 content_gui,
                 title=AutorunnerStep.DATA_LOADER_WINDOW,
-                task=getattr(self, "task", None),
+                task=self.task,
                 checkpoints_folder=self._checkpoints_folder,
                 config=self.config,
                 state_file_path=self._state_file_path,
@@ -185,7 +189,7 @@ class AutorunnerPtycho(Autorunner):
             self._standardized_data = load_dataset_from_arbitrary_options(
                 self.loading_options, int(mp.cpu_count() * 0.8)
             )
-            build_complex_projections(self._standardized_data, self.config.initialize)
+            complex_projections = build_complex_projections(self._standardized_data, self.config.initialize)
         self.task = LaminographyAlignmentTask(complex_projections=complex_projections)
 
         if self.config.state.update_state_file:
@@ -201,7 +205,7 @@ class AutorunnerPtycho(Autorunner):
         if not self.config.cross_correlation_enabled:
             return
 
-        if self.config.interactivity.cross_correlation:
+        if self.config.interactivity.complex_projections_window:
             content_gui = launch_combined_alignment_widget(
                 self.task,
                 include_projection_matching=False,
@@ -218,8 +222,8 @@ class AutorunnerPtycho(Autorunner):
             )
             wrapper.wait_for_user_action()
         else:
-            self.task.get_cross_correlation_shift(plot_results=False)
-            self.task.complex_projections.apply_staged_shift()
+            # add automation code here (in the future)
+            pass
 
     @save_state_file_wrapper
     @handle_checkpoint(Checkpoints.AFTER_PHASE_UNWRAPPING_WINDOW)
@@ -238,7 +242,8 @@ class AutorunnerPtycho(Autorunner):
             content_gui.phase_unwrapped.connect(lambda: wrapper.proceed_button.setEnabled(True))
             wrapper.wait_for_user_action()
         else:
-            self.task.get_unwrapped_phase()
+            # add automation code here (in the future)
+            pass
         self.task.complex_projections = None
 
     @save_state_file_wrapper
@@ -247,10 +252,7 @@ class AutorunnerPtycho(Autorunner):
         if not self.config.projection_matching_enabled:
             return
 
-        if not self.config.interactivity.projection_matching:
-            # no automation exists
-            pass
-        else:
+        if self.config.interactivity.phase_projections_window:
             content_gui = launch_combined_alignment_widget(
                 self.task,
                 include_projection_matching=True,
@@ -266,6 +268,9 @@ class AutorunnerPtycho(Autorunner):
                 state_file_path=self._state_file_path,
             )
             wrapper.wait_for_user_action()
+        else:
+            # add automation code here (in the future)
+            pass
 
     def save_state_file(self):
         if self.config.state.update_state_file:
