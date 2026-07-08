@@ -29,6 +29,44 @@ from pyxalign.io.loaders.base import StandardData
 from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
+def build_complex_projections(
+    standard_data: StandardData,
+    config: InitializationConfig,
+) -> ComplexProjections:
+    """Build a ComplexProjections object from a StandardData and an InitializationConfig."""
+    new_array_size = standard_data.get_minimum_size_for_projection_array()
+    new_array_size += config.pad
+    projection_array = convert_projection_dict_to_array(
+        standard_data.projections, new_array_size, pad_with_mode=True
+    )
+
+    projection_options = ProjectionOptions()
+    projection_options.experiment.laminography_angle = config.laminography_angle
+    projection_options.experiment.pixel_size = standard_data.pixel_size
+    if config.rotation_angle != 0:
+        projection_options.input_processing.rotation = RotationOptions(
+            enabled=True, angle=config.rotation_angle
+        )
+    if config.shear_angle != 0:
+        projection_options.input_processing.shear = ShearOptions(
+            enabled=True, angle=config.shear_angle
+        )
+
+    complex_projections = ComplexProjections(
+        projections=projection_array,
+        angles=standard_data.angles,
+        scan_numbers=standard_data.scan_numbers,
+        options=projection_options,
+        probe_positions=list(standard_data.probe_positions.values()),
+        probe=standard_data.probe,
+        skip_pre_processing=False,
+        file_paths=list(standard_data.file_paths.values()),
+    )
+    if config.remove_scan_numbers is not None:
+        complex_projections.drop_projections(config.remove_scan_numbers)
+    return complex_projections
+
+
 class InitializationConfigWidget(QWidget):
     """
     Widget for editing InitializationConfig with StandardDataViewer.
@@ -137,42 +175,25 @@ class InitializationConfigWidget(QWidget):
             self._array_viewer.close()
             self._array_viewer = None
 
-        new_array_size = self._standard_data.get_minimum_size_for_projection_array()
-        new_array_size += self.config.pad
-        projection_array = convert_projection_dict_to_array(
-            self._standard_data.projections, new_array_size, pad_with_mode=True
-        )
-
-        projection_options = ProjectionOptions()
-        projection_options.experiment.laminography_angle = self.config.laminography_angle
-        projection_options.experiment.pixel_size = self._standard_data.pixel_size
-        if self.config.rotation_angle != 0:
-            projection_options.input_processing.rotation = RotationOptions(
-                enabled=True, angle=self.config.rotation_angle
-            )
-        if self.config.shear_angle != 0:
-            projection_options.input_processing.shear = ShearOptions(
-                enabled=True, angle=self.config.shear_angle
-            )
-
-        complex_projections = ComplexProjections(
-            projections=projection_array,
-            angles=self._standard_data.angles,
-            scan_numbers=self._standard_data.scan_numbers,
-            options=projection_options,
-            probe_positions=list(self._standard_data.probe_positions.values()),
-            probe=self._standard_data.probe,
-            skip_pre_processing=False,
-            file_paths=list(self._standard_data.file_paths.values()),
-        )
-        if self.config.remove_scan_numbers is not None:
-            complex_projections.drop_projections(self.config.remove_scan_numbers)
+        complex_projections = build_complex_projections(self._standard_data, self.config)
 
         self.complex_projections = complex_projections
         self._config_at_last_initialize = copy.deepcopy(self.config)
         self._array_viewer = ArrayViewer(array3d=complex_projections.data)
         self._array_viewer.setWindowTitle("Projection Array Preview")
         self._array_viewer.show()
+
+    def get_or_build_complex_projections(self) -> ComplexProjections:
+        """Return the cached preview if the config hasn't changed since it was built, otherwise rebuild."""
+        config_unchanged = (
+            self._config_at_last_initialize is not None
+            and self.config == self._config_at_last_initialize
+        )
+        if self.complex_projections is not None and config_unchanged:
+            return self.complex_projections
+        self.complex_projections = build_complex_projections(self._standard_data, self.config)
+        self._config_at_last_initialize = copy.deepcopy(self.config)
+        return self.complex_projections
 
     def closeEvent(self, event):
         if self._array_viewer is not None:

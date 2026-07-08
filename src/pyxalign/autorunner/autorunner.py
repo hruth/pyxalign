@@ -3,8 +3,6 @@ import multiprocessing as mp
 from PyQt5.QtWidgets import QApplication
 
 from pyxalign.api.options.base import BaseOptions
-from pyxalign.api.options.projections import ProjectionOptions
-from pyxalign.api.options.transform import RotationOptions, ShearOptions
 from pyxalign.autorunner.abstract import (
     Autorunner,
     save_state_file_wrapper,
@@ -16,16 +14,15 @@ from pyxalign.autorunner.abstract import (
 )
 from pyxalign.autorunner.config import AutorunnerConfig
 from pyxalign.autorunner.enums import AutorunnerStep, Checkpoints
-from pyxalign.data_structures.projections import  ComplexProjections
 from pyxalign.data_structures.task import LaminographyAlignmentTask
+from pyxalign.interactions.autorunner.data_load_and_init_widget import (
+    DataLoadAndInitWidget,
+)
 from pyxalign.interactions.autorunner.initialization_widget import (
-    InitializationConfigWidget,
-    launch_initialization_config_widget,
+    build_complex_projections,
 )
 from pyxalign.interactions.autorunner.wrapper import AutorunnerGUIWrapper, AutorunnerRestarted
 from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
-from pyxalign.interactions.io.loader import launch_data_loader_widget
-from pyxalign.interactions.sidebar_navigator import SidebarNavigator
 from pyxalign.interactions.mask import launch_mask_builder
 from pyxalign.interactions.options.options_editor import launch_basic_options_editor
 from pyxalign.interactions.dialog_defaults import set_default_dialog_dir
@@ -42,7 +39,6 @@ from pyxalign.io.loaders.maps import (
     get_experiment_type_enum_from_options,
     get_loader_options_by_enum,
 )
-from pyxalign.io.loaders.utils import convert_projection_dict_to_array
 
 
 class AutorunnerPtycho(Autorunner):
@@ -183,18 +179,13 @@ class AutorunnerPtycho(Autorunner):
     @save_state_file_wrapper
     def _load_data(self):
         if self.config.interactivity.loading or self.loading_options is None:
-            data_loader_gui = launch_data_loader_widget(self.loading_options)
-            init_widget = InitializationConfigWidget(
-                standard_data=None,
+            widget = DataLoadAndInitWidget(
+                load_options=self.loading_options,
                 initialization_config=self.config.initialize,
+                show_finish_button=False,
             )
-
-            sidebar = SidebarNavigator()
-            sidebar.addPage(data_loader_gui, "Data Loader")
-            sidebar.addPage(init_widget, "Initialization")
-
             wrapper = AutorunnerGUIWrapper(
-                sidebar,
+                widget,
                 title=AutorunnerStep.DATA_LOADER_WINDOW,
                 task=getattr(self, "task", None),
                 checkpoints_folder=self._checkpoints_folder,
@@ -203,19 +194,13 @@ class AutorunnerPtycho(Autorunner):
                 show_sync_button=False,
             )
             wrapper.proceed_button.setEnabled(False)
-
-            def _on_data_loaded():
-                wrapper.proceed_button.setEnabled(True)
-                init_widget.setStandardData(data_loader_gui.loaded_data)
-                sidebar.setCurrentPage(1)
-
-            data_loader_gui.data_loaded_signal.connect(_on_data_loaded)
+            widget.data_loaded.connect(lambda: wrapper.proceed_button.setEnabled(True))
             wrapper.wait_for_user_action()
-            self._init_widget = init_widget
-            self._standardized_data = data_loader_gui.loaded_data
-            self.loading_options = data_loader_gui.options
+            self._data_load_init_widget = widget
+            self._standardized_data = widget.standard_data
+            self.loading_options = widget.loading_options
         else:
-            self._init_widget = None
+            self._data_load_init_widget = None
             self._standardized_data = load_dataset_from_arbitrary_options(
                 self.loading_options, int(mp.cpu_count() * 0.8)
             )
@@ -223,7 +208,6 @@ class AutorunnerPtycho(Autorunner):
         if self.config.state.update_state_file:
             self.loading_options.save_to_dict(self.loading_options_path)
             print(f"Loading options saved to: {self.loading_options_path}")
-            # update autorunner config
             self.config.loading.experiment_type = get_experiment_type_enum_from_options(
                 self.loading_options
             )
@@ -231,72 +215,15 @@ class AutorunnerPtycho(Autorunner):
     @skip_if_loading_from_checkpoint
     @save_state_file_wrapper
     def _get_initialization_options(self):
-        init_widget = getattr(self, "_init_widget", None)
-        self._init_widget = None
-
-        if init_widget is not None:
-            # This is what runs currently, other options havent been tested but will 
-            # come up in non interactive case 
-            content_gui = init_widget
-        # elif self.config.interactivity.initialization:
-        #     content_gui = launch_initialization_config_widget(
-        #         self._standardized_data, self.config.initialize, wait_until_closed=False
-        #     )
-        #     wrapper = AutorunnerGUIWrapper(
-        #         content_gui,
-        #         title=AutorunnerStep.INITIALIZATION_WINDOW,
-        #         task=getattr(self, "task", None),
-        #         checkpoints_folder=self._checkpoints_folder,
-        #         config=self.config,
-        #         state_file_path=self._state_file_path,
-        #         show_sync_button=False,
-        #     )
-        #     wrapper.wait_for_user_action()
+        widget = getattr(self, "_data_load_init_widget", None)
+        self._data_load_init_widget = None
+        if widget is not None:
+            self.config.initialize = widget.init_widget.config
+            self.complex_projections = widget.get_or_build_complex_projections()
         else:
-            self.complex_projections = self._build_complex_projections()
-            return
-
-        self.config.initialize = content_gui.config
-        config_changed = (
-            content_gui._config_at_last_initialize is None
-            or content_gui.config != content_gui._config_at_last_initialize
-        )
-        self.complex_projections = content_gui.complex_projections
-        if self.complex_projections is None or config_changed:
-            self.complex_projections = self._build_complex_projections()
-
-    def _build_complex_projections(self) -> ComplexProjections:
-        new_array_size = self._standardized_data.get_minimum_size_for_projection_array()
-        new_array_size += self.config.initialize.pad
-        projection_array = convert_projection_dict_to_array(
-            self._standardized_data.projections, new_array_size, pad_with_mode=True
-        )
-
-        projection_options = ProjectionOptions()
-        projection_options.experiment.laminography_angle = self.config.initialize.laminography_angle
-        projection_options.experiment.pixel_size = self._standardized_data.pixel_size
-        if self.config.initialize.rotation_angle != 0:
-            projection_options.input_processing.rotation = RotationOptions(
-                enabled=True, angle=self.config.initialize.rotation_angle
+            self.complex_projections = build_complex_projections(
+                self._standardized_data, self.config.initialize
             )
-        if self.config.initialize.shear_angle != 0:
-            projection_options.input_processing.shear = ShearOptions(
-                enabled=True, angle=self.config.initialize.shear_angle
-            )
-
-        complex_projections = ComplexProjections(
-            projections=projection_array,
-            angles=self._standardized_data.angles,
-            scan_numbers=self._standardized_data.scan_numbers,
-            options=projection_options,
-            probe_positions=list(self._standardized_data.probe_positions.values()),
-            probe=self._standardized_data.probe,
-            skip_pre_processing=False,
-            file_paths=list(self._standardized_data.file_paths.values()),
-        )
-        if self.config.initialize.remove_scan_numbers is not None:
-            complex_projections.drop_projections(self.config.initialize.remove_scan_numbers)
-        return complex_projections
 
     @handle_checkpoint(Checkpoints.AFTER_LOADING)
     def _create_projections_object(self):

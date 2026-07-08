@@ -255,19 +255,6 @@ class MainLoadingWidget(QWidget):
 
 
 @switch_to_matplotlib_qt_backend
-def launch_data_loader_widget(
-    load_options: Optional[OptionsClass] = None,
-) -> SelectLoadSettingsWidget:
-    """Create and return a data loader widget without running the event loop.
-
-    Intended for embedding inside an AutorunnerGUIWrapper. The caller is
-    responsible for showing the widget and running the event loop.
-    """
-    QApplication.instance() or QApplication([])
-    return SelectLoadSettingsWidget(load_options)
-
-
-@switch_to_matplotlib_qt_backend
 def launch_data_loader(
     load_options: Optional[OptionsClass] = None,
 ) -> tuple[Union[StandardData, dict[str, StandardData]], OptionsClass]:

@@ -1,5 +1,8 @@
 from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
 from ..interactions.io.loader import launch_data_loader
+from ..interactions.autorunner.data_load_and_init_widget import (
+    launch_data_loader_and_initialization,
+)
 from ..interactions.viewers.xrf import (
     launch_xrf_projections_viewer,
     launch_xrf_volume_viewer,
@@ -28,6 +31,7 @@ __all__ = [
     "launch_cross_correlation_gui",
     "launch_mask_builder",
     "launch_data_loader",
+    "launch_data_loader_and_initialization",
     "launch_mask_selection_from_roi",
     "launch_crop_window_selection",
     "launch_phase_unwrap_widget",
