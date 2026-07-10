@@ -263,7 +263,7 @@ class CombinedAlignmentWidget(SidebarNavigator):
 
 
 @switch_to_matplotlib_qt_backend
-def launch_combined_alignment_widget(
+def launch_projection_and_alignment_viewer(
     task: "t.LaminographyAlignmentTask",
     updated_settings_for_pma_widget: Optional[list[dict]] = None,
     include_projection_matching: bool = True,
@@ -292,7 +292,7 @@ def launch_combined_alignment_widget(
     Example:
         Launch the combined alignment GUI::
 
-            gui = pyxalign.gui.launch_combined_alignment_widget(task)
+            gui = pyxalign.gui.launch_projection_and_alignment_viewer(task)
     """
     app = QApplication.instance() or QApplication([])
     gui = CombinedAlignmentWidget(
@@ -320,7 +320,7 @@ def main():
     task = LaminographyAlignmentTask()
 
     # Create and show the widget
-    widget = launch_combined_alignment_widget(task)
+    widget = launch_projection_and_alignment_viewer(task)
 
     sys.exit(app.exec_())
 

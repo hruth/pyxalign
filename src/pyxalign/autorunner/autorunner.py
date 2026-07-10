@@ -17,7 +17,7 @@ from pyxalign.data_structures.task import LaminographyAlignmentTask
 from pyxalign.interactions.autorunner.data_load_and_init_widget import DataLoadAndInitWidget
 from pyxalign.autorunner.support import build_complex_projections
 from pyxalign.interactions.autorunner.wrapper import AutorunnerGUIWrapper, AutorunnerRestarted
-from pyxalign.interactions.combined_viewer import launch_combined_alignment_widget
+from pyxalign.interactions.combined_viewer import launch_projection_and_alignment_viewer
 from pyxalign.interactions.options.options_editor import launch_basic_options_editor
 from pyxalign.interactions.dialog_defaults import set_default_dialog_dir
 from pyxalign.interactions.phase_unwrap import launch_phase_unwrap_widget
@@ -206,7 +206,7 @@ class AutorunnerPtycho(Autorunner):
             return
 
         if self.config.interactivity.complex_projections_window:
-            content_gui = launch_combined_alignment_widget(
+            content_gui = launch_projection_and_alignment_viewer(
                 self.task,
                 include_projection_matching=False,
                 include_cross_correlation=True,
@@ -253,7 +253,7 @@ class AutorunnerPtycho(Autorunner):
             return
 
         if self.config.interactivity.phase_projections_window:
-            content_gui = launch_combined_alignment_widget(
+            content_gui = launch_projection_and_alignment_viewer(
                 self.task,
                 include_projection_matching=True,
                 include_cross_correlation=True,
