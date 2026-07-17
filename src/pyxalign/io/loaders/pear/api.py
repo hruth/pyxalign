@@ -1,3 +1,4 @@
+import numpy as np
 from pyxalign.io.loaders.base import StandardData
 import pyxalign.io.loaders.pear as pear
 from pyxalign.io.loaders.pear.utils import load_experiment
@@ -38,7 +39,7 @@ def load_data_from_pear_format(
 
         To load PEAR data, you need to specify (1) the folder containing
         the results and (2) a file-pattern that specifies which data to
-        load from the scan folder. 
+        load from the scan folder.
         In this example, specify that we want to load the data with the
         suffix 'Ndp128'. Note the inclusion of a wildcard character *::
 

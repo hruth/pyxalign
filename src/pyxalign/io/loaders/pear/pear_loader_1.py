@@ -44,8 +44,12 @@ class PearLoaderVersion1(PEARNestedLoader):
         self.probe_positions = {}
         for scan_number in self.scan_numbers:
             file_path = self.selected_projection_file_paths[scan_number]
-            with h5py.File(file_path) as F:
-                self.probe_positions[scan_number] = F["positions_px"][()]
+            try:
+                with h5py.File(file_path, "r") as F:
+                    self.probe_positions[scan_number] = F["positions_px"][()]
+            except KeyError as ex:
+                self.probe_positions[scan_number] = None
+                print(f"No positions found for scan {scan_number}")
 
     @timer()
     def load_projection_params(self):

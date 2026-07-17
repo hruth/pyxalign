@@ -111,3 +111,19 @@ class StandardData:
                 np.max([v.shape[1] for v in self.projections.values()]),
             )
         ).astype(int)
+
+    def _clean_up_missing_probe_positions(self):
+        """Remove scans where probe position data was not loaded"""
+        remove = [
+            (i, scan)
+            for i, (scan, pos) in enumerate(self.probe_positions.items())
+            if pos is None
+        ]
+        if len(remove) == 0:
+            return
+        remove_idx, remove_scans = zip(*remove)
+        self.angles = np.delete(self.angles, remove_idx)
+        self.scan_numbers = np.delete(self.scan_numbers, remove_idx)
+        for scan in remove_scans:
+            del self.projections[scan]
+            del self.probe_positions[scan]
