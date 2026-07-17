@@ -138,33 +138,31 @@ class Volume:
             else:
                 sinogram = projections
 
+        # Allocate self.data before creating astra config so it can be linked
+        # directly as ASTRA's output buffer, avoiding a separate copy.
+        volume_shape = (
+            self.scan_geometry_config["iVolZ"],
+            self.scan_geometry_config["iVolX"],
+            self.scan_geometry_config["iVolY"],
+        )
+        if self.data is None or self.data.shape != volume_shape:
+            self.data = np.empty(volume_shape, dtype=np.float32)
+
         if self.astra_config is None:
-            # allocate memory for volume and projections, and store projections
             self.astra_config = reconstruct.create_astra_reconstructor_config(
                 sinogram,
                 self.object_geometries,
                 self.options.astra.algorithm_type,
+                output_volume=self.data,
             )
         else:
             if update_stored_sinogram:
                 # update the stored projections
                 reconstruct.update_stored_sinogram(sinogram, self.astra_config)
 
-        # size of the 3D reconstruction
-        volume_shape = np.array(
-            [
-                self.scan_geometry_config["iVolZ"],
-                self.scan_geometry_config["iVolX"],
-                self.scan_geometry_config["iVolY"],
-            ]
-        )
-        # device = cp.cuda.Device()
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         cp.cuda.Device(device).use()
-        if self.data is None or not np.all(self.data.shape == volume_shape):
-            self.data = reconstruct.get_3D_reconstruction(self.astra_config)
-        else:
-            self.data[:] = reconstruct.get_3D_reconstruction(self.astra_config)
+        reconstruct.get_3D_reconstruction(self.astra_config, return_data=False)
         cp.cuda.Device(device).use()
         if clear_astra_objects_at_end:
             self.clear_astra_objects()
@@ -350,9 +348,9 @@ class Volume:
     @timer()
     def apply_circular_window(self, circulo: Optional[ArrayType] = None):
         if circulo is None:
-            self.data[:] = self.data * self.get_circular_window()
+            np.multiply(self.data, self.get_circular_window(), out=self.data)
         else:
-            self.data[:] = self.data * circulo
+            np.multiply(self.data, circulo, out=self.data)
 
     def get_circular_window(self, radial_smooth: int, rad_apod: int):
         # was 5 and 0

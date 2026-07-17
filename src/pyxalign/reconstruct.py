@@ -142,12 +142,18 @@ def get_object_geometries(scan_geometry_config: dict, vectors: np.ndarray) -> di
 def create_astra_reconstructor_config(
     sinogram: np.ndarray,
     object_geometries: dict,
-    algorithm_type: str = "BP3D_CUDA"
-) -> tuple[dict, dict]:
+    algorithm_type: str = "BP3D_CUDA",
+    output_volume: Optional[np.ndarray] = None,
+) -> dict:
     astra_config = astra.astra_dict(algorithm_type)
-    astra_config["ReconstructionDataId"] = astra.data3d.create(
-        "-vol", object_geometries["vol_geom"]
-    )
+    if output_volume is not None:
+        astra_config["ReconstructionDataId"] = astra.data3d.link(
+            "-vol", object_geometries["vol_geom"], output_volume
+        )
+    else:
+        astra_config["ReconstructionDataId"] = astra.data3d.create(
+            "-vol", object_geometries["vol_geom"]
+        )
     astra_config["ProjectionDataId"] = astra.data3d.create(
         "-sino", object_geometries["proj_geom"], sinogram.transpose([1, 0, 2])
     )
@@ -174,7 +180,7 @@ def update_stored_sinogram(sinogram: np.ndarray, astra_config: dict):
 
 
 @timer()
-def get_3D_reconstruction(astra_config: Optional[dict] = None) -> np.ndarray:
+def get_3D_reconstruction(astra_config: Optional[dict] = None, return_data: bool = True) -> Optional[np.ndarray]:
     # Create the algorithm object from the configuration structure
     inline_timer = InlineTimer("create astra algorithm ID")
     inline_timer.start()
@@ -188,13 +194,10 @@ def get_3D_reconstruction(astra_config: Optional[dict] = None) -> np.ndarray:
     astra.algorithm.clear()
     inline_timer.end()
 
-    # Retrieve the reconstruction
-    # rec = astra.data3d.get_shared(astra_config['ReconstructionDataId'])
+    if not return_data:
+        return None
+
     reconstruction = astra.data3d.get(astra_config["ReconstructionDataId"])
-
-    # Delete the stored astra data # Is this made null by the clear action?
-    # astra.data3d.delete(astra_config["ProjectionDataId"])
-
     return reconstruction
 
 

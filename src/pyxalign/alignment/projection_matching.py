@@ -576,7 +576,7 @@ class ProjectionMatchingAligner(Aligner):
             if self.options.regularization.use_gpu:
                 self.aligned_projections.volume.data[:] = volume_array.get()
             else:
-                self.aligned_projections.volume.data = volume_array
+                self.aligned_projections.volume.data[:] = volume_array
 
     @timer()
     def apply_positivity_constraint(self):
