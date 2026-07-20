@@ -83,10 +83,8 @@ def check_gpu_list(num_gpus: int, gpu_indices: List[int]):
 def pin_memory(array: np.ndarray, force_repin: bool = False) -> np.ndarray:
     # Could use cupyx.empty_pinned instead to make it simpler..
     if force_repin or not is_pinned(array):
-        # Allocate pinned memory
-        mem = cp.cuda.alloc_pinned_memory(array.nbytes)
-        # Create a new 1D array from an existing buffer
-        # Just makes a array of zeros with the same data type and size as the buffer
+        # Bypass CuPy's pinned memory pool to avoid its over-allocation overhead
+        mem = cp.cuda.PinnedMemoryPointer(cp.cuda.PinnedMemory(array.nbytes, 0), 0)
         ret = np.frombuffer(mem, array.dtype, array.size).reshape(array.shape)
         ret[...] = array
         return ret
@@ -96,12 +94,15 @@ def pin_memory(array: np.ndarray, force_repin: bool = False) -> np.ndarray:
 
 @timer_utils.timer()
 def create_empty_pinned_array(shape: tuple, dtype: type[float]):
-    return cupyx.empty_pinned(shape=shape, dtype=dtype)
+    nbytes = int(np.prod(shape)) * np.dtype(dtype).itemsize
+    mem = cp.cuda.PinnedMemoryPointer(cp.cuda.PinnedMemory(nbytes, 0), 0)
+    return np.frombuffer(mem, dtype=dtype, count=int(np.prod(shape))).reshape(shape)
 
 
 @timer_utils.timer()
 def create_empty_pinned_array_like(array: ArrayType):
-    return cupyx.empty_like_pinned(array)
+    mem = cp.cuda.PinnedMemoryPointer(cp.cuda.PinnedMemory(array.nbytes, 0), 0)
+    return np.frombuffer(mem, dtype=array.dtype, count=array.size).reshape(array.shape)
 
 
 def is_pinned(array: ArrayType) -> bool:
