@@ -173,7 +173,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             return self.task.complex_projections
 
     def initialize_page(self, task: "t.LaminographyAlignmentTask"):
-        self.pinned_array = create_empty_pinned_array_like(self.projections.data)
+        self.pinned_array = None
         tabs = QTabWidget()
         tabs.setObjectName("main_tabs")
         tabs.setStyleSheet("#main_tabs > QTabBar{font-size: 20px;}")
@@ -217,6 +217,8 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             load_message="Shifting projections for display...",
             block_all_windows=True,
         )(func=shifter.run)
+        if self.pinned_array is None or self.pinned_array.shape != self.projections.data.shape:
+            self.pinned_array = create_empty_pinned_array_like(self.projections.data)
         self.pinned_array = wrapped_shift_func(
             images=self.projections.data,
             shift=shift.astype(r_type),
@@ -462,8 +464,8 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         # Clear the alignment results
         self.clear_alignment_results()
 
-        # Recreate the pinned array with new dimensions
-        self.pinned_array = create_empty_pinned_array_like(projections.data)
+        # Reset the pinned array; it will be allocated lazily when alignment is run
+        self.pinned_array = None
 
     def clear_alignment_results(self):
         """
