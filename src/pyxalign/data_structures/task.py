@@ -2,6 +2,7 @@ from typing import Optional, Union
 import numpy as np
 import h5py
 import copy
+import gc
 
 from pyxalign import gpu_utils
 from pyxalign.api.options.alignment import ProjectionMatchingOptions
@@ -98,6 +99,8 @@ class LaminographyAlignmentTask:
         if self.pma_object is not None:
             if hasattr(self.pma_object, "aligned_projections"):
                 self.pma_object.aligned_projections.volume.clear_astra_objects()
+            self.pma_object = None
+            gc.collect()
 
         # reset timers
         clear_timer_globals()
@@ -163,6 +166,13 @@ class LaminographyAlignmentTask:
             alignment_options=self.options.projection_matching,
         )
         print("Projection-matching shift stored in shift_manager")
+
+        # release memory
+        if self.options.projection_matching.low_memory_mode and self.pma_object is not None:
+            if hasattr(self.pma_object, "aligned_projections"):
+                self.pma_object.aligned_projections.volume.clear_astra_objects()
+            self.pma_object = None
+        gc.collect()
 
         return shift
 

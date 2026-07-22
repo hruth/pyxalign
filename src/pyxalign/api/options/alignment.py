@@ -221,5 +221,7 @@ class ProjectionMatchingOptions(BaseOptions):
     save: SaveOptions = field(default_factory=SaveOptions)
 
     pma_sequence: PMASequenceOptions = field(default_factory=PMASequenceOptions)
+    
+    low_memory_mode: bool = False
 
     # plot: ProjectionMatchingPlotOptions = field(default_factory=ProjectionMatchingPlotOptions)
