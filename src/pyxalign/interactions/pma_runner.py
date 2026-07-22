@@ -942,8 +942,8 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.alignment_results_list += [
             PMAResults(
                 shift,
-                self.task.pma_object.initial_shift,
-                self.task.pma_object.aligned_projections.angles,
+                new_snapshot.initial_shift,
+                new_snapshot.angles,
                 options=options,
                 projection_options=copy.deepcopy(pp.options),
                 scan_numbers=pp.scan_numbers.copy(),
@@ -961,7 +961,7 @@ class PMAMasterWidget(MultiThreadedWidget):
         # Refresh the Applied Shifts tab in the projection viewer
         if self.projection_viewer is not None:
             self.projection_viewer.refresh_applied_shifts_tab()
-        if self.task.pma_object.gui is not None:
+        if self.task.pma_object is not None and self.task.pma_object.gui is not None:
             self.task.pma_object.gui.close()
 
     def get_initial_shift(
@@ -1066,9 +1066,15 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.pma_viewer.deleteLater()
             self.pma_viewer.setParent(None)
             self.pma_viewer = None
-        self.pma_viewer = ProjectionMatchingViewer(self.task.pma_object)
-        self.pma_viewer.initialize_plots(add_stop_button=False)
-        self.pma_viewer.update_plots()
+        if self.task.options.projection_matching.low_memory_mode:
+            self.pma_viewer = QLabel(
+                "Intermediate PMA arrays are not saved when low_memory_mode is enabled."
+            )
+            self.pma_viewer.setAlignment(Qt.AlignCenter)
+        else:
+            self.pma_viewer = ProjectionMatchingViewer(self.task.pma_object)
+            self.pma_viewer.initialize_plots(add_stop_button=False)
+            self.pma_viewer.update_plots()
         self._pma_viewer_layout.addWidget(self.pma_viewer)
 
     def update_results_collection_tab(self):
