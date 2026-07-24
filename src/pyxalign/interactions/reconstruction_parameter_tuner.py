@@ -97,6 +97,9 @@ class ReconstructionParameterTuner(QWidget):
         # Create the UI
         self.init_ui()
 
+        # Auto-display volume if one is already present
+        self._display_existing_volume()
+
     def init_ui(self):
         """Initialize the user interface."""
         # Main layout: horizontal split
@@ -163,6 +166,19 @@ class ReconstructionParameterTuner(QWidget):
         right_layout = QVBoxLayout()
         right_panel.setLayout(right_layout)
 
+        # Delete button row: right-aligned, above the volume group box
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        self.delete_volume_button = QPushButton("delete volume from memory")
+        self.delete_volume_button.setStyleSheet(
+            "background-color: #C0392B; color: white; font-size: 11pt; padding: 4px 14px;"
+        )
+        self.delete_volume_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.delete_volume_button.clicked.connect(self.on_delete_volume_clicked)
+        self.delete_volume_button.setVisible(False)
+        button_row.addWidget(self.delete_volume_button)
+        right_layout.addLayout(button_row)
+
         # Create group box for volume display
         volume_group = QGroupBox("3D Reconstruction Volume")
         volume_group.setStyleSheet("QGroupBox { font-size: 13pt; font-weight: bold; }")
@@ -176,7 +192,6 @@ class ReconstructionParameterTuner(QWidget):
         volume_group_layout.addWidget(self.viewer_container)
         volume_group.setLayout(volume_group_layout)
 
-        # Add volume group to right panel
         right_layout.addWidget(volume_group)
 
         # Add left and right panels to main layout
@@ -999,10 +1014,42 @@ class ReconstructionParameterTuner(QWidget):
             # Reset post-processing values to defaults
             self.reset_postprocessing_values()
 
+            self.delete_volume_button.setVisible(True)
+
         finally:
             # Re-enable button
             self.reconstruct_button.setEnabled(True)
             self.reconstruct_button.setText("Run 3D Reconstruction")
+
+    def on_delete_volume_clicked(self):
+        """Delete the volume array from memory, clear the display, and release ASTRA objects."""
+        self.phase_projections.volume.data = None
+        if self.array_viewer is not None:
+            self.viewer_layout.removeWidget(self.array_viewer)
+            self.array_viewer.deleteLater()
+            self.array_viewer = None
+        self.phase_projections.volume.clear_astra_objects()
+        self.delete_volume_button.setVisible(False)
+        self.update_postprocessing_controls_state(enabled=False)
+
+    def _display_existing_volume(self):
+        """Display volume data already present at phase_projections.volume.data."""
+        if (
+            self.phase_projections.volume is not None
+            and self.phase_projections.volume.data is not None
+        ):
+            self.array_viewer = ArrayViewer(
+                array3d=self.phase_projections.volume.data,
+                options=ArrayViewerOptions(
+                    slider_axis=0,
+                    start_index=int(self.phase_projections.volume.data.shape[0] / 2),
+                ),
+                hide_axis_controls=False,
+                include_array_saving_widget=True,
+            )
+            self.viewer_layout.addWidget(self.array_viewer)
+            self.delete_volume_button.setVisible(True)
+            self.update_postprocessing_controls_state(enabled=True)
 
     def start(self):
         """Show the widget."""

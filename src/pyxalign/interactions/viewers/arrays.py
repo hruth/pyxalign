@@ -163,7 +163,7 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         self.array_viewer = array_viewer
         self.refresh_callback = refresh_callback
         self.device_options = DeviceOptions()
-        self.setWindowTitle("Apply Saved Alignment Shift")
+        self.setWindowTitle("Apply Alignment Shift from File")
 
         # Store geometry parameters from the file
         self.tilt_angle = None
@@ -251,7 +251,7 @@ class ApplySavedAlignmentShiftDialog(QDialog):
         main_layout.addWidget(self.geometry_display_group)
 
         # Apply button
-        apply_button = QPushButton("Apply Saved Alignment Shift")
+        apply_button = QPushButton("Apply Alignment Shift from File")
         apply_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
         apply_button.clicked.connect(self.apply_shift)
         main_layout.addWidget(apply_button)
@@ -436,6 +436,7 @@ class ProjectionViewer(MultiThreadedWidget):
         self.reconstruction_parameter_tuner = None
         self.apply_saved_shift_dialog = None
         self.fsc_calculation_window = None
+        self.mask_gui = None
         self.resize(1300, 900)
 
         if np.iscomplexobj(projections.data) and options.process_func is None:
@@ -486,8 +487,8 @@ class ProjectionViewer(MultiThreadedWidget):
             invert_projections_button = QPushButton("Invert Projections")
             invert_projections_button.clicked.connect(self.invert_projections)
             # create button for applying saved alignment shift
-            apply_saved_shift_button = QPushButton("Apply Saved Alignment Shift")
-            apply_saved_shift_button.clicked.connect(self.open_apply_saved_shift_dialog)
+            apply_shift_from_file_button = QPushButton("Apply Alignment Shift from File")
+            apply_shift_from_file_button.clicked.connect(self.open_apply_saved_shift_dialog)
             # create button for pinning array memory
             pin_array_memory_button = QPushButton("Pin Array Memory")
             pin_array_memory_button.clicked.connect(self.pin_array_memory)
@@ -504,7 +505,7 @@ class ProjectionViewer(MultiThreadedWidget):
                 QLabel("Alignment and Reconstruction:"), alignment=Qt.AlignCenter
             )
             push_button_layout.addWidget(open_reconstruction_tuner_button)
-            push_button_layout.addWidget(apply_saved_shift_button)
+            push_button_layout.addWidget(apply_shift_from_file_button)
             push_button_layout.addWidget(
                 QLabel("Projection Array Manipulation:"), alignment=Qt.AlignCenter
             )
@@ -651,7 +652,11 @@ class ProjectionViewer(MultiThreadedWidget):
         self.apply_saved_shift_dialog.show()
 
     def open_mask_creation_window(self):
-        # build masks from probe positions using the mask builder gui
+        # Close and discard the previous ThresholdSelector (if any) so its
+        # self.masks reference is dropped before allocating a new one.
+        if self.mask_gui is not None:
+            self.mask_gui.close()
+            self.mask_gui = None
         self.mask_gui = launch_mask_builder(
             self.projections,
             wait_until_closed=False,
@@ -659,7 +664,9 @@ class ProjectionViewer(MultiThreadedWidget):
         self.mask_gui.masks_created.connect(self.on_masks_created)
 
     def open_mask_from_roi_window(self):
-        # build masks from probe positions using the mask builder gui
+        if self.mask_gui is not None:
+            self.mask_gui.close()
+            self.mask_gui = None
         self.mask_gui = launch_mask_selection_from_roi(
             self.projections,
             wait_until_closed=False,
