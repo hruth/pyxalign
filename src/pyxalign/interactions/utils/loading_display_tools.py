@@ -117,16 +117,29 @@ def loading_bar_wrapper(load_message: str = "Processing...", block_all_windows: 
             # Block here until done
             loop.exec_()
 
+            # Release stored function arguments immediately so that large arrays
+            # (e.g. pinned GPU memory) are not kept alive by the Worker/thread
+            # objects, which PyQt5 may defer GC-ing due to its internal threading
+            # machinery.
+            worker.args = ()
+            worker.kwargs = {}
+
             # Clean up
             progress_dialog.close()
             thread.quit()
             thread.wait()
 
-            # Re-raise exception if needed
-            if result_container["exception"] is not None:
-                raise result_container["exception"]
+            # Extract result/exception, then clear the container so the
+            # on_done closure no longer holds a reference to the result array.
+            exception = result_container["exception"]
+            result = result_container["result"]
+            result_container.clear()
 
-            return result_container["result"]
+            # Re-raise exception if needed
+            if exception is not None:
+                raise exception
+
+            return result
 
         return wrapper
 

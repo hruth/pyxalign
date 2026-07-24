@@ -30,7 +30,6 @@ from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.api.options.alignment import CrossCorrelationOptions
 from pyxalign.api.options.transform import CropOptions, ShiftOptions
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
-from pyxalign.interactions.custom import action_button_style_sheet
 from pyxalign.interactions.roi_selector import GetBoxBoundsFromROISelector
 from pyxalign.interactions.viewers.arrays import get_projection_title_strings
 from pyxalign.interactions.viewers.base import ArrayViewer, MultiThreadedWidget
@@ -132,6 +131,91 @@ class CCResultsCollection(AlignmentResultsCollection):
             self.projection_viewer.refresh_applied_shifts_tab()
 
 
+class _ProjectionComparisonWindow(QWidget):
+    """Top-level window showing pre- and post-alignment projections side by side.
+
+    Shifting is performed when the window is opened. The shifted array is freed
+    when the window is closed.
+    """
+
+    def __init__(
+        self,
+        projections: "p.Projections",
+        shift: np.ndarray,
+        sort_idx: np.ndarray,
+        title_strings: list,
+        on_closed: Optional[Callable] = None,
+    ):
+        super().__init__()
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("Pre- and Post-Alignment Projections")
+        self._on_closed = on_closed
+        self._pinned_array = None
+
+        # Perform the shift when the window opens
+        shifter = Shifter(ShiftOptions(type=enums.ShiftType.FFT, enabled=True, eliminate_wrapping=True))
+        wrapped_shift_func = loading_bar_wrapper(
+            load_message="Shifting projections for display...",
+            block_all_windows=True,
+        )(func=shifter.run)
+        self._pinned_array = create_empty_pinned_array_like(projections.data)
+        self._pinned_array = wrapped_shift_func(
+            images=projections.data,
+            shift=shift.astype(r_type),
+            pinned_results=self._pinned_array,
+        )
+
+        # Create viewers (must be instance attrs to avoid GC)
+        self._pre_viewer = ArrayViewer(
+            array3d=projections.data,
+            sort_idx=sort_idx,
+            return_index_selector_seperately=True,
+            extra_title_strings_list=title_strings,
+            options=ArrayViewerOptions(
+                additional_spinbox_indexing=[projections.scan_numbers],
+                additional_spinbox_titles=["scan number"],
+            ),
+        )
+        self._post_viewer = ArrayViewer(
+            array3d=self._pinned_array,
+            sort_idx=sort_idx,
+            return_index_selector_seperately=True,
+            extra_title_strings_list=title_strings,
+        )
+
+        # Link sliders
+        self._pre_viewer.slider.valueChanged.connect(self._post_viewer.slider.setValue)
+        self._post_viewer.slider.valueChanged.connect(self._pre_viewer.slider.setValue)
+
+        pre_label = QLabel("Pre Alignment")
+        pre_label.setStyleSheet("QLabel { font-size: 14pt;}")
+        post_label = QLabel("Post Alignment")
+        post_label.setStyleSheet("QLabel { font-size: 14pt;}")
+
+        pre_layout = QVBoxLayout()
+        pre_layout.addWidget(pre_label)
+        pre_layout.addWidget(self._pre_viewer)
+        post_layout = QVBoxLayout()
+        post_layout.addWidget(post_label)
+        post_layout.addWidget(self._post_viewer)
+
+        viewers_layout = QHBoxLayout()
+        viewers_layout.addLayout(pre_layout)
+        viewers_layout.addLayout(post_layout)
+
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(viewers_layout)
+        main_layout.addWidget(self._pre_viewer.indexing_widget)
+        self.setLayout(main_layout)
+        self.resize(1400, 700)
+
+    def closeEvent(self, event):
+        self._pinned_array = None
+        if self._on_closed is not None:
+            self._on_closed()
+        super().closeEvent(event)
+
+
 class CrossCorrelationMasterWidget(MultiThreadedWidget):
     def __init__(
         self,
@@ -161,6 +245,8 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.crop_viewer = None
         self.alignment_results_list: list[AlignmentResults] = []
         self.results_collection_widget = None
+        self.last_shift = None
+        self._comparison_window = None
 
         if task is not None:
             self.initialize_page(task)
@@ -173,7 +259,6 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             return self.task.complex_projections
 
     def initialize_page(self, task: "t.LaminographyAlignmentTask"):
-        self.pinned_array = None
         tabs = QTabWidget()
         tabs.setObjectName("main_tabs")
         tabs.setStyleSheet("#main_tabs > QTabBar{font-size: 20px;}")
@@ -192,13 +277,12 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             block_all_windows=True,
         )(func=self.task.get_cross_correlation_shift)
         shift = wrapped_func(
-            projection_type=self.projection_type,  # should perhaps move the type into "options"
+            projection_type=self.projection_type,
             plot_results=False,
         )
-        # update the main plot
+        # Update the main plot
         self.update_shift_results_plot(shift)
-        # update the collections plot
-        # this should probably be absorbed into a method of alignment results list
+        # Add to the collected results
         self.alignment_results_list += [
             AlignmentResults(
                 shift,
@@ -210,36 +294,10 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         ]
         self.results_collection_widget.update_table()
 
-        shifter = Shifter(
-            ShiftOptions(type=enums.ShiftType.FFT, enabled=True, eliminate_wrapping=True)
-        )
-        wrapped_shift_func = loading_bar_wrapper(
-            load_message="Shifting projections for display...",
-            block_all_windows=True,
-        )(func=shifter.run)
-        if self.pinned_array is None or self.pinned_array.shape != self.projections.data.shape:
-            self.pinned_array = create_empty_pinned_array_like(self.projections.data)
-        self.pinned_array = wrapped_shift_func(
-            images=self.projections.data,
-            shift=shift.astype(r_type),
-            pinned_results=self.pinned_array,
-        )
-        # self.pinned_array = shift_func.run(
-        #     images=self.projections.data,
-        #     shift=shift.astype(r_type),
-        #     pinned_results=self.pinned_array,
-        # )
+        # Store the shift and enable the comparison window button
+        self.last_shift = shift
+        self.view_projections_button.setEnabled(True)
 
-        self.post_alignment_viewer.reinitialize_all(
-            self.pinned_array,
-            sort_idx=self.sort_idx,
-            extra_title_strings_list=self.title_strings,
-        )
-        self.post_alignment_viewer.indexing_widget.spinbox.setValue(
-            self.pre_alignment_viewer.indexing_widget.spinbox.value()
-        )
-        # Enable the ArrayViewer
-        self.post_alignment_viewer.setEnabled(True)
         # Refresh the Applied Shifts tab in the projection viewer
         if self.projection_viewer is not None:
             self.projection_viewer.refresh_applied_shifts_tab()
@@ -250,7 +308,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         if self.projection_type == enums.ProjectionType.PHASE:
             proj = self.task.phase_projections
         else:
-            proj = self.task.complex_projections  # fixed
+            proj = self.task.complex_projections
 
         # Make options editor
         basic_options_list = [
@@ -278,73 +336,43 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         )
         # Make start button
         self.start_button = QPushButton("Start Alignment")
-        # self.start_button.setStyleSheet("QPushButton { background-color: green;}")
         self.start_button.setStyleSheet(action_button_style_sheet)
         self.start_button.clicked.connect(self.start_alignment)
         self.start_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        # add button for showing cropped projections
+
+        # Add button for showing cropped projections
         self.open_crop_viewer_button = QPushButton("Edit Crop Region/Alignment ROI")
         self.open_crop_viewer_button.clicked.connect(self.show_cropped_projections_viewer)
         self.open_crop_viewer_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         self.options_editor.form_layout.addRow("", self.open_crop_viewer_button)
-        # create button layout
+
+        # Button for opening the pre/post alignment comparison window
+        self.view_projections_button = QPushButton("View pre- and post-alignment projections")
+        self.view_projections_button.clicked.connect(self.open_projection_comparison_window)
+        self.view_projections_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.view_projections_button.setEnabled(False)
+
+        # Create button layout
         buttons_layout = QHBoxLayout()
         buttons_layout.setAlignment(Qt.AlignLeft)
         buttons_layout.addWidget(self.start_button)
-        # buttons_layout.addWidget(self.open_crop_viewer_button)
-        # add shift results viewer
+        buttons_layout.addWidget(self.view_projections_button)
+
+        # Add shift results viewer
         self.create_shift_results_plot()
-        # add editor and start button to sub-layout
+
+        # Store sort index and title strings for use by the comparison window
+        self.title_strings = get_projection_title_strings(
+            self.projections.scan_numbers, self.projections.angles
+        )
+        self.sort_idx = np.argsort(proj.angles)
+
+        # Add editor and start button to sub-layout
         inputs_layout = QVBoxLayout()
         inputs_layout.addWidget(self.options_editor, stretch=2)
         inputs_layout.addLayout(buttons_layout)
-        # inputs_layout.addWidget(self.canvas, stretch=1)
-        # inputs_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Preferred, QSizePolicy.Expanding))
-        # inputs_layout.addWidget(self.start_button)
 
-        # Make results display for showing before and after
-        self.title_strings = get_projection_title_strings(
-                self.projections.scan_numbers, self.projections.angles
-            )
-        self.sort_idx = np.argsort(proj.angles)
-        self.pre_alignment_viewer = ArrayViewer(
-            array3d=proj.data,
-            sort_idx=self.sort_idx,
-            return_index_selector_seperately=True,
-            extra_title_strings_list=self.title_strings,
-            options=ArrayViewerOptions(
-                additional_spinbox_indexing=[self.projections.scan_numbers],
-                additional_spinbox_titles=["scan number"],
-            )
-        )
-
-        pre_align_label = QLabel("Pre Alignment")
-        pre_align_label.setStyleSheet("QLabel { font-size: 14pt;}")
-        # viewer for showing aligned data
-        self.post_alignment_viewer = ArrayViewer(return_index_selector_seperately=True)
-        self.post_alignment_viewer.setEnabled(False)  # Initially disabled
-        post_align_label = QLabel("Post Alignment")
-        post_align_label.setStyleSheet("QLabel { font-size: 14pt;}")
-        # link sliders (link the rest at some point later)
-        self.pre_alignment_viewer.slider.valueChanged.connect(
-            self.post_alignment_viewer.slider.setValue
-        )
-        self.post_alignment_viewer.slider.valueChanged.connect(
-            self.pre_alignment_viewer.slider.setValue
-        )
-        # add results to sub-layout
-        pre_align_layout = QVBoxLayout()
-        pre_align_layout.addWidget(pre_align_label)
-        pre_align_layout.addWidget(self.pre_alignment_viewer)
-        post_align_layout = QVBoxLayout()
-        post_align_layout.addWidget(post_align_label)
-        post_align_layout.addWidget(self.post_alignment_viewer)
-        viewers_layout = QHBoxLayout()
-        viewers_layout.addLayout(pre_align_layout)
-        viewers_layout.addLayout(post_align_layout)
         outputs_layout = QVBoxLayout()
-        outputs_layout.addLayout(viewers_layout)
-        outputs_layout.addWidget(self.pre_alignment_viewer.indexing_widget)
         outputs_layout.addWidget(self.canvas)
 
         # Finalize layout
@@ -353,6 +381,24 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         layout.addLayout(outputs_layout)
         alignment_setup_widget.setLayout(layout)
         tabs.addTab(alignment_setup_widget, "Configure && Start")
+
+    def open_projection_comparison_window(self):
+        """Open the pre/post-alignment comparison window, or raise it if already open."""
+        if self._comparison_window is not None and self._comparison_window.isVisible():
+            self._comparison_window.raise_()
+            self._comparison_window.activateWindow()
+            return
+        self._comparison_window = _ProjectionComparisonWindow(
+            projections=self.projections,
+            shift=self.last_shift,
+            sort_idx=self.sort_idx,
+            title_strings=self.title_strings,
+            on_closed=self._on_comparison_window_closed,
+        )
+        self._comparison_window.show()
+
+    def _on_comparison_window_closed(self):
+        self._comparison_window = None
 
     def make_results_tab_layout(self, tabs: QTabWidget):
         self.results_collection_widget = CCResultsCollection(
@@ -402,7 +448,6 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
     def update_crop_options(self):
         self.task.options.cross_correlation.crop = self.crop_viewer.options
         self.crop_viewer.close()
-        # self.options_editor._data.crop.horizontal_range = self.crop_viewer.crop_options
 
     def reinitialize_widget(self, task: "t.LaminographyAlignmentTask"):
         """
@@ -421,15 +466,13 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         -----
         This method will:
         - Update the task reference
-        - Clear the post-alignment viewer
-        - Re-initialize the pre-alignment viewer with new projection data
+        - Close the comparison window if open
+        - Update sort_idx and title_strings
         - Clear the alignment results list
         """
         print("reinitializing widget")
         # Update the task reference
         self.task = task
-
-        # Get the updated projections based on projection_type
 
         projections = self.projections
 
@@ -437,35 +480,18 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         self.title_strings = get_projection_title_strings(
             projections.scan_numbers, projections.angles
         )
-        print("scan numbers length:",len(projections.scan_numbers))
+        print("scan numbers length:", len(projections.scan_numbers))
         self.sort_idx = np.argsort(projections.angles)
-        
-        # Re-initialize the pre-alignment viewer with new data
-        self.pre_alignment_viewer.reinitialize_all(
-            projections.data,
-            sort_idx=self.sort_idx,
-            extra_title_strings_list=self.title_strings,
-        )
 
-        # Update the additional spinbox indexing with new scan numbers
-        if hasattr(self.pre_alignment_viewer, 'additional_spinboxes'):
-            if len(self.pre_alignment_viewer.additional_spinboxes) > 0:
-                # Update the scan number spinbox if it exists
-                self.pre_alignment_viewer.additional_spinbox_indexing = [projections.scan_numbers]
-
-        # Clear the post-alignment viewer
-        if hasattr(self, 'post_alignment_viewer') and self.post_alignment_viewer is not None:
-            # Clear the viewer by reinitializing with empty data
-            empty_array = np.zeros((1, 1, 1))  # Minimal empty array
-            self.post_alignment_viewer.reinitialize_all(empty_array)
-            # Disable the viewer
-            self.post_alignment_viewer.setEnabled(False)
+        # Close the comparison window and reset state
+        if self._comparison_window is not None:
+            self._comparison_window.close()
+            self._comparison_window = None
+        self.last_shift = None
+        self.view_projections_button.setEnabled(False)
 
         # Clear the alignment results
         self.clear_alignment_results()
-
-        # Reset the pinned array; it will be allocated lazily when alignment is run
-        self.pinned_array = None
 
     def clear_alignment_results(self):
         """
@@ -476,7 +502,7 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         alignment results. It clears:
         - Alignment results list
         - Results collection table
-        - Post-alignment viewer (disables and clears it)
+        - Comparison window (if open)
         - Cross-correlation shift plot
         """
         # Clear the alignment results list
@@ -490,13 +516,14 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
         if hasattr(self.results_collection_widget, 'clear_plots'):
             self.results_collection_widget.clear_plots()
 
-        # Clear and disable the post-alignment viewer
-        if hasattr(self, 'post_alignment_viewer') and self.post_alignment_viewer is not None:
-            # Clear the viewer by reinitializing with empty data
-            empty_array = np.zeros((1, 1, 1))  # Minimal empty array
-            self.post_alignment_viewer.reinitialize_all(empty_array)
-            # Disable the viewer
-            self.post_alignment_viewer.setEnabled(False)
+        # Close the comparison window if open
+        if self._comparison_window is not None:
+            self._comparison_window.close()
+            self._comparison_window = None
+
+        # Disable the view projections button
+        self.view_projections_button.setEnabled(False)
+        self.last_shift = None
 
         # Clear the cross-correlation shift plot
         if hasattr(self, 'plot_item') and self.plot_item is not None:
@@ -504,35 +531,6 @@ class CrossCorrelationMasterWidget(MultiThreadedWidget):
             # Remove the legend if it exists
             if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None and self.plot_item.legend.scene() is not None:
                 self.plot_item.legend.scene().removeItem(self.plot_item.legend)
-
-    # def clear_alignment_results(self):
-    #     """
-    #     Clear all alignment results from the collection.
-
-    #     This method is called when shift operations (apply or undo) are performed
-    #     on the ProjectionViewer, as those operations invalidate previously computed
-    #     alignment results.
-    #     """
-    #     # Clear the alignment results list
-    #     self.alignment_results_list.clear()
-
-    #     # Update the results collection widget to reflect empty results
-    #     self.results_collection_widget.alignment_results_list = self.alignment_results_list
-    #     # Clear all rows from the results table
-    #     self.results_collection_widget.results_table.setRowCount(0)
-    #     # Clear the plots
-    #     if hasattr(self.results_collection_widget, "clear_plots"):
-    #         self.results_collection_widget.clear_plots()
-
-    #     # Connect shift operations in ProjectionViewer to clear CC results
-    #     if (
-    #         hasattr(self.projection_viewer, "all_shifts_viewer")
-    #         and self.projection_viewer.all_shifts_viewer is not None
-    #     ):
-    #         # Connect the apply and undo shift buttons to clear CC results
-    #         self.projection_viewer.all_shifts_viewer.shift_operation_performed.connect(
-    #             self.cc_widget.clear_alignment_results
-    #         )
 
 
 @switch_to_matplotlib_qt_backend
@@ -606,7 +604,7 @@ if __name__ == "__main__":
 
     # must enter a path to the task file
     parser = argparse.ArgumentParser()
-    parser.add_argument("task_path", help="Path to a task file")
+    parser.add_argument("task_path", help="Path to a path to a task file")
     args = parser.parse_args()
     task_path = args.task_path
 
