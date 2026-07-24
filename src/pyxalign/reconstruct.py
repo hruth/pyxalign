@@ -144,6 +144,7 @@ def create_astra_reconstructor_config(
     object_geometries: dict,
     algorithm_type: str = "BP3D_CUDA",
     output_volume: Optional[np.ndarray] = None,
+    link_sinogram: bool = False,
 ) -> dict:
     astra_config = astra.astra_dict(algorithm_type)
     if output_volume is not None:
@@ -154,9 +155,16 @@ def create_astra_reconstructor_config(
         astra_config["ReconstructionDataId"] = astra.data3d.create(
             "-vol", object_geometries["vol_geom"]
         )
-    astra_config["ProjectionDataId"] = astra.data3d.create(
-        "-sino", object_geometries["proj_geom"], sinogram.transpose([1, 0, 2])
-    )
+    if link_sinogram:
+        # sinogram is already C-contiguous in [H, n_proj, W] (ASTRA's native layout);
+        # link directly to avoid a copy.
+        astra_config["ProjectionDataId"] = astra.data3d.link(
+            "-sino", object_geometries["proj_geom"], sinogram
+        )
+    else:
+        astra_config["ProjectionDataId"] = astra.data3d.create(
+            "-sino", object_geometries["proj_geom"], sinogram.transpose([1, 0, 2])
+        )
     return astra_config
 
 

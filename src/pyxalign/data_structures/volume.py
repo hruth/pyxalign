@@ -15,7 +15,7 @@ from pyxalign.api.enums import SARTInitialVolumes
 from pyxalign.api.options.device import DeviceOptions
 from pyxalign.api.options.plotting import PlotDataOptions
 from pyxalign.api.options.transform import RotationOptions
-from pyxalign.gpu_utils import create_empty_pinned_array_like, get_scipy_module, memory_releasing_error_handler, pin_memory
+from pyxalign.gpu_utils import create_empty_pinned_array, create_empty_pinned_array_like, get_scipy_module, memory_releasing_error_handler, pin_memory
 
 import pyxalign.image_processing as ip
 from pyxalign import reconstruct
@@ -50,6 +50,7 @@ class Volume:
         self.is_initialized: bool = False
         self.optimal_rotation_angles: Sequence[float] = [0, 0, 0]
         self.data = None
+        self.sinogram_for_astra = None
         self.forward_projections = None
         self.sart_error = None
 
@@ -122,7 +123,6 @@ class Volume:
 
         if update_stored_sinogram:
             # Prepare the projections before doing the back-projection
-            # if (sinogram is None) and update_stored_sinogram:
             projections = self.projections.data
             if idx_reconstruct is not None:
                 projections = self.projections.data[idx_reconstruct]
@@ -138,6 +138,18 @@ class Volume:
             else:
                 sinogram = projections
 
+            # Transpose the filtered sinogram into a C-contiguous [H, n_proj, W] pinned
+            # buffer so ASTRA can link to it directly instead of making its own copy.
+            astra_sino_shape = (sinogram.shape[1], sinogram.shape[0], sinogram.shape[2])
+            if self.sinogram_for_astra is None or self.sinogram_for_astra.shape != astra_sino_shape:
+                self.sinogram_for_astra = create_empty_pinned_array(astra_sino_shape, dtype=np.float32)
+            self.sinogram_for_astra[:] = sinogram.transpose([1, 0, 2])
+            if filter_inputs:
+                # Drop refs to free the intermediate [n_proj, H, W] buffer now that
+                # its contents are in sinogram_for_astra.
+                del sinogram
+                pinned_filtered_sinogram = None
+
         # Allocate self.data before creating astra config so it can be linked
         # directly as ASTRA's output buffer, avoiding a separate copy.
         volume_shape = (
@@ -150,15 +162,14 @@ class Volume:
 
         if self.astra_config is None:
             self.astra_config = reconstruct.create_astra_reconstructor_config(
-                sinogram,
+                self.sinogram_for_astra,
                 self.object_geometries,
                 self.options.astra.algorithm_type,
                 output_volume=self.data,
+                link_sinogram=True,
             )
-        else:
-            if update_stored_sinogram:
-                # update the stored projections
-                reconstruct.update_stored_sinogram(sinogram, self.astra_config)
+        # With a linked sinogram the in-place update of sinogram_for_astra above is
+        # sufficient — ASTRA sees the new data without an explicit store call.
 
         astra.set_gpu_index(self.options.astra.back_project_gpu_indices)
         cp.cuda.Device(device).use()
@@ -343,6 +354,7 @@ class Volume:
         self.scan_geometry_config = None
         self.vectors = None
         self.forward_projection_id = None
+        self.sinogram_for_astra = None
         self.is_initialized = False
 
     @timer()
