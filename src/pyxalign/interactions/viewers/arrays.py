@@ -652,26 +652,34 @@ class ProjectionViewer(MultiThreadedWidget):
         self.apply_saved_shift_dialog.show()
 
     def open_mask_creation_window(self):
-        # Close and discard the previous ThresholdSelector (if any) so its
-        # self.masks reference is dropped before allocating a new one.
-        if self.mask_gui is not None:
-            self.mask_gui.close()
-            self.mask_gui = None
+        self._close_mask_gui()
         self.mask_gui = launch_mask_builder(
             self.projections,
             wait_until_closed=False,
         )
         self.mask_gui.masks_created.connect(self.on_masks_created)
+        # Auto-clear the reference when Qt destroys the widget (WA_DeleteOnClose).
+        self.mask_gui.destroyed.connect(lambda: setattr(self, "mask_gui", None))
 
     def open_mask_from_roi_window(self):
-        if self.mask_gui is not None:
-            self.mask_gui.close()
-            self.mask_gui = None
+        self._close_mask_gui()
         self.mask_gui = launch_mask_selection_from_roi(
             self.projections,
             wait_until_closed=False,
         )
         self.mask_gui.masks_created.connect(self.on_masks_created)
+        self.mask_gui.destroyed.connect(lambda: setattr(self, "mask_gui", None))
+
+    def _close_mask_gui(self):
+        """Close and discard any open mask GUI, handling the case where the
+        C++ widget has already been deleted by WA_DeleteOnClose."""
+        if self.mask_gui is None:
+            return
+        try:
+            self.mask_gui.close()
+        except RuntimeError:
+            pass  # C++ object already deleted by Qt
+        self.mask_gui = None
 
     def on_masks_created(self):
         # update viewer so that new masks are shown

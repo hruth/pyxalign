@@ -282,24 +282,24 @@ class ThresholdSelector(QWidget):
         # Stop any playback
         self.timer.stop()
 
-        # Convert masks to binary using final threshold
-        wrapped_clip_masks = loading_bar_wrapper("Constructing masks...")(func=clip_masks)
-        self.masks = wrapped_clip_masks(self.masks, self.threshold)
+        # Convert masks to binary using final threshold (in-place; no thread needed).
+        clipped = clip_masks(self.masks, self.threshold)
 
-        # update Projection object masks
-        new_masks = self.masks
-        if self.projections.masks is None or self.projections.masks.shape != new_masks.shape:
-            self.projections.masks = new_masks
-        else:
-            self.projections.masks[:] = new_masks
+        # Replace projections.masks (always assign, never copy in-place; the in-place
+        # path kept self.masks and projections.masks as separate allocations, preventing
+        # the large float array from being freed when the widget closes).
+        self.projections.masks = clipped
         # update threshold in projection options and record mask source
         self.projections.options.mask_from_positions.threshold = self.threshold
         self.projections.mask_source = MaskSource.PROBE_POSITIONS
-        # print selected threshold value
         print(f"Selected threshold value: {self.threshold}")
 
+        # Release the large masks array from ThresholdSelector; projections.masks now
+        # holds the only reference, so it will be freed when the caller reassigns it.
+        self.masks = None
+
         # Emit and close
-        self.masks_created.emit(self.masks)
+        self.masks_created.emit(self.projections.masks)
         self.close()
 
 

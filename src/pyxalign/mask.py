@@ -321,12 +321,21 @@ def place_patches_fourier_batch(
         input_shape = (input_shape[0], input_shape[1] + padding, input_shape[2] + padding)
 
     impulse_mask = xp.zeros(input_shape[1:], dtype=r_type)
-    padded_patch = xp.zeros_like(impulse_mask)
+
+    # Precompute fft_patch once — the patch is the same for every projection.
+    # Doing this inside the loop wasted N-1 FFT2s and caused a subtle
+    # double-fftshift on iterations > 0 (fftshift reassigned the variable,
+    # so the next iteration would fftshift the already-shifted array again).
+    ph, pw = patch.shape
+    padded_patch = xp.zeros(input_shape[1:], dtype=r_type)
+    padded_patch[:ph, :pw] = patch
+    fft_patch = scipy_module.fft.fft2(scipy_module.fft.fftshift(padded_patch))
+    del padded_patch
+
     masks_out = gpu_utils.create_empty_pinned_array(input_shape, r_type)
     for i in tqdm(range(len(positions))):
         # reset the impulse mask
         impulse_mask[:] = 0
-        padded_patch[:] = 0
 
         # mark impulse locations
         locations = positions[i] * 1
@@ -344,16 +353,8 @@ def place_patches_fourier_batch(
         indices = indices[valid]
         impulse_mask[indices[:, 0], indices[:, 1]] = 1.0
 
-        # pad patch to the same size
-        ph, pw = patch.shape
-        padded_patch[:ph, :pw] = patch
-
-        # Shift patch to center the kernel
-        padded_patch = scipy_module.fft.fftshift(padded_patch)
-
         # Convolution via FFT (using multiplication in Fourier domain)
         fft_mask = scipy_module.fft.fft2(impulse_mask)
-        fft_patch = scipy_module.fft.fft2(padded_patch)
         result = xp.real(scipy_module.fft.ifft2(fft_mask * fft_patch))
         result = scipy_module.fft.fftshift(result)
         result.get(out=masks_out[i])
