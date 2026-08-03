@@ -1,18 +1,13 @@
-# Coding Preferences and Guidelines for PyXAlign
+# Coding Preferences and Guidelines for Pyxalign
 
 This document contains coding preferences and guidelines for Claude Code to follow when working on this project.
 
 ## File Organization
 
 ### Documentation Structure
-- **claude_docs/**: Directory for Claude Code-related documentation
-  - **implementation_notes/**: Design documents, change logs, architecture notes
-  - **tests/**: Test scripts and test documentation
-  - Keep generated documentation (like summaries of changes) in appropriate subdirectories
-  - Don't create documentation files in the project root
+- Don't create documentation files in the project root
 
 ### Code Organization
-- When refactoring, preserve old versions in versioned folders (e.g., `module_v1/`, `module_v2/`)
 - Use `__init__.py` files to maintain clean import paths
 - Prefer absolute imports over relative imports in src code
 
@@ -30,6 +25,7 @@ This document contains coding preferences and guidelines for Claude Code to foll
 - Use descriptive widget names that indicate their purpose
 - Group related widgets into containers for better organization
 - Use StyleSheets for consistent visual styling
+- GUIs that are intended to be used in a stand-alone way (at least some of the time) should have a corresponding "launch" method that users can access when scripting with pyxalign. This "launch" method should be added to `src/pyxalign/gui/__init__.py`.
 
 ### Documentation
 - Use docstrings for all public classes and methods (Google style)
@@ -92,20 +88,6 @@ This document contains coding preferences and guidelines for Claude Code to foll
 - Include duplicate functionality for easy item copying
 - Use scroll areas for variable-length content
 - Disable mouse wheel on combo boxes to prevent accidental changes
-
-## Project-Specific Patterns
-
-### Options Sequencing
-- Each sequence block should represent one complete operation
-- Group related parameters together in blocks
-- Make block boundaries visually obvious
-- Provide both block-level and parameter-level operations
-
-### Alignment Workflows
-- Preserve intermediate results for comparison
-- Track parameter changes that produced each result
-- Allow using previous results as input for next runs
-- Support both interactive and automated workflows
 
 ## Communication
 
@@ -186,3 +168,67 @@ When uncertain about:
 - Don't leave TODO comments without tracking
 - Don't commit commented-out code
 - Don't create files without proper organization
+
+# Claude Code Documentation Directory
+
+This directory contains documentation and resources for Claude Code sessions working on the Pyxalign project.
+
+## Purpose
+
+This directory serves as a knowledge base for Claude Code to:
+- Understand project-specific coding conventions
+- Learn architectural patterns and preferences
+- Access implementation notes and design decisions
+- Find test scripts and examples
+- Maintain consistency across sessions
+
+## Key Files
+
+### CODING_PREFERENCES.md
+The primary reference for how code should be written in this project. Covers:
+- File organization patterns
+- Code style guidelines
+- GUI development preferences
+- Architecture patterns
+- Version control practices
+
+Claude Code should read this file at the start of each session to understand project conventions.
+
+### implementation notes
+Put implementation notes for all changes in `implementation_notes/` 
+Design documents and change summaries for significant features or refactorings. Each note should:
+- Explain the problem being solved
+- Describe the solution approach
+- Document API changes
+- Provide migration guidance
+- Suggest future enhancements
+
+### tests
+Test scripts that verify functionality. These are:
+- Standalone scripts that can run independently
+- Quick verification tools for development
+- Examples of how to use new features
+- Not part of the main test suite
+- Put test scripts in `claude_docs/tests/`
+
+## Maintenance
+
+- Keep documentation up-to-date with code changes
+- Remove obsolete test scripts
+- Don't commit temporary or session-specific files
+
+## Contributing
+
+When adding documentation:
+- Use clear, descriptive filenames
+- Include dates in implementation notes
+- Provide context and rationale, not just facts
+- Link to related code files
+- Keep documentation focused and concise
+
+# manual additions
+- If the says something along the lines of "in general, you should ___" that means you should make a note in the CODING_PREFERENCES.md file with this preference, if it is not already there.
+- You should ask the user for confirmation about any additions to the CODING_PREFERENCES.md file
+- In the work you are doing, if you find things in the repository that suggest there is a "code smell", ask the user if they would like a prompt to use to look into the issue more in a later session. If they say yes, update the document claude_docs/to_do/CODE_SMELLS_TO_ADDRESS.md with a short description of the issue and a prompt to start a claude code session where you will obtain (1) a more detailed characterization of the issue/code smell, (2) an explanation of why this is a code smell with examples, and (3) suggestions for how to fix it.
+- You should generally keep an eye out for ways to make this repo more maintainable, easy to understand, and more like it has been written by an experienced software developer.
+- If anything in this file doesn't make sense and/or is contradictory, notify the user and work with them to update this file appropriately.
