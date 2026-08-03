@@ -464,11 +464,19 @@ class Projections:
                 self.dropped_file_paths[self.scan_numbers[i]] = self.file_paths[i]
 
         def return_modified_array(arr, repin_array: bool):
-            if gpu_utils.is_pinned(self.data) and repin_array:
-                # Repin data if it was already pinned
-                arr = gpu_utils.pin_memory(arr[keep_idx])
-            else:
-                arr = arr[keep_idx]
+            if gpu_utils.is_pinned(arr):
+                # Pinned memory cannot be resized in-place; must allocate new buffer
+                result = (
+                    gpu_utils.pin_memory(arr[keep_idx]) if repin_array else arr[keep_idx].copy()
+                )
+                return result
+            # Compact rows forward in-place: keep_idx is sorted ascending so new_i <= old_i
+            # always holds — no row is overwritten before it is read.
+            # Peak extra memory: one projection frame (the implicit row copy buffer).
+            for new_i, old_i in enumerate(keep_idx):
+                if new_i != old_i:
+                    arr[new_i] = arr[old_i]
+            arr.resize((len(keep_idx),) + arr.shape[1:], refcheck=False)
             return arr
 
         # Remove projections
