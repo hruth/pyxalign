@@ -368,12 +368,16 @@ class PMASequenceViewer(QWidget):
         task: Optional["LaminographyAlignmentTask"] = None,
         projection_viewer: Optional[QWidget] = None,
         on_shift_staged: Optional[Callable[[], None]] = None,
+        on_initialize_with_snapshot: Optional[Callable[[int], None]] = None,
     ):
         super().__init__(parent=parent)
         self.setWindowTitle("PMA Sequence Viewer")
         self.sequence = sequence
         self.task = task
         self.projection_viewer = projection_viewer
+        # Callback invoked when the user wants to use a snapshot as the initial
+        # shift for the next alignment run. Called with the snapshot index.
+        self.on_initialize_with_snapshot = on_initialize_with_snapshot
         # Callback invoked after a snapshot's shift is successfully staged
         # and applied — used by the PMA runner to clear stale alignment
         # results.
@@ -448,9 +452,31 @@ class PMASequenceViewer(QWidget):
         snapshots_layout.addLayout(chain_row)
         snapshots_layout.addWidget(self.results_table)
 
+        self.initialize_with_snapshot_button = QPushButton(
+            "Initialize next alignment with selected snapshot shift"
+        )
+        self.initialize_with_snapshot_button.setStyleSheet(
+            "QPushButton { background-color: #b3d9ff; font-weight: bold; padding: 6px; }"
+            "QPushButton:disabled { background-color: #e0e0e0; color: #888; }"
+        )
+        self.initialize_with_snapshot_button.clicked.connect(
+            self._on_initialize_with_snapshot_clicked
+        )
+        if self.on_initialize_with_snapshot is None:
+            self.initialize_with_snapshot_button.setEnabled(False)
+            self.initialize_with_snapshot_button.setToolTip(
+                "No alignment runner is wired up to this viewer."
+            )
+        else:
+            self.initialize_with_snapshot_button.setEnabled(False)
+            self.initialize_with_snapshot_button.setToolTip(
+                "Select a snapshot to enable this button."
+            )
+        snapshots_layout.addWidget(self.initialize_with_snapshot_button)
+
         self.stage_shift_button = QPushButton("Stage && Apply Selected Snapshot Shift")
         self.stage_shift_button.setStyleSheet(
-            "QPushButton { background-color: #b3d9ff; font-weight: bold; padding: 6px; }"
+            "QPushButton { background-color: #d4edda; font-weight: bold; padding: 6px; }"
             "QPushButton:disabled { background-color: #e0e0e0; color: #888; }"
         )
         self.stage_shift_button.clicked.connect(self._on_stage_shift_clicked)
@@ -761,7 +787,7 @@ class PMASequenceViewer(QWidget):
     # ---- stage shift ----------------------------------------------------
 
     def _update_stage_button_state(self, snapshot: Optional[PMASnapshot]) -> None:
-        """Disable the stage button if the snapshot has no usable final shift."""
+        """Disable action buttons when the selected snapshot has no usable final shift."""
         if self.task is None:
             # The no-task disabled state was set in `_build_ui`; nothing to do.
             return
@@ -777,6 +803,26 @@ class PMASequenceViewer(QWidget):
             self.stage_shift_button.setToolTip(
                 "This snapshot has no final_shift (PMA did not complete)."
             )
+
+        if self.on_initialize_with_snapshot is not None:
+            self.initialize_with_snapshot_button.setEnabled(has_final)
+            if has_final:
+                self.initialize_with_snapshot_button.setToolTip(
+                    "Add this snapshot's shift as an available starting point "
+                    "in the 'Initial Shift' dropdown of the Configure & Start tab."
+                )
+            else:
+                self.initialize_with_snapshot_button.setToolTip(
+                    "This snapshot has no final_shift (PMA did not complete)."
+                )
+
+    def _on_initialize_with_snapshot_clicked(self) -> None:
+        if self.on_initialize_with_snapshot is None or self._current_row is None:
+            return
+        snap_idx = self._row_to_snapshot_index(self._current_row)
+        if snap_idx is None:
+            return
+        self.on_initialize_with_snapshot(snap_idx)
 
     def _on_stage_shift_clicked(self) -> None:
         from pyxalign.api import enums

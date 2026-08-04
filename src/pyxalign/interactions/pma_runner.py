@@ -203,6 +203,7 @@ class PMAResultsCollection(AlignmentResultsCollection):
         display_initial_shift: bool = True,
         task: Optional["t.LaminographyAlignmentTask"] = None,
         projection_viewer: Optional[QWidget] = None,
+        on_initialize_with_snapshot: Optional[Callable[[int], None]] = None,
         parent: Optional[QWidget] = None,
     ):
         # Store parameters for manual layout construction
@@ -210,6 +211,7 @@ class PMAResultsCollection(AlignmentResultsCollection):
         self.display_initial_shift = display_initial_shift
         self.task = task
         self.projection_viewer = projection_viewer
+        self.on_initialize_with_snapshot = on_initialize_with_snapshot
         self.show_with_applied_shifts = False  # Default to current view
         self.current_selected_row = None
 
@@ -553,6 +555,7 @@ class PMAResultsCollection(AlignmentResultsCollection):
                 sequence,
                 task=self.task,
                 projection_viewer=self.projection_viewer,
+                on_initialize_with_snapshot=self.on_initialize_with_snapshot,
             )
             self._pma_sequence_viewer.resize(1200, 700)
             self._pma_sequence_viewer.show()
@@ -667,6 +670,8 @@ class PMAMasterWidget(MultiThreadedWidget):
         self.stop_alignment_sequence_flag = False
         self.projection_viewer = projection_viewer
         self.crop_viewer = None
+        # Snapshot indices the user has promoted to be available as initial shifts.
+        self._snapshot_initial_shift_indices: list[int] = []
 
         if task is not None:
             self.initialize_page(task, list_of_updated_settings)
@@ -975,6 +980,15 @@ class PMAMasterWidget(MultiThreadedWidget):
         """
         if shift_text == "None":
             return None, shift_text
+        elif shift_text.startswith("Snapshot "):
+            snap_idx = int(shift_text.split()[-1])
+            snapshot = self.task.pma_sequence.snapshots[snap_idx]
+            if snapshot.final_shift is None:
+                raise RuntimeError(
+                    f"Snapshot {snap_idx} has no final_shift; "
+                    "cannot use it as the initial shift."
+                )
+            return snapshot, shift_text
         elif shift_text == "Previous":
             result_index = len(self.alignment_results_list) - 1
         else:
@@ -1096,10 +1110,29 @@ class PMAMasterWidget(MultiThreadedWidget):
         for i in range(len(self.alignment_results_list)):
             self.initial_shift_combobox.addItem(f"Result {i}")
 
+        # Re-add any snapshot entries the user has promoted
+        for snap_idx in self._snapshot_initial_shift_indices:
+            self.initial_shift_combobox.addItem(f"Snapshot {snap_idx}")
+
         # Try to restore previous selection
         index = self.initial_shift_combobox.findText(current_text)
         if index >= 0:
             self.initial_shift_combobox.setCurrentIndex(index)
+
+    def add_snapshot_initial_shift(self, snapshot_index: int) -> None:
+        """Add a snapshot as an available initial shift option and select it.
+
+        Called from PMASequenceViewer when the user clicks 'Initialize next
+        alignment with selected snapshot shift'.
+        """
+        label = f"Snapshot {snapshot_index}"
+        if snapshot_index not in self._snapshot_initial_shift_indices:
+            self._snapshot_initial_shift_indices.append(snapshot_index)
+            self.initial_shift_combobox.addItem(label)
+        # Always switch to the entry regardless of whether it was just added.
+        idx = self.initial_shift_combobox.findText(label)
+        if idx >= 0:
+            self.initial_shift_combobox.setCurrentIndex(idx)
 
     def clear_alignment_results(self):
         """
@@ -1175,6 +1208,7 @@ class PMAMasterWidget(MultiThreadedWidget):
             self.alignment_results_list,
             task=self.task,
             projection_viewer=self.projection_viewer,
+            on_initialize_with_snapshot=self.add_snapshot_initial_shift,
         )
         empty_widget = QWidget()
         self._results_collection_layout = QVBoxLayout()
