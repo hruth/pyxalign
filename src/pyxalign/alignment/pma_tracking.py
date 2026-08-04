@@ -223,7 +223,13 @@ def crop_volume_for_recording(
     crop_options = copy.deepcopy(options.volume_crop)
     if crop_options.enabled:
         # Cropper operates on (N, H, W); volume is (Z, Y, X) which matches.
-        sliced = Cropper(crop_options).run(sliced)
+        try:
+            sliced = Cropper(crop_options).run(sliced)
+        except ValueError:
+            print(
+                "WARNING: volume_crop values are invalid for the current volume shape "
+                f"{sliced.shape}. Proceeding without cropping."
+            )
     return np.asarray(sliced).copy()
 
 
