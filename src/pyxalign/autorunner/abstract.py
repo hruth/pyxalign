@@ -81,9 +81,15 @@ def handle_checkpoint(checkpoint: str):
                         "Loading pyxalign task...", block_all_windows=True
                     )(load_task)
                     if self.config.checkpoint.load_from_custom_task:
-                        self.task = load_task_wrapped(self.config.checkpoint.custom_task_path)
+                        self.task = load_task_wrapped(
+                            self.config.checkpoint.custom_task_path,
+                            load_pma_sequence_volumes=self.config.load_pma_sequence_volumes,
+                        )
                     else:
-                        self.task = load_task_wrapped(checkpoint_path)
+                        self.task = load_task_wrapped(
+                            checkpoint_path,
+                            load_pma_sequence_volumes=self.config.load_pma_sequence_volumes,
+                        )
                     # sync loaded task with settings file
                     if self.config.state.use_state_file_settings:
                         _update_pyxalign_object_settings(self.task, self.config)

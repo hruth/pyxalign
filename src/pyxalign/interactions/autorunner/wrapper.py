@@ -393,8 +393,8 @@ class AutorunnerGUIWrapper(QWidget):
             if not file_path.endswith(".h5"):
                 file_path += ".h5"
 
-            # Save the task
-            self.task.save_task(file_path)
+            # Save the task (include pma sequence volumes so they are preserved)
+            self.task.save_task(file_path, save_pma_sequence_volumes=True)
             print(f"Task saved to: {file_path}")
 
     def _on_sync_to_state_file(self):

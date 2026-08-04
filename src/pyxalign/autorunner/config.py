@@ -169,3 +169,6 @@ class AutorunnerConfig(BaseOptions):
     projection_matching: ProjectionMatchingOptions = field(
         default_factory=ProjectionMatchingOptions
     )
+
+    load_pma_sequence_volumes: bool = True
+    """When loading a checkpoint task, also load the PMA sequence volume arrays."""
