@@ -60,6 +60,7 @@ from pyxalign.interactions.viewers.utils import (
 )
 
 from pyxalign.timing.timer_utils import timer
+import pyqtgraph as pg
 
 color_list = list(matplotlib.colors.XKCD_COLORS.values())
 
@@ -1189,8 +1190,8 @@ class AllShiftsViewer(MultiThreadedWidget):
         self.projections = projections
         self.shifts_list = projections.shift_manager.past_shifts
         self.staged_shift = projections.shift_manager.staged_shift
-        self.sort_idx = np.argsort(projections.angles)
         self.angles = projections.angles
+        self.scan_numbers = projections.scan_numbers
         self.pixel_size = projections.pixel_size
         self.init_ui()
         self.update_plot()
@@ -1246,6 +1247,22 @@ class AllShiftsViewer(MultiThreadedWidget):
 
         control_layout.addWidget(button_group_box)
 
+        # === X-axis radio buttons ===
+        x_axis_group_box = QGroupBox("X-axis")
+        x_axis_group_box.setStyleSheet("QGroupBox { font-size: 13pt; }")
+        x_axis_layout = QVBoxLayout()
+        self.x_axis_button_group = QButtonGroup(self)
+        self.angle_radio = QRadioButton("Angle")
+        self.angle_radio.setChecked(True)
+        self.scan_number_radio = QRadioButton("Scan number")
+        for btn in (self.angle_radio, self.scan_number_radio):
+            btn.setStyleSheet("font-size: 12pt;")
+            x_axis_layout.addWidget(btn)
+            self.x_axis_button_group.addButton(btn)
+        self.angle_radio.toggled.connect(self.update_plot)
+        x_axis_group_box.setLayout(x_axis_layout)
+        control_layout.addWidget(x_axis_group_box)
+
         # === Action buttons ===
         action_buttons_layout = QVBoxLayout()
 
@@ -1271,42 +1288,46 @@ class AllShiftsViewer(MultiThreadedWidget):
 
         control_layout.addWidget(action_buttons_group_box)
 
-        # === Right panel: matplotlib plot ===
-        self.figure = Figure(layout="compressed")
-        self.canvas = FigureCanvas(self.figure)
-        self.ax = [self.figure.add_subplot(211), self.figure.add_subplot(212)]
-        self.toolbar = NavigationToolbar(self.canvas, self)
-
-        plot_layout = QVBoxLayout()
-        plot_layout.addWidget(self.toolbar)
-        plot_layout.addWidget(self.canvas)
+        # === Right panel: pyqtgraph plots ===
+        self.plot_widget = pg.GraphicsLayoutWidget()
+        self.plot_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.plot_horizontal = self.plot_widget.addPlot(row=0, col=0, title="Horizontal Shifts")
+        self.plot_vertical = self.plot_widget.addPlot(row=1, col=0, title="Vertical Shifts")
+        pixel_label = f"Shift ({self.pixel_size * 1e9:.0f} nm px)"
+        for plot in (self.plot_horizontal, self.plot_vertical):
+            plot.setLabel("left", pixel_label)
+            plot.showGrid(x=True, y=True, alpha=0.3)
+        self.plot_vertical.setXLink(self.plot_horizontal)
 
         main_layout.addLayout(control_layout, 1)
-        main_layout.addLayout(plot_layout, 4)
+        main_layout.addWidget(self.plot_widget, 4)
+
+    def _get_x_axis_data(self):
+        """Return (x_values, sort_idx, x_label) based on the selected radio button."""
+        if self.angle_radio.isChecked():
+            sort_idx = np.argsort(self.angles)
+            return self.angles[sort_idx], sort_idx, "Angle (deg)"
+        else:
+            sort_idx = np.argsort(self.scan_numbers)
+            return self.scan_numbers[sort_idx], sort_idx, "Scan number"
 
     def update_plot(self):
-        for j in range(2):
-            self.ax[j].clear()
+        x_values, sort_idx, x_label = self._get_x_axis_data()
+        for plot in (self.plot_horizontal, self.plot_vertical):
+            plot.clear()
+            legend = plot.addLegend(offset=(10, 10))
+            legend.setBrush(pg.mkBrush(30, 30, 30, 160))
+            plot.setLabel("bottom", x_label)
         for i, cb in enumerate(self.checkboxes):
             if cb.isChecked():
                 array = self.shifts_list[i]
-                for j in range(2):
-                    self.ax[j].plot(
-                        self.angles[self.sort_idx],
-                        array[self.sort_idx, j],
-                        label=cb.text(),
-                        color=color_list[i],
-                    )
-                    # self.ax[j].legend()
-                    self.ax[j].grid(linestyle=":")
-                    self.ax[j].autoscale(enable=True, axis="x", tight=True)
-                    self.ax[j].set_ylabel(f"Shift ({self.pixel_size * 1e9:.0f} nm px)")
-                    self.ax[j].set_xlabel("Angle (deg)")
-        self.ax[0].set_title("Horizontal Shifts")
-        self.ax[1].set_title("Vertical Shifts")
-        if len(self.checkboxes) > 0:
-            self.ax[0].legend(bbox_to_anchor=(1.1, 1.05))
-        self.canvas.draw()
+                pen = pg.mkPen(color=color_list[i], width=2)
+                self.plot_horizontal.plot(
+                    x_values, array[sort_idx, 0], pen=pen, name=cb.text()
+                )
+                self.plot_vertical.plot(
+                    x_values, array[sort_idx, 1], pen=pen, name=cb.text()
+                )
 
     def refresh_data(self):
         """Refresh the shift data from the projections object and update the UI."""
@@ -1314,7 +1335,7 @@ class AllShiftsViewer(MultiThreadedWidget):
         self.shifts_list = self.projections.shift_manager.past_shifts
         self.staged_shift = self.projections.shift_manager.staged_shift
         self.angles = self.projections.angles
-        self.sort_idx = np.argsort(self.projections.angles)
+        self.scan_numbers = self.projections.scan_numbers
 
         # Clear existing checkboxes
         for cb in self.checkboxes:
