@@ -216,18 +216,25 @@ def fix_astra_options(options: AstraOptions):
 def fix_device_options(options: DeviceOptions):
     gpu_list = get_available_gpus()
     n_gpus = len(gpu_list)
-    options.gpu.gpu_indices = [x for x in options.gpu.gpu_indices if x in gpu_list]
-    if options.gpu.gpu_indices == []:
-        options.gpu.gpu_indices = [0]
-    if options.gpu.n_gpus > n_gpus:
-        options.gpu.n_gpus = n_gpus
-    if options.gpu.n_gpus > len(gpu_list):
-        options.gpu.n_gpus = len(gpu_list)
+    if options.gpu.gpu_indices is None:
+        print(
+            "Found device options with invalid GPU settings. Invalid settings will be updated to default values."
+        )
+        options.gpu.gpu_indices = (0,)
+        options.gpu.n_gpus = 1
+    else:
+        options.gpu.gpu_indices = [x for x in options.gpu.gpu_indices if x in gpu_list]
+        if options.gpu.gpu_indices == []:
+            options.gpu.gpu_indices = [0]
+        if options.gpu.n_gpus > n_gpus:
+            options.gpu.n_gpus = n_gpus
+        if options.gpu.n_gpus > len(gpu_list):
+            options.gpu.n_gpus = len(gpu_list)
 
 
 if __name__ == "__main__":
     options = DeviceOptions()
-    options.gpu.gpu_indices = (5,6,7,8,9,10)
+    options.gpu.gpu_indices = (5, 6, 7, 8, 9, 10)
     options.gpu.n_gpus = 20
     pma_options = ProjectionMatchingOptions()
     pma_options.device = options
