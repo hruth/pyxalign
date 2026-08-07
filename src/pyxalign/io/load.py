@@ -30,7 +30,9 @@ from pyxalign.io.utils import (
 
 
 def load_ptycho_projections(
-    task_h5_obj: Union[h5py.Group, h5py.File], exclude: list[ProjectionType] = []
+    task_h5_obj: Union[h5py.Group, h5py.File],
+    exclude: list[ProjectionType] = [],
+    pin_memory: bool = False,
 ) -> dict[str, Union[Projections, None]]:
     projections_map = {
         "complex_projections": ProjectionType.COMPLEX,
@@ -42,7 +44,9 @@ def load_ptycho_projections(
     }
     for group, projection_type in projections_map.items():
         if group in task_h5_obj.keys() and group not in exclude:
-            loaded_projections[group] = load_projections_object(task_h5_obj[group], projection_type)
+            loaded_projections[group] = load_projections_object(
+                task_h5_obj[group], projection_type, pin_memory=pin_memory
+            )
     return loaded_projections
 
 
@@ -63,7 +67,9 @@ def load_xrf_projections(
 
 
 def load_projections_object(
-    proj_h5_obj: Union[h5py.Group, h5py.File], projection_type: ProjectionType
+    proj_h5_obj: Union[h5py.Group, h5py.File],
+    projection_type: ProjectionType,
+    pin_memory: bool = False,
 ) -> Projections:
     # select the right class
     if projection_type == ProjectionType.COMPLEX:
@@ -117,13 +123,20 @@ def load_projections_object(
 
     # Create Projections object
 
+    projections_data = proj_h5_obj["data"][()]
+    masks_data = load_array(proj_h5_obj, "masks")
+    if pin_memory:
+        projections_data = gpu_utils.pin_memory(projections_data)
+        if masks_data is not None:
+            masks_data = gpu_utils.pin_memory(masks_data)
+
     projections = projection_class(
-        projections=proj_h5_obj["data"][()],
+        projections=projections_data,
         angles=proj_h5_obj["angles"][()],
         scan_numbers=proj_h5_obj["scan_numbers"][()],
         options=load_options_from_h5_group(proj_h5_obj["options"], ProjectionOptions),
         center_of_rotation=proj_h5_obj["center_of_rotation"][()],
-        masks=load_array(proj_h5_obj, "masks"),
+        masks=masks_data,
         probe=load_array(proj_h5_obj, "probe"),
         probe_positions=load_list_of_arrays_or_str(proj_h5_obj, "positions"),
         transform_tracker=transform_tracker,

@@ -84,11 +84,13 @@ def handle_checkpoint(checkpoint: str):
                         self.task = load_task_wrapped(
                             self.config.checkpoint.custom_task_path,
                             load_pma_sequence_volumes=self.config.load_pma_sequence_volumes,
+                            pin_memory=self.config.checkpoint.pin_memory_on_load,
                         )
                     else:
                         self.task = load_task_wrapped(
                             checkpoint_path,
                             load_pma_sequence_volumes=self.config.load_pma_sequence_volumes,
+                            pin_memory=self.config.checkpoint.pin_memory_on_load,
                         )
                     # sync loaded task with settings file
                     if self.config.state.use_state_file_settings:

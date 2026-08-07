@@ -121,6 +121,9 @@ class CheckpointConfig(BaseOptions):
     enabled_checkpoints: EnabledCheckpoints = field(default_factory=EnabledCheckpoints)
     """Choose the points at which a checkpoint task will be saved"""
 
+    pin_memory_on_load: bool = False
+    """Load projection arrays and masks into pinned (page-locked) host memory for faster GPU transfers."""
+
 
 @dataclasses.dataclass
 class AutorunnerConfig(BaseOptions):

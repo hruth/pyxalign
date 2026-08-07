@@ -262,6 +262,7 @@ def load_task(
     file_path: str,
     exclude: Optional[str] = None,
     load_pma_sequence_volumes: bool = False,
+    pin_memory: bool = False,
 ) -> LaminographyAlignmentTask:
     print("Loading task from", file_path, "...")
 
@@ -272,7 +273,7 @@ def load_task(
 
     with h5py.File(file_path, "r") as h5_obj:
         # Load projections
-        loaded_projections = load_ptycho_projections(h5_obj, exclude)
+        loaded_projections = load_ptycho_projections(h5_obj, exclude, pin_memory=pin_memory)
 
         # Insert projections into task along with saved task options
         task = LaminographyAlignmentTask(
