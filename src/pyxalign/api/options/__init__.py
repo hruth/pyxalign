@@ -58,6 +58,7 @@ from .plotting import (
 )
 from .roi import ROIOptions, RectangularROIOptions
 from .tests import CITestOptions
+from .missing_cone import FillMissingConeOptions
 
 __all__ = [
     "DeviceOptions",
@@ -101,6 +102,7 @@ __all__ = [
     "ArrayViewerOptions",
     "ProjectionViewerOptions",
     "CITestOptions",
+    "FillMissingConeOptions",
     "utils",
     "ROIOptions",
     "RectangularROIOptions",
