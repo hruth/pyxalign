@@ -35,6 +35,7 @@ from pyxalign.api.options.missing_cone import FillMissingConeOptions
 from pyxalign.api.options.plotting import ArrayViewerOptions
 from pyxalign.api.options.transform import Crop3DOptions
 from pyxalign.interactions.crop_3d_selector import GetCrop3DOptionsFromSelector
+from pyxalign.interactions.histogram_viewer import VolumeHistogramViewer
 from pyxalign.interactions.options.options_editor import BasicOptionsEditor
 from pyxalign.interactions.utils.loading_display_tools import loading_bar_wrapper
 from pyxalign.interactions.utils.misc import switch_to_matplotlib_qt_backend
@@ -202,6 +203,7 @@ class FillMissingConeWindow(QWidget):
         self.lamino_angle = lamino_angle
         self.options = options
         self.crop_3d_selector_window: Optional[QWidget] = None
+        self._histogram_window: Optional[VolumeHistogramViewer] = None
         self._comparison_window: Optional[QWidget] = None
         self._comparison_viewer: Optional[ArrayViewer] = None
         self._comparison_crop_3d: Optional[Crop3DOptions] = None
@@ -256,6 +258,7 @@ class FillMissingConeWindow(QWidget):
 
         panel_layout.addWidget(self._create_lamino_angle_group())
         panel_layout.addWidget(self._create_crop_button())
+        panel_layout.addWidget(self._create_histogram_button())
         panel_layout.addWidget(self._create_options_editor())
         panel_layout.addWidget(self._create_run_button())
         panel_layout.addSpacerItem(
@@ -293,6 +296,11 @@ class FillMissingConeWindow(QWidget):
         self._select_crop_button = QPushButton("Select 3D Crop")
         self._select_crop_button.clicked.connect(self._open_crop_3d_selector)
         return self._select_crop_button
+
+    def _create_histogram_button(self) -> QPushButton:
+        self._histogram_button = QPushButton("Inspect Histogram of Input Volume")
+        self._histogram_button.clicked.connect(self._open_histogram_viewer)
+        return self._histogram_button
 
     def _create_options_editor(self) -> BasicOptionsEditor:
         self._options_editor = BasicOptionsEditor(
@@ -379,6 +387,20 @@ class FillMissingConeWindow(QWidget):
 
     def _on_lamino_angle_changed(self, value: float):
         self.lamino_angle = value
+
+    def _open_histogram_viewer(self):
+        """Open the VolumeHistogramViewer for the input volume, reusing any open window."""
+        try:
+            if self._histogram_window is not None and self._histogram_window.isVisible():
+                self._histogram_window.raise_()
+                self._histogram_window.activateWindow()
+                return
+        except RuntimeError:
+            self._histogram_window = None
+
+        self._histogram_window = VolumeHistogramViewer(self.input_volume)
+        self._histogram_window.setAttribute(Qt.WA_DeleteOnClose)
+        self._histogram_window.show()
 
     def _open_crop_3d_selector(self):
         """Open the interactive 3D crop selector window."""

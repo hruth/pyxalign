@@ -1,5 +1,6 @@
 from pyxalign.interactions.combined_viewer import launch_projection_and_alignment_viewer
 from pyxalign.interactions.missing_cone_window import launch_fill_missing_cone_gui
+from pyxalign.interactions.histogram_viewer import launch_volume_histogram_viewer
 from ..interactions.io.loader import launch_data_loader
 from ..interactions.autorunner.data_load_and_init_widget import (
     launch_data_loader_and_initialization,
@@ -39,4 +40,5 @@ __all__ = [
     "launch_projection_and_alignment_viewer",
     "launch_pma_sequence_viewer",
     "launch_fill_missing_cone_gui",
+    "launch_volume_histogram_viewer",
 ]
